@@ -6,20 +6,18 @@
 (provide 
  (except-out
   (all-from-out racket) 
-  λ #%app + #%datum let cons null null? first rest))
+  λ #%app + #%datum let cons null null? first rest begin void))
 
 (provide 
  (rename-out
-  [λ/tc λ] [app/tc #%app] [let/tc let] 
+  [λ/tc λ] [app/tc #%app] [let/tc let] [begin/tc begin] [void/tc void]
   [+/tc +] [datum/tc #%datum] 
   [cons/tc cons] [null/tc null] [null?/tc null?] [first/tc first] [rest/tc rest]))
 
-(provide Int String Bool → Listof)
-(define Int #f)
-(define String #f)
-(define Bool #f)
-(define → #f)
-(define Listof #f) 
+;; just need the identifier bound
+(define-syntax-rule (define-type τ) (begin (define τ #f)  (provide τ)))
+(define-syntax-rule (define-types τ ...) (begin (define-type τ) ...))
+(define-types Int String Bool → Listof Unit)
 
 ;; type environment
 (begin-for-syntax
@@ -66,13 +64,16 @@
     [_ #f]))
 
 ;; return #t if (typeof e)=τ, else type error
-(define-for-syntax (assert-type e τ)
-  (or (type=? (typeof e) τ)
-      (error 'TYPE-ERROR "~a (~a:~a) has type ~a, but should have type ~a"
-             (syntax->datum e)
-             (syntax-line e) (syntax-column e)
-             (syntax->datum (typeof e))
-             (syntax->datum τ))))
+(begin-for-syntax
+  (define (assert-type e τ)
+    (or (type=? (typeof e) τ)
+        (error 'TYPE-ERROR "~a (~a:~a) has type ~a, but should have type ~a"
+               (syntax->datum e)
+               (syntax-line e) (syntax-column e)
+               (syntax->datum (typeof e))
+               (syntax->datum τ))))
+  (define (assert-Unit-type e) (assert-type e #'Unit))
+  (define (assert-Int-type e) (assert-type e #'Int)))
 
 ;; type env and other helper fns ----------------------------------------------
 ;; attaches type τ to e (as syntax property)
@@ -111,34 +112,47 @@
                    #'x (syntax-line #'x) (syntax-column #'x))
      (syntax/loc stx (#%datum . x))]))
 
+(define-syntax (begin/tc stx)
+  (syntax-parse stx
+    [(_ e ... e_result)
+     #:with (e+ ... e_result+) (stx-map expand/df #'(e ... e_result))
+     #:when (stx-andmap assert-Unit-type #'(e+ ...))
+     (⊢ (syntax/loc stx (begin e+ ... e_result+)) (typeof #'e_result+))]))
+
+(define-syntax (void/tc stx)
+  (syntax-parse stx
+    [(_) (⊢ (syntax/loc stx (void)) #'Unit)]))
+
 (define-syntax (+/tc stx)
   (syntax-parse stx
     [(_ e ...)
      #:with (e+ ...) (stx-map expand/df #'(e ...))
-     #:when (stx-andmap (λ (e) (assert-type e #'Int)) #'(e+ ...))
+     #:when (stx-andmap assert-Int-type #'(e+ ...))
      (⊢ (syntax/loc stx (+ e+ ...)) #'Int)]))
 
 
 (define-syntax (λ/tc stx)
   (syntax-parse stx #:datum-literals (:)
-    [(_ ([x:id : τ] ...) e)
+    [(_ ([x:id : τ] ...) e ... e_result)
      ;; the with-extended-type-env must be outside the expand/df (instead of
      ;; around just the body) bc ow the parameter will get restored to the old
      ;; value before the local-expand happens
-     #:with (lam xs e+) (with-extended-type-env #'([x τ] ...)
-                          (expand/df #'(λ (x ...) e)))
-     #:with τ_body (typeof #'e+)
-     (⊢ (syntax/loc stx (lam xs e+)) #'(→ τ ... τ_body))]))
+     #:with (lam xs e+ ... e_result+) (with-extended-type-env #'([x τ] ...)
+                                        (expand/df #'(λ (x ...) e ... e_result)))
+     ;; manually handle the implicit begin
+     #:when (stx-map assert-Unit-type #'(e+ ...))
+     #:with τ_body (typeof #'e_result+)
+     (⊢ (syntax/loc stx (lam xs e+ ... e_result+)) #'(→ τ ... τ_body))]))
 
 (define-syntax (let/tc stx)
   (syntax-parse stx #:datum-literals (:)
-    [(_ ([x:id e_x] ...) e)
+    [(_ ([x:id e_x] ...) e ... e_result)
      #:with (e_x+ ...) (stx-map expand/df #'(e_x ...))
      #:with (τ ...) (stx-map typeof #'(e_x+ ...))
-     #:with (lam (x+ ...) e+) (with-extended-type-env #'([x τ] ...)
-                          (expand/df #'(λ (x ...) e)))
-     #:with τ_body (typeof #'e+)
-     (⊢ (syntax/loc stx (let ([x+ e_x+] ...) e+)) #'τ_body)]))
+     #:with (lam (x+ ...) e+ ... e_result+) 
+            (with-extended-type-env #'([x τ] ...)
+              (expand/df #'(λ (x ...) e ... e_result)))
+     (⊢ (syntax/loc stx (let ([x+ e_x+] ...) e+ ... e_result+)) (typeof #'e_result+))]))
 
 (define-syntax (app/tc stx)
   (syntax-parse stx #:literals (→)
@@ -148,6 +162,7 @@
      #:when (stx-andmap assert-type #'(e_arg+ ...) #'(τ ...))
      (⊢ (syntax/loc stx (#%app e_fn+ e_arg+ ...)) #'τ_res)]))
 
+;; lists ----------------------------------------------------------------------
 (define-syntax (cons/tc stx)
   (syntax-parse stx
     [(_ {T} e1 e2)

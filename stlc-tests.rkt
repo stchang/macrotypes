@@ -37,3 +37,16 @@
 (check-type-error (null? {Int} 1))
 (check-type-error (null? {Int} "one"))
 (check-type-error (null? {Int} (cons {String} "one" (null {String}))))
+
+;; begin and void
+(check-type (void) : Unit)
+(check-type-and-result (begin (void) 1) : Int => 1)
+(check-type-and-result (begin (void) (void) 1) : Int => 1)
+(check-type-and-result (begin (void) (void) (void)) : Unit => (void))
+(check-type-and-result (begin (+ 1 2)) : Int => 3)
+(check-type-error (begin 1 2))
+
+(check-type (λ ([x : Int]) (void) (+ x 1)) : (→ Int Int))
+(check-type-error (λ ([x : Int]) 1 1))
+(check-type (λ ([x : Int] [y : Int]) (+ x y)) : (→ Int Int Int))
+(check-type-and-result (λ ([a : Int] [b : Int] [c : Int]) (void) (void) (+ a b c))
