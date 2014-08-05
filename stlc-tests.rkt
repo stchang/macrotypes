@@ -49,4 +49,5 @@
 (check-type (λ ([x : Int]) (void) (+ x 1)) : (→ Int Int))
 (check-type-error (λ ([x : Int]) 1 1))
 (check-type (λ ([x : Int] [y : Int]) (+ x y)) : (→ Int Int Int))
-(check-type-and-result (λ ([a : Int] [b : Int] [c : Int]) (void) (void) (+ a b c))
+(check-type-and-result ((λ ([a : Int] [b : Int] [c : Int]) (void) (void) (+ a b c)) 1 2 3)
+                       : Int => 6)
