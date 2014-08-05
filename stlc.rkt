@@ -3,12 +3,16 @@
   (for-syntax syntax/parse syntax/id-table syntax/stx racket/list
               "stx-utils.rkt")
   (for-meta 2 racket/base syntax/parse))
-(provide (except-out (all-from-out racket) 
-                     λ #%app + #%datum let cons null first rest))
+(provide 
+ (except-out
+  (all-from-out racket) 
+  λ #%app + #%datum let cons null null? first rest))
 
-(provide (rename-out [λ/tc λ] [app/tc #%app] [let/tc let] 
-                     [+/tc +] [datum/tc #%datum] 
-                     [cons/tc cons] [null/tc null] [first/tc first] [rest/tc rest]))
+(provide 
+ (rename-out
+  [λ/tc λ] [app/tc #%app] [let/tc let] 
+  [+/tc +] [datum/tc #%datum] 
+  [cons/tc cons] [null/tc null] [null?/tc null?] [first/tc first] [rest/tc rest]))
 
 (provide Int String Bool → Listof)
 (define Int #f)
@@ -99,8 +103,9 @@
 ;; typed forms ----------------------------------------------------------------
 (define-syntax (datum/tc stx)
   (syntax-parse stx
-    [(_ . x:integer) (⊢ (syntax/loc stx (#%datum . x)) #'Int)]
-    [(_ . x:str) (⊢ (syntax/loc stx (#%datum . x)) #'String)]
+    [(_ . n:integer) (⊢ (syntax/loc stx (#%datum . n)) #'Int)]
+    [(_ . s:str) (⊢ (syntax/loc stx (#%datum . s)) #'String)]
+    [(_ . b:boolean) (⊢ (syntax/loc stx (#%datum . b)) #'Bool)]
     [(_ . x) 
      #:when (error 'TYPE-ERROR "~a (~a:~a) has unknown type" 
                    #'x (syntax-line #'x) (syntax-column #'x))
@@ -154,6 +159,12 @@
 (define-syntax (null/tc stx)
   (syntax-parse stx
     [(_ {T}) (⊢ (syntax/loc stx null) #'(Listof T))]))
+(define-syntax (null?/tc stx)
+  (syntax-parse stx
+    [(_ {T} e)
+     #:with e+ (expand/df #'e)
+     #:when (assert-type #'e+ #'(Listof T))
+     (⊢ (syntax/loc stx (null? e+)) #'Bool)]))
 (define-syntax (first/tc stx)
   (syntax-parse stx
     [(_ {T} e)
