@@ -14,3 +14,8 @@
 ;; shadowed var
 (check-type-error ((λ ([x : Int]) ((λ ([x : String]) x) x)) 10))
 (check-type-and-result ((λ ([x : String]) ((λ ([x : Int]) (+ x 1)) 10)) "ten") : Int => 11)
+
+;; let
+(check-type-and-result (let ([x 1] [y 2]) (+ x y)) : Int => 3)
+(check-type-error (let ([x 1] [y "two"]) (+ x y)))
+(check-type-and-result (let ([x "one"]) (let ([x 2]) (+ x x))) : Int => 4)

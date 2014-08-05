@@ -5,7 +5,7 @@
   (for-meta 2 racket/base syntax/parse))
 (provide (except-out (all-from-out racket) λ #%app + #%datum let))
 
-(provide (rename-out [myλ λ] [myapp #%app] [my+ +] [mydatum #%datum] #;[mylet let]))
+(provide (rename-out [myλ λ] [myapp #%app] [my+ +] [mydatum #%datum] [mylet let]))
 
 (provide Int String Bool → Listof)
 (define Int #f)
@@ -14,8 +14,16 @@
 (define → #f)
 (define Listof #f) 
 
-;(define-for-syntax TYPE-ENV-PROP 'Γ)
-(define-for-syntax Γ (make-parameter (hash)))
+;; type environment
+(begin-for-syntax
+  (define base-type-env (hash))
+  ;; Γ : [Hashof var-symbol => type-stx]
+  ;; - can't use free-identifier=? for the hash table (or free-id-table)
+  ;;   because env must be set before expanding λ body (ie before going under λ)
+  ;;   so x's in the body won't be free-id=? to the one in the table
+  ;; use symbols instead of identifiers for now --- should be fine because
+  ;; I'm manually managing the environment
+  (define Γ (make-parameter base-type-env)))
 
 ;; testing fns ----------------------------------------------------------------
 (require (for-syntax rackunit))
@@ -64,20 +72,13 @@
 ;; retrieves type of τ (from syntax property)
 (define-for-syntax (typeof stx) (syntax-property stx 'type))
 
-;; do a local-expand of e, propagating type env (ie Γ) info
-;; e is a subexpression in outer-e
-#;(define-for-syntax (expand/Γ e outer-e)
-  (define Γ (syntax-property outer-e 'Γ))
-  (if (identifier? e)
-      (syntax-property e 'type (hash-ref Γ (syntax->datum e)))
-      (local-expand (syntax-property e 'Γ Γ) 'expression null)))
-
 (define-for-syntax (type-env-lookup x) (hash-ref (Γ) (syntax->datum x)))
-;; returns a new hash table extended with with tpe associations x:τs
+;; returns a new hash table extended with type associations x:τs
 (define-for-syntax (type-env-extend x:τs)
   (define xs (stx-map stx-car x:τs))
   (define τs (stx-map stx-cadr x:τs))
   (apply hash-set* (Γ) (append-map (λ (x τ) (list (syntax->datum x) τ)) xs τs)))
+;; must be macro because type env must be extended first, before expandinb body
 (begin-for-syntax
   (define-syntax (with-extended-type-env stx)
     (syntax-parse stx
@@ -87,26 +88,8 @@
 ;; depth-first expand
 (define-for-syntax (expand/df e)
   (if (identifier? e)
-      (⊢ e (type-env-lookup e))
+      (⊢ e (type-env-lookup e)) ; handle this here bc there's no #%var form
       (local-expand e 'expression null)))
-
-;; do a local-expand of e, a subexpression in outer-e
-;; x is bound in e and has type τ and Γ is updated accordingly
-;; returns a lambda whose body is e expanded
-#;(define-for-syntax (expand/Γ/:= e outer-e x τ)
-  (define Γ (or (syntax-property outer-e 'Γ) (hash)))
-  (local-expand 
-   #`(λ (#,x) #,(syntax-property e 'Γ (hash-set Γ (syntax->datum x) τ)))
-   'expression null))
-#;(define-for-syntax (expand/Γ/:=s e outer-e x:τs)
-  (define Γ (or (syntax-property outer-e TYPE-ENV-PROP) (hash)))
-  (define xs (stx-map stx-car x:τs))
-  (define τs (stx-map stx-cadr x:τs))
-  (local-expand
-   #`(λ #,xs #,(syntax-property e TYPE-ENV-PROP 
-                 (apply hash-set* Γ 
-                   (append-map (λ (x τ) (list (syntax->datum x) τ)) xs τs))))
-   'expression null))
 
 (define-syntax (mydatum stx)
   (syntax-parse stx
@@ -120,36 +103,38 @@
 (define-syntax (my+ stx)
   (syntax-parse stx
     [(_ e ...)
-;     #:with (e+ ...) (stx-map (λ (estx) (expand/Γ estx stx)) #'(e ...))
      #:with (e+ ...) (stx-map expand/df #'(e ...))
-     #:when (andmap (λ (e) (assert-type e #'Int)) (syntax->list #'(e+ ...)))
+     #:when (stx-andmap (λ (e) (assert-type e #'Int)) #'(e+ ...))
      (⊢ (syntax/loc stx (+ e+ ...)) #'Int)]))
 
 
 (define-syntax (myλ stx)
   (syntax-parse stx #:datum-literals (:)
     [(_ ([x:id : τ] ...) e)
-     ;; - can't use free-identifier=? for the hash table (or free-id-table)
-     ;;   because I have to set the table now, but once I get under the λ, the
-     ;;   x's won't be free-id=? to the one in the table
-     ;; use symbols instead of identifiers for now --- should be fine because
-     ;; I'm manually managing the environment
-;     #:with (lam xs e+) (expand/Γ/:=s #'e stx #'((x τ) ...))
+     ;; the with-extended-type-env must be outside the expand/df (instead of
+     ;; around just the body) bc ow the parameter will get restored to the old
+     ;; value before the local-expand happens
      #:with (lam xs e+) (with-extended-type-env #'([x τ] ...)
                           (expand/df #'(λ (x ...) e)))
-     #:with τ2 (typeof #'e+)
-     (⊢ (syntax/loc stx (lam xs e+)) #'(→ τ ... τ2))]))
+     #:with τ_body (typeof #'e+)
+     (⊢ (syntax/loc stx (lam xs e+)) #'(→ τ ... τ_body))]))
 
-;(define-syntax (mylet stx)
-;  (syntax-parse stx #:datum-literals (:)
-;    [(_ ([x:id : τ e_x] ...) e)
-;     #:
+(define-syntax (mylet stx)
+  (syntax-parse stx #:datum-literals (:)
+    [(_ ([x:id e_x] ...) e)
+     #:with (e_x+ ...) (stx-map expand/df #'(e_x ...))
+     #:with (τ ...) (stx-map typeof #'(e_x+ ...))
+     #:with (lam (x+ ...) e+) (with-extended-type-env #'([x τ] ...)
+                          (expand/df #'(λ (x ...) e)))
+     #:with τ_body (typeof #'e+)
+     (⊢ (syntax/loc stx (let ([x+ e_x+] ...) e+)) #'τ_body)]))
 
 (define-syntax (myapp stx)
   (syntax-parse stx #:literals (→)
     [(_ e_fn e_arg ...)
      #:with (e_fn+ e_arg+ ...) (stx-map expand/df #'(e_fn e_arg ...))
      #:with (→ τ ... τ_res) (typeof #'e_fn+)
-;     #:when (andmap assert-type (syntax->list #'(e_arg+ ...)) (syntax->list #'(τ ...)))
      #:when (stx-andmap assert-type #'(e_arg+ ...) #'(τ ...))
      (⊢ (syntax/loc stx (#%app e_fn+ e_arg+ ...)) #'τ_res)]))
+
+
