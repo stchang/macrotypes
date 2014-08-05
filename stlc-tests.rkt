@@ -19,3 +19,14 @@
 (check-type-and-result (let ([x 1] [y 2]) (+ x y)) : Int => 3)
 (check-type-error (let ([x 1] [y "two"]) (+ x y)))
 (check-type-and-result (let ([x "one"]) (let ([x 2]) (+ x x))) : Int => 4)
+
+;; lists
+(check-type-and-result (first {Int} (cons {Int} 1 (null {Int}))) : Int => 1)
+(check-type-and-result (rest {Int} (cons {Int} 1 (null {Int}))) : (Listof Int) => (null {Int}))
+(check-type-error (cons {Int} 1 (null {String})))
+(check-type-error (cons {Int} "one" (null {Int})))
+(check-type-error (cons {String} 1 (null {Int})))
+(check-type-error (cons {String} 1 (null {Int})))
+(check-type-error (cons {String} "one" (cons {Int} "two" (null {String}))))
+(check-type-and-result (first {String} (cons {String} "one" (cons {String} "two" (null {String}))))
+                       : String => "one")

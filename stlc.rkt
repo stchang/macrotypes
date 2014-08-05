@@ -3,9 +3,12 @@
   (for-syntax syntax/parse syntax/id-table syntax/stx racket/list
               "stx-utils.rkt")
   (for-meta 2 racket/base syntax/parse))
-(provide (except-out (all-from-out racket) λ #%app + #%datum let))
+(provide (except-out (all-from-out racket) 
+                     λ #%app + #%datum let cons null first rest))
 
-(provide (rename-out [myλ λ] [myapp #%app] [my+ +] [mydatum #%datum] [mylet let]))
+(provide (rename-out [λ/tc λ] [app/tc #%app] [let/tc let] 
+                     [+/tc +] [datum/tc #%datum] 
+                     [cons/tc cons] [null/tc null] [first/tc first] [rest/tc rest]))
 
 (provide Int String Bool → Listof)
 (define Int #f)
@@ -53,7 +56,9 @@
 (define-for-syntax (type=? τ1 τ2)
   (syntax-parse #`(#,τ1 #,τ2) #:literals (→)
     [(x:id y:id) (free-identifier=? τ1 τ2)]
-    [((→ τ3 τ4) (→ τ5 τ6)) (and (type=? #'τ3 #'τ5) (type=? #'τ4 #'τ6))]
+    [((tycon1 τ1 ...) (tycon2 τ2 ...)) 
+     (and (free-identifier=? #'tycon1 #'tycon2)
+          (stx-andmap type=? #'(τ1 ...) #'(τ2 ...)))]
     [_ #f]))
 
 ;; return #t if (typeof e)=τ, else type error
@@ -65,7 +70,7 @@
              (syntax->datum (typeof e))
              (syntax->datum τ))))
 
-;; typed forms ----------------------------------------------------------------
+;; type env and other helper fns ----------------------------------------------
 ;; attaches type τ to e (as syntax property)
 (define-for-syntax (⊢ e τ) (syntax-property e 'type τ))
 
@@ -91,7 +96,8 @@
       (⊢ e (type-env-lookup e)) ; handle this here bc there's no #%var form
       (local-expand e 'expression null)))
 
-(define-syntax (mydatum stx)
+;; typed forms ----------------------------------------------------------------
+(define-syntax (datum/tc stx)
   (syntax-parse stx
     [(_ . x:integer) (⊢ (syntax/loc stx (#%datum . x)) #'Int)]
     [(_ . x:str) (⊢ (syntax/loc stx (#%datum . x)) #'String)]
@@ -100,7 +106,7 @@
                    #'x (syntax-line #'x) (syntax-column #'x))
      (syntax/loc stx (#%datum . x))]))
 
-(define-syntax (my+ stx)
+(define-syntax (+/tc stx)
   (syntax-parse stx
     [(_ e ...)
      #:with (e+ ...) (stx-map expand/df #'(e ...))
@@ -108,7 +114,7 @@
      (⊢ (syntax/loc stx (+ e+ ...)) #'Int)]))
 
 
-(define-syntax (myλ stx)
+(define-syntax (λ/tc stx)
   (syntax-parse stx #:datum-literals (:)
     [(_ ([x:id : τ] ...) e)
      ;; the with-extended-type-env must be outside the expand/df (instead of
@@ -119,7 +125,7 @@
      #:with τ_body (typeof #'e+)
      (⊢ (syntax/loc stx (lam xs e+)) #'(→ τ ... τ_body))]))
 
-(define-syntax (mylet stx)
+(define-syntax (let/tc stx)
   (syntax-parse stx #:datum-literals (:)
     [(_ ([x:id e_x] ...) e)
      #:with (e_x+ ...) (stx-map expand/df #'(e_x ...))
@@ -129,12 +135,36 @@
      #:with τ_body (typeof #'e+)
      (⊢ (syntax/loc stx (let ([x+ e_x+] ...) e+)) #'τ_body)]))
 
-(define-syntax (myapp stx)
+(define-syntax (app/tc stx)
   (syntax-parse stx #:literals (→)
     [(_ e_fn e_arg ...)
      #:with (e_fn+ e_arg+ ...) (stx-map expand/df #'(e_fn e_arg ...))
      #:with (→ τ ... τ_res) (typeof #'e_fn+)
      #:when (stx-andmap assert-type #'(e_arg+ ...) #'(τ ...))
      (⊢ (syntax/loc stx (#%app e_fn+ e_arg+ ...)) #'τ_res)]))
+
+(define-syntax (cons/tc stx)
+  (syntax-parse stx
+    [(_ {T} e1 e2)
+     #:with e1+ (expand/df #'e1)
+     #:with e2+ (expand/df #'e2)
+     #:when (assert-type #'e1+ #'T)
+     #:when (assert-type #'e2+ #'(Listof T))
+     (⊢ (syntax/loc stx (cons e1+ e2+)) #'(Listof T))]))
+(define-syntax (null/tc stx)
+  (syntax-parse stx
+    [(_ {T}) (⊢ (syntax/loc stx null) #'(Listof T))]))
+(define-syntax (first/tc stx)
+  (syntax-parse stx
+    [(_ {T} e)
+     #:with e+ (expand/df #'e)
+     #:when (assert-type #'e+ #'(Listof T))
+     (⊢ (syntax/loc stx (first e+)) #'T)]))
+(define-syntax (rest/tc stx)
+  (syntax-parse stx
+    [(_ {T} e)
+     #:with e+ (expand/df #'e)
+     #:when (assert-type #'e+ #'(Listof T))
+     (⊢ (syntax/loc stx (rest e+)) #'(Listof T))]))
 
 
