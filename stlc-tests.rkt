@@ -51,3 +51,30 @@
 (check-type (λ ([x : Int] [y : Int]) (+ x y)) : (→ Int Int Int))
 (check-type-and-result ((λ ([a : Int] [b : Int] [c : Int]) (void) (void) (+ a b c)) 1 2 3)
                        : Int => 6)
+
+;; define
+(define (g [y : Int]) (+ (f y) 1))
+(define (f [x : Int]) (+ x 1))
+(check-type-and-result (f 10) : Int => 11)
+(check-type-and-result (g 100) : Int => 102)
+(check-not-type (f 10) : String)
+(check-not-type (g 100) : String)
+
+;; if
+(check-type-and-result (if (null? {Int} (null {Int})) 1 2) : Int => 1)
+(check-type-and-result (if (null? {Int} (cons {Int} 1 (null {Int}))) 1 2) : Int => 2)
+(check-type-error (if (null? {Int} (null {Int})) 1 "one"))
+(check-type-error (if (null? {Int} (null {Int})) "one" 1))
+(check-type-error (if 1 2 3))
+
+;;; recursive fn
+(define (add1 [x : Int]) (+ x 1))
+(define (map [f : (→ Int Int)] [lst : (Listof Int)])
+  (if (null? {Int} lst)
+      (null {Int})
+      (cons {Int} (f (first {Int} lst)) (map f (rest {Int} lst)))))
+(check-type-and-result (map add1 (cons {Int} 1 (cons {Int} 2 (null {Int})))) 
+                       : (Listof Int)
+                       => (cons {Int} 2 (cons {Int} 3 (null {Int}))))
+(check-not-type (map add1 (cons {Int} 1 (cons {Int} 2 (null {Int})))) 
+                : (Listof String))
