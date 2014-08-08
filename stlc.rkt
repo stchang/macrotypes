@@ -336,7 +336,7 @@
 ;     #:when (printf "mb: ~a\n" (syntax->datum (expand/df #'(letrec ([f v] ...) e ...))))
      (quasisyntax/loc stx 
        (#%module-begin
-        #,(expand/df #'(letrec/tc ([f : τ v] ...) e ...))
+        #,(expand/df #'(letrec/tc ([f : τ v] ...) e ... (void)))
         (define #,(datum->syntax stx 'runtime-env)
           (for/hash ([x:τ '#,(map (λ (xτ) (cons (car xτ) (syntax->datum (cdr xτ))))
                                   (hash->list (do-subst (Γ))))])

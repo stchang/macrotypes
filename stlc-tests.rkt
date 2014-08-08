@@ -78,3 +78,7 @@
                        => (cons {Int} 2 (cons {Int} 3 (null {Int}))))
 (check-not-type (map add1 (cons {Int} 1 (cons {Int} 2 (null {Int})))) 
                 : (Listof String))
+
+(define (a [x : Int]) (b x))
+(define (b [x : Int]) (a x))
+(define (ff [x : Int]) (ff x))
