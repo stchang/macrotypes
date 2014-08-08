@@ -231,11 +231,6 @@
   (syntax-parse stx #:literals (→ void) 
                     #:datum-literals (:t)
     [(_ :t x) #'(printf "~a : ~a\n" 'x (hash-ref runtime-env 'x))]
-    [(_ void) #'(printf "ddd")]
-;    [(_ check-type e ...) #'(check-type e ...)]
-;    [(_ check-type-and-result e ...) #'(check-type e ...)]
-;    [(_ check-type e ...) #'(check-type e ...)]
-;    [(_ check-type e ...) #'(check-type e ...)]
     [(_ e_fn e_arg ...)
      #:with (e_fn+ e_arg+ ...) (stx-map expand/df #'(e_fn e_arg ...))
      #:with (→ τ ... τ_res) (typeof #'e_fn+)
