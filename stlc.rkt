@@ -10,7 +10,6 @@
   (all-from-out racket/base) 
   λ #%app + #%datum let letrec cons null null? begin void
   #%module-begin if
-  ;#%top define
   ))
 
 (provide
@@ -19,8 +18,6 @@
   [λ/tc λ] [app/tc #%app] [let/tc let] [letrec/tc letrec]
   [begin/tc begin] [void/tc void]
   [if/tc if] [+/tc +] 
-  ;[top/tc #%top] 
-  ;[define/tc define]
   [datum/tc #%datum] [module-begin/tc #%module-begin]
   [cons/tc cons] [null/tc null] [null?/tc null?] [first/tc first] [rest/tc rest]))
 
@@ -59,10 +56,7 @@
        #'(tycon τ-subst ...)]))
   (define (do-subst h)
     (for/hash ([(x τ) (in-hash h)])
-      (values x (do-subst/τ τ))))
-  
-  ;; internal definition context
-  (define intdef-ctx (make-parameter (syntax-local-make-definition-context))))
+      (values x (do-subst/τ τ)))))
 
 ;; testing fns ----------------------------------------------------------------
 (require (for-syntax rackunit))
@@ -70,7 +64,7 @@
 (define-syntax (check-type-error stx)
   (syntax-parse stx
     [(_ e)
-     #:when (check-exn exn:fail? (λ () (local-expand #'e 'expression null)))
+     #:when (check-exn exn:fail? (λ () (expand/df #'e)))
      #'(void)]))
 (define-syntax (check-type stx)
   (syntax-parse stx #:datum-literals (:)
@@ -82,7 +76,7 @@
 (define-syntax (check-not-type stx)
   (syntax-parse stx #:datum-literals (:)
     [(_ e : τ)
-     #:with e+ (local-expand #'e 'expression null)
+     #:with e+ (expand/df #'e)
      #:when (check-false (type=? (typeof #'e+) #'τ) 
                          (format "Expected type to not be ~a but got type ~a" #'τ (typeof #'e)))
      #'(void)]))
@@ -125,7 +119,6 @@
 (begin-for-syntax
   (define (assert-type e τ)
     (or (type=? (typeof e) τ)
-;        (let ([e (local-expand e 'expression null)])
          (error 'TYPE-ERROR "~a (~a:~a) has type ~a, but should have type ~a"
                (syntax->datum e)
                (syntax-line e) (syntax-column e)
@@ -166,6 +159,8 @@
      (⊢ e (type-env-lookup Cons)))]
     ;; 2nd case handles identifiers that are not struct constructors
     [(identifier? e) (⊢ e (type-env-lookup e))] ; handle this here bc there's no #%var form
+    ;; local-expand must expand all the way down, ie have no stop-list, ie stop list can't be #f
+    ;; ow forms like lambda and app won't get properly assigned types
     [else (local-expand e 'expression null ctx)]))
 (define-for-syntax (expand/df/module-ctx def)
   (local-expand def 'module #f))
@@ -242,9 +237,7 @@
      #:with (lam xs e+ ... e_result+) (with-extended-type-env #'([x τ] ...)
                                         (expand/df #'(λ (x ...) e ... e_result)))
      ;; manually handle the implicit begin
-     #:when (stx-map assert-Unit-type #'(e+ ...);    [(_ x:id e)
-;     #:with e))
-)
+     #:when (stx-map assert-Unit-type #'(e+ ...))
      #:with τ_body (typeof #'e_result+)
      (⊢ (syntax/loc stx (lam xs e+ ... e_result+)) #'(→ τ ... τ_body))]))
 
@@ -262,14 +255,8 @@
 (define-syntax (letrec/tc stx)
   (syntax-parse stx #:datum-literals (:)
     [(_ ([f:id : τ_f e_f] ...) body ... body_result)
-;     #:when (printf "letrec: ~a\n" (expand/df #'(letrec ([f e_f] ...) body ... body_result)))
-     #:with (lrec ([(f+) e_f+] ...) body+ ... body_result+)
+     #:with (_ ([(f+) e_f+] ...) body+ ... body_result+)
             (expand/df #'(letrec ([f e_f] ...) body ... body_result))
-;     #:with (lam (f+ ...) e_f+ ...) 
-;            (expand/df #'(λ (f ...) e_f ...))
-;     #:with (lam2 fs body+ ... body_result+)
-;            (expand/df #'(λ (f ...) body ... body_result)) ; type env already extended by mod-beg
-;     #:with τ_result (typeof #'body_result+)
     (syntax/loc stx (letrec ([f+ e_f+] ...) body+ ... body_result+))]))
 
 ; #%app
@@ -278,7 +265,6 @@
                     #:datum-literals (:t)
     [(_ :t x) #'(printf "~a : ~a\n" 'x (hash-ref runtime-env 'x))]
     [(_ e_fn e_arg ...)
-;     #:when (printf "app: ~a\n" (syntax->datum #'e_fn))
      #:with (e_fn+ e_arg+ ...) (stx-map expand/df #'(e_fn e_arg ...))
      #:with (→ τ ... τ_res) (typeof #'e_fn+)
      #:when (stx-andmap assert-type #'(e_arg+ ...) #'(τ ...))
@@ -337,17 +323,8 @@
      #:with τ_result (typeof #'e_result+)
      #:when (Γ (type-env-extend #'([f (→ τ ... τ_result)])))
      (⊢ (syntax/loc stx (define (f x+ ...) e+ ... e_result+)) #'Unit)]
-;    [(_ x:id e)
-;     #:with e
     ))
 
-#;(define-syntax (top/tc stx)
-  (syntax-parse stx 
-    [(_ . x:id)
-     #:when (printf "top: ~a\n" #'x)
-     #:with x+ (expand/df #'x)
-     #:when (printf "expanded top: ~a\n" #'x+)
-     (syntax/loc stx (#%top . x+))]))
 
 (begin-for-syntax
   (define-syntax-class maybe-def #:datum-literals (: define variant) #:literals (define-type)
@@ -384,16 +361,6 @@
      #:attr rhs #'strct-info-def))
     )
 
-(define-for-syntax (add-struct-to-ctx strct ctx)
-  (syntax-parse strct #:literals (begin define-values define-syntaxes)
-    [(begin
-       (define-values (x ...) mk-strct-type-def)
-       (define-syntaxes (y) strct-info-def))
-     #:when (printf "~a\n" #'y)
-     (begin
-       (syntax-local-bind-syntaxes (list #'y) #'strct-info-def ctx)
-       #;(syntax-local-bind-syntaxes (syntax->list #'(x ...)) #f ctx))]))
-    
 (define-syntax (module-begin/tc stx)
   (syntax-parse stx #:literals (begin)
     [(_ mb-form:maybe-def ...)
@@ -401,39 +368,25 @@
      #:with ((begin deftype+ ...) ...) (stx-map expand/df/module-ctx #'(deftype ...))
      #:with (structdef ...) (stx-flatten #'((deftype+ ...) ...))
      #:with (structdef+:strct ...) (stx-map expand/df/module-ctx #'(structdef ...))
+     #:with (def-val:def-val ...) #'(structdef+.def-val ...)
+     #:with (def-val-lhs ...) #'(def-val.lhs ...)
+     #:with (def-val-rhs ...) #'(def-val.rhs ...)
+     #:with (def-syn:def-syn ...) #'(structdef+.def-syn ...)
+     #:with (def-syn-lhs ...) #'(def-syn.lhs ...)
+     #:with (def-syn-rhs ...) #'(def-syn.rhs ...)
      #:with (f ...) (template ((?@ . mb-form.name) ...))
      #:with (v ...) (template ((?@ . mb-form.val) ...))
      #:with (τ ...) (template ((?@ . mb-form.τ) ...))
      #:with (e ...) (template ((?@ . mb-form.e) ...))
-     #:with (def-val:def-val ...) #'(structdef+.def-val ...)
-     #:with (def-val-lhs ...) #'(def-val.lhs ...)
-                               #;(stx-map 
-                               (λ (xs) (stx-map 
-                                        (λ (x) (printf "~a" x)(format-id (car (syntax->list #'(f ...))) "~a" x))
-                                        xs))
-                               #'(def-val.lhs ...))
-     #:with (def-val-rhs ...) #'(def-val.rhs ...)
-     #:when (printf "lhs: ~a\n" #'(def-val-lhs ...))
-     #:with (def-syn:def-syn ...) #'(structdef+.def-syn ...)
-     #:with (def-syn-lhs ...) #'(def-syn.lhs ...)
-     #:with (def-syn-rhs ...) #'(def-syn.rhs ...)
      #:when (Γ (type-env-extend #'([f τ] ...)))
-     #:when (intdef-ctx (syntax-local-make-definition-context))
-     #:when (stx-map (λ (strct) (add-struct-to-ctx strct (intdef-ctx))) #'(structdef+ ...))
-;     #:when (syntax-local-bind-syntaxes (syntax->list #'(Cons ...)) #f (intdef-ctx))
-;     #:when (syntax-local-bind-syntaxes (syntax->list #'(Cons ...)) null (intdef-ctx))
-;     #:with letrec+ (expand/df #'(letrec/tc ([f : τ v] ...) e ... (void)) (intdef-ctx))
      #:when (printf "fvs :~a\n" (fvs))
-;     #:when (printf "mb: ~a\n" (syntax->datum (expand/df #'(letrec ([f v] ...) e ...))))
 ;; error: "Just10: unbound identifier; also, no #%top syntax transformer is bound"
 ;; cause: for struct def, define-values must come before define-syntaxes
      (quasisyntax/loc stx 
        (#%module-begin
-       ; structdef+ ...
         #,(expand/df #'(let-values ([def-val-lhs def-val-rhs] ...)
                          (let-syntax ([def-syn-lhs def-syn-rhs] ...)
-                           (letrec/tc ([f : τ v] ...) e ... (void))
-                         )));(intdef-ctx)))
+                           (letrec/tc ([f : τ v] ...) e ... (void)))))
         (define #,(datum->syntax stx 'runtime-env)
           (for/hash ([x:τ '#,(map (λ (xτ) (cons (car xτ) (syntax->datum (cdr xτ))))
                                   (hash->list (do-subst (Γ))))])
