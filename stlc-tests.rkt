@@ -2,7 +2,7 @@
 
 (check-type-error ((λ ([x : Int]) (+ x 1)) "10"))
 (check-type ((λ ([x : Int]) (+ x 1)) 10) : Int)
-(check-equal? ((λ ([x : Int]) (+ x 1)) 10) 11)
+(check-equal? ((λ ([x : Int]) (+ x 1)) 10) 11) ; identifier used out of context
 (check-type-and-result ((λ ([x : Int]) (+ x 1)) 10) : Int => 11)
 
 ; HO fn
@@ -38,7 +38,7 @@
 (check-type-error (null? {Int} "one"))
 (check-type-error (null? {Int} (cons {String} "one" (null {String}))))
 
-;; begin and void
+; begin and void
 (check-type (void) : Unit)
 (check-type-and-result (begin (void) 1) : Int => 1)
 (check-type-and-result (begin (void) (void) 1) : Int => 1)
@@ -52,7 +52,7 @@
 (check-type-and-result ((λ ([a : Int] [b : Int] [c : Int]) (void) (void) (+ a b c)) 1 2 3)
                        : Int => 6)
 
-;; define
+; define
 (define (g [y : Int]) (+ (f y) 1))
 (define (f [x : Int]) (+ x 1))
 (check-type-and-result (f 10) : Int => 11)
@@ -79,6 +79,25 @@
 (check-not-type (map add1 (cons {Int} 1 (cons {Int} 2 (null {Int})))) 
                 : (Listof String))
 
+;; recursive types
 (define (a [x : Int]) (b x))
 (define (b [x : Int]) (a x))
 (define (ff [x : Int]) (ff x))
+
+;; define-type (non parametric)
+(define-type MaybeInt (variant (None) (Just Int)))
+(check-type (None) : MaybeInt)
+(check-type (Just 10) : MaybeInt)
+(check-type-error (Just "ten"))
+(check-type-error (Just (None)))
+(define (maybeint->bool [maybint : MaybeInt])
+  (cases maybint
+   [None () #f]
+   [Just (x) #t]))
+(check-type-and-result (maybeint->bool (None)) : Bool => #f)
+(check-type-and-result (maybeint->bool (Just 25)) : Bool => #t)
+(check-type-error (maybeint->bool 25))
+(check-type-error (define (maybeint->wrong [maybint : MaybeInt])
+                    (cases maybint
+                      [None () #f]
+                      [Just (x) x])))
