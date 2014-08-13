@@ -21,8 +21,12 @@
   [datum/tc #%datum] [module-begin/tc #%module-begin]
   [cons/tc cons] [null/tc null] [null?/tc null?] [first/tc first] [rest/tc rest]))
 
-;; TODO:
-;; - type of top level (or module level) vars not checked
+;; Simply-Typed Lambda Calculus+
+;; Features:
+;; - letrec
+;; - lists
+;; - user (recursive) function definitions
+;; - user (recursive) (variant) type-definitions
 
 ;; for types, just need the identifier bound
 (define-syntax-rule (define-builtin-type τ) (begin (define τ #f)  (provide τ)))
@@ -176,7 +180,7 @@
      #:with ((x ...) ...) (stx-map generate-temporaries #'((τ_fld ...) ...))
      #:when (Γ (type-env-extend #'([Cons (→ τ_fld ... τ)] ...)))
      #'(begin
-         (struct Cons (x ...)) ...)]))
+         (struct Cons (x ...) #:transparent) ...)]))
 (define-syntax (cases stx)
   (syntax-parse stx
     [(_ e [Cons (x ...) body ... body_result] ...)
@@ -184,7 +188,7 @@
      #:with (Cons+ ...) (stx-map expand/df #'(Cons ...))
      #:with ((→ τ ... τ_Cons) ...) (stx-map typeof #'(Cons+ ...))
      #:when (stx-andmap (λ (τ) (assert-type #'e+ τ)) #'(τ_Cons ...))
-     #:with ((lam xs+ body+ ... body_result+) ...) 
+     #:with ((lam (x+ ...) body+ ... body_result+) ...) 
             (stx-map (λ (bods xs τs) 
                        (with-extended-type-env 
                         (stx-map list xs τs)
@@ -197,7 +201,7 @@
      #:when (or (null? (syntax->list #'(τ_result ...)))
                 (andmap (λ (τ) (type=? τ (car (syntax->list #'(τ_result ...)))))
                         (cdr (syntax->list #'(τ_result ...)))))
-     #'(match e+ [(Cons+ x ...) body+ ... body_result+] ...)]))
+     #`(match e+ [(Cons+ x+ ...) body+ ... body_result+] ...)]))
 
 ;; typed forms ----------------------------------------------------------------
 (define-syntax (datum/tc stx)
@@ -379,7 +383,7 @@
      #:with (τ ...) (template ((?@ . mb-form.τ) ...))
      #:with (e ...) (template ((?@ . mb-form.e) ...))
      #:when (Γ (type-env-extend #'([f τ] ...)))
-     #:when (printf "fvs :~a\n" (fvs))
+;     #:when (printf "fvs :~a\n" (fvs))
 ;; error: "Just10: unbound identifier; also, no #%top syntax transformer is bound"
 ;; cause: for struct def, define-values must come before define-syntaxes
      (quasisyntax/loc stx 

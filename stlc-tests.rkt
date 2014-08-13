@@ -101,3 +101,28 @@
                     (cases maybint
                       [None () #f]
                       [Just (x) x])))
+
+(define-type IntList (variant (Null) (Cons Int IntList)))
+(check-type-and-result (Null) : IntList => (Null))
+(check-type-and-result (Cons 1 (Null)) : IntList => (Cons 1 (Null)))
+(check-type-error (Cons "one" (Null)))
+(check-type-error (Cons 1 2))
+(define (map/IntList [f : (→ Int Int)] [lst : IntList])
+  (cases lst
+    [Null () (Null)]
+    [Cons (x xs) (Cons (f x) (map/IntList f xs))]))
+(check-type-and-result (map/IntList add1 (Null)) : IntList => (Null))
+(check-type-and-result (map/IntList add1 (Cons 1 (Null))) : IntList => (Cons 2 (Null)))
+(check-type-and-result (map/IntList add1 (Cons 2 (Cons 1 (Null)))) 
+                       : IntList => (Cons 3 (Cons 2 (Null))))
+(check-type-error (map/IntList (λ ([n : Int]) #f) (Null)))
+(define-type BoolList (variant (BoolNull) (BoolCons Bool BoolList)))
+(define (map/BoolList [f : (→ Bool Int)] [lst : BoolList])
+  (cases lst
+    [BoolNull () (Null)]
+    [BoolCons (x xs) (Cons (f x) (map/BoolList f xs))]))
+(check-type (map/BoolList (λ ([b : Bool]) (if b 0 1)) (BoolNull)) : IntList)
+(check-type-and-result 
+ (map/BoolList (λ ([b : Bool]) (if b 0 1)) (BoolCons #f (BoolNull)))
+ : IntList => (Cons 1 (Null)))
+(check-not-type (map/BoolList (λ ([b : Bool]) (if b 0 1)) (BoolNull)) : BoolList)
