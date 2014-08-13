@@ -1,5 +1,6 @@
 #lang racket/base
 (require 
+  racket/match
   (for-syntax racket/base syntax/parse syntax/parse/experimental/template 
               racket/set syntax/id-table syntax/stx racket/list racket/syntax
               "stx-utils.rkt")
@@ -9,28 +10,29 @@
   (all-from-out racket/base) 
   λ #%app + #%datum let letrec cons null null? begin void
   #%module-begin if
-  ;#%top define
   ))
 
-
 (provide
+ define-type cases
  (rename-out
   [λ/tc λ] [app/tc #%app] [let/tc let] [letrec/tc letrec]
   [begin/tc begin] [void/tc void]
   [if/tc if] [+/tc +] 
-  ;[top/tc #%top] [define/tc define]
   [datum/tc #%datum] [module-begin/tc #%module-begin]
   [cons/tc cons] [null/tc null] [null?/tc null?] [first/tc first] [rest/tc rest]))
 
-;; system f; extended from stlc.rkt 2014-08-08
-
-;; TODO:
-;; - type of top level (or module level) vars not checked
+;; System F (copied from stlc.rkt 2014-08-13)
+;; 
+;; Features:
+;; - letrec
+;; - lists
+;; - user (recursive) function definitions
+;; - user (recursive) (variant) type-definitions
 
 ;; for types, just need the identifier bound
-(define-syntax-rule (define-type τ) (begin (define τ #f)  (provide τ)))
-(define-syntax-rule (define-types τ ...) (begin (define-type τ) ...))
-(define-types Int String Bool → Listof Unit)
+(define-syntax-rule (define-builtin-type τ) (begin (define τ #f)  (provide τ)))
+(define-syntax-rule (define-builtin-types τ ...) (begin (define-builtin-type τ) ...))
+(define-builtin-types Int String Bool → Listof Unit)
 
 ;; type environment
 (begin-for-syntax
@@ -67,19 +69,19 @@
 (define-syntax (check-type-error stx)
   (syntax-parse stx
     [(_ e)
-     #:when (check-exn exn:fail? (λ () (local-expand #'e 'expression null)))
+     #:when (check-exn exn:fail? (λ () (expand/df #'e)))
      #'(void)]))
 (define-syntax (check-type stx)
   (syntax-parse stx #:datum-literals (:)
     [(_ e : τ)
-     #:with e+ (local-expand #'e 'expression null)
+     #:with e+ (expand/df #'e)
      #:when (check-true (assert-type #'e+ #'τ) 
                         (format "Expected type ~a but got type ~a" #'τ (typeof #'e)))
      #'(void)]))
 (define-syntax (check-not-type stx)
   (syntax-parse stx #:datum-literals (:)
     [(_ e : τ)
-     #:with e+ (local-expand #'e 'expression null)
+     #:with e+ (expand/df #'e)
      #:when (check-false (type=? (typeof #'e+) #'τ) 
                          (format "Expected type to not be ~a but got type ~a" #'τ (typeof #'e)))
      #'(void)]))
@@ -150,16 +152,68 @@
       [(_ x-τs e)
        #'(parameterize ([Γ (type-env-extend x-τs)]) e)])))
 
+;; expand/df ------------------------------------------------------------------
 ;; depth-first expand
-(define-for-syntax (expand/df e)
-  (if (identifier? e)
-      (⊢ e (type-env-lookup e)) ; handle this here bc there's no #%var form
-      (local-expand e 'expression null)))
+(define-for-syntax (expand/df e [ctx #f])
+;  (printf "expanding: ~a\n" e)
+;  (printf "typeenv: ~a\n" (Γ))
+  (cond
+    ;; 1st case handles struct constructors that are not the same name as struct
+    ;; (should always be an identifier)
+    [(syntax-property e 'constructor-for) => (λ (Cons) 
+     (⊢ e (type-env-lookup Cons)))]
+    ;; 2nd case handles identifiers that are not struct constructors
+    [(identifier? e) (⊢ e (type-env-lookup e))] ; handle this here bc there's no #%var form
+    ;; local-expand must expand all the way down, ie have no stop-list, ie stop list can't be #f
+    ;; ow forms like lambda and app won't get properly assigned types
+    [else (local-expand e 'expression null ctx)]))
 (define-for-syntax (expand/df/module-ctx def)
-  (local-expand def 'module null))
+  (local-expand def 'module #f))
 (define-for-syntax (expand/df/mb-ctx def)
-  (local-expand def 'module-begin null))
+  (local-expand def 'module-begin #f))
 
+
+
+;; define-type ----------------------------------------------------------------
+(define-syntax (define-type stx)
+  (syntax-parse stx #:datum-literals (variant)
+    #;[(_ (Tycon:id X ...) (variant (Cons:id τ_fld ...) ...))
+     #:with ((x ...) ...) (stx-map generate-temporaries #'((τ_fld ...) ...))
+     #:when (Γ (type-env-extend #'([Cons (∀ (X ...) (→ τ_fld ... Tycon))] ...)))
+     #'(begin
+         (define-syntax (Tycon stx)
+           (syntax-parse stx
+             [(_ τ (... ...))
+              #:with (X ...) (τ (... ...))
+              #'(variant (Cons τ_fld ...) ...)]))
+         (struct Cons (x ...) #:transparent) ...)]
+    [(_ τ:id (variant (Cons:id τ_fld ...) ...))
+     #:with ((x ...) ...) (stx-map generate-temporaries #'((τ_fld ...) ...))
+     #:when (Γ (type-env-extend #'([Cons (→ τ_fld ... τ)] ...)))
+     #'(begin
+         (struct Cons (x ...) #:transparent) ...)]))
+(define-syntax (cases stx)
+  (syntax-parse stx
+    [(_ e [Cons (x ...) body ... body_result] ...)
+     #:with e+ (expand/df #'e)
+     #:with (Cons+ ...) (stx-map expand/df #'(Cons ...))
+     #:with ((→ τ ... τ_Cons) ...) (stx-map typeof #'(Cons+ ...))
+     #:when (stx-andmap (λ (τ) (assert-type #'e+ τ)) #'(τ_Cons ...))
+     #:with ((lam (x+ ...) body+ ... body_result+) ...) 
+            (stx-map (λ (bods xs τs) 
+                       (with-extended-type-env 
+                        (stx-map list xs τs)
+                        (expand/df #`(λ #,xs #,@bods))))
+                     #'((body ... body_result) ...)
+                     #'((x ...) ...)
+                     #'((τ ...) ...))
+     #:when (stx-andmap (λ (bods) (stx-andmap assert-Unit-type bods)) #'((body+ ...) ...))
+     #:with (τ_result ...) (stx-map typeof #'(body_result+ ...))
+     #:when (or (null? (syntax->list #'(τ_result ...))) ; shouldnt happen
+                (andmap (λ (τ) (type=? τ (car (syntax->list #'(τ_result ...)))))
+                        (cdr (syntax->list #'(τ_result ...)))))
+     (⊢ (syntax/loc stx (match e+ [(Cons+ x+ ...) body+ ... body_result+] ...))
+        (car (syntax->list #'(τ_result ...))))]))
 
 ;; typed forms ----------------------------------------------------------------
 (define-syntax (datum/tc stx)
@@ -199,9 +253,7 @@
      #:with (lam xs e+ ... e_result+) (with-extended-type-env #'([x τ] ...)
                                         (expand/df #'(λ (x ...) e ... e_result)))
      ;; manually handle the implicit begin
-     #:when (stx-map assert-Unit-type #'(e+ ...);    [(_ x:id e)
-;     #:with e))
-)
+     #:when (stx-map assert-Unit-type #'(e+ ...))
      #:with τ_body (typeof #'e_result+)
      (⊢ (syntax/loc stx (lam xs e+ ... e_result+)) #'(→ τ ... τ_body))]))
 
@@ -219,14 +271,8 @@
 (define-syntax (letrec/tc stx)
   (syntax-parse stx #:datum-literals (:)
     [(_ ([f:id : τ_f e_f] ...) body ... body_result)
-;     #:when (printf "letrec: ~a\n" (expand/df #'(letrec ([f e_f] ...) body ... body_result)))
-     #:with (lrec ([(f+) e_f+] ...) body+ ... body_result+)
+     #:with (_ ([(f+) e_f+] ...) body+ ... body_result+)
             (expand/df #'(letrec ([f e_f] ...) body ... body_result))
-;     #:with (lam (f+ ...) e_f+ ...) 
-;            (expand/df #'(λ (f ...) e_f ...))
-;     #:with (lam2 fs body+ ... body_result+)
-;            (expand/df #'(λ (f ...) body ... body_result)) ; type env already extended by mod-beg
-;     #:with τ_result (typeof #'body_result+)
     (syntax/loc stx (letrec ([f+ e_f+] ...) body+ ... body_result+))]))
 
 ; #%app
@@ -293,48 +339,70 @@
      #:with τ_result (typeof #'e_result+)
      #:when (Γ (type-env-extend #'([f (→ τ ... τ_result)])))
      (⊢ (syntax/loc stx (define (f x+ ...) e+ ... e_result+)) #'Unit)]
-;    [(_ x:id e)
-;     #:with e
     ))
 
-#;(define-syntax (top/tc stx)
-  (syntax-parse stx 
-    [(_ . x:id)
-     #:when (printf "top: ~a\n" #'x)
-     #:with x+ (expand/df #'x)
-     #:when (printf "expanded top: ~a\n" #'x+)
-     (syntax/loc stx (#%top . x+))]))
 
 (begin-for-syntax
-  (define-syntax-class maybe-def #:datum-literals (: define)
+  (define-syntax-class maybe-def #:datum-literals (: define variant) #:literals (define-type)
     (pattern (define (f:id [x:id : τx] ...) body ...)
              #:with τ_result (generate-temporary #'f)
              #:when (fvs (set-add (fvs) (syntax->datum #'τ_result)))
              #:attr name #'(f)
              #:attr val #'((λ/tc ([x : τx] ...) body ...))
              #:attr τ #'((→ τx ... τ_result))
-             #:attr e #'())
-;    (pattern (define x:id exp:expr)
-;             #:attr name #'(x) 
-;             #:attr val #'(exp)
-;             #:attr τ ???
+             #:attr e #'() #:attr tydecl #'() #:attr names #'())
+    (pattern (define-type TypeName (variant (Cons fieldτ ...) ...))
+             #:attr name #'() #:attr τ #'() #:attr val #'() #:attr e #'()
+             #:attr tydecl #'((define-type TypeName (variant (Cons fieldτ ...) ...)))
+             #:attr names #'((Cons ...)))
     (pattern exp:expr 
-             #:attr name #'() #:attr τ #'() #:attr val #'()
-             #:attr e #'(exp))))
+             #:attr name #'() #:attr τ #'() #:attr val #'() #:attr tydecl #'() #:attr names #'()
+             #:attr e #'(exp)))
+  (define-syntax-class strct #:literals (begin define-values define-syntaxes)
+    (pattern 
+     (begin
+       (define-values (x ...) mk-strct-type-def)
+       (define-syntaxes (y) strct-info-def))
+     #:attr def-val #'(define-values (x ...) mk-strct-type-def)
+     #:attr def-syn #'(define-syntaxes (y) strct-info-def)))
+  (define-syntax-class def-val #:literals (define-values)
+    (pattern
+     (define-values (x ...) mk-strct-type-def)
+     #:attr lhs #'(x ...)
+     #:attr rhs #'mk-strct-type-def))
+  (define-syntax-class def-syn #:literals (define-syntaxes)
+    (pattern
+     (define-syntaxes (x) strct-info-def)
+     #:attr lhs #'x
+     #:attr rhs #'strct-info-def))
+    )
 
 (define-syntax (module-begin/tc stx)
-  (syntax-parse stx
+  (syntax-parse stx #:literals (begin)
     [(_ mb-form:maybe-def ...)
+     #:with (deftype ...) (template ((?@ . mb-form.tydecl) ...))
+     #:with ((begin deftype+ ...) ...) (stx-map expand/df/module-ctx #'(deftype ...))
+     #:with (structdef ...) (stx-flatten #'((deftype+ ...) ...))
+     #:with (structdef+:strct ...) (stx-map expand/df/module-ctx #'(structdef ...))
+     #:with (def-val:def-val ...) #'(structdef+.def-val ...)
+     #:with (def-val-lhs ...) #'(def-val.lhs ...)
+     #:with (def-val-rhs ...) #'(def-val.rhs ...)
+     #:with (def-syn:def-syn ...) #'(structdef+.def-syn ...)
+     #:with (def-syn-lhs ...) #'(def-syn.lhs ...)
+     #:with (def-syn-rhs ...) #'(def-syn.rhs ...)
      #:with (f ...) (template ((?@ . mb-form.name) ...))
      #:with (v ...) (template ((?@ . mb-form.val) ...))
      #:with (τ ...) (template ((?@ . mb-form.τ) ...))
      #:with (e ...) (template ((?@ . mb-form.e) ...))
      #:when (Γ (type-env-extend #'([f τ] ...)))
-     #:when (printf "fvs :~a\n" (fvs))
-;     #:when (printf "mb: ~a\n" (syntax->datum (expand/df #'(letrec ([f v] ...) e ...))))
+;     #:when (printf "fvs :~a\n" (fvs))
+;; NOTE: for struct def, define-values *must* come before define-syntaxes
+;; ow, error: "Just10: unbound identifier; also, no #%top syntax transformer is bound"
      (quasisyntax/loc stx 
        (#%module-begin
-        #,(expand/df #'(letrec/tc ([f : τ v] ...) e ... (void)))
+        #,(expand/df #'(let-values ([def-val-lhs def-val-rhs] ...)
+                         (let-syntax ([def-syn-lhs def-syn-rhs] ...)
+                           (letrec/tc ([f : τ v] ...) e ... (void)))))
         (define #,(datum->syntax stx 'runtime-env)
           (for/hash ([x:τ '#,(map (λ (xτ) (cons (car xτ) (syntax->datum (cdr xτ))))
                                   (hash->list (do-subst (Γ))))])
