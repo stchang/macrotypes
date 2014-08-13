@@ -126,3 +126,14 @@
  (map/BoolList (λ ([b : Bool]) (if b 0 1)) (BoolCons #f (BoolNull)))
  : IntList => (Cons 1 (Null)))
 (check-not-type (map/BoolList (λ ([b : Bool]) (if b 0 1)) (BoolNull)) : BoolList)
+;; check typename is available
+(check-type (λ ([lst : IntList]) 
+              (cases lst
+                [Null () (None)]
+                [Cons (x xs) (Just x)]))
+            : (→ IntList MaybeInt))
+(check-type ((λ ([lst : IntList]) 
+              (cases lst
+                [Null () (None)]
+                [Cons (x xs) (Just x)]))
+             (Null)) : MaybeInt)

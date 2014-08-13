@@ -201,7 +201,8 @@
      #:when (or (null? (syntax->list #'(τ_result ...)))
                 (andmap (λ (τ) (type=? τ (car (syntax->list #'(τ_result ...)))))
                         (cdr (syntax->list #'(τ_result ...)))))
-     #`(match e+ [(Cons+ x+ ...) body+ ... body_result+] ...)]))
+     (⊢ (syntax/loc stx (match e+ [(Cons+ x+ ...) body+ ... body_result+] ...))
+        (car (syntax->list #'(τ_result ...))))]))
 
 ;; typed forms ----------------------------------------------------------------
 (define-syntax (datum/tc stx)
