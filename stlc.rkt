@@ -384,8 +384,8 @@
      #:with (e ...) (template ((?@ . mb-form.e) ...))
      #:when (Γ (type-env-extend #'([f τ] ...)))
 ;     #:when (printf "fvs :~a\n" (fvs))
-;; error: "Just10: unbound identifier; also, no #%top syntax transformer is bound"
-;; cause: for struct def, define-values must come before define-syntaxes
+;; NOTE: for struct def, define-values *must* come before define-syntaxes
+;; ow, error: "Just10: unbound identifier; also, no #%top syntax transformer is bound"
      (quasisyntax/loc stx 
        (#%module-begin
         #,(expand/df #'(let-values ([def-val-lhs def-val-rhs] ...)
