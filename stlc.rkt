@@ -116,6 +116,7 @@
     [(x:id y:id) (free-identifier=? τ1 τ2)]
     [((tycon1 τ1 ...) (tycon2 τ2 ...)) 
      (and (free-identifier=? #'tycon1 #'tycon2)
+          (= (length (syntax->list #'(τ1 ...))) (length (syntax->list #'(τ2 ...))))
           (stx-andmap type=? #'(τ1 ...) #'(τ2 ...)))]
     [_ #f]))
 
@@ -241,10 +242,18 @@
      ;; value before the local-expand happens
      #:with (lam xs e+ ... e_result+) (with-extended-type-env #'([x τ] ...)
                                         (expand/df #'(λ (x ...) e ... e_result)))
+     ;; manually handle identifiers here
+     ;; - since Racket has no #%var hook, ids didn't get "expanded" in the previous line
+     ;;   and thus didn't get a type
+     ;; TODO: can I put this somewhere else where it's more elegant?
+     #:with (e++ ... e_result++) (with-extended-type-env #'([x τ] ...)
+                                   (stx-map 
+                                    (λ (e) (if (identifier? e) (expand/df e) e))
+                                    #'(e+ ... e_result+)))
      ;; manually handle the implicit begin
-     #:when (stx-map assert-Unit-type #'(e+ ...))
-     #:with τ_body (typeof #'e_result+)
-     (⊢ (syntax/loc stx (lam xs e+ ... e_result+)) #'(→ τ ... τ_body))]))
+     #:when (stx-map assert-Unit-type #'(e++ ...))
+     #:with τ_body (typeof #'e_result++)
+     (⊢ (syntax/loc stx (lam xs e++ ... e_result++)) #'(→ τ ... τ_body))]))
 
 (define-syntax (let/tc stx)
   (syntax-parse stx #:datum-literals (:)
