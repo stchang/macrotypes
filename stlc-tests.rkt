@@ -62,8 +62,10 @@
                        : Int => 6)
 
 ; define
-(define (g [y : Int]) (+ (f y) 1))
-(define (f [x : Int]) (+ x 1))
+(define (g [y : Int]) : Int
+  (+ (f y) 1))
+(define (f [x : Int]) : Int
+  (+ x 1))
 (check-type-and-result (f 10) : Int => 11)
 (check-type-and-result (g 100) : Int => 102)
 (check-not-type (f 10) : String)
@@ -77,8 +79,9 @@
 (check-type-error (if 1 2 3))
 
 ;;; recursive fn
-(define (add1 [x : Int]) (+ x 1))
-(define (map [f : (→ Int Int)] [lst : (Listof Int)])
+(define (add1 [x : Int]) : Int
+  (+ x 1))
+(define (map [f : (→ Int Int)] [lst : (Listof Int)]) : (Listof Int)
   (if (null? {Int} lst)
       (null {Int})
       (cons {Int} (f (first {Int} lst)) (map f (rest {Int} lst)))))
@@ -89,9 +92,9 @@
                 : (Listof String))
 
 ;; recursive types
-(define (a [x : Int]) (b x))
-(define (b [x : Int]) (a x))
-(define (ff [x : Int]) (ff x))
+(define (a [x : Int]) : Int (b x))
+(define (b [x : Int]) : Int (a x))
+(define (ff [x : Int]) : Int (ff x))
 
 ;; define-type (non parametric)
 (define-type MaybeInt (variant (None) (Just Int)))
@@ -99,7 +102,7 @@
 (check-type (Just 10) : MaybeInt)
 (check-type-error (Just "ten"))
 (check-type-error (Just (None)))
-(define (maybeint->bool [maybint : MaybeInt])
+(define (maybeint->bool [maybint : MaybeInt]) : Bool
   (cases maybint
    [None () #f]
    [Just (x) #t]))
@@ -116,7 +119,7 @@
 (check-type-and-result (Cons 1 (Null)) : IntList => (Cons 1 (Null)))
 (check-type-error (Cons "one" (Null)))
 (check-type-error (Cons 1 2))
-(define (map/IntList [f : (→ Int Int)] [lst : IntList])
+(define (map/IntList [f : (→ Int Int)] [lst : IntList]) : IntList
   (cases lst
     [Null () (Null)]
     [Cons (x xs) (Cons (f x) (map/IntList f xs))]))
@@ -126,7 +129,7 @@
                        : IntList => (Cons 3 (Cons 2 (Null))))
 (check-type-error (map/IntList (λ ([n : Int]) #f) (Null)))
 (define-type BoolList (variant (BoolNull) (BoolCons Bool BoolList)))
-(define (map/BoolList [f : (→ Bool Int)] [lst : BoolList])
+(define (map/BoolList [f : (→ Bool Int)] [lst : BoolList]) : IntList
   (cases lst
     [BoolNull () (Null)]
     [BoolCons (x xs) (Cons (f x) (map/BoolList f xs))]))

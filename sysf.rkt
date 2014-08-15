@@ -1,5 +1,6 @@
 #lang racket/base
 (require 
+  racket/match
   (for-syntax 
    racket/base syntax/parse syntax/parse/experimental/template
    syntax/stx racket/syntax racket/set
@@ -9,16 +10,22 @@
 (require 
   (except-in 
    "stlc.rkt" 
-   define-type begin #%app λ
+   define-type cases begin #%app λ define
    check-type-error check-type check-type-and-result check-not-type check-equal?))
-(require (prefix-in stlc: (only-in "stlc.rkt" #%app define-type λ begin)))
+(require 
+  (prefix-in stlc: 
+    (only-in 
+     "stlc.rkt" 
+     define-type cases begin #%app λ define)))
 (provide (all-from-out "stlc.rkt"))
 (provide 
- define-type
+ define-type cases
  (rename-out 
   [stlc:begin begin]
   [app/tc #%app]
-  [λ/tc λ]))
+  [λ/tc λ] [define/tc define]))
+
+(define-and-provide-builtin-types ∀)
 
 ;; define-type ----------------------------------------------------------------
 (define-syntax (define-type stx)
@@ -29,6 +36,34 @@
      #'(begin ; should be racket begin
          (struct Cons (x ...) #:transparent) ...)]
     [(_ any ...) #'(stlc:define-type any ...)]))
+
+;; cases ----------------------------------------------------------------------
+(define-syntax (cases stx)
+  (syntax-parse stx #:literals (∀)
+    [(_ τs e [Cons (x ...) body ... body_result] ...)
+     #:when (curly-parens? #'τs)
+     #:with e+ (expand/df #'e)
+     #:with (Cons+ ...) (stx-map expand/df #'(Cons ...))
+     #:with ((∀ Xs ∀body) ...) (stx-map typeof #'(Cons+ ...))
+     #:with ((→ τ ... τ_Cons) ...) 
+            (stx-map (λ (forall) (apply-forall forall #'τs)) #'((∀ Xs ∀body) ...))
+     #:when (stx-andmap (λ (τ) (assert-type #'e+ τ)) #'(τ_Cons ...))
+     #:with ((lam (x+ ...) body+ ... body_result+) ...) 
+            (stx-map (λ (bods xs τs) 
+                       (with-extended-type-env 
+                        (stx-map list xs τs)
+                        (expand/df #`(λ #,xs #,@bods))))
+                     #'((body ... body_result) ...)
+                     #'((x ...) ...)
+                     #'((τ ...) ...))
+     #:when (stx-andmap (λ (bods) (stx-andmap assert-Unit-type bods)) #'((body+ ...) ...))
+     #:with (τ_result ...) (stx-map typeof #'(body_result+ ...))
+     #:when (or (null? (syntax->list #'(τ_result ...)))
+                (andmap (λ (τ) (type=? τ (car (syntax->list #'(τ_result ...)))))
+                        (cdr (syntax->list #'(τ_result ...)))))
+     (⊢ (syntax/loc stx (match e+ [(Cons+ x+ ...) body+ ... body_result+] ...))
+        (car (syntax->list #'(τ_result ...))))]
+    [(_ any ...) #:when (displayln "stlc:cases") #'(stlc:cases any ...)]))
 
 ;; lambda ---------------------------------------------------------------------
 (define-syntax (λ/tc stx)
@@ -56,6 +91,20 @@
      (⊢ (syntax/loc stx (lam xs e++ ... e_result++)) #'(∀ τs (→ τ ... τ_body)))]
     [(_ any ...) #'(stlc:λ any ...)]))
 
+; define ----------------------------------------------------------------------
+(define-syntax (define/tc stx)
+  (syntax-parse stx #:datum-literals (:)
+    ;; most of the code from this case, except for the curly? check,
+    ;; is copied from stlc:define
+    [(_ (f:id τs [x:id : τ] ...) : τ_result e ...)
+     #:when (curly-parens? #'τs)
+;     #:with τ_result (generate-temporary #'f)
+;     #:when (fvs (set-add (fvs) (syntax->datum #'τ_result)))
+;     #:when (fv=>f (fv=>f-set #'τ_result #'f))
+     #:when (Γ (type-env-extend #'([f (∀ τs (→ τ ... τ_result))])))
+     #'(define f (λ/tc τs ([x : τ] ...) e ...))]
+    [(_ any ...) #'(stlc:define any ...)]))
+
 ; #%app -----------------------------------------------------------------------
 (define-syntax (app/tc stx)
   (syntax-parse stx #:literals (→ void)
@@ -66,6 +115,10 @@
      #:with (→ τ_arg ... τ_res) (apply-forall (typeof #'e_fn+) #'τs)
      #:when (stx-andmap assert-type #'(e_arg+ ...) #'(τ_arg ...))
      (⊢ (syntax/loc stx (#%app e_fn+ e_arg+ ...)) #'τ_res)]
+    ;; handle type apply of non-poly fn here; just pass through
+    [(_ e_fn τs e_arg ...)
+     #:when (curly-parens? #'τs)
+     #'(stlc:#%app e_fn e_arg ...)]
     [(_ any ...) #'(stlc:#%app any ...)]))
 
 ;; testing fns ----------------------------------------------------------------
