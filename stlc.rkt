@@ -201,6 +201,15 @@
 
 
 (begin-for-syntax
+  ;; EXTENSIBILITY NOTE:
+  ;; Originally, define-type was a #:literal instead of a #:datum-literal, but
+  ;; this became a problem when sysf extended define-type (but not modul-begin).
+  ;; Putting define-type in the #:literals list makes it always expect the stlc
+  ;; version of define-type, so it wasnt getting properly parsed in sysf.
+  ;;
+  ;; Similarly, I had to define the define-type pattern below to avoid explicitly
+  ;; mentioning define-type on the rhs, otherwise it would again lock in the stlc
+  ;; version of define-type.
   (define-syntax-class maybe-def #:datum-literals (: define variant define-type)
     (pattern (define (f:id [x:id : τx] ...) body ...)
              #:with τ_result (generate-temporary #'f)
