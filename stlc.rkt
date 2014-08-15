@@ -9,7 +9,7 @@
 (provide 
  (except-out
   (all-from-out racket/base) 
-  λ #%app + #%datum let #;letrec cons null null? begin void
+  λ #%app + #%datum let cons null null? begin void
   #%module-begin if define
   ))
 
@@ -126,13 +126,6 @@
      #:when (stx-andmap assert-Unit-type #'(e+ ...))
      (⊢ (syntax/loc stx (let ([x+ e_x+] ...) e+ ... e_result+)) (typeof #'e_result+))]))
 
-#;(define-syntax (letrec/tc stx)
-  (syntax-parse stx #:datum-literals (:)
-    [(_ ([f:id : τ_f e_f] ...) body ... body_result)
-     #:with (_ ([(f+) e_f+] ...) body+ ... body_result+)
-            (expand/df #'(letrec ([f e_f] ...) body ... body_result))
-    (syntax/loc stx (letrec ([f+ e_f+] ...) body+ ... body_result+))]))
-
 ; #%app
 (define-syntax (app/tc stx)
   (syntax-parse stx #:literals (→ void) 
@@ -189,9 +182,6 @@
 (define-syntax (define/tc stx)
   (syntax-parse stx #:datum-literals (:)
     [(_ (f:id [x:id : τ] ...) : τ_result e ...)
-;     #:with τ_result (generate-temporary #'f)
-;     #:when (fvs (set-add (fvs) (syntax->datum #'τ_result)))
-;     #:when (fv=>f (fv=>f-set #'τ_result #'f))
      #:when (Γ (type-env-extend #'([f (→ τ ... τ_result)])))
      #'(define f (λ/tc ([x : τ] ...) e ...))]
     [(_ x:id e) #'(define x e)]))
@@ -265,7 +255,7 @@
                            (letrec-values ([f v] ...) e ... (void)))))
         (define #,(datum->syntax stx 'runtime-env)
           (for/hash ([x:τ '#,(map (λ (xτ) (cons (car xτ) (syntax->datum (cdr xτ))))
-                                  (hash->list (Γ)))]);(do-subst (Γ))))])
+                                  (hash->list (Γ)))])
             (values (car x:τ) (cdr x:τ))))
         ))]))
 

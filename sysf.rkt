@@ -98,9 +98,6 @@
     ;; is copied from stlc:define
     [(_ (f:id τs [x:id : τ] ...) : τ_result e ...)
      #:when (curly-parens? #'τs)
-;     #:with τ_result (generate-temporary #'f)
-;     #:when (fvs (set-add (fvs) (syntax->datum #'τ_result)))
-;     #:when (fv=>f (fv=>f-set #'τ_result #'f))
      #:when (Γ (type-env-extend #'([f (∀ τs (→ τ ... τ_result))])))
      #'(define f (λ/tc τs ([x : τ] ...) e ...))]
     [(_ any ...) #'(stlc:define any ...)]))

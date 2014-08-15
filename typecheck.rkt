@@ -17,22 +17,6 @@
 (define-for-syntax (type=? τ1 τ2)
 ;  (printf "type= ~a ~a\n" (syntax->datum τ1) (syntax->datum τ2))
   (syntax-parse #`(#,τ1 #,τ2)
-;    [(x:id τ)
-;     #:when (and (set-member? (fvs) (syntax->datum #'x))
-;                 (hash-has-key? (fvs-subst) (syntax->datum #'x)))
-;     (type=? (hash-ref (fvs-subst) (syntax->datum #'x)) #'τ)]
-;    [(x:id τ)
-;     #:when (set-member? (fvs) (syntax->datum #'x))
-;     #:when (fvs-subst (fvs-subst-set #'x #'τ))
-;     #t]
-;    [(τ x:id)
-;     #:when (and (set-member? (fvs) (syntax->datum #'x))
-;                 (hash-has-key? (fvs-subst) (syntax->datum #'x)))
-;     (type=? (hash-ref (fvs-subst) (syntax->datum #'x)) #'τ)]
-;    [(τ x:id)
-;     #:when (set-member? (fvs) (syntax->datum #'x))
-;     #:when (fvs-subst (fvs-subst-set #'x #'τ))
-;     #t]
     [(x:id y:id) (free-identifier=? τ1 τ2)]
     [((tycon1 τ1 ...) (tycon2 τ2 ...)) 
      (and (free-identifier=? #'tycon1 #'tycon2)
@@ -79,28 +63,7 @@
   (define-syntax (with-extended-type-env stx)
     (syntax-parse stx
       [(_ x-τs e)
-       #'(parameterize ([Γ (type-env-extend x-τs)]) e)]))
-
-  ;; generated type vars
-;  (define fvs (make-parameter (set)))
-;  (define fv=>f (make-parameter (hash)))
-;  (define (fv=>f-set fv f) (hash-set (fv=>f) (syntax->datum fv) f))
-;  (define fvs-subst (make-parameter (hash)))
-;  (define (fvs-subst-set x τ)
-;    (hash-set (fvs-subst) (syntax->datum x) τ))
-;  (define (do-subst/τ τ)
-;    (syntax-parse τ
-;      [x:id
-;       #:when (set-member? (fvs) (syntax->datum #'x))
-;       (hash-ref (fvs-subst) (syntax->datum #'x) #'???)]
-;      [τ:id #'τ]
-;      [(tycon τ ...)
-;       #:with (τ-subst ...) (stx-map do-subst/τ #'(τ ...))
-;       #'(tycon τ-subst ...)]))
-;  (define (do-subst h)
-;    (for/hash ([(x τ) (in-hash h)])
-;      (values x (do-subst/τ τ)))))
-)
+       #'(parameterize ([Γ (type-env-extend x-τs)]) e)])))
 
 ;; apply-forall ---------------------------------------------------------------
 (define-for-syntax (apply-forall ∀τ τs)
@@ -117,7 +80,6 @@
              #'τbody]))])
    ctx)
   (local-expand #`(#,id #,τs) 'expression (list #'#%app) ctx))
-
 
 ;; expand/df ------------------------------------------------------------------
 ;; depth-first expand
