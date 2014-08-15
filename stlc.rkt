@@ -30,40 +30,9 @@
 ;; - user (recursive) (variant) type-definitions
 
 (define-and-provide-builtin-types Int String Bool → Listof Unit)
+(provide (for-syntax assert-Unit-type assert-Int-type))
 (define-for-syntax (assert-Unit-type e) (assert-type e #'Unit))
 (define-for-syntax (assert-Int-type e) (assert-type e #'Int))
-
-;; testing fns ----------------------------------------------------------------
-(require (for-syntax rackunit))
-(provide check-type-error check-type check-type-and-result check-not-type)
-(define-syntax (check-type-error stx)
-  (syntax-parse stx
-    [(_ e)
-     #:when (check-exn exn:fail? (λ () (expand/df #'e)))
-     #'(void)]))
-(define-syntax (check-type stx)
-  (syntax-parse stx #:datum-literals (:)
-    [(_ e : τ)
-     #:with e+ (expand/df #'e)
-     #:when (check-true (assert-type #'e+ #'τ) 
-                        (format "Expected type ~a but got type ~a" #'τ (typeof #'e)))
-     #'(void)]))
-(define-syntax (check-not-type stx)
-  (syntax-parse stx #:datum-literals (:)
-    [(_ e : τ)
-     #:with e+ (expand/df #'e)
-     #:when (check-false (type=? (typeof #'e+) #'τ) 
-                         (format "Expected type to not be ~a but got type ~a" #'τ (typeof #'e)))
-     #'(void)]))
-
-(define-syntax (check-type-and-result stx)
-  (syntax-parse stx #:datum-literals (: =>)
-    [(_ e : τ => v)
-     #'(begin (check-type e : τ)
-              (check-equal? e v))]))
-(require rackunit)
-(provide (rename-out [my-check-equal? check-equal?]))
-(define-syntax-rule (my-check-equal? x y) (check-equal? x y))
 
 ;; define-type ----------------------------------------------------------------
 (define-syntax (define-type stx)
@@ -232,7 +201,7 @@
 
 
 (begin-for-syntax
-  (define-syntax-class maybe-def #:datum-literals (: define variant) #:literals (define-type)
+  (define-syntax-class maybe-def #:datum-literals (: define variant define-type)
     (pattern (define (f:id [x:id : τx] ...) body ...)
              #:with τ_result (generate-temporary #'f)
              #:when (fvs (set-add (fvs) (syntax->datum #'τ_result)))
@@ -240,9 +209,10 @@
              #:attr val #'((λ/tc ([x : τx] ...) body ...))
              #:attr τ #'((→ τx ... τ_result))
              #:attr e #'() #:attr tydecl #'() #:attr names #'())
-    (pattern (define-type TypeName (variant (Cons fieldτ ...) ...))
+    (pattern define-type-decl
+             #:with (define-type TypeName (variant (Cons fieldτ ...) ...)) #'define-type-decl
              #:attr name #'() #:attr τ #'() #:attr val #'() #:attr e #'()
-             #:attr tydecl #'((define-type TypeName (variant (Cons fieldτ ...) ...)))
+             #:attr tydecl #'(define-type-decl)
              #:attr names #'((Cons ...)))
     (pattern exp:expr 
              #:attr name #'() #:attr τ #'() #:attr val #'() #:attr tydecl #'() #:attr names #'()
@@ -297,3 +267,37 @@
                                   (hash->list (do-subst (Γ))))])
             (values (car x:τ) (cdr x:τ))))
         ))]))
+
+;; type checking testing: -----------------------------------------------------
+(require rackunit)
+(require (for-syntax rackunit "typecheck.rkt"))
+(provide check-equal?)
+(provide check-type-error check-type check-type-and-result check-not-type)
+
+(define-syntax (check-type-error stx)
+  (syntax-parse stx
+    [(_ e)
+     #:when (check-exn exn:fail? (λ () (expand/df #'e)))
+     #'(void)]))
+
+(define-syntax (check-type stx)
+  (syntax-parse stx #:datum-literals (:)
+    [(_ e : τ)
+     #:with e+ (expand/df #'e)
+     #:when (check-true (assert-type #'e+ #'τ) 
+                        (format "Expected type ~a but got type ~a" #'τ (typeof #'e)))
+     #'(void)]))
+
+(define-syntax (check-not-type stx)
+  (syntax-parse stx #:datum-literals (:)
+    [(_ e : τ)
+     #:with e+ (expand/df #'e)
+     #:when (check-false (type=? (typeof #'e+) #'τ) 
+                         (format "Expected type to not be ~a but got type ~a" #'τ (typeof #'e)))
+     #'(void)]))
+
+(define-syntax (check-type-and-result stx)
+  (syntax-parse stx #:datum-literals (: =>)
+    [(_ e : τ => v)
+     #'(begin (check-type e : τ)
+              (check-equal? e v))]))
