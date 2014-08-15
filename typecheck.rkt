@@ -1,5 +1,5 @@
 #lang racket/base
-(require (for-syntax racket/base syntax/parse syntax/stx
+(require (for-syntax racket/base syntax/parse syntax/stx racket/syntax
                      racket/set racket/list
                      "stx-utils.rkt")
          (for-meta 2 racket/base syntax/parse))
@@ -98,10 +98,27 @@
     (for/hash ([(x τ) (in-hash h)])
       (values x (do-subst/τ τ)))))
 
+;; apply-forall ---------------------------------------------------------------
+(define-for-syntax (apply-forall ∀τ τs)
+  (define ctx (syntax-local-make-definition-context))
+  (define id (generate-temporary))
+  (syntax-local-bind-syntaxes
+   (list id)
+   (syntax-parse ∀τ #:datum-literals (∀)
+     [(∀ (X ...) τbody)
+      #'(λ (stx)
+          (syntax-parse stx
+            [(_ (τ (... ...)))
+             #:with (X ...) #'(τ (... ...))
+             #'τbody]))])
+   ctx)
+  (local-expand #`(#,id #,τs) 'expression (list #'#%app) ctx))
+
+
 ;; expand/df ------------------------------------------------------------------
 ;; depth-first expand
 (define-for-syntax (expand/df e [ctx #f])
-;  (printf "expanding: ~a\n" e)
+;  (printf "expanding: ~a\n" (syntax->datum e))
 ;  (printf "typeenv: ~a\n" (Γ))
   (cond
     ;; 1st case handles struct constructors that are not the same name as struct
