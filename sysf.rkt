@@ -56,21 +56,6 @@
      (⊢ (syntax/loc stx (lam xs e++ ... e_result++)) #'(∀ τs (→ τ ... τ_body)))]
     [(_ any ...) #'(stlc:λ any ...)]))
 
-(define-for-syntax (apply-forall ∀τ τs)
-  (define ctx (syntax-local-make-definition-context))
-  (define id (generate-temporary))
-  (syntax-local-bind-syntaxes
-   (list id)
-   (syntax-parse ∀τ #:datum-literals (∀)
-     [(∀ (X ...) τbody)
-      #'(λ (stx)
-          (syntax-parse stx
-            [(_ (τ (... ...)))
-             #:with (X ...) #'(τ (... ...))
-             #'τbody]))])
-   ctx)
-  (local-expand #`(#,id #,τs) 'expression (list #'#%app) ctx))
-
 ; #%app -----------------------------------------------------------------------
 (define-syntax (app/tc stx)
   (syntax-parse stx #:literals (→ void)
