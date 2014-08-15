@@ -7,3 +7,6 @@
   (apply andmap f (map syntax->list stx-lsts)))
 (define (stx-flatten stxs)
   (apply append (stx-map syntax->list stxs)))
+(define (curly-parens? stx)
+  (define paren-prop (syntax-property stx 'paren-shape))
+  (and paren-prop (char=? #\{ paren-prop)))
