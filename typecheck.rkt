@@ -51,7 +51,9 @@
   ;; I'm manually managing the environment
   (define Γ (make-parameter base-type-env))
   
-  (define (type-env-lookup x) (hash-ref (Γ) (syntax->datum x)))
+  (define (type-env-lookup x) 
+    (hash-ref (Γ) (syntax->datum x)
+              (λ () (error 'TYPE-ERROR "Could not find type for variable ~a." (syntax->datum x)))))
 
   ;; returns a new hash table extended with type associations x:τs
   (define (type-env-extend x:τs)

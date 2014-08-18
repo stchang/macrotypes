@@ -9,18 +9,19 @@
 (provide 
  (except-out
   (all-from-out racket/base) 
-  λ #%app + #%datum let cons null null? begin void
+  λ #%app #%datum let cons null null? list begin void
+  + - = < not or and abs
   #%module-begin if define
   ))
 
 (provide
  define-type cases
  (rename-out
-  [λ/tc λ] [app/tc #%app] [let/tc let] #;[letrec/tc letrec] [define/tc define]
+  [λ/tc λ] [app/tc #%app] [let/tc let] [define/tc define]
   [begin/tc begin] [void/tc void]
-  [if/tc if] [+/tc +] 
+  [if/tc if] #;[+/tc +] 
   [datum/tc #%datum] [module-begin/tc #%module-begin]
-  [cons/tc cons] [null/tc null] [null?/tc null?] [first/tc first] [rest/tc rest]))
+  [cons/tc cons] [null/tc null] [null?/tc null?] [first/tc first] [rest/tc rest] [list/tc list]))
 
 ;; Simply-Typed Lambda Calculus+
 ;; Features:
@@ -41,7 +42,12 @@
      #:with ((x ...) ...) (stx-map generate-temporaries #'((τ_fld ...) ...))
      #:when (Γ (type-env-extend #'([Cons (→ τ_fld ... τ)] ...)))
      #'(begin
-         (struct Cons (x ...) #:transparent) ...)]))
+         (struct Cons (x ...) #:transparent) ...)]
+    [(_ τ:id (Cons:id τ_fld ...))
+     #:with (x ...) (generate-temporaries #'(τ_fld ...))
+     #:when (Γ (type-env-extend #'([Cons (→ τ_fld ... τ)])))
+     #'(begin 
+         (struct Cons (x ...) #:transparent))]))
 (define-syntax (cases stx)
   (syntax-parse stx #:literals (→)
     [(_ e [Cons (x ...) body ... body_result] ...)
@@ -87,12 +93,36 @@
   (syntax-parse stx
     [(_) (⊢ (syntax/loc stx (void)) #'Unit)]))
 
-(define-syntax (+/tc stx)
+
+#;(define-syntax (+/tc stx)
   (syntax-parse stx
     [(_ e ...)
      #:with (e+ ...) (stx-map expand/df #'(e ...))
      #:when (stx-andmap assert-Int-type #'(e+ ...))
      (⊢ (syntax/loc stx (+ e+ ...)) #'Int)]))
+
+(define-syntax (define-prim stx)
+  (syntax-parse stx
+    [(_ op τ_arg τ_res)
+     #:with op/tc (format-id #'op "~a/tc" #'op)
+     #'(begin
+         (provide (rename-out [op/tc op]))
+         (define-syntax (op/tc stx)
+           (syntax-parse stx
+             [f:id #'op] ; HO case
+             [(_ e (... ...))
+              #:with (e+ (... ...)) (stx-map expand/df #'(e (... ...)))
+              #:when (stx-andmap (λ (τ) (assert-type τ τ_arg)) #'(e+ (... ...)))
+              (⊢ (syntax/loc stx (op e+ (... ...))) τ_res)])))]))
+(define-prim + #'Int #'Int)
+(define-prim - #'Int #'Int)
+(define-prim = #'Int #'Bool)
+(define-prim < #'Int #'Bool)
+(define-prim not #'Bool #'Bool)
+(define-prim or #'Bool #'Bool)
+(define-prim and #'Bool #'Bool)
+(define-prim abs #'Int #'Int)
+
 
 (define-syntax (λ/tc stx)
   (syntax-parse stx #:datum-literals (:)
@@ -144,7 +174,12 @@
      #:when (assert-type #'e_test+ #'Bool)
      #:with e1+ (expand/df #'e1)
      #:with e2+ (expand/df #'e2)
-     #:when (type=? (typeof #'e1+) (typeof #'e2+))
+     #:when (or (type=? (typeof #'e1+) (typeof #'e2+))
+                (error 'TYPE-ERROR 
+                       "(~a:~a) if branches have differing types: ~a has type ~a and ~a has type ~a"
+                       (syntax-line stx) (syntax-column stx)
+                       (syntax->datum #'e1) (typeof #'e1+)
+                       (syntax->datum #'e2) (typeof #'e2+)))
      (⊢ (syntax/loc stx (if e_test+ e1+ e2+)) (typeof #'e1+))]))
 
 ;; lists ----------------------------------------------------------------------
@@ -159,6 +194,10 @@
 (define-syntax (null/tc stx)
   (syntax-parse stx
     [(_ {T}) (⊢ (syntax/loc stx null) #'(Listof T))]))
+(define-syntax (list/tc stx)
+  (syntax-parse stx
+    [(_ {τ}) #'(null/tc {τ})]
+    [(_ {τ} x . rst) #'(cons/tc {τ} x (list/tc {τ} . rst))]))
 (define-syntax (null?/tc stx)
   (syntax-parse stx
     [(_ {T} e)
@@ -202,8 +241,14 @@
              #:with (define (f x ...) body ...) #'define-fn
              #:attr fndef #'(define-fn)
              #:attr e #'() #:attr tydecl #'())
+    (pattern define-variant-type-decl
+             #:with (define-type TypeName (variant (Cons fieldτ ...) ...)) 
+                    #'define-variant-type-decl
+             #:attr tydecl #'(define-variant-type-decl)
+             #:attr fndef #'() #:attr e #'())
     (pattern define-type-decl
-             #:with (define-type TypeName (variant (Cons fieldτ ...) ...)) #'define-type-decl
+             #:with (define-type TypeName:id (Cons:id fieldτ ...) ...)
+                     #'define-type-decl
              #:attr tydecl #'(define-type-decl)
              #:attr fndef #'() #:attr e #'())
     (pattern exp:expr 
@@ -246,6 +291,8 @@
      #:with (f ...) #'(deffn+.lhs ...)
      #:with (v ...) #'(deffn+.rhs ...)
      #:with (e ...) (template ((?@ . mb-form.e) ...))
+     ;; base type env
+     #:when (Γ (type-env-extend #'((+ (→ Int Int Int)))))
 ;; NOTE: for struct def, define-values *must* come before define-syntaxes
 ;; ow, error: "Just10: unbound identifier; also, no #%top syntax transformer is bound"
      (quasisyntax/loc stx 
