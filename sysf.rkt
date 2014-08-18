@@ -19,7 +19,7 @@
      define-type cases begin #%app λ define)))
 (provide (all-from-out "stlc.rkt"))
 (provide 
- define-type cases
+ define-type cases inst
  (rename-out 
   [stlc:begin begin]
   [app/tc #%app]
@@ -36,6 +36,14 @@
      #'(begin ; should be racket begin
          (struct Cons (x ...) #:transparent) ...)]
     [(_ any ...) #'(stlc:define-type any ...)]))
+
+(define-syntax (inst stx)
+  (syntax-parse stx
+    [(_ e τ ...)
+     #:with e+ (expand/df #'e)
+     #:with (∀ (X ...) τbody) (typeof #'e+)
+     #:with τinst (apply-forall (typeof #'e+) #'(τ ...))
+     (⊢ #'e+ #'τinst)]))
 
 ;; cases ----------------------------------------------------------------------
 (define-syntax (cases stx)
@@ -116,6 +124,15 @@
     [(_ e_fn τs e_arg ...)
      #:when (curly-parens? #'τs)
      #'(stlc:#%app e_fn e_arg ...)]
+    ;; error when e_fn has ∀ type but in instantiation vars
+    [(_ e_fn e_arg ...)
+     #:with e_fn+ (expand/df #'e_fn)
+     #:with (∀ (X ...) (→ τX ...)) (typeof #'e_fn+)
+     #:when (error 'TYPE-ERROR
+                   "(~a:~a) Missing type instantiation(s) in application: ~a"
+                   (syntax-line stx) (syntax-column stx)
+                   (syntax->datum #'(e_fn e_arg ...)))
+     #'#f]
     [(_ any ...) #'(stlc:#%app any ...)]))
 
 ;; testing fns ----------------------------------------------------------------
