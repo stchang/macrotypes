@@ -76,9 +76,10 @@
     [(_ . n:integer) (⊢ (syntax/loc stx (#%datum . n)) #'Int)]
     [(_ . s:str) (⊢ (syntax/loc stx (#%datum . s)) #'String)]
     [(_ . b:boolean) (⊢ (syntax/loc stx (#%datum . b)) #'Bool)]
-    [(_ . x) 
-     #:when (error 'TYPE-ERROR "~a (~a:~a) has unknown type" 
-                   #'x (syntax-line #'x) (syntax-column #'x))
+    [(_ x) 
+     #:when (type-error #:src #'x #:msg "~a has unknown type" #'x)
+            #;(error 'TYPE-ERROR "~a (~a:~a) has unknown type" 
+                     #'x (syntax-line #'x) (syntax-column #'x))
      (syntax/loc stx (#%datum . x))]))
 
 (define-syntax (begin/tc stx)
@@ -166,7 +167,11 @@
      #:with e1+ (expand/df #'e1)
      #:with e2+ (expand/df #'e2)
      #:when (or (type=? (typeof #'e1+) (typeof #'e2+))
-                (error 'TYPE-ERROR 
+                (type-error #:src stx 
+                            #:msg "IF branches have differing types: branch ~a has type ~a and branch ~a has type ~a"
+                            #'e1 (typeof #'e1+)
+                            #'e2 (typeof #'e2+))
+                #;(error 'TYPE-ERROR 
                        "(~a:~a) if branches have differing types: ~a has type ~a and ~a has type ~a"
                        (syntax-line stx) (syntax-column stx)
                        (syntax->datum #'e1) (typeof #'e1+)

@@ -6,6 +6,16 @@
 (provide (all-defined-out)
          (for-syntax (all-defined-out)))
 
+(begin-for-syntax
+  ;; usage:
+  ;; type-error #:src src-stx
+  ;;            #:msg msg-string msg-args ...
+  ;; msg-args should be syntax
+  (define-syntax-rule (type-error #:src stx-src #:msg msg args ...)
+    (error 'TYPE-ERROR 
+           (string-append "(~a:~a) " msg) 
+           (syntax-line stx-src) (syntax-column stx-src) (syntax->datum args) ...)))
+
 ;; for types, just need the identifier bound
 (define-syntax-rule (define-and-provide-builtin-type τ) 
   (begin (define τ #f) (provide τ)))
@@ -28,7 +38,9 @@
 (define-for-syntax (assert-type e τ)
 ;  (printf "~a has type ~a; expected: ~a\n" (syntax->datum e) (syntax->datum (typeof e)) (syntax->datum τ))
   (or (type=? (typeof e) τ)
-      (error 'TYPE-ERROR "~a (~a:~a) has type ~a, but should have type ~a"
+      (type-error #:src e 
+                  #:msg "~a has type ~a, but should have type ~a" e (typeof e) τ)
+      #;(error 'TYPE-ERROR "~a (~a:~a) has type ~a, but should have type ~a"
              (syntax->datum e)
              (syntax-line e) (syntax-column e)
              (syntax->datum (typeof e))
@@ -53,7 +65,10 @@
   
   (define (type-env-lookup x) 
     (hash-ref (Γ) (syntax->datum x)
-              (λ () (error 'TYPE-ERROR "Could not find type for variable ~a." (syntax->datum x)))))
+              (λ () 
+                (type-error #:src x
+                            #:msg "Could not find type for variable ~a" x)
+                #;(error 'TYPE-ERROR "Could not find type for variable ~a." (syntax->datum x)))))
 
   ;; returns a new hash table extended with type associations x:τs
   (define (type-env-extend x:τs)
