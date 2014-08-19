@@ -39,12 +39,7 @@
 ;  (printf "~a has type ~a; expected: ~a\n" (syntax->datum e) (syntax->datum (typeof e)) (syntax->datum τ))
   (or (type=? (typeof e) τ)
       (type-error #:src e 
-                  #:msg "~a has type ~a, but should have type ~a" e (typeof e) τ)
-      #;(error 'TYPE-ERROR "~a (~a:~a) has type ~a, but should have type ~a"
-             (syntax->datum e)
-             (syntax-line e) (syntax-column e)
-             (syntax->datum (typeof e))
-             (syntax->datum τ))))
+                  #:msg "~a has type ~a, but should have type ~a" e (typeof e) τ)))
 
 ;; attaches type τ to e (as syntax property)
 (define-for-syntax (⊢ e τ) (syntax-property e 'type τ))
@@ -67,8 +62,7 @@
     (hash-ref (Γ) (syntax->datum x)
               (λ () 
                 (type-error #:src x
-                            #:msg "Could not find type for variable ~a" x)
-                #;(error 'TYPE-ERROR "Could not find type for variable ~a." (syntax->datum x)))))
+                            #:msg "Could not find type for variable ~a" x))))
 
   ;; returns a new hash table extended with type associations x:τs
   (define (type-env-extend x:τs)

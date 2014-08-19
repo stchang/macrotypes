@@ -78,8 +78,6 @@
     [(_ . b:boolean) (⊢ (syntax/loc stx (#%datum . b)) #'Bool)]
     [(_ x) 
      #:when (type-error #:src #'x #:msg "~a has unknown type" #'x)
-            #;(error 'TYPE-ERROR "~a (~a:~a) has unknown type" 
-                     #'x (syntax-line #'x) (syntax-column #'x))
      (syntax/loc stx (#%datum . x))]))
 
 (define-syntax (begin/tc stx)
@@ -170,12 +168,7 @@
                 (type-error #:src stx 
                             #:msg "IF branches have differing types: branch ~a has type ~a and branch ~a has type ~a"
                             #'e1 (typeof #'e1+)
-                            #'e2 (typeof #'e2+))
-                #;(error 'TYPE-ERROR 
-                       "(~a:~a) if branches have differing types: ~a has type ~a and ~a has type ~a"
-                       (syntax-line stx) (syntax-column stx)
-                       (syntax->datum #'e1) (typeof #'e1+)
-                       (syntax->datum #'e2) (typeof #'e2+)))
+                            #'e2 (typeof #'e2+)))
      (⊢ (syntax/loc stx (if e_test+ e1+ e2+)) (typeof #'e1+))]))
 
 ;; lists ----------------------------------------------------------------------
