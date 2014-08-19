@@ -155,9 +155,9 @@
             (null {Queen})
             (first {(Listof Queen)} solns))))))
 
-(check-type-and-result (nqueens 4) : (Listof (Listof Queen)) => (null {(Listof Queens)}))
-#;(check-type-and-result (nqueens 6) 
- : (Listof Queen) => (list {Queen} (Q 1 2)))
+(check-type-and-result (nqueens 4) 
+ : (Listof (Listof Queen)) 
+ => (list {Queen} (Q 4 3) (Q 3 1) (Q 2 4) (Q 1 2)))
 
 ;; testing for variable capture
 (define (polyf {X} [x : X]) : X x)
