@@ -19,16 +19,15 @@
  (rename-out
   [λ/tc λ] [app/tc #%app] [let/tc let] [define/tc define]
   [begin/tc begin] [void/tc void]
-  [if/tc if] #;[+/tc +] 
+  [if/tc if]
   [datum/tc #%datum] [module-begin/tc #%module-begin]
   [cons/tc cons] [null/tc null] [null?/tc null?] [first/tc first] [rest/tc rest] [list/tc list]))
 
 ;; Simply-Typed Lambda Calculus+
 ;; Features:
-;; - letrec
-;; - lists
+;; - stlc
 ;; - user (recursive) function definitions
-;; - user (recursive) (variant) type-definitions
+;; - user (recursive) (variant) type-definitions + cases
 
 (define-and-provide-builtin-types Int String Bool → Listof Unit)
 (provide (for-syntax assert-Unit-type assert-Int-type))
@@ -92,14 +91,6 @@
 (define-syntax (void/tc stx)
   (syntax-parse stx
     [(_) (⊢ (syntax/loc stx (void)) #'Unit)]))
-
-
-#;(define-syntax (+/tc stx)
-  (syntax-parse stx
-    [(_ e ...)
-     #:with (e+ ...) (stx-map expand/df #'(e ...))
-     #:when (stx-andmap assert-Int-type #'(e+ ...))
-     (⊢ (syntax/loc stx (+ e+ ...)) #'Int)]))
 
 (define-syntax (define-prim stx)
   (syntax-parse stx
