@@ -1,6 +1,6 @@
 #lang racket/base
 (require (for-syntax racket/base syntax/parse syntax/stx racket/syntax
-                     racket/set racket/list
+                     racket/set racket/list racket/function
                      "stx-utils.rkt")
          (for-meta 2 racket/base syntax/parse))
 (provide (all-defined-out)
@@ -30,7 +30,11 @@
     [(x:id y:id) (free-identifier=? τ1 τ2)]
     [(∀τ1 ∀τ2)
      #:with (∀ τvars1 τ_body1) #'∀τ1 
+     #:fail-unless (stx-pair? #'τvars1) "Must provide a list of type variables."
+     #:fail-when (check-duplicate-identifier (syntax->list #'τvars1)) "Given duplicate identifiers"
      #:with (∀ τvars2 τ_body2) #'∀τ2
+     #:fail-unless (stx-pair? #'τvars2) "Must provide a list of type variables."
+     #:fail-when (check-duplicate-identifier (syntax->list #'τvars2)) "Given duplicate identifiers"
      #:with fresh-τvars (generate-temporaries #'τvars1)
      ;; to handle α-equiv, for apply-forall with same vars
      (and (= (length (syntax->list #'τvars1))
@@ -86,14 +90,35 @@
        #'(parameterize ([Γ (type-env-extend x-τs)]) e)])))
 
 ;; apply-forall ---------------------------------------------------------------
+(define-for-syntax (subst x τ mainτ)
+  (syntax-parse mainτ #:datum-literals (∀)
+    [y:id
+     #:when (free-identifier=? #'y x)
+     τ]
+    [y:id #'y]
+    [∀τ
+     #:with (∀ tyvars τbody) #'∀τ
+     #:when (stx-member x #'tyvars)
+     #'∀τ]
+    [∀τ
+     #:with (∀ tyvars τbody) #'∀τ
+     #:when (not (stx-member x #'tyvars))
+     #`(∀ tyvars #,(subst x τ #'τbody))]
+    [(tycon:id τarg ...)
+     #:with (τarg/subst ...) (stx-map (curry subst x τ) #'(τarg ...))
+     #'(tycon τarg/subst ...)]))
 (define-for-syntax (apply-forall ∀τ τs)
-;  (printf "apply:~a\n~a\n" ∀τ τs)
+  (syntax-parse ∀τ #:datum-literals (∀)
+    [(∀ (X ...) body)
+     (foldl subst #'body (syntax->list #'(X ...)) (syntax->list τs))]))
+#;(define-for-syntax (apply-forall ∀τ τs)
+;  (printf "applying ∀:~a to ~a\n" (syntax->datum ∀τ) (syntax->datum τs))
   (define ctx (syntax-local-make-definition-context))
   (define id (generate-temporary))
   (syntax-local-bind-syntaxes
    (list id)
-   (syntax-parse ∀τ #:datum-literals (∀)
-     [(∀ (X ...) τbody)
+   (syntax-parse ∀τ #:datum-literals (∀/internal)
+     [(∀/internal (X ...) τbody)
       #'(λ (stx)
           (syntax-parse stx
             [(_ (τ (... ...)))
