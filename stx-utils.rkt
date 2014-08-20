@@ -10,3 +10,5 @@
 (define (curly-parens? stx)
   (define paren-prop (syntax-property stx 'paren-shape))
   (and paren-prop (char=? #\{ paren-prop)))
+(define (stx-member v stx)
+  (member v (syntax->list stx) free-identifier=?))
