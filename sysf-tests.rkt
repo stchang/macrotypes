@@ -22,7 +22,7 @@
  (map/List {Int Int} add1 (Cons {Int} 1 (Cons {Int} 2 (Null {Int}))))
  : (MyList Int) => (Cons {Int} 2 (Cons {Int} 3 (Null {Int}))))
 (check-type-and-result
- (map/List {Int Bool} (λ {[x : Int]} #f) (Cons {Int} 1 (Cons {Int} 2 (Null {Int}))))
+ (map/List {Int Bool} (λ ([x : Int]) #f) (Cons {Int} 1 (Cons {Int} 2 (Null {Int}))))
  : (MyList Bool) => (Cons {Bool} #f (Cons {Bool} #f (Null {Bool}))))
 ;; fails without inst (2014-08-18)
 ;; - Typed Racket also requires inst
@@ -167,18 +167,23 @@
 (define (polyf2 {X} [x : X]) : (∀ (X) (→ X X)) polyf)
 (check-type polyf2 : (∀ (X) (→ X (∀ (X) (→ X X)))))
 
-; the following test fails bc X gets captured (2014-08-18)
-; - 2014-08-20: fixed
-; - 2014-08-20: backed out fix, so renamer is equiv to redex's "subst-vars"
+;; the following test fails bc X gets captured (2014-08-18)
+;; - 2014-08-20: fixed
+;; - 2014-08-20: backed out fix, so renamer is equiv to redex's "subst-vars"
 ;;  Capture is actually ok because the binder gets renamed as well.
 ;;  Since types are names anyways, it's ok.
 ;;  Eg, the following example has type (→ Int (∀ (Int) (→ Int Int))), which is ok
+; - 2014-08-20: changed my mind again,
+;;    capture is not ok when forall is applied to non-base types, ie →
+;;    (see test below)
+;; - 2014-08-20: fixed by implementing manual subst
 (check-type (inst polyf2 Int) : (→ Int (∀ (X) (→ X X))))
 ;; the following test "fails" bc forall is nested
 ;; - Typed Racket has same behavior, so ok
 (check-type-error (inst (inst polyf2 Int) Bool))
 (check-type-error ((inst polyf2 Int) #f))
 ;; again, the following example has type (∀ (Int) (→ Int Int)), which is ok
+;; - 2014-08-20: fixed by impl manual subst
 (check-type ((inst polyf2 Int) 1) : (∀ (X) (→ X X)))
 (check-type (inst ((inst polyf2 Int) 1) Bool) : (→ Bool Bool))
 ;; test same example with type-instantiating apply instead of inst
@@ -186,3 +191,7 @@
 (check-type-error (polyf2 {Int} #f))
 (check-type-and-result ((polyf2 {Int} 1) {Bool} #f) : Bool => #f)
 (check-type-error ((polyf2 {Int} 1) {Bool} 2))
+
+(check-type (inst polyf (→ Int Int)) : (→ (→ Int Int) (→ Int Int)))
+;; the follow test fails because the binder is renamed to (→ Int Int)
+(check-type (inst polyf2 (→ Int Int)) : (→ (→ Int Int) (∀ (X) (→ X X))))
