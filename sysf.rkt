@@ -43,7 +43,15 @@
      #:with e+ (expand/df #'e)
      #:with (∀ (X ...) τbody) (typeof #'e+)
      #:with τinst (apply-forall (typeof #'e+) #'(τ ...))
-     (⊢ #'e+ #'τinst)]))
+     (⊢ #'e+ #'τinst)]
+    [(_ e τ ...) ; error if not ∀ type
+     #:with τ_e (typeof (expand/df #'e))
+     #:when 
+     (type-error 
+      #:src #'e
+      #:msg "Could not instantiate expression ~a with non-polymorphic type ~a"
+            #'e #'τ_e)
+     #f]))
 
 ;; cases ----------------------------------------------------------------------
 (define-syntax (cases stx)
@@ -78,8 +86,8 @@
   (syntax-parse stx #:datum-literals (:)
     ;; most of the code from this case, except for the curly? check,
     ;; is copied from stlc:λ
-    [(_ τs ([x:id : τ] ...) e ... e_result)
-     #:when (curly-parens? #'τs)
+    [(_ τvars ([x:id : τ] ...) e ... e_result)
+     #:when (curly-parens? #'τvars)
      ;; the with-extended-type-env must be outside the expand/df (instead of
      ;; around just the body) bc ow the parameter will get restored to the old
      ;; value before the local-expand happens
@@ -93,10 +101,15 @@
                                    (stx-map 
                                     (λ (e) (if (identifier? e) (expand/df e) e))
                                     #'(e+ ... e_result+)))
-     ;; manually handle the implicit begin
+     ;; manually typecheck the implicit begin
      #:when (stx-map assert-Unit-type #'(e++ ...))
      #:with τ_body (typeof #'e_result++)
-     (⊢ (syntax/loc stx (lam xs e++ ... e_result++)) #'(∀ τs (→ τ ... τ_body)))]
+     ;; rename binders before creating ∀ type, 
+     ;; to avoid capture when ∀s are nested
+;     #:with fresh-τvars (generate-temporaries #'τvars)
+;     #:with (→ τ_res ...) (apply-forall #'(∀ τvars (→ τ ... τ_body)) #'fresh-τvars)
+;     (⊢ (syntax/loc stx (lam xs e++ ... e_result++)) #'(∀ fresh-τvars (→ τ_res ...)))]
+     (⊢ (syntax/loc stx (lam xs e++ ... e_result++)) #'(∀ τvars (→ τ ... τ_body)))]
     [(_ any ...) #'(stlc:λ any ...)]))
 
 ; define ----------------------------------------------------------------------
@@ -104,15 +117,23 @@
   (syntax-parse stx #:datum-literals (:)
     ;; most of the code from this case, except for the curly? check,
     ;; is copied from stlc:define
-    [(_ (f:id τs [x:id : τ] ...) : τ_result e ...)
-     #:when (curly-parens? #'τs)
-     #:when (Γ (type-env-extend #'([f (∀ τs (→ τ ... τ_result))])))
-     #'(define f (λ/tc τs ([x : τ] ...) e ...))]
+    [(_ (f:id τvars [x:id : τ] ...) : τ_result e ...)
+     #:when (curly-parens? #'τvars)
+     ;; rename binders before creating ∀ type, 
+     ;; to avoid capture when ∀s are nested
+;     #:with fresh-τvars (generate-temporaries #'τvars)
+;     #:with (→ τ/renamed ...) (apply-forall #'(∀ τvars (→ τ ... τ_result)) #'fresh-τvars)
+;     #:when (Γ (type-env-extend #'([f (∀ fresh-τvars (→ τ/renamed ...))])))
+     #:when (Γ (type-env-extend #'([f (∀ τvars (→ τ ... τ_result))])))
+     #'(define f (λ/tc τvars ([x : τ] ...) e ...))]
     [(_ any ...) #'(stlc:define any ...)]))
 
 ; #%app -----------------------------------------------------------------------
 (define-syntax (app/tc stx)
   (syntax-parse stx #:literals (→ void)
+    ; this case only triggered by testing forms, eg check-type
+    ; more specifically, types should never get expanded, except when testing
+    [(_ → arg ...) #'(→ arg ...)]
     [(_ e_fn τs e_arg ...)
      #:when (curly-parens? #'τs)
      #:with (e_fn+ e_arg+ ...) (stx-map expand/df #'(e_fn e_arg ...))
@@ -128,7 +149,10 @@
     [(_ e_fn e_arg ...)
      #:with e_fn+ (expand/df #'e_fn)
      #:with (∀ (X ...) (→ τX ...)) (typeof #'e_fn+)
-     #:when (error 'TYPE-ERROR
+     #:when (type-error #:src #'stx
+                        #:msg "Missing type instantiation(s) in application: ~a"
+                              #'(e_fn e_arg ...))
+            #;(error 'TYPE-ERROR
                    "(~a:~a) Missing type instantiation(s) in application: ~a"
                    (syntax-line stx) (syntax-column stx)
                    (syntax->datum #'(e_fn e_arg ...)))

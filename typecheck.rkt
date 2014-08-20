@@ -26,9 +26,17 @@
 
 (define-for-syntax (type=? τ1 τ2)
 ;  (printf "type= ~a ~a\n" (syntax->datum τ1) (syntax->datum τ2))
-  (syntax-parse #`(#,τ1 #,τ2)
+  (syntax-parse #`(#,τ1 #,τ2) #:datum-literals (∀)
     [(x:id y:id) (free-identifier=? τ1 τ2)]
-    [((tycon1 τ1 ...) (tycon2 τ2 ...)) 
+    [(∀τ1 ∀τ2)
+     #:with (∀ τvars1 τ_body1) #'∀τ1 
+     #:with (∀ τvars2 τ_body2) #'∀τ2
+     #:with fresh-τvars (generate-temporaries #'τvars1)
+     ;; to handle α-equiv, for apply-forall with same vars
+     (and (= (length (syntax->list #'τvars1))
+             (length (syntax->list #'τvars2)))
+          (type=? (apply-forall #'∀τ1 #'fresh-τvars) (apply-forall #'∀τ2 #'fresh-τvars)))]
+    [((tycon1:id τ1 ...) (tycon2:id τ2 ...)) 
      (and (free-identifier=? #'tycon1 #'tycon2)
           (= (length (syntax->list #'(τ1 ...))) (length (syntax->list #'(τ2 ...))))
           (stx-andmap type=? #'(τ1 ...) #'(τ2 ...)))]
@@ -55,7 +63,8 @@
   ;;   because env must be set before expanding λ body (ie before going under λ)
   ;;   so x's in the body won't be free-id=? to the one in the table
   ;; use symbols instead of identifiers for now --- should be fine because
-  ;; I'm manually managing the environment
+  ;; I'm manually managing the environment, and surface language has no macros
+  ;; so I know all the binding forms
   (define Γ (make-parameter base-type-env))
   
   (define (type-env-lookup x) 
@@ -78,6 +87,7 @@
 
 ;; apply-forall ---------------------------------------------------------------
 (define-for-syntax (apply-forall ∀τ τs)
+;  (printf "apply:~a\n~a\n" ∀τ τs)
   (define ctx (syntax-local-make-definition-context))
   (define id (generate-temporary))
   (syntax-local-bind-syntaxes

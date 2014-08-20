@@ -25,6 +25,8 @@
  (map/List {Int Bool} (λ {[x : Int]} #f) (Cons {Int} 1 (Cons {Int} 2 (Null {Int}))))
  : (MyList Bool) => (Cons {Bool} #f (Cons {Bool} #f (Null {Bool}))))
 ;; fails without inst (2014-08-18)
+;; - Typed Racket also requires inst
+;; - OCaml does not require inst
 (check-type-and-result
  (map/List {Int Bool} (inst (λ {X} {[x : X]} #f) Int) (Cons {Int} 1 (Cons {Int} 2 (Null {Int}))))
  : (MyList Bool) => (Cons {Bool} #f (Cons {Bool} #f (Null {Bool}))))
@@ -164,5 +166,23 @@
 (check-type polyf : (∀ (X) (→ X X)))
 (define (polyf2 {X} [x : X]) : (∀ (X) (→ X X)) polyf)
 (check-type polyf2 : (∀ (X) (→ X (∀ (X) (→ X X)))))
-; fails bc X gets captured (2014-08-18)
-;(check-type (inst polyf2 Int) : (→ Int (∀ (X) (→ X X))))
+
+; the following test fails bc X gets captured (2014-08-18)
+; - 2014-08-20: fixed
+; - 2014-08-20: backed out fix, so renamer is equiv to redex's "subst-vars"
+;;  Capture is actually ok because the binder gets renamed as well.
+;;  Since types are names anyways, it's ok.
+;;  Eg, the following example has type (→ Int (∀ (Int) (→ Int Int))), which is ok
+(check-type (inst polyf2 Int) : (→ Int (∀ (X) (→ X X))))
+;; the following test "fails" bc forall is nested
+;; - Typed Racket has same behavior, so ok
+(check-type-error (inst (inst polyf2 Int) Bool))
+(check-type-error ((inst polyf2 Int) #f))
+;; again, the following example has type (∀ (Int) (→ Int Int)), which is ok
+(check-type ((inst polyf2 Int) 1) : (∀ (X) (→ X X)))
+(check-type (inst ((inst polyf2 Int) 1) Bool) : (→ Bool Bool))
+;; test same example with type-instantiating apply instead of inst
+(check-type (polyf2 {Int} 1) : (∀ (Y) (→ Y Y)))
+(check-type-error (polyf2 {Int} #f))
+(check-type-and-result ((polyf2 {Int} 1) {Bool} #f) : Bool => #f)
+(check-type-error ((polyf2 {Int} 1) {Bool} 2))
