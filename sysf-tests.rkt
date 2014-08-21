@@ -6,14 +6,14 @@
 (check-type (Just {Int} 1) : (Maybe Int))
 (check-type-error (Just {Int} #f))
 (check-not-type (Just {Int} 1) : (Maybe Bool))
-(check-type (λ {X} ([x : X]) x) : (∀ (X) (→ X X)))
+(check-type (λ {X} ([x : X]) x) : (∀ (X) (X → X)))
 (check-type-error ((λ ([x : X]) x) 1))
 
 ;; lists
 (define-type (MyList X) (variant (Null) (Cons X (MyList X))))
 (check-type (Null {Int}) : (MyList Int))
 (check-type (Cons {Int} 1 (Null {Int})) : (MyList Int))
-(define (map/List {A B} [f : (→ A B)] [lst : (MyList A)]) : (MyList B)
+(define (map/List {A B} [f : (A → B)] [lst : (MyList A)]) : (MyList B)
   (cases {A} lst
     [Null () (Null {B})]
     [Cons (x xs) (Cons {B} (f {A B} x) (map/List {A B} f xs))]))
@@ -36,7 +36,7 @@
 (check-type-error (list {Int} 1 2 #f))
 (check-type-error (list {Bool} 1 2 3))
 ;; map
-(define (map {A B} [f : (→ A B)] [lst : (Listof A)]) : (Listof B)
+(define (map {A B} [f : (A → B)] [lst : (Listof A)]) : (Listof B)
   (if (null? {A} lst)
       (null {B})
       (cons {B} (f {A B} (first {A} lst)) (map {A B} f (rest {A} lst)))))
@@ -50,7 +50,7 @@
 (define-type Queen (Q Int Int))
 
 ;; filter
-(define (filter {A} [p? : (→ A Bool)] [lst : (Listof A)]) : (Listof A)
+(define (filter {A} [p? : (A → Bool)] [lst : (Listof A)]) : (Listof A)
   (if (null? {A} lst)
       (null {A})
       (let ([x (first {A} lst)])
@@ -63,7 +63,7 @@
  : (Listof Int) => (list {Int} 1 2 3 4 6 7))
 
 ;; foldr
-(define (foldr {A B} [f : (→ A B B)] [base : B] [lst : (Listof A)]) : B
+(define (foldr {A B} [f : (A B → B)] [base : B] [lst : (Listof A)]) : B
   (if (null? {A} lst)
       base
       (f (first {A} lst) (foldr {A B} f base (rest {A} lst)))))
@@ -71,7 +71,7 @@
 (check-type-and-result (foldr {Int Int} + 0 (build-list {Int} add1 4)) : Int => 10)
 
 ;; foldl
-(define (foldl {A B} [f : (→ A B B)] [acc : B] [lst : (Listof A)]) : B
+(define (foldl {A B} [f : (A B → B)] [acc : B] [lst : (Listof A)]) : B
   (if (null? {A} lst)
       acc
       (foldl {A B} f (f (first {A} lst) acc) (rest {A} lst))))
@@ -90,7 +90,7 @@
 (check-type-error (tails {Int} (list {Bool} 1 2 3)))
 (check-not-type (tails {Int} (list {Int} 1 2 3)) : (Listof Int))
 
-(define (andmap {A} [f : (→ A Bool)] [lst : (Listof A)]) : Bool
+(define (andmap {A} [f : (A → Bool)] [lst : (Listof A)]) : Bool
   (if (null? {A} lst)
       #t
       (and (f (first {A} lst)) (andmap {A} f (rest {A} lst)))))
@@ -112,16 +112,16 @@
       (let ([q1 (first {Queen} lst)])
         (andmap {Queen} (λ ([q2 : Queen]) (safe? q1 q2)) (rest {Queen} lst)))))
 
-(check-type safe/list? : (→ (Listof Queen) Bool))
+(check-type safe/list? : ((Listof Queen) → Bool))
 
 (define (valid? [lst : (Listof Queen)]) : Bool
   (andmap {(Listof Queen)} safe/list? (tails {Queen} lst)))
 
-(define (build-list-help {A} [f : (→ Int A)] [n : Int] [m : Int]) : (Listof A)
+(define (build-list-help {A} [f : (Int → A)] [n : Int] [m : Int]) : (Listof A)
   (if (= n m)
       (null {A})
       (cons {A} (f {A} n) (build-list-help {A} f (add1 n) m))))
-(define (build-list {A} [f : (→ Int A)] [n : Int]) : (Listof A)
+(define (build-list {A} [f : (Int → A)] [n : Int]) : (Listof A)
   (build-list-help {A} f 0 n))
 
 (check-type-and-result (build-list {Int} add1 8)
@@ -163,9 +163,9 @@
 
 ;; testing for variable capture
 (define (polyf {X} [x : X]) : X x)
-(check-type polyf : (∀ (X) (→ X X)))
-(define (polyf2 {X} [x : X]) : (∀ (X) (→ X X)) polyf)
-(check-type polyf2 : (∀ (X) (→ X (∀ (X) (→ X X)))))
+(check-type polyf : (∀ (X) (X → X)))
+(define (polyf2 {X} [x : X]) : (∀ (X) (X → X)) polyf)
+(check-type polyf2 : (∀ (X) (X → (∀ (X) (X → X)))))
 
 ;; the following test fails bc X gets captured (2014-08-18)
 ;; - 2014-08-20: fixed
@@ -177,21 +177,21 @@
 ;;    capture is not ok when forall is applied to non-base types, ie →
 ;;    (see test below)
 ;; - 2014-08-20: fixed by implementing manual subst
-(check-type (inst polyf2 Int) : (→ Int (∀ (X) (→ X X))))
+(check-type (inst polyf2 Int) : (Int → (∀ (X) (X → X))))
 ;; the following test "fails" bc forall is nested
 ;; - Typed Racket has same behavior, so ok
 (check-type-error (inst (inst polyf2 Int) Bool))
 (check-type-error ((inst polyf2 Int) #f))
 ;; again, the following example has type (∀ (Int) (→ Int Int)), which is ok
 ;; - 2014-08-20: fixed by impl manual subst
-(check-type ((inst polyf2 Int) 1) : (∀ (X) (→ X X)))
-(check-type (inst ((inst polyf2 Int) 1) Bool) : (→ Bool Bool))
+(check-type ((inst polyf2 Int) 1) : (∀ (X) (X → X)))
+(check-type (inst ((inst polyf2 Int) 1) Bool) : (Bool → Bool))
 ;; test same example with type-instantiating apply instead of inst
-(check-type (polyf2 {Int} 1) : (∀ (Y) (→ Y Y)))
+(check-type (polyf2 {Int} 1) : (∀ (Y) (Y → Y)))
 (check-type-error (polyf2 {Int} #f))
 (check-type-and-result ((polyf2 {Int} 1) {Bool} #f) : Bool => #f)
 (check-type-error ((polyf2 {Int} 1) {Bool} 2))
 
-(check-type (inst polyf (→ Int Int)) : (→ (→ Int Int) (→ Int Int)))
+(check-type (inst polyf (Int → Int)) : ((Int → Int) → (Int → Int)))
 ;; the follow test fails because the binder is renamed to (→ Int Int)
-(check-type (inst polyf2 (→ Int Int)) : (→ (→ Int Int) (∀ (X) (→ X X))))
+(check-type (inst polyf2 (Int → Int)) : ((Int → Int) → (∀ (X) (X → X))))

@@ -12,3 +12,4 @@
   (and paren-prop (char=? #\{ paren-prop)))
 (define (stx-member v stx)
   (member v (syntax->list stx) free-identifier=?))
+(define (stx-length stx) (length (syntax->list stx)))

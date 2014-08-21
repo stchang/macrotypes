@@ -26,7 +26,7 @@
 
 (define-for-syntax (type=? τ1 τ2)
 ;  (printf "type= ~a ~a\n" (syntax->datum τ1) (syntax->datum τ2))
-  (syntax-parse #`(#,τ1 #,τ2) #:datum-literals (∀)
+  (syntax-parse #`(#,τ1 #,τ2) #:datum-literals (∀ →)
     [(x:id y:id) (free-identifier=? τ1 τ2)]
     [(∀τ1 ∀τ2)
      #:with (∀ τvars1 τ_body1) #'∀τ1 
@@ -40,6 +40,9 @@
      (and (= (length (syntax->list #'τvars1))
              (length (syntax->list #'τvars2)))
           (type=? (apply-forall #'∀τ1 #'fresh-τvars) (apply-forall #'∀τ2 #'fresh-τvars)))]
+    [((τ_arg1 ... → τ_result1) (τ_arg2 ... → τ_result2))
+     (and (= (length (syntax->list #'(τ_arg1 ...))) (length (syntax->list #'(τ_arg2 ...))))
+          (type=? #'τ_result1 #'τ_result2))]
     [((tycon1:id τ1 ...) (tycon2:id τ2 ...)) 
      (and (free-identifier=? #'tycon1 #'tycon2)
           (= (length (syntax->list #'(τ1 ...))) (length (syntax->list #'(τ2 ...))))
@@ -91,7 +94,7 @@
 
 ;; apply-forall ---------------------------------------------------------------
 (define-for-syntax (subst x τ mainτ)
-  (syntax-parse mainτ #:datum-literals (∀)
+  (syntax-parse mainτ #:datum-literals (∀ →)
     [y:id
      #:when (free-identifier=? #'y x)
      τ]
@@ -104,6 +107,12 @@
      #:with (∀ tyvars τbody) #'∀τ
      #:when (not (stx-member x #'tyvars))
      #`(∀ tyvars #,(subst x τ #'τbody))]
+    ;; need the ~and because for the result, I need to use the → literal 
+    ;; from the context of the input, and not the context here
+    [(τ_arg ... (~and (~datum →) arrow) τ_result)
+     #:with (τ_arg/subst ... τ_result/subst) 
+            (stx-map (curry subst x τ) #'(τ_arg ... τ_result))
+      #'(τ_arg/subst ... arrow τ_result/subst)]
     [(tycon:id τarg ...)
      #:with (τarg/subst ...) (stx-map (curry subst x τ) #'(τarg ...))
      #'(tycon τarg/subst ...)]))

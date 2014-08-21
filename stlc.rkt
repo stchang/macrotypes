@@ -39,12 +39,12 @@
   (syntax-parse stx #:datum-literals (variant)
     [(_ τ:id (variant (Cons:id τ_fld ...) ...))
      #:with ((x ...) ...) (stx-map generate-temporaries #'((τ_fld ...) ...))
-     #:when (Γ (type-env-extend #'([Cons (→ τ_fld ... τ)] ...)))
+     #:when (Γ (type-env-extend #'([Cons (τ_fld ... → τ)] ...)))
      #'(begin
          (struct Cons (x ...) #:transparent) ...)]
     [(_ τ:id (Cons:id τ_fld ...))
      #:with (x ...) (generate-temporaries #'(τ_fld ...))
-     #:when (Γ (type-env-extend #'([Cons (→ τ_fld ... τ)])))
+     #:when (Γ (type-env-extend #'([Cons (τ_fld ... → τ)])))
      #'(begin 
          (struct Cons (x ...) #:transparent))]))
 (define-syntax (cases stx)
@@ -52,7 +52,7 @@
     [(_ e [Cons (x ...) body ... body_result] ...)
      #:with e+ (expand/df #'e)
      #:with (Cons+ ...) (stx-map expand/df #'(Cons ...))
-     #:with ((→ τ ... τ_Cons) ...) (stx-map typeof #'(Cons+ ...))
+     #:with ((τ ... → τ_Cons) ...) (stx-map typeof #'(Cons+ ...))
      #:when (stx-andmap (λ (τ) (assert-type #'e+ τ)) #'(τ_Cons ...))
      #:with ((lam (x+ ...) body+ ... body_result+) ...) 
             (stx-map (λ (bods xs τs) 
@@ -91,9 +91,9 @@
   (syntax-parse stx
     [(_) (⊢ (syntax/loc stx (void)) #'Unit)]))
 
-(define-syntax (define-prim stx)
-  (syntax-parse stx
-    [(_ op τ_arg τ_res)
+(define-syntax (define-primop stx)
+  (syntax-parse stx #:datum-literals (:) #:literals (→)
+    [(_ op:id : (τ_arg ... → τ_result))
      #:with op/tc (format-id #'op "~a/tc" #'op)
      #'(begin
          (provide (rename-out [op/tc op]))
@@ -101,17 +101,20 @@
            (syntax-parse stx
              [f:id #'op] ; HO case
              [(_ e (... ...))
-              #:with (e+ (... ...)) (stx-map expand/df #'(e (... ...)))
-              #:when (stx-andmap (λ (τ) (assert-type τ τ_arg)) #'(e+ (... ...)))
-              (⊢ (syntax/loc stx (op e+ (... ...))) τ_res)])))]))
-(define-prim + #'Int #'Int)
-(define-prim - #'Int #'Int)
-(define-prim = #'Int #'Bool)
-(define-prim < #'Int #'Bool)
-(define-prim not #'Bool #'Bool)
-(define-prim or #'Bool #'Bool)
-(define-prim and #'Bool #'Bool)
-(define-prim abs #'Int #'Int)
+              #:with es+ (stx-map expand/df #'(e (... ...))) 
+              #:with τs #'(τ_arg ...)
+              #:fail-unless (= (stx-length #'es+) (stx-length #'τs))
+                            "Wrong number of arguments"
+              #:when (stx-andmap assert-type #'es+ #'τs)
+              (⊢ (quasisyntax/loc stx (op . es+)) #'τ_result)])))]))
+(define-primop + : (Int Int → Int))
+(define-primop - : (Int Int → Int))
+(define-primop = : (Int Int → Bool))
+(define-primop < : (Int Int → Bool))
+(define-primop or : (Bool Bool → Bool))
+(define-primop and : (Bool Bool → Bool))
+(define-primop not : (Bool → Bool))
+(define-primop abs : (Int → Int))
 
 
 (define-syntax (λ/tc stx)
@@ -133,7 +136,7 @@
      ;; manually handle the implicit begin
      #:when (stx-map assert-Unit-type #'(e++ ...))
      #:with τ_body (typeof #'e_result++)
-     (⊢ (syntax/loc stx (lam xs e++ ... e_result++)) #'(→ τ ... τ_body))]))
+     (⊢ (syntax/loc stx (lam xs e++ ... e_result++)) #'(τ ... → τ_body))]))
 
 (define-syntax (let/tc stx)
   (syntax-parse stx #:datum-literals (:)
@@ -153,7 +156,7 @@
     [(_ :t x) #'(printf "~a : ~a\n" 'x (hash-ref runtime-env 'x))]
     [(_ e_fn e_arg ...)
      #:with (e_fn+ e_arg+ ...) (stx-map expand/df #'(e_fn e_arg ...))
-     #:with (→ τ ... τ_res) (typeof #'e_fn+)
+     #:with (τ ... → τ_res) (typeof #'e_fn+)
      #:when (stx-andmap assert-type #'(e_arg+ ...) #'(τ ...))
      (⊢ (syntax/loc stx (#%app e_fn+ e_arg+ ...)) #'τ_res)]))
 
@@ -210,7 +213,7 @@
 (define-syntax (define/tc stx)
   (syntax-parse stx #:datum-literals (:)
     [(_ (f:id [x:id : τ] ...) : τ_result e ...)
-     #:when (Γ (type-env-extend #'([f (→ τ ... τ_result)])))
+     #:when (Γ (type-env-extend #'([f (τ ... → τ_result)])))
      #'(define f (λ/tc ([x : τ] ...) e ...))]
     [(_ x:id e) #'(define x e)]))
 
@@ -281,7 +284,7 @@
      #:with (v ...) #'(deffn+.rhs ...)
      #:with (e ...) (template ((?@ . mb-form.e) ...))
      ;; base type env
-     #:when (Γ (type-env-extend #'((+ (→ Int Int Int)))))
+     #:when (Γ (type-env-extend #'((+ (Int Int → Int)))))
 ;; NOTE: for struct def, define-values *must* come before define-syntaxes
 ;; ow, error: "Just10: unbound identifier; also, no #%top syntax transformer is bound"
      (quasisyntax/loc stx 

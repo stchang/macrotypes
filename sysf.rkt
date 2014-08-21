@@ -54,7 +54,7 @@
   (syntax-parse stx #:datum-literals (variant)
     [(_ (Tycon:id X:id ...) (variant (Cons:id τ_fld ...) ...))
      #:with ((x ...) ...) (stx-map generate-temporaries #'((τ_fld ...) ...))
-     #:when (Γ (type-env-extend #'([Cons (∀ (X ...) (→ τ_fld ... (Tycon X ...)))] ...)))
+     #:when (Γ (type-env-extend #'([Cons (∀ (X ...) (τ_fld ... → (Tycon X ...)))] ...)))
      #'(begin ; should be racket begin
          (struct Cons (x ...) #:transparent) ...)]
     [(_ any ...) #'(stlc:define-type any ...)]))
@@ -76,12 +76,12 @@
 
 ;; cases ----------------------------------------------------------------------
 (define-syntax (cases stx)
-  (syntax-parse stx #:literals (∀)
+  (syntax-parse stx #:literals (∀ →)
     [(_ τs:inst-τs e [Cons (x ...) body ... body_result] ...)
      #:with e+ (expand/df #'e)
      #:with (Cons+ ...) (stx-map expand/df #'(Cons ...))
      #:with (τ_Cons:∀τ ...) (stx-map typeof #'(Cons+ ...))
-     #:with ((→ τ ... τ_res) ...) 
+     #:with ((τ ... → τ_res) ...) 
             (stx-map (λ (∀τ) (apply-forall ∀τ #'τs)) #'(τ_Cons ...))
      ;; check constructor type in every branch matches expr being matched
      #:when (stx-andmap (λ (τ) (assert-type #'e+ τ)) #'(τ_res ...))
@@ -124,7 +124,7 @@
      ;; manually typecheck the implicit begin
      #:when (stx-map assert-Unit-type #'(e++ ...))
      #:with τ_body (typeof #'e_result++)
-     (⊢ (syntax/loc stx (lam xs e++ ... e_result++)) #'(∀ tvs (→ τ ... τ_body)))]
+     (⊢ (syntax/loc stx (lam xs e++ ... e_result++)) #'(∀ tvs (τ ... → τ_body)))]
     [(_ any ...) #'(stlc:λ any ...)]))
 
 ; define ----------------------------------------------------------------------
@@ -133,7 +133,7 @@
     ;; most of the code from this case, except for the curly? check,
     ;; is copied from stlc:define
     [(_ (f:id tvs:tyvars [x:id : τ] ...) : τ_result e ...)
-     #:when (Γ (type-env-extend #'([f (∀ tvs (→ τ ... τ_result))])))
+     #:when (Γ (type-env-extend #'([f (∀ tvs (τ ... → τ_result))])))
      #'(define f (λ/tc tvs ([x : τ] ...) e ...))]
     [(_ any ...) #'(stlc:define any ...)]))
 
@@ -146,7 +146,7 @@
     [(_ e_fn τs:inst-τs e_arg ...)
      #:with (e_fn+ e_arg+ ...) (stx-map expand/df #'(e_fn e_arg ...))
      #:with τ_fn:∀τ (typeof #'e_fn+)
-     #:with (→ τ_arg ... τ_res) (apply-forall #'τ_fn #'τs)
+     #:with (τ_arg ... → τ_res) (apply-forall #'τ_fn #'τs)
      #:when (stx-andmap assert-type #'(e_arg+ ...) #'(τ_arg ...))
      (⊢ (syntax/loc stx (#%app e_fn+ e_arg+ ...)) #'τ_res)]
     ;; handle type apply of non-poly fn here; just pass through

@@ -6,19 +6,19 @@
 (check-type-and-result ((λ ([x : Int]) (+ x 1)) 10) : Int => 11)
 
 ; check fns with literal or id bodies
-(check-type (λ ([x : Int]) x) : (→ Int Int))
-(check-type (λ ([x : Unit] [y : Int]) x y) : (→ Unit Int Int))
+(check-type (λ ([x : Int]) x) : (Int → Int))
+(check-type (λ ([x : Unit] [y : Int]) x y) : (Unit Int → Int))
 
 ;; check fns with multi-expr body
-(check-type (λ ([x : Int]) (void) x) : (→ Int Int))
+(check-type (λ ([x : Int]) (void) x) : (Int → Int))
 (check-type-error (λ ([x : Int]) 1 x))
-(check-type (λ ([x : Int]) (void) (void) x) : (→ Int Int))
+(check-type (λ ([x : Int]) (void) (void) x) : (Int → Int))
 
 ; HO fn
-(check-type-and-result ((λ ([f : (→ Int Int)]) (f 10)) (λ ([x : Int]) (+ x 1))) : Int => 11)
-(check-type (λ ([f : (→ Int Int)]) (f 10)) : (→ (→ Int Int) Int))
-(check-type (λ ([f : (→ Int Int)]) (λ ([x : Int]) (f (f x)))) : (→ (→ Int Int) (→ Int Int)))
-(check-type-error (λ (f : (→ Int Int)) (λ (x : String) (f (f x)))))
+(check-type-and-result ((λ ([f : (Int → Int)]) (f 10)) (λ ([x : Int]) (+ x 1))) : Int => 11)
+(check-type (λ ([f : (Int → Int)]) (f 10)) : ((Int → Int) → Int))
+(check-type (λ ([f : (Int → Int)]) (λ ([x : Int]) (f (f x)))) : ((Int → Int) → (Int → Int)))
+(check-type-error (λ (f : (Int → Int)) (λ (x : String) (f (f x)))))
 
 ;; shadowed var
 (check-type-error ((λ ([x : Int]) ((λ ([x : String]) x) x)) 10))
@@ -55,10 +55,10 @@
 (check-type-and-result (begin (+ 1 2)) : Int => 3)
 (check-type-error (begin 1 2))
 
-(check-type (λ ([x : Int]) (void) (+ x 1)) : (→ Int Int))
+(check-type (λ ([x : Int]) (void) (+ x 1)) : (Int → Int))
 (check-type-error (λ ([x : Int]) 1 1))
-(check-type (λ ([x : Int] [y : Int]) (+ x y)) : (→ Int Int Int))
-(check-type-and-result ((λ ([a : Int] [b : Int] [c : Int]) (void) (void) (+ a b c)) 1 2 3)
+(check-type (λ ([x : Int] [y : Int]) (+ x y)) : (Int Int → Int))
+(check-type-and-result ((λ ([a : Int] [b : Int] [c : Int]) (void) (void) (+ a (+ b c))) 1 2 3)
                        : Int => 6)
 
 ; define
@@ -81,7 +81,7 @@
 ;;; recursive fn
 (define (add1 [x : Int]) : Int
   (+ x 1))
-(define (map [f : (→ Int Int)] [lst : (Listof Int)]) : (Listof Int)
+(define (map [f : (Int → Int)] [lst : (Listof Int)]) : (Listof Int)
   (if (null? {Int} lst)
       (null {Int})
       (cons {Int} (f (first {Int} lst)) (map f (rest {Int} lst)))))
@@ -119,7 +119,7 @@
 (check-type-and-result (Cons 1 (Null)) : IntList => (Cons 1 (Null)))
 (check-type-error (Cons "one" (Null)))
 (check-type-error (Cons 1 2))
-(define (map/IntList [f : (→ Int Int)] [lst : IntList]) : IntList
+(define (map/IntList [f : (Int → Int)] [lst : IntList]) : IntList
   (cases lst
     [Null () (Null)]
     [Cons (x xs) (Cons (f x) (map/IntList f xs))]))
@@ -129,7 +129,7 @@
                        : IntList => (Cons 3 (Cons 2 (Null))))
 (check-type-error (map/IntList (λ ([n : Int]) #f) (Null)))
 (define-type BoolList (variant (BoolNull) (BoolCons Bool BoolList)))
-(define (map/BoolList [f : (→ Bool Int)] [lst : BoolList]) : IntList
+(define (map/BoolList [f : (Bool → Int)] [lst : BoolList]) : IntList
   (cases lst
     [BoolNull () (Null)]
     [BoolCons (x xs) (Cons (f x) (map/BoolList f xs))]))
@@ -143,7 +143,7 @@
               (cases lst
                 [Null () (None)]
                 [Cons (x xs) (Just x)]))
-            : (→ IntList MaybeInt))
+            : (IntList → MaybeInt))
 (check-type ((λ ([lst : IntList]) 
               (cases lst
                 [Null () (None)]
