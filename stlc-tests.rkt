@@ -1,4 +1,4 @@
-#lang s-exp "stlc.rkt"
+#lang s-exp "stlc+define+cons.rkt"
 
 (check-type-error ((λ ([x : Int]) (+ x 1)) "10"))
 (check-type ((λ ([x : Int]) (+ x 1)) 10) : Int)

@@ -6,7 +6,12 @@
               "stx-utils.rkt")
   (for-meta 2 racket/base syntax/parse)
   "typecheck.rkt")
-(provide 
+
+(require (except-in "stlc.rkt" #%app #%datum λ #%module-begin))
+(require (prefix-in stlc: "stlc.rkt"))
+(provide (all-from-out "stlc.rkt"))
+
+#;(provide 
  (except-out
   (all-from-out racket/base) 
   λ #%app #%datum let cons null null? list begin void
@@ -17,22 +22,35 @@
 (provide
  define-type cases
  (rename-out
-  [λ/tc λ] [app/tc #%app] [let/tc let] [define/tc define]
-  [begin/tc begin] [void/tc void]
+  [datum/tc #%datum]
+  [void/tc void] #;[printf/tc printf]
+  [λ/tc λ] [let/tc let] #;[app/tc #%app] 
+  [stlc:#%app #%app] ; need to re-provide so this file uses #%app instead of stlc:#%app
+  [define/tc define]
+  [begin/tc begin] 
   [if/tc if]
   [datum/tc #%datum] [module-begin/tc #%module-begin]
   [cons/tc cons] [null/tc null] [null?/tc null?] [first/tc first] [rest/tc rest] [list/tc list]))
 
 ;; Simply-Typed Lambda Calculus+
+;; - stlc extended with practical language feature
+;; - implemented in racket
 ;; Features:
 ;; - stlc
+;; - multi-expr lam bodies
+;; - printing
+;; - cons + listops
+;; - more prim types (bool, string)
+;; - more prim ops
 ;; - user (recursive) function definitions
 ;; - user (recursive) (variant) type-definitions + cases
 
-(define-and-provide-builtin-types Int String Bool → Listof Unit)
-(provide (for-syntax assert-Unit-type assert-Int-type))
+;(define-and-provide-builtin-types Int String Bool → Listof Unit)
+(define-and-provide-builtin-types String Bool Listof Unit)
+;(provide (for-syntax assert-Unit-type assert-Int-type))
+(provide (for-syntax assert-Unit-type))
 (define-for-syntax (assert-Unit-type e) (assert-type e #'Unit))
-(define-for-syntax (assert-Int-type e) (assert-type e #'Int))
+;(define-for-syntax (assert-Int-type e) (assert-type e #'Int))
 
 ;; define-type ----------------------------------------------------------------
 (define-syntax (define-type stx)
@@ -73,11 +91,12 @@
 ;; typed forms ----------------------------------------------------------------
 (define-syntax (datum/tc stx)
   (syntax-parse stx
-    [(_ . n:integer) (⊢ (syntax/loc stx (#%datum . n)) #'Int)]
+    ;[(_ . n:integer) (⊢ (syntax/loc stx (#%datum . n)) #'Int)]
     [(_ . s:str) (⊢ (syntax/loc stx (#%datum . s)) #'String)]
     [(_ . b:boolean) (⊢ (syntax/loc stx (#%datum . b)) #'Bool)]
-    [(_ x) 
-     #:when (type-error #:src #'x #:msg "~a has unknown type" #'x)
+    [(_ . x) #'(stlc:#%datum . x)]
+    #;[(_ x) 
+     #:when (type-error #:src #'x #:msg "Literal ~a has unknown type" #'x)
      (syntax/loc stx (#%datum . x))]))
 
 (define-syntax (begin/tc stx)
@@ -90,8 +109,11 @@
 (define-syntax (void/tc stx)
   (syntax-parse stx
     [(_) (⊢ (syntax/loc stx (void)) #'Unit)]))
+(define-syntax (printf/tc stx)
+  (syntax-parse stx
+    [(_ str . args) (⊢ (syntax/loc stx (printf str . args)) #'Unit)]))
 
-(define-syntax (define-primop stx)
+#;(define-syntax (define-primop stx)
   (syntax-parse stx #:datum-literals (:) #:literals (→)
     [(_ op:id : (τ_arg ... → τ_result))
      #:with op/tc (format-id #'op "~a/tc" #'op)
@@ -107,7 +129,7 @@
                             "Wrong number of arguments"
               #:when (stx-andmap assert-type #'es+ #'τs)
               (⊢ (quasisyntax/loc stx (op . es+)) #'τ_result)])))]))
-(define-primop + : (Int Int → Int))
+#;(define-primop + : (Int Int → Int))
 (define-primop - : (Int Int → Int))
 (define-primop = : (Int Int → Bool))
 (define-primop < : (Int Int → Bool))
@@ -123,16 +145,14 @@
      ;; the with-extended-type-env must be outside the expand/df (instead of
      ;; around just the body) bc ow the parameter will get restored to the old
      ;; value before the local-expand happens
-     #:with (lam xs e+ ... e_result+) (with-extended-type-env #'([x τ] ...)
-                                        (expand/df #'(λ (x ...) e ... e_result)))
+     #:with (lam xs . es+) (with-extended-type-env #'([x τ] ...)
+                              (expand/df #'(λ (x ...) e ... e_result)))
      ;; manually handle identifiers here
      ;; - since Racket has no #%var hook, ids didn't get "expanded" in the previous line
      ;;   and thus didn't get a type
      ;; TODO: can I put this somewhere else where it's more elegant?
      #:with (e++ ... e_result++) (with-extended-type-env #'([x τ] ...)
-                                   (stx-map 
-                                    (λ (e) (if (identifier? e) (expand/df e) e))
-                                    #'(e+ ... e_result+)))
+                                   (stx-map (λ (e) (if (identifier? e) (expand/df e) e)) #'es+))
      ;; manually handle the implicit begin
      #:when (stx-map assert-Unit-type #'(e++ ...))
      #:with τ_body (typeof #'e_result++)
@@ -150,10 +170,10 @@
      (⊢ (syntax/loc stx (let ([x+ e_x+] ...) e+ ... e_result+)) (typeof #'e_result+))]))
 
 ; #%app
-(define-syntax (app/tc stx)
+#;(define-syntax (app/tc stx)
   (syntax-parse stx #:literals (→ void) 
                     #:datum-literals (:t)
-    [(_ :t x) #'(printf "~a : ~a\n" 'x (hash-ref runtime-env 'x))]
+    ;[(_ :t x) #'(printf "~a : ~a\n" 'x (hash-ref runtime-env 'x))]
     [(_ e_fn e_arg ...)
      #:with (e_fn+ e_arg+ ...) (stx-map expand/df #'(e_fn e_arg ...))
      #:with (τ ... → τ_res) (typeof #'e_fn+)
