@@ -1,0 +1,53 @@
+***** 2014-08-21 *****
+
+Language hierarchy + accompanying test file:
+(each language extension should run all the previous langs' test files)
+
+stlc.rkt
+stlc+mod-begin.rkt
+stlc+define.rkt
+sysf.rkt
+
+***** 2014-08-20 *****
+- still trying to solve the issue with the impl of forall instantiation
+- summary below of failures so far
+
+#### Attempt #1: 
+
+naive substitution during instantiation (ie redex's "subst-vars")
+
+# Extended Description / Why I Thought It Would Work:
+- instantiation is just substitution, so why not re-use the built-in
+  substitution of pattern variables/templates?
+- this does naive substitution, ie renames everything, even binders
+- I thought it would be ok since, types are just names
+  eg (forall (X) (-> X (forall (X) (-> X X)))) applied to Int becomes
+     (-> Int (forall (Int) (-> Int Int))), which is valid
+
+# Failed Because:
+- if you apply a forall to a non-identifier type, ie (-> Int Int),
+  the result is an invalid type
+
+##### Attempt #2: 
+
+Define forall as a macro that when it expands, renames binders and refs to 
+something unique (ala gensym).
+
+# Extended Description:
+- requires manual expansion since I took over the expansion of the program
+  via local-expand
+
+# Failed Because:
+- every type must get expanded before use, which means that every type
+  constructor must get redefined to expand its subtypes
+- not sure how to do this for user-defined types
+
+# Other Notes:
+- I think this means I can't expect to do any preprocessing
+
+##### Attempt #3:
+
+Just manually substitute, checking for the binding forms (ie forall) to avoid
+capture.
+
+Working so far.
