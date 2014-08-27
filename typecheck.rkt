@@ -12,9 +12,11 @@
   ;;            #:msg msg-string msg-args ...
   ;; msg-args should be syntax
   (define-syntax-rule (type-error #:src stx-src #:msg msg args ...)
-    (error 'TYPE-ERROR 
-           (string-append "(~a:~a) " msg) 
-           (syntax-line stx-src) (syntax-column stx-src) (syntax->datum args) ...)))
+    (raise-user-error
+     'TYPE-ERROR
+     (format (string-append "~a (~a:~a): " msg) 
+             (syntax-source stx-src) (syntax-line stx-src) (syntax-column stx-src) 
+             (syntax->datum args) ...))))
 
 ;; for types, just need the identifier bound
 (define-syntax-rule (define-and-provide-builtin-type τ) 
@@ -33,17 +35,30 @@
          (provide (rename-out [op/tc op]))
          (define-syntax (op/tc stx)
            (syntax-parse stx
-             [f:id #'op] ; HO case
+             [f:id ; HO case
+              (⊢ (syntax/loc stx op) 
+;                 #,(if (attribute ldots)
+;                       #'#'(τ_arg ... (... (... ...)) arr τ_result)
+;                       #'#'(τ_arg ... arr τ_result)))]
+                 ;; TODO: for now, just drop the ...
+                 #'(τ_arg ... arr τ_result))]
              [(_ e (... ...))
               #:with es+ (stx-map expand/df #'(e (... ...))) 
               #:with τs #'(τ_arg ...)
-              #:fail-unless (or #,(if (attribute ldots) #t #f)
-                                (= (stx-length #'es+) (stx-length #'τs)))
-                            "Wrong number of arguments"
-              #:with τs-ext (let* ([diff (- (stx-length #'es+) (stx-length #'τs))]
+              #:fail-unless (let ([es-len (stx-length #'es+)]
+                                  [τs-len (sub1 (stx-length #'τs))])
+                              (or (and #,(if (attribute ldots) #t #f)
+                                       (>= (- es-len τs-len) 0))
+                                  (= es-len τs-len)))
+                            #,(if (attribute ldots)
+                                  #'(format "Wrong number of arguments, given ~a, expected at least ~a"
+                                            (stx-length #'es+) (sub1 (stx-length #'τs)))
+                                  #'(format "Wrong number of arguments, given ~a, expected ~a" 
+                                            (stx-length #'es+) (stx-length #'τs)))
+              #:with τs-ext (let* ([diff (- (stx-length #'es+) (sub1 (stx-length #'τs)))]
                                    [last-τ (stx-last #'τs)]
                                    [last-τs (build-list diff (λ _ last-τ))])
-                              (append (syntax->list #'τs) last-τs))
+                              (append (drop-right (syntax->list #'τs) 1) last-τs))
               #:when (stx-andmap assert-type #'es+ #'τs-ext)
               (⊢ (syntax/loc stx (op . es+)) #'τ_result)])))]))
 
@@ -88,6 +103,7 @@
 
 ;; retrieves type of τ (from syntax property)
 (define-for-syntax (typeof stx) (syntax-property stx 'type))
+(define-for-syntax has-type? typeof)
 
 ;; type environment -----------------------------------------------------------
 (begin-for-syntax
@@ -174,7 +190,11 @@
     [(syntax-property e 'constructor-for) => (λ (Cons) 
      (⊢ e (type-env-lookup Cons)))]
     ;; 2nd case handles identifiers that are not struct constructors
-    [(identifier? e) (⊢ e (type-env-lookup e))] ; handle this here bc there's no #%var form
+    [(identifier? e) 
+     ; handle this here bc there's no #%var form
+     ; but some ids, like primops, may already have type
+     (define e+ (local-expand e 'expression null ctx))
+     (if (has-type? e+) e+ (⊢ e (type-env-lookup e)))] 
     ;; local-expand must expand all the way down, ie have no stop-list, ie stop list can't be #f
     ;; ow forms like lambda and app won't get properly assigned types
     [else (local-expand e 'expression null ctx)]))
