@@ -125,7 +125,7 @@
                   ...
                   [(_ . x) 
                    #:when (type-error #:src stx #:msg "Don't know the type for literal: ~a" #'x)
-                   stx]))
+                   (syntax/loc stx (#%datum . x))]))
      (template
       (#%module-begin
        (provide (rename-out [my-datum #%datum]))

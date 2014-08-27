@@ -4,14 +4,15 @@
               syntax/stx racket/syntax
               "stx-utils.rkt")
   "typecheck.rkt")
-(provide (rename-out [λ/tc λ] [app/tc #%app] [datum/tc #%datum] [+/tc +]))
+(provide (rename-out [λ/tc λ] [app/tc #%app] [datum/tc #%datum]))
 (provide #%module-begin #%top-interaction)
 
 ;; Simply-Typed Lambda Calculus
-;; - lam, app, and var only
+;; - lam, app, var, +, and int literals only
 ;; - implemented in racket
 
 (define-and-provide-builtin-types → Int)
+(provide (for-syntax assert-Int-type))
 (define-for-syntax (assert-Int-type e) (assert-type e #'Int))
 
 ;; typed forms ----------------------------------------------------------------
@@ -20,17 +21,12 @@
 (define-syntax (datum/tc stx)
   (syntax-parse stx
     [(_ . n:integer) (⊢ (syntax/loc stx (#%datum . n)) #'Int)]
-    [(_ x) 
-     #:when (type-error #:src #'x #:msg "~a has unknown type" #'x)
+    [(_ . x) 
+     #:when (type-error #:src #'x #:msg "Literal ~a has unknown type." #'x)
      (syntax/loc stx (#%datum . x))]))
 
 ;; op
-(define-syntax (+/tc stx)
-  (syntax-parse stx 
-    [(_ e ...)
-     #:with es+ (stx-map expand/df #'(e ...))
-     #:when (stx-andmap assert-Int-type #'es+)
-     (⊢ (syntax/loc stx (+ . es+)) #'Int)]))
+(define-primop + : (Int ... → Int))
 
 ;; lambda
 (define-syntax (λ/tc stx)

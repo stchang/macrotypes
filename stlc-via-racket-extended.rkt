@@ -5,7 +5,7 @@
 
 ;; Simply-Typed Lambda Calculus
 ;; - implemented with racket-extended language
-;; - lam, app, and var only
+;; - lam, app, var, +, and int literals only
 
 (declare-built-in-types → Int)
 
