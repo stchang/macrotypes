@@ -11,21 +11,15 @@
 (require (prefix-in stlc: "stlc.rkt"))
 (provide (all-from-out "stlc.rkt"))
 
-#;(provide 
- (except-out
-  (all-from-out racket/base) 
-  λ #%app #%datum let cons null null? list begin void
-  + - = < not or and abs
-  #%module-begin if define
-  ))
-
 (provide
  define-type cases
  (rename-out
   [datum/tc #%datum]
-  [void/tc void] #;[printf/tc printf]
-  [λ/tc λ] [let/tc let] #;[app/tc #%app] 
-  [stlc:#%app #%app] ; need to re-provide so this file uses #%app instead of stlc:#%app
+  [void/tc void] [printf/tc printf]
+  [λ/tc λ] [let/tc let]
+  ; for #%app, must prefix and re-provide because this file needs to use racket's #%app
+  [stlc:#%app #%app] 
+  ;[app/tc #%app]
   [define/tc define]
   [begin/tc begin] 
   [if/tc if]
@@ -44,13 +38,12 @@
 ;; - more prim ops
 ;; - user (recursive) function definitions
 ;; - user (recursive) (variant) type-definitions + cases
+;; - var args: TODO: primops can handle multiple args but not general application
 
-;(define-and-provide-builtin-types Int String Bool → Listof Unit)
 (define-and-provide-builtin-types String Bool Listof Unit)
-;(provide (for-syntax assert-Unit-type assert-Int-type))
-(provide (for-syntax assert-Unit-type))
+(provide (for-syntax assert-Unit-type assert-String-type))
 (define-for-syntax (assert-Unit-type e) (assert-type e #'Unit))
-;(define-for-syntax (assert-Int-type e) (assert-type e #'Int))
+(define-for-syntax (assert-String-type e) (assert-type e #'String))
 
 ;; define-type ----------------------------------------------------------------
 (define-syntax (define-type stx)
@@ -91,13 +84,9 @@
 ;; typed forms ----------------------------------------------------------------
 (define-syntax (datum/tc stx)
   (syntax-parse stx
-    ;[(_ . n:integer) (⊢ (syntax/loc stx (#%datum . n)) #'Int)]
     [(_ . s:str) (⊢ (syntax/loc stx (#%datum . s)) #'String)]
     [(_ . b:boolean) (⊢ (syntax/loc stx (#%datum . b)) #'Bool)]
-    [(_ . x) #'(stlc:#%datum . x)]
-    #;[(_ x) 
-     #:when (type-error #:src #'x #:msg "Literal ~a has unknown type" #'x)
-     (syntax/loc stx (#%datum . x))]))
+    [(_ . x) #'(stlc:#%datum . x)]))
 
 (define-syntax (begin/tc stx)
   (syntax-parse stx
@@ -109,32 +98,28 @@
 (define-syntax (void/tc stx)
   (syntax-parse stx
     [(_) (⊢ (syntax/loc stx (void)) #'Unit)]))
+
 (define-syntax (printf/tc stx)
   (syntax-parse stx
-    [(_ str . args) (⊢ (syntax/loc stx (printf str . args)) #'Unit)]))
+    [(_ τs str . args) 
+     #:when (curly-parens? #'τs)
+     #:with str+ (expand/df #'str)
+     #:when (assert-String-type #'str+)
+     #:with args+ (stx-map expand/df #'args)
+     #:when (stx-andmap assert-type #'args+ #'τs)
+     (⊢ (syntax/loc stx (printf str+ . args+)) #'Unit)]
+    [(_ str . args)
+     #:fail-unless (null? (syntax->list #'args)) "Please provide type annotations for arguments"
+     #:with str+ (expand/df #'str)
+     #:when (assert-String-type #'str+)
+     (⊢ (syntax/loc stx (printf str+)) #'Unit)]))
 
-#;(define-syntax (define-primop stx)
-  (syntax-parse stx #:datum-literals (:) #:literals (→)
-    [(_ op:id : (τ_arg ... → τ_result))
-     #:with op/tc (format-id #'op "~a/tc" #'op)
-     #'(begin
-         (provide (rename-out [op/tc op]))
-         (define-syntax (op/tc stx)
-           (syntax-parse stx
-             [f:id #'op] ; HO case
-             [(_ e (... ...))
-              #:with es+ (stx-map expand/df #'(e (... ...))) 
-              #:with τs #'(τ_arg ...)
-              #:fail-unless (= (stx-length #'es+) (stx-length #'τs))
-                            "Wrong number of arguments"
-              #:when (stx-andmap assert-type #'es+ #'τs)
-              (⊢ (quasisyntax/loc stx (op . es+)) #'τ_result)])))]))
-#;(define-primop + : (Int Int → Int))
-(define-primop - : (Int Int → Int))
-(define-primop = : (Int Int → Bool))
-(define-primop < : (Int Int → Bool))
-(define-primop or : (Bool Bool → Bool))
-(define-primop and : (Bool Bool → Bool))
+;(define-primop + : (Int ... → Int))
+(define-primop - : (Int Int ... → Int))
+(define-primop = : (Int Int Int ... → Bool))
+(define-primop < : (Int Int Int ... → Bool))
+(define-primop or : (Bool ... → Bool))
+(define-primop and : (Bool ... → Bool))
 (define-primop not : (Bool → Bool))
 (define-primop abs : (Int → Int))
 
@@ -158,6 +143,17 @@
      #:with τ_body (typeof #'e_result++)
      (⊢ (syntax/loc stx (lam xs e++ ... e_result++)) #'(τ ... → τ_body))]))
 
+;; #%app
+;; TODO: support varargs
+#;(define-syntax (app/tc stx)
+  (syntax-parse stx #:literals (→)
+    [(_ e_fn e_arg ...)
+     #:with (e_fn+ e_arg+ ...) (stx-map expand/df #'(e_fn e_arg ...))
+     #:with (τ ... → τ_res) (typeof #'e_fn+)
+     #:when (stx-andmap assert-type #'(e_arg+ ...) #'(τ ...))
+     (⊢ (syntax/loc stx (#%app e_fn+ e_arg+ ...)) #'τ_res)]
+    [(_ e ...) #'(stlc:#%app e ...)]))
+
 (define-syntax (let/tc stx)
   (syntax-parse stx #:datum-literals (:)
     [(_ ([x:id e_x] ...) e ... e_result)
@@ -168,17 +164,6 @@
               (expand/df #'(λ (x ...) e ... e_result)))
      #:when (stx-andmap assert-Unit-type #'(e+ ...))
      (⊢ (syntax/loc stx (let ([x+ e_x+] ...) e+ ... e_result+)) (typeof #'e_result+))]))
-
-; #%app
-#;(define-syntax (app/tc stx)
-  (syntax-parse stx #:literals (→ void) 
-                    #:datum-literals (:t)
-    ;[(_ :t x) #'(printf "~a : ~a\n" 'x (hash-ref runtime-env 'x))]
-    [(_ e_fn e_arg ...)
-     #:with (e_fn+ e_arg+ ...) (stx-map expand/df #'(e_fn e_arg ...))
-     #:with (τ ... → τ_res) (typeof #'e_fn+)
-     #:when (stx-andmap assert-type #'(e_arg+ ...) #'(τ ...))
-     (⊢ (syntax/loc stx (#%app e_fn+ e_arg+ ...)) #'τ_res)]))
 
 (define-syntax (if/tc stx)
   (syntax-parse stx
@@ -304,7 +289,7 @@
      #:with (v ...) #'(deffn+.rhs ...)
      #:with (e ...) (template ((?@ . mb-form.e) ...))
      ;; base type env
-     #:when (Γ (type-env-extend #'((+ (Int Int → Int)))))
+   ;  #:when (Γ (type-env-extend #'((+ (Int Int → Int)))))
 ;; NOTE: for struct def, define-values *must* come before define-syntaxes
 ;; ow, error: "Just10: unbound identifier; also, no #%top syntax transformer is bound"
      (quasisyntax/loc stx 

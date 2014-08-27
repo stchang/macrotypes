@@ -14,6 +14,33 @@
 (check-type-error (λ ([x : Int]) 1 x))
 (check-type (λ ([x : Int]) (void) (void) x) : (Int → Int))
 
+(check-type (λ ([x : Int]) (printf {Int} "~a\n" x) x) : (Int → Int))
+(check-type-error (λ ([x : Int]) (printf {String} "~a\n" x) x))
+(check-type-error (λ ([x : Int]) (printf {Int} 1 x) x))
+(check-type (λ ([x : Int]) (printf "one") x) : (Int → Int))
+(check-type-error (λ ([x : Int]) (printf "~a" x) x))
+(check-type-and-result ((λ ([x : Int]) (printf {Int} "~a\n" x) (+ x 1)) 100) : Int => 101)
+
+;; multi arity primops
+(check-type (λ ([x : Int]) (- 1)) : (Int → Int))
+(check-type (λ ([x : Int]) (- x x)) : (Int → Int))
+(check-type (λ ([x : Int]) (- x x x 1)) : (Int → Int))
+(check-type (λ ([x : Int]) (- x x x x 1)) : (Int → Int))
+(check-type-and-result ((λ ([x : Int]) (- x x 1)) 10) : Int => -1)
+(check-type-and-result ((λ ([x : Int]) (- x)) 10) : Int => -10)
+(check-type-error (λ ([y : Int] [z : Int]) (= y)))
+(check-type (λ ([y : Int] [z : Int]) (= y z)) : (Int Int → Bool))
+(check-type (λ ([y : Int] [z : Int]) (= y z z)) : (Int Int → Bool))
+(check-type-error (λ ([y : Int] [z : Int]) (< y)))
+(check-type (λ ([y : Int] [z : Int]) (< y z)) : (Int Int → Bool))
+(check-type (λ ([y : Int] [z : Int]) (< y z z)) : (Int Int → Bool))
+(check-type (λ ([f : (Int → Int)] [x : Int]) (f x)) : ((Int → Int) Int → Int))
+;; the following still fails bc varargs not handled
+;(check-type ((λ ([f : (Int Int → Int)] [x : Int]) (f x x)) + 1) : Int)
+(check-type-and-result ((λ ([f : (Bool → Bool)] [b : Bool]) (f b)) not #f) : Bool => #t)
+(check-type-and-result ((λ ([f : (Int → Int)] [n : Int]) (f n)) abs 1) : Int => 1)
+(check-type-and-result ((λ ([f : (Int → Int)] [n : Int]) (f n)) abs (- 1)) : Int => 1)
+
 ; HO fn
 (check-type-and-result ((λ ([f : (Int → Int)]) (f 10)) (λ ([x : Int]) (+ x 1))) : Int => 11)
 (check-type (λ ([f : (Int → Int)]) (f 10)) : ((Int → Int) → Int))
