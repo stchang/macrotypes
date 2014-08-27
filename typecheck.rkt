@@ -22,6 +22,31 @@
 (define-syntax-rule (define-and-provide-builtin-types τ ...) 
   (begin (define-and-provide-builtin-type τ) ...))
 
+(define-syntax (define-primop stx)
+  (syntax-parse stx #:datum-literals (:)
+    [(_ op:id : ((~and τ_arg (~not (~literal ...))) ... (~optional (~and ldots (~literal ...)))
+                 arr τ_result))
+;     #:with lit-→ (datum->syntax stx '→)
+     #:with (~datum →) #'arr
+     #:with op/tc (format-id #'op "~a/tc" #'op)
+     #`(begin
+         (provide (rename-out [op/tc op]))
+         (define-syntax (op/tc stx)
+           (syntax-parse stx
+             [f:id #'op] ; HO case
+             [(_ e (... ...))
+              #:with es+ (stx-map expand/df #'(e (... ...))) 
+              #:with τs #'(τ_arg ...)
+              #:fail-unless (or #,(if (attribute ldots) #t #f)
+                                (= (stx-length #'es+) (stx-length #'τs)))
+                            "Wrong number of arguments"
+              #:with τs-ext (let* ([diff (- (stx-length #'es+) (stx-length #'τs))]
+                                   [last-τ (stx-last #'τs)]
+                                   [last-τs (build-list diff (λ _ last-τ))])
+                              (append (syntax->list #'τs) last-τs))
+              #:when (stx-andmap assert-type #'es+ #'τs-ext)
+              (⊢ (syntax/loc stx (op . es+)) #'τ_result)])))]))
+
 ;; general type-checking functions
 
 (define-for-syntax (type=? τ1 τ2)
@@ -51,7 +76,9 @@
 
 ;; return #t if (typeof e)=τ, else type error
 (define-for-syntax (assert-type e τ)
-;  (printf "~a has type ~a; expected: ~a\n" (syntax->datum e) (syntax->datum (typeof e)) (syntax->datum τ))
+;  (printf "~a has type " (syntax->datum e))
+;  (printf "~a; expected: " (syntax->datum (typeof e)))
+;  (printf "~a\n"  (syntax->datum τ))
   (or (type=? (typeof e) τ)
       (type-error #:src e 
                   #:msg "~a has type ~a, but should have type ~a" e (typeof e) τ)))
