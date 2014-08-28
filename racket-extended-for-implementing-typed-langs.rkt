@@ -10,7 +10,7 @@
 
 ;; Extension of Racket for implementing typed languages
 
-(provide define-term/type-rule
+(provide define-simple-syntax/type-rule
          declare-base-type declare-base-types)
 (provide (rename-out [mb/ext #%module-begin]))
 ;; provide syntax-classes
@@ -66,11 +66,15 @@
     #;(pattern (name:id . n)
      #:attr expanded-args #'n
      #:attr types #'()))
-  (define-splicing-syntax-class τ-constraint #:datum-literals (:= : let typeof)
+  (define-splicing-syntax-class τ-constraint #:datum-literals (:= : let typeof ==)
     (pattern (let τ := (typeof e))
      #:attr pattern-directive #'(#:with τ (typeof #'e)))
     (pattern (e : τ)
      #:attr pattern-directive #'(#:when (assert-type #'e #'τ)))
+    (pattern (τ1 == τ2)
+     #:attr pattern-directive #'(#:fail-unless (type=? #'τ1 #'τ2)
+                                               (format "type ~a and ~a should be equal"
+                                                       (syntax->datum #'τ1) (syntax->datum #'τ2))))
     (pattern (~seq (e0 : τ0) (~literal ...))
      #:when (concrete-τ? #'τ0)
      #:attr pattern-directive #'(#:when (stx-andmap (λ (e) (assert-type e #'τ0)) #'(e0 (... ...)))))
@@ -81,7 +85,7 @@
           
 
 ;; define-term/type-rule
-(define-syntax (define-term/type-rule stx)
+(define-syntax (define-simple-syntax/type-rule stx)
   (syntax-parse stx #:datum-literals (:)
     [(_ meta-e:meta-term : meta-τ
         (~optional (~seq #:where
@@ -106,9 +110,9 @@
 ;; overload mod-begin to check for define-literal-type-rule
 (begin-for-syntax
   (define-syntax-class def #:datum-literals (define-literal-type-rule extends)
-    (pattern (extends m)
+    (pattern (extends m ...)
      #:attr other #'() #:attr stxc #'() #:attr lit-τ #'()
-     #:attr base-mod #'(m))
+     #:attr base-mod #'(m ...))
     (pattern (define-literal-type-rule stx-class : τ)
      #:attr other #'() #:attr base-mod #'()
      #:attr stxc #'(stx-class)
@@ -121,8 +125,9 @@
      #:with (stxc ...) (template ((?@ . d.stxc) ...))
      #:with (lit-τ ...) (template ((?@ . d.lit-τ) ...))
      #:with (base-mod ...) (template ((?@ . d.base-mod) ...))
+     ;; check that 
      #:fail-unless (let ([len (stx-length #'(base-mod ...))]) (or (zero? len) (= len 1)))
-                   (format "Supply either 0 or 1 base modules: ~a"
+                   (format "Supply either 0 or 1 base modules. Given ~a"
                            (syntax->datum #'(base-mod ...)))
      #:with m (if (zero? (stx-length #'(base-mod ...)))
                   #'()
@@ -155,11 +160,46 @@
                     (lambda (name)
                       (and (regexp-match? #rx"^ext:.+$" name)
                            (regexp-replace #rx"ext:" name "")))
-                    (except-out (all-from-out m) #,(datum->syntax stx 'ext:#%datum)))
+                    (except-out (all-from-out m) 
+                                #,(datum->syntax stx 'ext:#%datum) 
+                                #,(datum->syntax stx 'ext:check-type-error)
+                                #,(datum->syntax stx 'ext:check-type)
+                                #,(datum->syntax stx 'ext:check-not-type)
+                                #,(datum->syntax stx 'ext:check-type-and-result)))
                     )))
         (require (prefix-in r: racket/base))
         (provide (rename-out [r:#%module-begin #%module-begin]
                              [r:#%top-interaction #%top-interaction]))
         (provide (rename-out [my-datum #%datum]))
         datum-def
-        #,@(template ((?@ . d.other) ...)))]))
+        #,@(template ((?@ . d.other) ...))
+        ;; testing forms
+        (require (for-syntax rackunit))
+        (require rackunit)
+        (provide check-equal?)
+        (provide check-type-error check-type check-not-type check-type-and-result)
+        (define-syntax (check-type-error stx)
+          (syntax-parse stx
+            [(_ e)
+             #:when (check-exn exn:fail? (λ () (expand/df #'e)))
+             #'(void)]))
+        (define-syntax (check-type stx)
+          (syntax-parse stx #:datum-literals (:)
+            [(_ e : τ)
+             #:with e+ (expand/df #'e)
+             #:when (check-true (assert-type #'e+ #'τ) 
+                                (format "Expected type ~a but got type ~a" #'τ (typeof #'e)))
+             #'(void)]))
+        (define-syntax (check-not-type stx)
+          (syntax-parse stx #:datum-literals (:)
+            [(_ e : τ)
+             #:with e+ (expand/df #'e)
+             #:when (check-false (type=? (typeof #'e+) #'τ) 
+                                 (format "Expected type to not be ~a but got type ~a" #'τ (typeof #'e)))
+             #'(void)]))
+        (define-syntax (check-type-and-result stx)
+          (syntax-parse stx #:datum-literals (: =>)
+            [(_ e : τ => v)
+             #'(begin (check-type e : τ)
+                      (check-equal? e v))]))
+        )]))
