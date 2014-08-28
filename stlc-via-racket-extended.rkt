@@ -12,19 +12,18 @@
 ;; typed forms ----------------------------------------------------------------
 
 (define-literal-type-rule integer : Int)
-(define-literal-type-rule str : String)
 
-(define-term/type-rule
+(define-simple-syntax/type-rule
   (+ e ...) : Int
   #:where
   (e : Int) ...)
 
-(define-term/type-rule
+(define-simple-syntax/type-rule
   (λ ([x : τ] ...) e) : (τ ... → τ_body)
   #:where
   (let τ_body := (typeof e)))
 
-(define-term/type-rule
+(define-simple-syntax/type-rule
   (#%app f e ...) : τ2
   #:where
   (let (τ1 ... → τ2) := (typeof f))
