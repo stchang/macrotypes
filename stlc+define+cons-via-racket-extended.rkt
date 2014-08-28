@@ -1,5 +1,6 @@
 #lang s-exp "racket-extended-for-implementing-typed-langs.rkt"
 (extends "stlc-via-racket-extended.rkt")
+
 ;(require "stlc-via-racket-extended.rkt")
 ;(provide Int → + λ #%app #%top-interaction #%module-begin)
 ;(provide #%top-interaction)
@@ -50,6 +51,7 @@
 (declare-base-types String Bool Listof Unit)
 
 (define-literal-type-rule boolean : Bool)
+(define-literal-type-rule str : String)
 
 ;(define-and-provide-builtin-types String Bool Listof Unit)
 ;(provide (for-syntax assert-Unit-type assert-String-type))
@@ -99,6 +101,12 @@
     [(_ . b:boolean) (⊢ (syntax/loc stx (#%datum . b)) #'Bool)]
     [(_ . x) #'(stlc:#%datum . x)]))
 
+(define-simple-syntax/type-rule
+  (begin e ... e_result) : τ_result
+  #:where
+  (e : Unit) ...
+  (let τ_result := (typeof e_result)))
+
 #;(define-syntax (begin/tc stx)
   (syntax-parse stx
     [(_ e ... e_result)
@@ -109,6 +117,9 @@
 #;(define-syntax (void/tc stx)
   (syntax-parse stx
     [(_) (⊢ (syntax/loc stx (void)) #'Unit)]))
+
+(define-simple-syntax/type-rule
+  (void) : Unit)
 
 #;(define-syntax (printf/tc stx)
   (syntax-parse stx
@@ -189,6 +200,13 @@
                             #'e1 (typeof #'e1+)
                             #'e2 (typeof #'e2+)))
      (⊢ (syntax/loc stx (if e_test+ e1+ e2+)) (typeof #'e1+))]))
+(define-simple-syntax/type-rule
+  (if e_test e1 e2) : τ2
+  #:where
+  (e_test : Bool)
+  (let τ1 := (typeof e1))
+  (let τ2 := (typeof e2))
+  (τ1 == τ2))
 
 ;; lists ----------------------------------------------------------------------
 #;(define-syntax (cons/tc stx)
