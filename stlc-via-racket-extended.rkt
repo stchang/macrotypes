@@ -1,13 +1,13 @@
 #lang s-exp "racket-extended-for-implementing-typed-langs.rkt"
-(provide #%top-interaction)
-(require (prefix-in r: racket/base))
-(provide (rename-out [r:#%module-begin #%module-begin]))
+;(provide #%top-interaction)
+;(require (prefix-in r: racket/base))
+;(provide (rename-out [r:#%module-begin #%module-begin]))
 
 ;; Simply-Typed Lambda Calculus
 ;; - implemented with racket-extended language
 ;; - lam, app, var, +, and int literals only
 
-(declare-built-in-types → Int)
+(declare-base-types → Int)
 
 ;; typed forms ----------------------------------------------------------------
 
