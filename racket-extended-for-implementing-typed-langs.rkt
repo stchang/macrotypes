@@ -11,20 +11,20 @@
 ;; Extension of Racket for implementing typed languages
 
 (provide define-term/type-rule
-         declare-built-in-type declare-built-in-types)
+         declare-base-type declare-base-types)
 (provide (rename-out [mb/ext #%module-begin]))
 ;; provide syntax-classes
-(provide (for-syntax integer str))
+(provide (for-syntax integer str boolean))
 
 ;; lit-set : [Listof identifier]
 (define-for-syntax lit-set null)
-(define-syntax (declare-built-in-type stx)
+(define-syntax (declare-base-type stx)
   (syntax-parse stx
     [(_ τ)
      (set! lit-set (cons #'τ lit-set))
      #'(begin (define τ #f) (provide τ))]))
-(define-syntax-rule (declare-built-in-types τ ...)
-  (begin (declare-built-in-type τ) ...))
+(define-syntax-rule (declare-base-types τ ...)
+  (begin (declare-base-type τ) ...))
 
 (begin-for-syntax
   ;; concrete-τ? : determines if a type is a concrete type or has pattern vars
@@ -105,29 +105,61 @@
              
 ;; overload mod-begin to check for define-literal-type-rule
 (begin-for-syntax
-  (define-syntax-class def #:datum-literals (define-literal-type-rule)
+  (define-syntax-class def #:datum-literals (define-literal-type-rule extends)
+    (pattern (extends m)
+     #:attr other #'() #:attr stxc #'() #:attr lit-τ #'()
+     #:attr base-mod #'(m))
     (pattern (define-literal-type-rule stx-class : τ)
-     #:attr other #'()
+     #:attr other #'() #:attr base-mod #'()
      #:attr stxc #'(stx-class)
      #:attr lit-τ #'(τ))
-    (pattern any #:attr other #'(any) #:attr stxc #'() #:attr lit-τ #'())))
+    (pattern any #:attr other #'(any) #:attr stxc #'() #:attr lit-τ #'() #:attr base-mod #'())))
 
 (define-syntax (mb/ext stx)
   (syntax-parse stx
     [(_ d:def ...)
      #:with (stxc ...) (template ((?@ . d.stxc) ...))
      #:with (lit-τ ...) (template ((?@ . d.lit-τ) ...))
+     #:with (base-mod ...) (template ((?@ . d.base-mod) ...))
+     #:fail-unless (let ([len (stx-length #'(base-mod ...))]) (or (zero? len) (= len 1)))
+                   (format "Supply either 0 or 1 base modules: ~a"
+                           (syntax->datum #'(base-mod ...)))
+     #:with m (if (zero? (stx-length #'(base-mod ...)))
+                  #'()
+                  (car (syntax->list #'(base-mod ...))))
      #:with my-datum (generate-temporary)
      #:with datum-def
-            #'(define-syntax (my-datum stx)
+            #`(define-syntax (my-datum stx)
                 (syntax-parse stx
-                  [(_ . x) #:declare x stxc (⊢ (syntax/loc stx (#%datum . x)) #'lit-τ)]
+                  [(_ . x) #:declare x stxc (⊢ (syntax/loc stx (r:#%datum . x)) #'lit-τ)]
                   ...
+                  #,@(if (stx-null? #'m)
+                  #'()
+                  #`([(_ . x) 
+;                   ;; prev-datum = #%datum in the meta-language
+;                   #:with prev-datum (datum->syntax stx '#%datum)
+;                   #:with racket-datum (datum->syntax stx 'r:#%datum)
+;                   ; when prev-datum is not racket's #%datum
+;                   #:when (not (free-identifier=? #'prev-datum #'racket-datum))
+                   (syntax/loc stx (#,(datum->syntax stx 'ext:#%datum) . x))]))
                   [(_ . x) 
                    #:when (type-error #:src stx #:msg "Don't know the type for literal: ~a" #'x)
-                   (syntax/loc stx (#%datum . x))]))
-     (template
-      (#%module-begin
-       (provide (rename-out [my-datum #%datum]))
-       datum-def
-       (?@ . d.other) ...))]))
+                   (syntax/loc stx (r:#%datum . x))]))
+            #`(#%module-begin
+        #,@(if (stx-null? #'m)
+               #'()
+               #`((require (prefix-in ext: m))
+                  (require racket/provide)
+                  (provide 
+                   (filtered-out
+                    (lambda (name)
+                      (and (regexp-match? #rx"^ext:.+$" name)
+                           (regexp-replace #rx"ext:" name "")))
+                    (except-out (all-from-out m) #,(datum->syntax stx 'ext:#%datum)))
+                    )))
+        (require (prefix-in r: racket/base))
+        (provide (rename-out [r:#%module-begin #%module-begin]
+                             [r:#%top-interaction #%top-interaction]))
+        (provide (rename-out [my-datum #%datum]))
+        datum-def
+        #,@(template ((?@ . d.other) ...)))]))
