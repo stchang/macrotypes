@@ -7,73 +7,74 @@
 
 ;; check fns with literal or id bodies
 (check-type (λ ([x : Int]) x) : (Int → Int))
-;(check-type (λ ([x : Unit] [y : Int]) x y) : (Unit Int → Int))
+(check-type (λ ([x : Unit] [y : Int]) x y) : (Unit Int → Int))
 
 ;; check fns with multi-expr body
-;(check-type (λ ([x : Int]) (void) x) : (Int → Int))
-;(check-type-error (λ ([x : Int]) 1 x))
-;(check-type (λ ([x : Int]) (void) (void) x) : (Int → Int))
-;
+(check-type (λ ([x : Int]) (void) x) : (Int → Int))
+(check-type-error (λ ([x : Int]) 1 x))
+(check-type (λ ([x : Int]) (void) (void) x) : (Int → Int))
+
+; printf
 ;(check-type (λ ([x : Int]) (printf {Int} "~a\n" x) x) : (Int → Int))
 ;(check-type-error (λ ([x : Int]) (printf {String} "~a\n" x) x))
 ;(check-type-error (λ ([x : Int]) (printf {Int} 1 x) x))
 ;(check-type (λ ([x : Int]) (printf "one") x) : (Int → Int))
 ;(check-type-error (λ ([x : Int]) (printf "~a" x) x))
 ;(check-type-and-result ((λ ([x : Int]) (printf {Int} "~a\n" x) (+ x 1)) 100) : Int => 101)
-;
-;;; multi arity primops
-;(check-type (λ ([x : Int]) (- 1)) : (Int → Int))
-;(check-type (λ ([x : Int]) (- x x)) : (Int → Int))
-;(check-type (λ ([x : Int]) (- x x x 1)) : (Int → Int))
-;(check-type (λ ([x : Int]) (- x x x x 1)) : (Int → Int))
-;(check-type-and-result ((λ ([x : Int]) (- x x 1)) 10) : Int => -1)
-;(check-type-and-result ((λ ([x : Int]) (- x)) 10) : Int => -10)
-;(check-type-error (λ ([y : Int] [z : Int]) (= y)))
-;(check-type (λ ([y : Int] [z : Int]) (= y z)) : (Int Int → Bool))
-;(check-type (λ ([y : Int] [z : Int]) (= y z z)) : (Int Int → Bool))
-;(check-type-error (λ ([y : Int] [z : Int]) (< y)))
-;(check-type (λ ([y : Int] [z : Int]) (< y z)) : (Int Int → Bool))
-;(check-type (λ ([y : Int] [z : Int]) (< y z z)) : (Int Int → Bool))
-;(check-type (λ ([f : (Int → Int)] [x : Int]) (f x)) : ((Int → Int) Int → Int))
-;;; the following still fails bc varargs not handled
-;;(check-type ((λ ([f : (Int Int → Int)] [x : Int]) (f x x)) + 1) : Int)
-;(check-type-and-result ((λ ([f : (Bool → Bool)] [b : Bool]) (f b)) not #f) : Bool => #t)
-;(check-type-and-result ((λ ([f : (Int → Int)] [n : Int]) (f n)) abs 1) : Int => 1)
-;(check-type-and-result ((λ ([f : (Int → Int)] [n : Int]) (f n)) abs (- 1)) : Int => 1)
-;
+
+;; multi arity primops
+(check-type (λ ([x : Int]) (- 1)) : (Int → Int))
+(check-type (λ ([x : Int]) (- x x)) : (Int → Int))
+(check-type (λ ([x : Int]) (- x x x 1)) : (Int → Int))
+(check-type (λ ([x : Int]) (- x x x x 1)) : (Int → Int))
+(check-type-and-result ((λ ([x : Int]) (- x x 1)) 10) : Int => -1)
+(check-type-and-result ((λ ([x : Int]) (- x)) 10) : Int => -10)
+(check-type-error (λ ([y : Int] [z : Int]) (= y)))
+(check-type (λ ([y : Int] [z : Int]) (= y z)) : (Int Int → Bool))
+(check-type (λ ([y : Int] [z : Int]) (= y z z)) : (Int Int → Bool))
+(check-type-error (λ ([y : Int] [z : Int]) (< y)))
+(check-type (λ ([y : Int] [z : Int]) (< y z)) : (Int Int → Bool))
+(check-type (λ ([y : Int] [z : Int]) (< y z z)) : (Int Int → Bool))
+(check-type (λ ([f : (Int → Int)] [x : Int]) (f x)) : ((Int → Int) Int → Int))
+;; the following HO example still fails bc varargs not handled
+;(check-type ((λ ([f : (Int Int → Int)] [x : Int]) (f x x)) + 1) : Int)
+(check-type-and-result ((λ ([f : (Bool → Bool)] [b : Bool]) (f b)) not #f) : Bool => #t)
+(check-type-and-result ((λ ([f : (Int → Int)] [n : Int]) (f n)) abs 1) : Int => 1)
+(check-type-and-result ((λ ([f : (Int → Int)] [n : Int]) (f n)) abs (- 1)) : Int => 1)
+
 ;; HO fn
-;(check-type-and-result ((λ ([f : (Int → Int)]) (f 10)) (λ ([x : Int]) (+ x 1))) : Int => 11)
-;(check-type (λ ([f : (Int → Int)]) (f 10)) : ((Int → Int) → Int))
-;(check-type (λ ([f : (Int → Int)]) (λ ([x : Int]) (f (f x)))) : ((Int → Int) → (Int → Int)))
-;(check-type-error (λ (f : (Int → Int)) (λ (x : String) (f (f x)))))
-;
-;;; shadowed var
-;(check-type-error ((λ ([x : Int]) ((λ ([x : String]) x) x)) 10))
-;(check-type-and-result ((λ ([x : String]) ((λ ([x : Int]) (+ x 1)) 10)) "ten") : Int => 11)
-;
-;;; let
-;(check-type-and-result (let ([x 1] [y 2]) (+ x y)) : Int => 3)
-;(check-type-error (let ([x 1] [y "two"]) (+ x y)))
-;(check-type-and-result (let ([x "one"]) (let ([x 2]) (+ x x))) : Int => 4)
-;
+(check-type-and-result ((λ ([f : (Int → Int)]) (f 10)) (λ ([x : Int]) (+ x 1))) : Int => 11)
+(check-type (λ ([f : (Int → Int)]) (f 10)) : ((Int → Int) → Int))
+(check-type (λ ([f : (Int → Int)]) (λ ([x : Int]) (f (f x)))) : ((Int → Int) → (Int → Int)))
+(check-type-error (λ (f : (Int → Int)) (λ (x : String) (f (f x)))))
+
+;; shadowed var
+(check-type-error ((λ ([x : Int]) ((λ ([x : String]) x) x)) 10))
+(check-type-and-result ((λ ([x : String]) ((λ ([x : Int]) (+ x 1)) 10)) "ten") : Int => 11)
+
+;; let
+(check-type-and-result (let ([x 1] [y 2]) (+ x y)) : Int => 3)
+(check-type-error (let ([x 1] [y "two"]) (+ x y)))
+(check-type-and-result (let ([x "one"]) (let ([x 2]) (+ x x))) : Int => 4)
+
 ;;; lists
-;(check-type-and-result (first {Int} (cons {Int} 1 (null {Int}))) : Int => 1)
-;(check-type-and-result (rest {Int} (cons {Int} 1 (null {Int}))) : (Listof Int) => (null {Int}))
-;(check-type-error (cons {Int} 1 (null {String})))
-;(check-type-error (cons {Int} "one" (null {Int})))
-;(check-type-error (cons {String} 1 (null {Int})))
-;(check-type-error (cons {String} 1 (null {Int})))
-;(check-type-error (cons {String} "one" (cons {Int} "two" (null {String}))))
-;(check-type-and-result (first {String} (cons {String} "one" (cons {String} "two" (null {String}))))
-;                       : String => "one")
-;(check-type-and-result (null? {String} (null {String})) : Bool => #t)
-;(check-type-and-result (null? {String} (cons {String} "one" (null {String}))) : Bool => #f)
-;(check-type-error (null? {String} (null {Int})))
-;(check-type-error (null? {Int} (null {String})))
-;(check-type-error (null? {Int} 1))
-;(check-type-error (null? {Int} "one"))
-;(check-type-error (null? {Int} (cons {String} "one" (null {String}))))
-;
+(check-type-and-result (first {Int} (cons {Int} 1 (null {Int}))) : Int => 1)
+(check-type-and-result (rest {Int} (cons {Int} 1 (null {Int}))) : (Listof Int) => (null {Int}))
+(check-type-error (cons {Int} 1 (null {String})))
+(check-type-error (cons {Int} "one" (null {Int})))
+(check-type-error (cons {String} 1 (null {Int})))
+(check-type-error (cons {String} 1 (null {Int})))
+(check-type-error (cons {String} "one" (cons {Int} "two" (null {String}))))
+(check-type-and-result (first {String} (cons {String} "one" (cons {String} "two" (null {String}))))
+                       : String => "one")
+(check-type-and-result (null? {String} (null {String})) : Bool => #t)
+(check-type-and-result (null? {String} (cons {String} "one" (null {String}))) : Bool => #f)
+(check-type-error (null? {String} (null {Int})))
+(check-type-error (null? {Int} (null {String})))
+(check-type-error (null? {Int} 1))
+(check-type-error (null? {Int} "one"))
+(check-type-error (null? {Int} (cons {String} "one" (null {String}))))
+
 ;; begin and void
 (check-type (void) : Unit)
 (check-type-and-result (begin (void) 1) : Int => 1)
@@ -82,51 +83,51 @@
 (check-type-and-result (begin (+ 1 2)) : Int => 3)
 (check-type-error (begin 1 2))
 
-;(check-type (λ ([x : Int]) (void) (+ x 1)) : (Int → Int))
-;(check-type-error (λ ([x : Int]) 1 1))
-;(check-type (λ ([x : Int] [y : Int]) (+ x y)) : (Int Int → Int))
-;(check-type-and-result ((λ ([a : Int] [b : Int] [c : Int]) (void) (void) (+ a (+ b c))) 1 2 3)
-;                       : Int => 6)
-;
+(check-type (λ ([x : Int]) (void) (+ x 1)) : (Int → Int))
+(check-type-error (λ ([x : Int]) 1 1))
+(check-type (λ ([x : Int] [y : Int]) (+ x y)) : (Int Int → Int))
+(check-type-and-result ((λ ([a : Int] [b : Int] [c : Int]) (void) (void) (+ a (+ b c))) 1 2 3)
+                       : Int => 6)
+
 ;; define
-;(define (g [y : Int]) : Int
-;  (+ (f y) 1))
-;(define (f [x : Int]) : Int
-;  (+ x 1))
-;(check-type-and-result (f 10) : Int => 11)
-;(check-type-and-result (g 100) : Int => 102)
-;(check-not-type (f 10) : String)
-;(check-not-type (g 100) : String)
-;
-;;; if
-;(check-type-and-result (if (null? {Int} (null {Int})) 1 2) : Int => 1)
-;(check-type-and-result (if (null? {Int} (cons {Int} 1 (null {Int}))) 1 2) : Int => 2)
-;(check-type-error (if (null? {Int} (null {Int})) 1 "one"))
-;(check-type-error (if (null? {Int} (null {Int})) "one" 1))
+(define (g [y : Int]) : Int
+  (+ (f y) 1))
+(define (f [x : Int]) : Int
+  (+ x 1))
+(check-type-and-result (f 10) : Int => 11)
+(check-type-and-result (g 100) : Int => 102)
+(check-not-type (f 10) : String)
+(check-not-type (g 100) : String)
+
+;; if
+(check-type-and-result (if (null? {Int} (null {Int})) 1 2) : Int => 1)
+(check-type-and-result (if (null? {Int} (cons {Int} 1 (null {Int}))) 1 2) : Int => 2)
+(check-type-error (if (null? {Int} (null {Int})) 1 "one"))
+(check-type-error (if (null? {Int} (null {Int})) "one" 1))
 (check-type-error (if 1 2 3))
 (check-type-and-result (if #t 1 2) : Int => 1)
 (check-type-and-result (if #f 1 2) : Int => 2)
 (check-type-error (if #t 1 #f))
 
-;;;; recursive fn
-;(define (add1 [x : Int]) : Int
-;  (+ x 1))
-;(define (map [f : (Int → Int)] [lst : (Listof Int)]) : (Listof Int)
-;  (if (null? {Int} lst)
-;      (null {Int})
-;      (cons {Int} (f (first {Int} lst)) (map f (rest {Int} lst)))))
-;(check-type-and-result (map add1 (cons {Int} 1 (cons {Int} 2 (null {Int})))) 
-;                       : (Listof Int)
-;                       => (cons {Int} 2 (cons {Int} 3 (null {Int}))))
-;(check-not-type (map add1 (cons {Int} 1 (cons {Int} 2 (null {Int})))) 
-;                : (Listof String))
-;
-;;; recursive types
-;(define (a [x : Int]) : Int (b x))
-;(define (b [x : Int]) : Int (a x))
-;(define (ff [x : Int]) : Int (ff x))
-;
-;;; define-type (non parametric)
+;;; recursive fn
+(define (add1 [x : Int]) : Int
+  (+ x 1))
+(define (map [f : (Int → Int)] [lst : (Listof Int)]) : (Listof Int)
+  (if (null? {Int} lst)
+      (null {Int})
+      (cons {Int} (f (first {Int} lst)) (map f (rest {Int} lst)))))
+(check-type-and-result (map add1 (cons {Int} 1 (cons {Int} 2 (null {Int})))) 
+                       : (Listof Int)
+                       => (cons {Int} 2 (cons {Int} 3 (null {Int}))))
+(check-not-type (map add1 (cons {Int} 1 (cons {Int} 2 (null {Int})))) 
+                : (Listof String))
+
+;; recursive types
+(define (a [x : Int]) : Int (b x))
+(define (b [x : Int]) : Int (a x))
+(define (ff [x : Int]) : Int (ff x))
+
+;; define-type (non parametric)
 ;(define-type MaybeInt (variant (None) (Just Int)))
 ;(check-type (None) : MaybeInt)
 ;(check-type (Just 10) : MaybeInt)
