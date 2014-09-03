@@ -3,39 +3,6 @@
 (inherit-types Int →)
 (require (for-syntax syntax/stx) "typecheck.rkt")
 
-;(require "stlc-via-racket-extended.rkt")
-;(provide Int → + λ #%app #%top-interaction #%module-begin)
-;(provide #%top-interaction)
-;(require (prefix-in r: racket/base))
-;(provide (rename-out [r:#%module-begin #%module-begin]))
-
-#;(require
-  racket/match
-  (for-syntax racket/base syntax/parse syntax/parse/experimental/template 
-              racket/set syntax/stx racket/syntax
-              "stx-utils.rkt")
-  (for-meta 2 racket/base syntax/parse)
-  "typecheck.rkt")
-
-;(require (except-in "stlc-via-racket-extended.rkt" #%app #%datum λ #%module-begin))
-;(require (prefix-in stlc: "stlc-via-racket-extended.rkt"))
-;(provide (all-from-out "stlc-via-racket-extended.rkt"))
-
-#;(provide
- define-type cases
- (rename-out
-  [datum/tc #%datum]
-  #;[void/tc void] [printf/tc printf]
-  [λ/tc λ] [let/tc let]
-  ; for #%app, must prefix and re-provide because this file needs to use racket's #%app
-  [stlc:#%app #%app] 
-  ;[app/tc #%app]
-  [define/tc define]
-  [begin/tc begin] 
-  [if/tc if]
-  [datum/tc #%datum] [module-begin/tc #%module-begin]
-  [cons/tc cons] [null/tc null] [null?/tc null?] [first/tc first] [rest/tc rest] [list/tc list]))
-
 ;; Simply-Typed Lambda Calculus+
 ;; - stlc extended with practical language feature
 ;; - implemented in racket-extended lang
@@ -55,25 +22,7 @@
 (define-literal-type-rule boolean : Bool)
 (define-literal-type-rule str : String)
 
-;(define-and-provide-builtin-types String Bool Listof Unit)
-;(provide (for-syntax assert-Unit-type assert-String-type))
-;(define-for-syntax (assert-Unit-type e) (assert-type e #'Unit))
-;(define-for-syntax (assert-String-type e) (assert-type e #'String))
-
 ;; define-type ----------------------------------------------------------------
-#;(define-syntax (define-type stx)
-  (syntax-parse stx #:datum-literals (variant)
-    [(_ τ:id (variant (Cons:id τ_fld ...) ...))
-     #:with ((x ...) ...) (stx-map generate-temporaries #'((τ_fld ...) ...))
-     #:when (Γ (type-env-extend #'([Cons (τ_fld ... → τ)] ...)))
-     #'(begin
-         (struct Cons (x ...) #:transparent) ...)]
-    [(_ τ:id (Cons:id τ_fld ...))
-     #:with (x ...) (generate-temporaries #'(τ_fld ...))
-     #:when (Γ (type-env-extend #'([Cons (τ_fld ... → τ)])))
-     #'(begin 
-         (struct Cons (x ...) #:transparent))]))
-
 (define-typed-syntax
   (define-type τ (variant (Cons τ_fld ...) ...)) : Unit
   #:where
@@ -82,35 +31,6 @@
   #:expanded
   (begin (struct Cons flds #:transparent) ...))
 
-#;(define-syntax/type-rule #:keywords (variant)
-  [(define-type τ (variant (Cons τ_fld ...) ...))
-   #:where
-   (Γ-extend [Cons : (τ_fld ... → τ)] ...)
-   #:expanded
-   (begin (struct Cons (τ_fld ...) #:transparent) ...)])
-    
-#;(define-syntax (cases stx)
-  (syntax-parse stx #:literals (→)
-    [(_ e [Cons (x ...) body ... body_result] ...)
-     #:with e+ (expand/df #'e)
-     #:with (Cons+ ...) (stx-map expand/df #'(Cons ...))
-     #:with ((τ ... → τ_Cons) ...) (stx-map typeof #'(Cons+ ...))
-     #:when (stx-andmap (λ (τ) (assert-type #'e+ τ)) #'(τ_Cons ...))
-     #:with ((lam (x+ ...) body+ ... body_result+) ...) 
-            (stx-map (λ (bods xs τs) 
-                       (with-extended-type-env 
-                        (stx-map list xs τs)
-                        (expand/df #`(λ #,xs #,@bods))))
-                     #'((body ... body_result) ...)
-                     #'((x ...) ...)
-                     #'((τ ...) ...))
-     #:when (stx-andmap (λ (bods) (stx-andmap assert-Unit-type bods)) #'((body+ ...) ...))
-     #:with (τ_result ...) (stx-map typeof #'(body_result+ ...))
-     #:when (or (null? (syntax->list #'(τ_result ...)))
-                (andmap (λ (τ) (type=? τ (car (syntax->list #'(τ_result ...)))))
-                        (cdr (syntax->list #'(τ_result ...)))))
-     (⊢ (syntax/loc stx (match e+ [(Cons+ x+ ...) body+ ... body_result+] ...))
-        (car (syntax->list #'(τ_result ...))))]))
 (define-typed-syntax
   (cases e_test [Cons (x ...) e_body ... e_result] ...) : τ_res
   #:where
