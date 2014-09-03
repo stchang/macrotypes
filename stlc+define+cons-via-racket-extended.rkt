@@ -1,7 +1,7 @@
 #lang s-exp "racket-extended-for-implementing-typed-langs.rkt"
 (extends "stlc-via-racket-extended.rkt" λ)
 (inherit-types Int →)
-(require (for-syntax syntax/stx) "typecheck.rkt")
+(require (for-syntax syntax/stx "stx-utils.rkt") "typecheck.rkt")
 
 ;; Simply-Typed Lambda Calculus+
 ;; - stlc extended with practical language feature
@@ -18,6 +18,7 @@
 ;; - var args: TODO: primops can handle multiple args but not general application
 
 (declare-base-types String Bool Listof Unit)
+(define-for-syntax (assert-Unit-type e) (assert-type e #'Unit))
 
 (define-literal-type-rule boolean : Bool)
 (define-literal-type-rule str : String)
@@ -34,7 +35,7 @@
 (define-typed-syntax
   (cases e_test [Cons (x ...) e_body ... e_result] ...) : τ_res
   #:where
-;  (e_body : Unit) ... ...
+  (when: (stx-andmap (λ (bods) (stx-andmap assert-Unit-type bods)) #'((e_body ...) ...)))
   (let (τ ... → τ_Cons) := (typeof Cons)) ...
   (when: (or (null? (syntax->list #'(τ_Cons ...)))
              (andmap (λ (τ) (type=? τ (car (syntax->list #'(τ_Cons ...)))))
