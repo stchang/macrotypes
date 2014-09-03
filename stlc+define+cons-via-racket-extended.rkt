@@ -1,6 +1,7 @@
 #lang s-exp "racket-extended-for-implementing-typed-langs.rkt"
 (extends "stlc-via-racket-extended.rkt" λ)
 (inherit-types Int →)
+(require (for-syntax syntax/stx) "typecheck.rkt")
 
 ;(require "stlc-via-racket-extended.rkt")
 ;(provide Int → + λ #%app #%top-interaction #%module-begin)
@@ -72,6 +73,15 @@
      #:when (Γ (type-env-extend #'([Cons (τ_fld ... → τ)])))
      #'(begin 
          (struct Cons (x ...) #:transparent))]))
+
+(define-typed-syntax
+  (define-type τ (variant (Cons τ_fld ...) ...)) : Unit
+  #:where
+  (Γ-extend [Cons : (τ_fld ... → τ)] ...)
+  (with (flds ...) (stx-map generate-temporaries #'((τ_fld ...) ...)))
+  #:expanded
+  (begin (struct Cons flds #:transparent) ...))
+
 #;(define-syntax/type-rule #:keywords (variant)
   [(define-type τ (variant (Cons τ_fld ...) ...))
    #:where
@@ -101,6 +111,22 @@
                         (cdr (syntax->list #'(τ_result ...)))))
      (⊢ (syntax/loc stx (match e+ [(Cons+ x+ ...) body+ ... body_result+] ...))
         (car (syntax->list #'(τ_result ...))))]))
+(define-typed-syntax
+  (cases e_test [Cons (x ...) e_body ... e_result] ...) : τ_res
+  #:where
+;  (e_body : Unit) ... ...
+  (let (τ ... → τ_Cons) := (typeof Cons)) ...
+  (when: (or (null? (syntax->list #'(τ_Cons ...)))
+             (andmap (λ (τ) (type=? τ (car (syntax->list #'(τ_Cons ...)))))
+                     (cdr (syntax->list #'(τ_Cons ...))))))
+  (when: (assert-type #'e_test (stx-car #'(τ_Cons ...))))
+  (let τ_result := (typeof e_result)) ...
+  (when: (or (null? (syntax->list #'(τ_result ...)))
+             (andmap (λ (τ) (type=? τ (car (syntax->list #'(τ_result ...)))))
+                     (cdr (syntax->list #'(τ_result ...))))))
+  (with τ_res (stx-car #'(τ_result ...)))
+  #:expanded
+  (match e_test [(Cons x ...) e_body ... e_result] ...))
 
 ;; typed forms ----------------------------------------------------------------
 #;(define-syntax (datum/tc stx)

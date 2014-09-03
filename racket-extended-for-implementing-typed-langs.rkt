@@ -54,6 +54,15 @@
   ;; (ie where the type rules are declared)
   ;; - matches type vars
   (define-syntax-class meta-term #:datum-literals (:)
+    ;; cases
+    (pattern (name:id e_test [Cons:id (x:id ...) body ...+] ...+ (~optional (~and ldots (~literal ...))))
+     #:with (~datum cases) #'name
+     #:attr args-pat/notypes (template (e_test [Cons (x ...) body ...] ... (?? ldots)))
+     #:attr typevars-pat #'())
+    ;; define-type
+    (pattern (name:id τ_name:id τ_body)
+     #:attr args-pat/notypes #'()
+     #:attr typevars-pat #'(τ_name τ_body))
     ;; define-like binding form
     (pattern (name:id (f:id [x:id : τ] ... (~optional (~and ldots (~literal ...)))) : τ_result e ...)
      #:attr args-pat/notypes (template ((f x ... (?? ldots)) e ...))
@@ -81,6 +90,27 @@
   ;; - matches concrete types
   ;; name identifier is the extended form
   (define-syntax-class term #:datum-literals (:)
+    ;; cases
+    (pattern (name:id e_test [Cons:id (x:id ...) body ...+] ...+)
+     #:with (~datum cases) #'name
+     #:with e_test+ (expand/df #'e_test)
+     #:with (Cons+ ...) (stx-map expand/df #'(Cons ...))
+     #:with ((τ ... → τ_Cons) ...) (stx-map typeof #'(Cons+ ...))
+     #:with ((lam (x+ ...) body+ ... body_result+) ...) 
+            (stx-map (λ (bods xs τs) 
+                       (with-extended-type-env 
+                        (stx-map list xs τs)
+                        (expand/df #`(λ #,xs #,@bods))))
+                     #'((body ...) ...)
+                     #'((x ...) ...)
+                     #'((τ ...) ...))
+     #:attr expanded-args #'(e_test+ [Cons+ (x+ ...) body+ ... body_result+] ...)
+     #:attr types #'())
+    ;; define-type
+    (pattern (name:id τ_name:id τ_body)
+     ;;don't expand
+     #:attr expanded-args #'()
+     #:attr types #'(τ_name τ_body))
     ;; define-like binding form
     (pattern (name:id (f:id [x:id : τ] ...) : τ_result e ...)
 ;     #:with (lam xs+ . es+) (with-extended-type-env #'([x τ] ...)
@@ -89,6 +119,7 @@
 ;     #:with es++ (with-extended-type-env #'([x τ] ...)
 ;                  (stx-map (λ (e) (if (identifier? e) (expand/df e) e)) #'es+))
 ;     #:attr expanded-args #'(xs+ . es++)
+     ;; don't expand
      #:attr expanded-args #'((f x ...) e ...)
      #:attr types #'(τ_result τ ...))
     ;; lambda-like binding form
@@ -126,7 +157,11 @@
   ;; **syntax-class: τ-constraint ----------------------------------------
   (define-splicing-syntax-class 
     τ-constraint 
-    #:datum-literals (:= : let typeof == Γ-extend)
+    #:datum-literals (:= : let typeof == Γ-extend with when:)
+    (pattern (when: e)
+     #:attr pattern-directive #'(#:when e))
+    (pattern (with pat e)
+     #:attr pattern-directive #'(#:with pat e))
     (pattern (let τ := (typeof e))
      #:attr pattern-directive #'(#:with τ (typeof #'e)))
     (pattern (e : τ)
@@ -138,6 +173,8 @@
     (pattern (Γ-extend [f : τ] ... (~optional (~and ldots (~literal ...))))
      #:attr pattern-directive
             #`(#:when (Γ (type-env-extend #'([f τ] ... #,@(template ((?? ldots))))))))
+    (pattern (~seq (let τ := (typeof e)) (~literal ...))
+     #:attr pattern-directive #'(#:with (τ (... ...)) (stx-map typeof #'(e (... ...)))))
     (pattern (~seq (e0 : τ0) (~literal ...))
      #:when (concrete-τ? #'τ0)
      #:attr pattern-directive #'(#:when (stx-andmap (λ (e) (assert-type e #'τ0)) #'(e0 (... ...)))))
@@ -156,24 +193,23 @@
      #:with fresh-name (generate-temporary #'meta-e.name)
 ;     #:when (free-id-table-set! defined-names #'meta-e.name #'fresh-name)
      #:with lits lit-set
-     (template
-      (begin
-        (provide (rename-out [fresh-name meta-e.name]))
-        (define-syntax (fresh-name stx)
-          (syntax-parse stx #:literals lits
-            [e:term
-             ;; shadow pattern vars representing subterms with its expansion
-             ;; - except for the name of the form, since result must use base form
-             #:with meta-e.args-pat/notypes #'e.expanded-args
-             #:with meta-e.typevars-pat #'e.types
-             (?? (?@ . ((?@ . c.pattern-directive) ...)))
+     #`(begin
+         (provide (rename-out [fresh-name meta-e.name]))
+         (define-syntax (fresh-name stx)
+           (syntax-parse stx #:literals lits
+             [e:term
+              ;; shadow pattern vars representing subterms with its expansion
+              ;; - except for the name of the form, since result must use base form
+              #:with meta-e.args-pat/notypes #'e.expanded-args
+              #:with meta-e.typevars-pat #'e.types
+              #,@(template ((?? (?@ . ((?@ . c.pattern-directive) ...)))))
              (⊢ (syntax/loc 
                   stx 
-                  (?? expanded-e
-                      (meta-e.name . meta-e.args-pat/notypes)))
+                  #,@(template ((?? expanded-e
+                                    (meta-e.name . meta-e.args-pat/notypes)))))
                 #'meta-τ)]
             [_ #:when (type-error #:src stx #:msg "type error") #'(void)]
-            ))))]))
+            )))]))
 
 
 ;; overload mod-begin to check for define-literal-type-rule and other top-level forms
