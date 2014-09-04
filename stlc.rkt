@@ -26,7 +26,7 @@
      (syntax/loc stx (#%datum . x))]))
 
 ;; op
-(define-primop + : (Int ... → Int))
+(define-primop + : (Int Int → Int))
 
 ;; lambda
 (define-syntax (λ/tc stx)

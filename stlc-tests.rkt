@@ -1,8 +1,13 @@
 #lang s-exp "stlc-via-racket-extended.rkt"
-((λ ([f : (Int → Int)] [x : Int]) (f x))
-   (λ ([x : Int]) (+ x x 1))
+((λ ([f : (Int → Int)] [x : Int])
+   (f x))
+   (λ ([x : Int]) (+ x x))
    10)
-((λ ([x : Int]) (+ x 1 3)) 100)
+((λ ([x : Int]) (+ x 1)) 100)
+((λ ([f : (Int Int → Int)] [x : Int] [y : Int]) (f x y))
+ +
+ 100
+ 200)
 
 ;; extra tests
 ; test #%datum extension

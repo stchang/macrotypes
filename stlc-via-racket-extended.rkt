@@ -13,17 +13,18 @@
 
 (define-literal-type-rule integer : Int)
 
-(define-simple-syntax/type-rule
+(define-primop + : (Int Int → Int))
+#;(define-simple-syntax/type-rule
   (+ e ...) : Int
   #:where
   (e : Int) ...)
 
-(define-simple-syntax/type-rule
+(define-typed-syntax
   (λ ([x : τ] ...) e) : (τ ... → τ_body)
   #:where
   (let τ_body := (typeof e)))
 
-(define-simple-syntax/type-rule
+(define-typed-syntax
   (#%app f e ...) : τ2
   #:where
   (let (τ1 ... → τ2) := (typeof f))
