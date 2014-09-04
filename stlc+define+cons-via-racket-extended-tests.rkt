@@ -37,7 +37,8 @@
 (check-type (λ ([y : Int] [z : Int]) (< y z z)) : (Int Int → Bool))
 (check-type (λ ([f : (Int → Int)] [x : Int]) (f x)) : ((Int → Int) Int → Int))
 ;; the following HO example still fails bc varargs not handled
-;(check-type ((λ ([f : (Int Int → Int)] [x : Int]) (f x x)) + 1) : Int)
+;; fixed: 2014-09-04
+(check-type ((λ ([f : (Int Int → Int)] [x : Int]) (f x x)) + 1) : Int)
 (check-type-and-result ((λ ([f : (Bool → Bool)] [b : Bool]) (f b)) not #f) : Bool => #t)
 (check-type-and-result ((λ ([f : (Int → Int)] [n : Int]) (f n)) abs 1) : Int => 1)
 (check-type-and-result ((λ ([f : (Int → Int)] [n : Int]) (f n)) abs (- 1)) : Int => 1)

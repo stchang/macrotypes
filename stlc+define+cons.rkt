@@ -7,7 +7,7 @@
   (for-meta 2 racket/base syntax/parse)
   "typecheck.rkt")
 
-(require (except-in "stlc.rkt" #%app #%datum λ #%module-begin))
+(require (except-in "stlc.rkt" #%app #%datum λ #%module-begin +))
 (require (prefix-in stlc: "stlc.rkt"))
 (provide (all-from-out "stlc.rkt"))
 
@@ -15,11 +15,11 @@
  define-type cases
  (rename-out
   [datum/tc #%datum]
-  [void/tc void] [printf/tc printf]
+  #;[void/tc void] [printf/tc printf]
   [λ/tc λ] [let/tc let]
   ; for #%app, must prefix and re-provide because this file needs to use racket's #%app
   [stlc:#%app #%app] 
-  ;[app/tc #%app]
+;  [app/tc #%app]
   [define/tc define]
   [begin/tc begin] 
   [if/tc if]
@@ -95,7 +95,7 @@
      #:when (stx-andmap assert-Unit-type #'(e+ ...))
      (⊢ (syntax/loc stx (begin e+ ... e_result+)) (typeof #'e_result+))]))
 
-(define-syntax (void/tc stx)
+#;(define-syntax (void/tc stx)
   (syntax-parse stx
     [(_) (⊢ (syntax/loc stx (void)) #'Unit)]))
 
@@ -114,7 +114,7 @@
      #:when (assert-String-type #'str+)
      (⊢ (syntax/loc stx (printf str+)) #'Unit)]))
 
-;(define-primop + : (Int ... → Int))
+(define-primop + : (Int ... → Int))
 (define-primop - : (Int Int ... → Int))
 (define-primop = : (Int Int Int ... → Bool))
 (define-primop < : (Int Int Int ... → Bool))
@@ -122,6 +122,7 @@
 (define-primop and : (Bool ... → Bool))
 (define-primop not : (Bool → Bool))
 (define-primop abs : (Int → Int))
+(define-primop void : (→ Unit))
 
 
 (define-syntax (λ/tc stx)
@@ -144,11 +145,11 @@
      (⊢ (syntax/loc stx (lam xs e++ ... e_result++)) #'(τ ... → τ_body))]))
 
 ;; #%app
-;; TODO: support varargs
 #;(define-syntax (app/tc stx)
   (syntax-parse stx #:literals (→)
     [(_ e_fn e_arg ...)
      #:with (e_fn+ e_arg+ ...) (stx-map expand/df #'(e_fn e_arg ...))
+
      #:with (τ ... → τ_res) (typeof #'e_fn+)
      #:when (stx-andmap assert-type #'(e_arg+ ...) #'(τ ...))
      (⊢ (syntax/loc stx (#%app e_fn+ e_arg+ ...)) #'τ_res)]
@@ -219,6 +220,24 @@
   (syntax-parse stx #:datum-literals (:)
     [(_ (f:id [x:id : τ] ...) : τ_result e ...)
      #:when (Γ (type-env-extend #'([f (τ ... → τ_result)])))
+     ;; If I use the (commented-out) copied-from-λ impl below, 
+     ;; get "f unbound identifier error" for example:
+     ;; (define (g [y : Int]) : Int
+     ;;   (+ (f y) 1))
+     ;; (define (f [x : Int]) : Int
+     ;;   (+ x 1))
+     ;; But if I define define/tc interms of λ/tc, the example works.
+     ;; I'm guessing it's because the call to expand/df is deferred 
+     ;; in the latter case to until after the racket internal def code first 
+     ;; does its peek-expand to get all the λ/tcs, and thus all the f's have 
+     ;; been added to the internal def ctxt
+;     #:with (lam xs . es+) (with-extended-type-env #'([x τ] ...)
+;                              (expand/df #'(λ (f x ...) e ... e_result)))
+;     #:with (e++ ... e_result++) (with-extended-type-env #'([x τ] ...)
+;                                   (stx-map (λ (e) (if (identifier? e) (expand/df e) e)) #'es+))
+;     #:when (stx-map assert-Unit-type #'(e++ ...))
+;     #:with τ_body (typeof #'e_result++)
+;     (⊢ (syntax/loc stx (define xs+ e++ ... e_result++)) #'(τ ... → τ_body))]
      #'(define f (λ/tc ([x : τ] ...) e ...))]
     [(_ x:id e) #'(define x e)]))
 
@@ -273,30 +292,35 @@
     [(_ mb-form:maybe-def ...)
      ;; handle define-type
      #:with (deftype ...) (template ((?@ . mb-form.tydecl) ...))
-     #:with ((begin deftype+ ...) ...) (stx-map expand/df/module-ctx #'(deftype ...))
-     #:with (structdef ...) (stx-flatten #'((deftype+ ...) ...))
-     #:with (structdef+:strct ...) (stx-map expand/df/module-ctx #'(structdef ...))
-     #:with (def-val:def-val ...) #'(structdef+.def-val ...)
-     #:with (def-val-lhs ...) #'(def-val.lhs ...)
-     #:with (def-val-rhs ...) #'(def-val.rhs ...)
-     #:with (def-syn:def-syn ...) #'(structdef+.def-syn ...)
-     #:with (def-syn-lhs ...) #'(def-syn.lhs ...)
-     #:with (def-syn-rhs ...) #'(def-syn.rhs ...)
+;     #:with ((begin deftype+ ...) ...) (stx-map expand/df/module-ctx #'(deftype ...))
+;     #:with (structdef ...) (stx-flatten #'((deftype+ ...) ...))
+;     #:with (structdef+:strct ...) (stx-map expand/df/module-ctx #'(structdef ...))
+;     #:with (def-val:def-val ...) #'(structdef+.def-val ...)
+;     #:with (def-val-lhs ...) #'(def-val.lhs ...)
+;     #:with (def-val-rhs ...) #'(def-val.rhs ...)
+;     #:with (def-syn:def-syn ...) #'(structdef+.def-syn ...)
+;     #:with (def-syn-lhs ...) #'(def-syn.lhs ...)
+;     #:with (def-syn-rhs ...) #'(def-syn.rhs ...)
      ;; handle defines
      #:with (deffn ...) (template ((?@ . mb-form.fndef) ...))
-     #:with (deffn+:def-val ...) (stx-map expand/df/module-ctx #'(deffn ...))
-     #:with (f ...) #'(deffn+.lhs ...)
-     #:with (v ...) #'(deffn+.rhs ...)
+;     #:with (deffn+:def-val ...) (stx-map expand/df/module-ctx #'(deffn ...))
+;     #:with (f ...) #'(deffn+.lhs ...)
+;     #:with (v ...) #'(deffn+.rhs ...)
      #:with (e ...) (template ((?@ . mb-form.e) ...))
      ;; base type env
    ;  #:when (Γ (type-env-extend #'((+ (Int Int → Int)))))
 ;; NOTE: for struct def, define-values *must* come before define-syntaxes
-;; ow, error: "Just10: unbound identifier; also, no #%top syntax transformer is bound"
+;; ow, error, eg: "Just10: unbound identifier; also, no #%top syntax transformer is bound"
      (quasisyntax/loc stx 
        (#%module-begin
-        #,(expand/df #'(let-values ([def-val-lhs def-val-rhs] ...)
-                         (let-syntax ([def-syn-lhs def-syn-rhs] ...)
-                           (letrec-values ([f v] ...) e ... (void)))))
+        #,(expand/df #'(let ()
+                         deftype ...
+                         ;structdef ...
+                         deffn ...
+                         e ...))
+;        #,(expand/df #'(let-values ([def-val-lhs def-val-rhs] ...)
+;                         (let-syntax ([def-syn-lhs def-syn-rhs] ...)
+;                           (letrec-values ([f v] ...) e ... (void)))))
         (define #,(datum->syntax stx 'runtime-env)
           (for/hash ([x:τ '#,(map (λ (xτ) (cons (car xτ) (syntax->datum (cdr xτ))))
                                   (hash->list (Γ)))])

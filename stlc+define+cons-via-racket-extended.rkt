@@ -1,5 +1,5 @@
 #lang s-exp "racket-extended-for-implementing-typed-langs.rkt"
-(extends "stlc-via-racket-extended.rkt" λ)
+(extends "stlc-via-racket-extended.rkt" λ +)
 (inherit-types Int →)
 (require (for-syntax syntax/stx "stx-utils.rkt") "typecheck.rkt")
 
@@ -71,15 +71,15 @@
      #:when (assert-String-type #'str+)
      (⊢ (syntax/loc stx (printf str+)) #'Unit)]))
 
-;(define-primop + : Int ... → Int)
-(define-primop - : Int Int ... → Int)
-(define-primop = : Int Int Int ... → Bool)
-(define-primop < : Int Int Int ... → Bool)
-(define-primop or : Bool ... → Bool)
-(define-primop and : Bool ... → Bool)
-(define-primop not : Bool → Bool)
-(define-primop abs : Int → Int)
-(define-primop void : → Unit)
+(define-primop + : (Int ... → Int))
+(define-primop - : (Int Int ... → Int))
+(define-primop = : (Int Int Int ... → Bool))
+(define-primop < : (Int Int Int ... → Bool))
+(define-primop or : (Bool ... → Bool))
+(define-primop and : (Bool ... → Bool))
+(define-primop not : (Bool → Bool))
+(define-primop abs : (Int → Int))
+(define-primop void : (→ Unit))
 
 (define-typed-syntax
   (λ ([x : τ] ...) e ... e_result) : (τ ... → τ_body)
