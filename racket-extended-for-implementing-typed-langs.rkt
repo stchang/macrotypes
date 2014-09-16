@@ -175,12 +175,12 @@
             #`(#:when (Γ (type-env-extend #'([f τ] ... #,@(template ((?? ldots))))))))
     (pattern (~seq (let τ := (typeof e)) (~literal ...))
      #:attr pattern-directive #'(#:with (τ (... ...)) (stx-map typeof #'(e (... ...)))))
-    (pattern (~seq (e0 : τ0) (~literal ...))
+    (pattern (~seq (e0 : τ0) (~and ldots (~literal ...)))
      #:when (concrete-τ? #'τ0)
-     #:attr pattern-directive #'(#:when (stx-andmap (λ (e) (assert-type e #'τ0)) #'(e0 (... ...)))))
+     #:attr pattern-directive #'(#:when (stx-andmap (λ (e) (assert-type e #'τ0)) #'(e0 ldots))))
     ;; not concrete-τ
-    (pattern (~seq (e0 : τ0) (~literal ...))
-     #:attr pattern-directive #'(#:when (stx-andmap assert-type #'(e0 (... ...)) #'(τ0 (... ...)))))))
+    (pattern (~seq (e0 : τ0) (~and ldots (~literal ...)))
+     #:attr pattern-directive #'(#:when (stx-andmap assert-type #'(e0 ldots) #'(τ0 ldots))))))
 
           
 ;; define-typed-syntax
