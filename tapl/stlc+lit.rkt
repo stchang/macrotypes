@@ -19,7 +19,7 @@
 
 (define-syntax (datum/tc stx)
   (syntax-parse stx
-    [(_ . n:integer) (⊢ (syntax/loc stx (#%datum . n)) #'Int)]
+    [(_ . n:integer) (⊢ #'(#%datum . n) #'Int)]
     [(_ . x)
      #:when (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)
-     (syntax/loc stx (#%datum . x))]))
+     #'(#%datum . x)]))
