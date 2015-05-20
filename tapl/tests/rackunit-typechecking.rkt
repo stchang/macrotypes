@@ -8,6 +8,7 @@
   (syntax-parse stx #:datum-literals (:)
     [(_ e : τ ⇒ v) #'(check-type-and-result e : τ ⇒ v)]
     [(_ e : τ-expected)
+     #:fail-unless (is-type? #'τ-expected) (errmsg:bad-type #'τ-expected)
      #:with e+ (expand/df #'e)
      #:with τ (typeof #'e+)
      #:fail-unless
@@ -21,6 +22,7 @@
 (define-syntax (check-not-type stx)
   (syntax-parse stx #:datum-literals (:)
     [(_ e : not-τ)
+     #:fail-unless (is-type? #'not-τ) (errmsg:bad-type #'not-τ)
      #:with e+ (expand/df #'e)
      #:with τ (typeof #'e+)
      #:fail-when 

@@ -47,10 +47,11 @@
 
 ;; type classes
 (begin-for-syntax
+  (define (errmsg:bad-type τ)
+    (format "~a is not a valid type" (syntax->datum τ)))
   (define-syntax-class typed-binding #:datum-literals (:)
-    (pattern [x:id : τ])
-    (pattern
-     any
+    (pattern [x:id : τ] #:fail-unless (is-type? #'τ) (errmsg:bad-type #'τ))
+    (pattern (~not [x:id : τ])
      #:with x #f
      #:with τ #f
      #:fail-when #t
@@ -58,6 +59,10 @@
              (syntax->datum #'any)))))
 
 (begin-for-syntax
+  (define (is-type? τ)
+    (if (identifier? τ)
+        (identifier-binding τ)
+        (stx-andmap is-type? τ)))
   ;; ⊢ : Syntax Type -> Syntax
   ;; Attaches type τ to (expanded) expression e.
 ;  (define (⊢ e τ) (syntax-property (quasisyntax/loc e #,e) 'type τ))
