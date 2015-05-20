@@ -20,3 +20,6 @@
 (define (stx-length stx) (length (syntax->list stx)))
 
 (define (stx-last stx) (last (syntax->list stx)))
+
+(define (stx-list-ref stx i)
+  (list-ref (syntax->list stx) i))

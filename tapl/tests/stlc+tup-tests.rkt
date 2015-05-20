@@ -1,7 +1,22 @@
-#lang s-exp "../ext-stlc.rkt"
+#lang s-exp "../stlc+tup.rkt"
 (require "rackunit-typechecking.rkt")
 
-;; tests for stlc extensions
+;; tests for tuples
+(check-type (tup 1 2 3) : (Int Int Int))
+(check-type (tup 1 "1" #f +) : (Int String Bool (Int Int → Int)))
+(check-not-type (tup 1 "1" #f +) : (Unit String Bool (Int Int → Int)))
+(check-not-type (tup 1 "1" #f +) : (Int Unit Bool (Int Int → Int)))
+(check-not-type (tup 1 "1" #f +) : (Int String Unit (Int Int → Int)))
+(check-not-type (tup 1 "1" #f +) : (Int String Bool (Int Int → Unit)))
+
+(check-type (proj (tup 1 "2" #f) 0) : Int ⇒ 1)
+(check-type (proj (tup 1 "2" #f) 1) : String ⇒ "2")
+(check-type (proj (tup 1 "2" #f) 2) : Bool ⇒ #f)
+(typecheck-fail (proj (tup 1 "2" #f) 3)) ; index too large
+(typecheck-fail (proj 1 2)) ; not tuple
+
+;; ext-stlc.rkt tests ---------------------------------------------------------
+;; should still pass
 
 ;; new literals and base types
 (check-type "one" : String) ; literal now supported

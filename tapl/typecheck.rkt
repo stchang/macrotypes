@@ -25,7 +25,7 @@
     [(_ τ:id)
      #:with τ? (format-id #'τ "~a?" #'τ)
      #'(begin
-         (provide τ)
+         (provide τ (for-syntax τ?))
          (define-syntax (τ stx)
            (syntax-parse stx
              [_ (error 'Int "Cannot use type at run time.")]))
@@ -37,7 +37,7 @@
     [(_ τ:id)
      #:with τ? (format-id #'τ "~a?" #'τ)
      #'(begin
-         (provide τ)
+         (provide τ (for-syntax τ?))
          (define-syntax (τ stx)
            (syntax-parse stx
              [_ (error 'Int "Cannot use type at run time.")]))

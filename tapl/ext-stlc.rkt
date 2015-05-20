@@ -21,11 +21,12 @@
 ;; Terms:
 ;; - terms from stlc+lit.rkt
 ;; - literals: bool, string
-;; - prims: and, or, not, zero?
+;; - boolean prims, numeric prims
+;; - if
 ;; - prim void : (→ Unit)
 ;; - begin
 ;; - ascription (ann)
-;; - let
+;; - let, let*, letrec
 
 (define-base-type Bool)
 (define-base-type String)
