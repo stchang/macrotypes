@@ -23,11 +23,15 @@
 (define-syntax (define-base-type stx)
   (syntax-parse stx
     [(_ τ:id)
+     #:with τ? (format-id #'τ "~a?" #'τ)
      #'(begin
          (provide τ)
          (define-syntax (τ stx)
            (syntax-parse stx
-             [_ (error 'Int "Cannot use type at run time.")])))]))
+             [_ (error 'Int "Cannot use type at run time.")]))
+         (define-for-syntax (τ? τ1)
+           (type=? τ1 #'τ)))]))
+
 (define-syntax (define-type-constructor stx)
   (syntax-parse stx
     [(_ τ:id)
@@ -44,6 +48,19 @@
                 (type=? #'τ id))]
              [_ #f]))
          )]))
+;(define-syntax (define-constant-type stx)
+;  (syntax-parse stx
+;    [(_ τ:id)
+;     #:with constructor
+;            (datum->syntax #'τ (string->symbol (string-downcase (symbol->string (syntax>datum #'τ)))))
+;     #:with const-name
+;            (generate-temporary #'constructor)
+;     #'(begin
+;         (provide τ constructor)
+;         (struct
+;         (define-syntax (τ stx)
+;           (syntax-parse stx
+;             [_ (error 'Int "Cannot use type at run time.")])))]))
 
 ;; type classes
 (begin-for-syntax
@@ -78,7 +95,20 @@
        (expand/df
         #`(λ (x ...)
             (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ))] ...) #,e)))
-       (list #'xs+ #'e+ (typeof #'e+))]))
+       (list #'xs+ #'e+ (typeof #'e+))]
+      [([x τ] ...) (infer/type-ctxt+erase #'([x : τ] ...) e)]))
+  (define (infers/type-ctxt+erase ctxt es)
+    (syntax-parse ctxt
+      [(b:typed-binding ...)
+       #:with (x ...) #'(b.x ...)
+       #:with (τ ...) #'(b.τ ...)
+       #:with
+       (lam xs+ (lr-stxs+vs1 stxs1 vs1 (lr-stxs+vs2 stxs2 vs2 e+ ...)))
+       (expand/df
+        #`(λ (x ...)
+            (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ))] ...) #,@es)))
+       (list #'xs+ #'(e+ ...) (stx-map typeof #'(e+ ...)))]
+      [([x τ] ...) (infers/type-ctxt+erase #'([x : τ] ...) es)]))
 
   (define (infer+erase e)
     (define e+ (expand/df e))

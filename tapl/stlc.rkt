@@ -38,7 +38,7 @@
                     (string-join
                      (map (λ (e+τ) (format "~a : ~a" (car e+τ) (cadr e+τ))) (syntax->datum #'([e_arg τ_arg] ...)))
                      ", ")
-                    "\nexpect arguments with type: "
+                    "\nexpected arguments with type: "
                     (string-join
                      (map (λ (x) (format "~a" x)) (syntax->datum #'(τ ...)))
                      ", "))
