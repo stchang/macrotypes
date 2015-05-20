@@ -6,6 +6,9 @@
 (provide #%module-begin #%top-interaction #%top require)
  
 ;; Simply-Typed Lambda Calculus
+;; - no base type so cannot write any terms
+;; Types: →
+;; Terms:
 ;; - var
 ;; - multi-arg lambda
 ;; - multi-arg app
@@ -27,10 +30,6 @@
                            (syntax->datum #'e_fn) (syntax->datum #'τ_fn))
      #:with (τ ... → τ_res) #'τ_fn
      #:with ((e_arg- τ_arg) ...) (infers+erase #'(e_arg ...))
-;     #:fail-unless (= (stx-length #'(τ ...))
-;                      (stx-length #'(τ_arg ...)))
-;                   (format "Wrong number of arguments: given ~a, expected ~a\n"
-;                           (stx-length #'(τ_arg ...)) (stx-length #'(τ ...)))
      #:fail-unless (types=? #'(τ ...) #'(τ_arg ...))
                    (string-append
                     (format

@@ -10,9 +10,13 @@
 (provide (all-from-out "stlc.rkt"))
  
 ;; Simply-Typed Lambda Calculus, plus numeric literals and primitives
-;; forms from stlc.rkt
-;; numeric literals
-;; prim +
+;; Types:
+;; - types from stlc.rkt
+;; - Int
+;; Terms:
+;; - terms from stlc.rkt
+;; - numeric literals
+;; - prim +
 
 (define-base-type Int)
 
