@@ -10,3 +10,5 @@
 (check-type (λ ([x : Int]) x) : (Int → Int))
 (check-type (λ ([f : (Int → Int)]) 1) : ((Int → Int) → Int))
 (check-type ((λ ([x : Int]) x) 1) : Int ⇒ 1)
+;((λ ([x : Bool]) x) 1)
+;(λ ([x : Bool]) x)

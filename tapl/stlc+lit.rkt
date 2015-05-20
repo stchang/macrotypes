@@ -8,7 +8,7 @@
                      [stlc:λ λ]))
 (provide Int
          (rename-out [stlc:→ →]))
-(provide #%module-begin #%top-interaction require)
+(provide #%module-begin #%top-interaction #%top require)
  
 ;; Simply-Typed Lambda Calculus, plus numeric literals and primitives
 ;; forms from stlc.rkt
@@ -19,7 +19,7 @@
 
 (define-syntax (datum/tc stx)
   (syntax-parse stx
-    [(_ . n:integer) (⊢ #'(#%datum . n) #'Int)]
+    [(_ . n:integer) (⊢ (syntax/loc stx (#%datum . n)) #'Int)]
     [(_ . x)
      #:when (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)
      #'(#%datum . x)]))

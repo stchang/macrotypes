@@ -4,7 +4,7 @@
   "typecheck.rkt")
 (provide (rename-out [λ/tc λ] [app/tc #%app])
          →)
-(provide #%module-begin #%top-interaction require)
+(provide #%module-begin #%top-interaction #%top require)
  
 ;; Simply-Typed Lambda Calculus
 ;; - var
@@ -14,15 +14,21 @@
 (define-type-constructor →)
 
 (define-syntax (λ/tc stx)
-  (syntax-parse stx
+  (syntax-parse stx 
     [(_ (b:typed-binding ...) e)
-     #:with τ_body (infer/type-ctxt #'([b.x b.τ] ...) #'e)
-     (⊢ #'(λ (b.x ...) e) #'(b.τ ... → τ_body))]))
+     #:with (xs- e- τ_res) (infer/type-ctxt+erase #'(b ...) #'e)
+     (⊢ #'(λ xs- e-) #'(b.τ ... → τ_res))]))
 
 (define-syntax (app/tc stx)
   (syntax-parse stx #:literals (→)
     [(_ e_fn e_arg ...)
-     #:with (τ ... → τ_res) (infer #'e_fn)
-     #:with (τ_arg ...) (infers #'(e_arg ...))
-     #:when (types=? #'(τ ...) #'(τ_arg ...))
-     (⊢ #'(#%app e_fn e_arg ...) #'τ_res)]))
+     #:with (e_fn- (τ ... → τ_res)) (infer+erase #'e_fn)
+     #:with ((e_arg- τ_arg) ...) (infers+erase #'(e_arg ...))
+     #:fail-unless (= (stx-length #'(τ ...))
+                      (stx-length #'(τ_arg ...)))
+                   (format "Wrong number of arguments: given ~a, expected ~a\n"
+                           (stx-length #'(τ_arg ...)) (stx-length #'(τ ...)))
+     #:fail-unless (types=? #'(τ ...) #'(τ_arg ...))
+                   (format "Arguments have wrong type: given ~a, expected ~a\n"
+                           (syntax->datum #'(τ_arg ...)) (syntax->datum #'(τ ...)))
+     (⊢ #'(#%app e_fn- e_arg- ...) #'τ_res)]))

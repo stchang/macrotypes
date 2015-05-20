@@ -33,26 +33,42 @@
          (syntax-parse stx
            [_ (error 'Int "Cannot use type at run time.")]))]))
 
+;; type classes
+(begin-for-syntax
+  (define-syntax-class typed-binding #:datum-literals (:)
+    (pattern [x:id : τ])
+    (pattern
+     any
+     #:with x #f
+     #:with τ #f
+     #:fail-when #t
+     (format "Improperly formatted type annotation: ~a; should have shape [x : τ]"
+             (syntax->datum #'any)))))
+
 (begin-for-syntax
   ;; ⊢ : Syntax Type -> Syntax
   ;; Attaches type τ to (expanded) expression e.
 ;  (define (⊢ e τ) (syntax-property (quasisyntax/loc e #,e) 'type τ))
   (define (⊢ e τ) (syntax-property e 'type τ))
 
-  (define (infer/type-ctxt x+τs e)
-    (typeof
-     (syntax-parse x+τs
-       [([x τ] ...)
-        #:with
-        (lam xs+ (lr-stxs+vs1 stxs1 vs1 (lr-stxs+vs2 stxs2 vs2 e+)))
-        (expand/df
-         #`(λ (x ...)
-             (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ))] ...) #,e)))
-        #'e+])))
+  (define (infer/type-ctxt+erase x+τs e)
+    (syntax-parse x+τs
+      [(b:typed-binding ...)
+       #:with (x ...) #'(b.x ...)
+       #:with (τ ...) #'(b.τ ...)
+;       #:with arr (datum->syntax e '→)
+       #:with
+       (lam xs+ (lr-stxs+vs1 stxs1 vs1 (lr-stxs+vs2 stxs2 vs2 e+)))
+       (expand/df
+        #`(λ (x ...)
+            (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ))] ...) #,e)))
+;       (list #'(lam xs+ e+) #`(τ ... arr #,(typeof #'e+)))]))
+       (list #'xs+ #'e+ (typeof #'e+))]))
 
-  
-  (define (infer e) (typeof (expand/df e)))
-  (define (infers es) (stx-map infer es))
+  (define (infer+erase e)
+    (define e+ (expand/df e))
+    (list e+ (typeof e+)))
+  (define (infers+erase es) (stx-map infer+erase es))
   (define (types=? τs1 τs2)
     (stx-andmap type=? τs1 τs2))
   
@@ -72,6 +88,8 @@
     (or (type=? (typeof e) τ)
         (type-error #:src e 
                     #:msg "~a has type ~a, but should have type ~a" e (typeof e) τ)))
+  (define (assert-types es τs)
+    (stx-andmap assert-type es τs))
 
   ;; type=? : Type Type -> Boolean
   ;; Indicates whether two types are equal
@@ -102,7 +120,7 @@
       ;; User-defined ids don't have a 'type stx-prop yet because Racket has no
       ;; #%var form.
       ;; Built-in ids, like primops, will already have a type though, so check.
-      [(identifier? e) 
+      #;[(identifier? e) 
        (define e+ (local-expand e 'expression null)) ; null == full expansion
        (if (has-type? e+) e+ (⊢ e (type-env-lookup e)))]
       [else (local-expand e 'expression null)]))
@@ -156,15 +174,3 @@
     (syntax-parse stx
       [(_ x-τs e)
        #'(parameterize ([Γ (type-env-extend x-τs)]) e)])))
-
-;; type classes
-(begin-for-syntax
-  (define-syntax-class typed-binding #:datum-literals (:)
-    (pattern [x:id : τ])
-    (pattern
-     any
-     #:with x #f
-     #:with τ #f
-     #:fail-when #t
-     (format "Improperly formatted type annotation: ~a; should have shape [x : τ]"
-             (syntax->datum #'any)))))
