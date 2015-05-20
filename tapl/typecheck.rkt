@@ -1,6 +1,6 @@
 #lang racket/base
 (require
-  (for-syntax racket/base syntax/parse racket/list syntax/stx "stx-utils.rkt")
+  (for-syntax racket/base syntax/parse racket/list racket/syntax syntax/stx "stx-utils.rkt")
   (for-meta 2 racket/base syntax/parse racket/list syntax/stx "stx-utils.rkt"))
 (provide 
  (for-syntax (all-defined-out))
@@ -23,15 +23,27 @@
 (define-syntax (define-base-type stx)
   (syntax-parse stx
     [(_ τ:id)
-     #'(define-syntax (τ stx)
-         (syntax-parse stx
-           [_ (error 'Int "Cannot use type at run time.")]))]))
+     #'(begin
+         (provide τ)
+         (define-syntax (τ stx)
+           (syntax-parse stx
+             [_ (error 'Int "Cannot use type at run time.")])))]))
 (define-syntax (define-type-constructor stx)
   (syntax-parse stx
     [(_ τ:id)
-     #'(define-syntax (τ stx)
-         (syntax-parse stx
-           [_ (error 'Int "Cannot use type at run time.")]))]))
+     #:with τ? (format-id #'τ "~a?" #'τ)
+     #'(begin
+         (provide τ)
+         (define-syntax (τ stx)
+           (syntax-parse stx
+             [_ (error 'Int "Cannot use type at run time.")]))
+         (define-for-syntax (τ? stx)
+           (syntax-parse stx
+             [(τ_arg (... ...))
+              (for/or ([id (syntax->list #'(τ_arg (... ...)))])
+                (type=? #'τ id))]
+             [_ #f]))
+         )]))
 
 ;; type classes
 (begin-for-syntax
@@ -56,21 +68,21 @@
       [(b:typed-binding ...)
        #:with (x ...) #'(b.x ...)
        #:with (τ ...) #'(b.τ ...)
-;       #:with arr (datum->syntax e '→)
        #:with
        (lam xs+ (lr-stxs+vs1 stxs1 vs1 (lr-stxs+vs2 stxs2 vs2 e+)))
        (expand/df
         #`(λ (x ...)
             (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ))] ...) #,e)))
-;       (list #'(lam xs+ e+) #`(τ ... arr #,(typeof #'e+)))]))
        (list #'xs+ #'e+ (typeof #'e+))]))
 
   (define (infer+erase e)
     (define e+ (expand/df e))
     (list e+ (typeof e+)))
-  (define (infers+erase es) (stx-map infer+erase es))
+  (define (infers+erase es)
+    (stx-map infer+erase es))
   (define (types=? τs1 τs2)
-    (stx-andmap type=? τs1 τs2))
+    (and (= (stx-length τs1) (stx-length τs2))
+         (stx-andmap type=? τs1 τs2)))
   
   ;; typeof : Syntax -> Type or #f
   ;; Retrieves type of given stx, or #f if input has not been assigned a type.
@@ -81,14 +93,14 @@
 
   ;; assert-type : Syntax Type -> Boolean
   ;; Returns #t if (typeof e)==τ, else type error
-  (define (assert-type e τ)
+  #;(define (assert-type e τ)
     ;  (printf "~a has type " (syntax->datum e))
     ;  (printf "~a; expected: " (syntax->datum (typeof e)))
     ;  (printf "~a\n"  (syntax->datum τ))
     (or (type=? (typeof e) τ)
         (type-error #:src e 
                     #:msg "~a has type ~a, but should have type ~a" e (typeof e) τ)))
-  (define (assert-types es τs)
+  #;(define (assert-types es τs)
     (stx-andmap assert-type es τs))
 
   ;; type=? : Type Type -> Boolean
@@ -97,9 +109,11 @@
     (syntax-parse #`(#,τ1 #,τ2)
       ; → should not be datum literal;
       ; adding a type constructor should extend type equality
-      #:datum-literals (→)
+;      #:datum-literals (→)
       [(x:id y:id) (free-identifier=? τ1 τ2)]
-      [((x ... → x_out) (y ... → y_out))
+      [((τ1 ...) (τ2 ...))
+       (types=? #'(τ1 ...) #'(τ2 ...))]
+      #;[((x ... → x_out) (y ... → y_out))
        (and (type=? #'x_out #'y_out)
             (stx-andmap type=? #'(x ...) #'(y ...)))]
       [_ #f]))
@@ -134,10 +148,47 @@
      'TYPE-ERROR
      (format (string-append "~a (~a:~a): " msg) 
              (syntax-source stx-src) (syntax-line stx-src) (syntax-column stx-src) 
-             (syntax->datum args) ...))))
+             (syntax->datum args) ...)))
+
+  )
+
+(define-syntax (define-primop stx)
+    (syntax-parse stx #:datum-literals (:)
+      [(_ op:id : τ)
+       #:with op/tc (generate-temporary #'op)
+       #`(begin
+           (provide (rename-out [op/tc op]))
+           (define-syntax (op/tc stx)
+             (syntax-parse stx
+               [f:id (⊢ (syntax/loc stx op) #'τ)] ; HO case
+               [(_ x (... ...))
+                #:with app (datum->syntax stx '#%app)
+                #:with op (format-id stx "~a" #'op)
+                #'(app op x (... ...))]
+               #;[(_ e (... ...))
+                #:with es+ (stx-map expand/df #'(e (... ...))) 
+                #:with τs #'(τ_arg ...)
+                #:fail-unless (let ([es-len (stx-length #'es+)]
+                                    [τs-len (stx-length #'τs)])
+                                (or (and #,(if (attribute ldots) #t #f)
+                                         (>= (- es-len (sub1 τs-len)) 0))
+                                    (= es-len τs-len)))
+                #,(if (attribute ldots)
+                      #'(format "Wrong number of arguments, given ~a, expected at least ~a"
+                                (stx-length #'es+) (sub1 (stx-length #'τs)))
+                      #'(format "Wrong number of arguments, given ~a, expected ~a" 
+                                (stx-length #'es+) (stx-length #'τs)))
+                #:with τs-ext #,(if (attribute ldots)
+                                    #'(let* ([diff (- (stx-length #'es+) (sub1 (stx-length #'τs)))]
+                                             [last-τ (stx-last #'τs)]
+                                             [last-τs (build-list diff (λ _ last-τ))])
+                                        (append (drop-right (syntax->list #'τs) 1) last-τs))
+                                    #'#'τs)
+                #:when (stx-andmap assert-type #'es+ #'τs-ext)
+                (⊢ (syntax/loc stx (op . es+)) #'τ_result)])))]))
 
 ;; type environment -----------------------------------------------------------
-(begin-for-syntax
+#;(begin-for-syntax
   
   ;; A Variable is a Symbol
   ;; A TypeEnv is a [HashOf Variable => Type]

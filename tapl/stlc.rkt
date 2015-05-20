@@ -1,9 +1,8 @@
 #lang racket/base
 (require
-  (for-syntax racket/base syntax/parse syntax/stx "stx-utils.rkt")
+  (for-syntax racket/base syntax/parse syntax/stx racket/string "stx-utils.rkt")
   "typecheck.rkt")
-(provide (rename-out [λ/tc λ] [app/tc #%app])
-         →)
+(provide (rename-out [λ/tc λ] [app/tc #%app]))
 (provide #%module-begin #%top-interaction #%top require)
  
 ;; Simply-Typed Lambda Calculus
@@ -22,13 +21,26 @@
 (define-syntax (app/tc stx)
   (syntax-parse stx #:literals (→)
     [(_ e_fn e_arg ...)
-     #:with (e_fn- (τ ... → τ_res)) (infer+erase #'e_fn)
+     #:with (e_fn- τ_fn) (infer+erase #'e_fn)
+     #:fail-unless (→? #'τ_fn)
+                   (format "Type error: Attempting to apply a non-function ~a with type ~a\n"
+                           (syntax->datum #'e_fn) (syntax->datum #'τ_fn))
+     #:with (τ ... → τ_res) #'τ_fn
      #:with ((e_arg- τ_arg) ...) (infers+erase #'(e_arg ...))
-     #:fail-unless (= (stx-length #'(τ ...))
-                      (stx-length #'(τ_arg ...)))
-                   (format "Wrong number of arguments: given ~a, expected ~a\n"
-                           (stx-length #'(τ_arg ...)) (stx-length #'(τ ...)))
+;     #:fail-unless (= (stx-length #'(τ ...))
+;                      (stx-length #'(τ_arg ...)))
+;                   (format "Wrong number of arguments: given ~a, expected ~a\n"
+;                           (stx-length #'(τ_arg ...)) (stx-length #'(τ ...)))
      #:fail-unless (types=? #'(τ ...) #'(τ_arg ...))
-                   (format "Arguments have wrong type: given ~a, expected ~a\n"
-                           (syntax->datum #'(τ_arg ...)) (syntax->datum #'(τ ...)))
+                   (string-append
+                    (format
+                     "Wrong number of args given to function ~a, or args have wrong type:\ngiven: "
+                     (syntax->datum #'e_fn))
+                    (string-join
+                     (map (λ (e+τ) (format "~a : ~a" (car e+τ) (cadr e+τ))) (syntax->datum #'([e_arg τ_arg] ...)))
+                     ", ")
+                    "\nexpect arguments with type: "
+                    (string-join
+                     (map (λ (x) (format "~a" x)) (syntax->datum #'(τ ...)))
+                     ", "))
      (⊢ #'(#%app e_fn- e_arg- ...) #'τ_res)]))
