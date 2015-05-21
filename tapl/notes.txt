@@ -1,0 +1,27 @@
+macro system requirements:
+- depth-first expansion, i.e., localexpand, and stop-lists
+- language form hooks, e.g., #%app, etc
+- literal types, e.g. integer syntax class, ie compile time literal type tag
+- identifiers and free-identifier=?
+- syntax-parse or other pattern matching
+
+Type constructors must be prefix (and not infix) and must be functions
+- because in order to support type aliases:
+  - types must be expanded,
+  - and having a macro identifier (ie, an alias) in the function position
+    makes the expander error (constructor is ok bc it is run time identifier)
+
+Type expansion problem: what to do about #%app?
+1) use the #%app in scope: 
+  - may do type checking and error bc types dont have types
+2) use the racket #%app:
+  - may work but how to do this without ruining context of other
+   identifiers (ie types)
+Solution: do #1, but
+1) stop at the #%app
+2) manually drop it and continue expanding rest
+
+Types must be identifiers, but not macros
+- cannot be macros if we want to use expansion for type aliases
+  - because then what does a base type like Int expand to?
+  - if we define Int as a runtime identifier, then expansion will stop at Int

@@ -7,7 +7,7 @@
 (check-type "one" : String) ; literal now supported
 (check-type #f : Bool) ; literal now supported
 
-(check-type (λ ([x : Bool]) x) : (Bool → Bool)) ; Bool is now valid type
+(check-type (λ ([x : Bool]) x) : (→ Bool Bool)) ; Bool is now valid type
 
 ;; Unit
 (check-type (void) : Unit)
@@ -45,7 +45,7 @@
 
 ;; recursive
 (check-type
- (letrec ([(countdown : (Int → String))
+ (letrec ([(countdown : (→ Int String))
            (λ ([i : Int])
              (if (= i 0)
                  "liftoff"
@@ -54,11 +54,11 @@
 
 ;; mutually recursive
 (check-type
- (letrec ([(is-even? : (Int → Bool))
+ (letrec ([(is-even? : (→ Int Bool))
            (λ ([n : Int])
              (or (zero? n)
                  (is-odd? (sub1 n))))]
-          [(is-odd? : (Int → Bool))
+          [(is-odd? : (→ Int Bool))
            (λ ([n : Int])
              (and (not (zero? n))
                   (is-even? (sub1 n))))])
@@ -70,19 +70,19 @@
 ;(check-not-type 1 : (Int → Int))
 ;(typecheck-fail "one") ; literal now supported
 ;(typecheck-fail #f) ; literal now supported
-(check-type (λ ([x : Int] [y : Int]) x) : (Int Int → Int))
+(check-type (λ ([x : Int] [y : Int]) x) : (→ Int Int Int))
 (check-not-type (λ ([x : Int]) x) : Int)
-(check-type (λ ([x : Int]) x) : (Int → Int))
-(check-type (λ ([f : (Int → Int)]) 1) : ((Int → Int) → Int))
+(check-type (λ ([x : Int]) x) : (→ Int Int))
+(check-type (λ ([f : (→ Int Int)]) 1) : (→ (→ Int Int) Int))
 (check-type ((λ ([x : Int]) x) 1) : Int ⇒ 1)
 (typecheck-fail ((λ ([x : Bool]) x) 1)) ; Bool now valid type, but arg has wrong type
 ;(typecheck-fail (λ ([x : Bool]) x)) ; Bool is now valid type
 (typecheck-fail (λ ([f : Int]) (f 1 2))) ; applying f with non-fn type
-(check-type (λ ([f : (Int Int → Int)] [x : Int] [y : Int]) (f x y))
-            : ((Int Int → Int) Int Int → Int))
-(check-type ((λ ([f : (Int Int → Int)] [x : Int] [y : Int]) (f x y)) + 1 2) : Int ⇒ 3)
+(check-type (λ ([f : (→ Int Int Int)] [x : Int] [y : Int]) (f x y))
+            : (→ (→ Int Int Int) Int Int Int))
+(check-type ((λ ([f : (→ Int Int Int)] [x : Int] [y : Int]) (f x y)) + 1 2) : Int ⇒ 3)
 (typecheck-fail (+ 1 (λ ([x : Int]) x))) ; adding non-Int
-(typecheck-fail (λ ([x : (Int → Int)]) (+ x x))) ; x should be Int
+(typecheck-fail (λ ([x : (→ Int Int)]) (+ x x))) ; x should be Int
 (typecheck-fail ((λ ([x : Int] [y : Int]) y) 1)) ; wrong number of args
 (check-type ((λ ([x : Int]) (+ x x)) 10) : Int ⇒ 20)
 

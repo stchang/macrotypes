@@ -26,9 +26,11 @@
      #:with τ? (format-id #'τ "~a?" #'τ)
      #'(begin
          (provide τ (for-syntax τ?))
-         (define-syntax (τ stx)
+         #;(define-syntax (τ stx)
            (syntax-parse stx
-             [_ (error 'Int "Cannot use type at run time.")]))
+;             [_ #'(error 'Int "Cannot use type at run time.")]))
+             [_ #'τ]))
+         (define τ (void) #;(error 'Int "Cannot use type at run time."))
          (define-for-syntax (τ? τ1)
            (type=? τ1 #'τ)))]))
 
@@ -38,9 +40,11 @@
      #:with τ? (format-id #'τ "~a?" #'τ)
      #'(begin
          (provide τ (for-syntax τ?))
-         (define-syntax (τ stx)
+         #;(define-syntax (τ stx)
            (syntax-parse stx
-             [_ (error 'Int "Cannot use type at run time.")]))
+;             [_ #'(error 'Int "Cannot use type at run time.")]))
+             [_ #'τ]))
+         (define τ (void))
          (define-for-syntax (τ? stx)
            (syntax-parse stx
              [(τ_arg (... ...))
@@ -48,20 +52,20 @@
                 (type=? #'τ id))]
              [_ #f]))
          )]))
-;(define-syntax (define-constant-type stx)
-;  (syntax-parse stx
-;    [(_ τ:id)
-;     #:with constructor
-;            (datum->syntax #'τ (string->symbol (string-downcase (symbol->string (syntax>datum #'τ)))))
-;     #:with const-name
-;            (generate-temporary #'constructor)
-;     #'(begin
-;         (provide τ constructor)
-;         (struct
-;         (define-syntax (τ stx)
-;           (syntax-parse stx
-;             [_ (error 'Int "Cannot use type at run time.")])))]))
 
+(define-syntax (define-type-alias stx)
+  (syntax-parse stx
+    [(_ τ:id τ-expanded)
+     #`(begin
+         (provide τ)
+         #,(if (identifier? #'τ-expanded)
+               #'(define-syntax τ (make-rename-transformer #'τ-expanded))
+               #'(define-syntax τ
+                   (λ (stx)
+                     (syntax-parse stx
+                       ; τ-expanded must have the context of its use, not definition
+                       ; so the appropriate #%app is used
+                       [x:id (datum->syntax #'x 'τ-expanded)])))))]))
 ;; type classes
 (begin-for-syntax
   (define (errmsg:bad-type τ)
@@ -112,7 +116,7 @@
 
   (define (infer+erase e)
     (define e+ (expand/df e))
-    (list e+ (typeof e+)))
+    (list e+ (eval-τ (typeof e+))))
   (define (infers+erase es)
     (stx-map infer+erase es))
   (define (types=? τs1 τs2)
@@ -138,9 +142,27 @@
   #;(define (assert-types es τs)
     (stx-andmap assert-type es τs))
 
+  (define (eval-τ τ)
+    (define app (datum->syntax τ '#%app)) ; #%app in τ's ctxt
+    ;; stop right before expanding #%app
+    (define maybe-app-τ (local-expand τ 'expression (list app)))
+    ;; manually remove app and recursively expand
+    (if (identifier? maybe-app-τ) ; base type
+        maybe-app-τ
+        (syntax-parse maybe-app-τ
+          [(τ ...)
+           #:with (τ-exp ...) (stx-map eval-τ #'(τ ...))
+           #'(τ-exp ...)])))
+  
   ;; type=? : Type Type -> Boolean
   ;; Indicates whether two types are equal
-  (define (type=? τ1 τ2)
+  (define (type=? τa τb)
+    ;; expansion, and thus eval-τ is idempotent,
+    ;; so should be ok to expand even if τa or τb are already expanded
+    (define τ1 (eval-τ τa))
+    (define τ2 (eval-τ τb))
+;    (printf "t1: ~a => ~a\n" (syntax->datum τa) (syntax->datum τ1))
+;    (printf "t2: ~a => ~a\n" (syntax->datum τb) (syntax->datum τ2))
     (syntax-parse #`(#,τ1 #,τ2)
       ; → should not be datum literal;
       ; adding a type constructor should extend type equality

@@ -19,7 +19,7 @@
   (syntax-parse stx 
     [(_ (b:typed-binding ...) e)
      #:with (xs- e- τ_res) (infer/type-ctxt+erase #'(b ...) #'e)
-     (⊢ #'(λ xs- e-) #'(b.τ ... → τ_res))]))
+     (⊢ #'(λ xs- e-) #'(→ b.τ ... τ_res))]))
 
 (define-syntax (app/tc stx)
   (syntax-parse stx #:literals (→)
@@ -28,7 +28,7 @@
      #:fail-unless (→? #'τ_fn)
                    (format "Type error: Attempting to apply a non-function ~a with type ~a\n"
                            (syntax->datum #'e_fn) (syntax->datum #'τ_fn))
-     #:with (τ ... → τ_res) #'τ_fn
+     #:with (→ τ ... τ_res) #'τ_fn
      #:with ((e_arg- τ_arg) ...) (infers+erase #'(e_arg ...))
      #:fail-unless (types=? #'(τ ...) #'(τ_arg ...))
                    (string-append

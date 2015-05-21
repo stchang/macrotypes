@@ -14,6 +14,11 @@
 ;; Terms:
 ;; - terms from stlc+tup.rkt
 
-(provide Tmp Tmp2)
-(define-syntax Tmp (make-rename-transformer #'Int))
-(define-syntax Tmp2 (λ (stx) (syntax-parse stx [x:id #'(Int Int → Int)])))
+;(provide Integer)
+;(define-syntax Integer (make-rename-transformer #'Int))
+;(define-syntax Integer (λ (stx) (syntax-parse stx [x:id #'Int])))
+(define-type-alias Integer Int)
+;(provide ArithBinOp)
+; expanded form must have context of its use, so it has the proper #%app
+;(define-syntax ArithBinOp (λ (stx) (syntax-parse stx [x:id (datum->syntax #'x '(→ Int Int Int))])))
+(define-type-alias ArithBinOp (→ Int Int Int))
