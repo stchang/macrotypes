@@ -1,12 +1,83 @@
 #lang s-exp "../stlc+var.rkt"
 (require "rackunit-typechecking.rkt")
 
+;; define-type-alias
+(define-type-alias Integer Int)
+(define-type-alias ArithBinOp (→ Int Int Int))
+
 (check-type ((λ ([x : Int]) (+ x 2)) 3) : Integer)
 (check-type ((λ ([x : Integer]) (+ x 2)) 3) : Int)
 (check-type ((λ ([x : Integer]) (+ x 2)) 3) : Integer)
 (check-type + : ArithBinOp)
 (check-type (λ ([f : ArithBinOp]) (f 1 2)) : (→ (→ Int Int Int) Int))
 
+;; records (ie labeled tuples)
+(check-type "Stephen" : String)
+(check-type (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) :
+            (× ["name" String] ["phone" Int] ["male?" Bool]))
+(check-type (proj (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) "name")
+            : String ⇒ "Stephen")
+(check-type (proj (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) "name")
+            : String ⇒ "Stephen")
+(check-type (proj (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) "phone")
+            : Int ⇒ 781)
+(check-type (proj (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) "male?")
+            : Bool ⇒ #t)
+(check-not-type (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) :
+                (× ["my-name" String] ["phone" Int] ["male?" Bool]))
+(check-not-type (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) :
+                (× ["name" String] ["my-phone" Int] ["male?" Bool]))
+(check-not-type (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) :
+                (× ["name" String] ["phone" Int] ["is-male?" Bool]))
+
+
+(check-type (var "coffee" = (void) as (∨ ["coffee" Unit])) : (∨ ["coffee" Unit]))
+(check-not-type (var "coffee" = (void) as (∨ ["coffee" Unit])) : (∨ ["coffee" Unit] ["tea" Unit]))
+(typecheck-fail ((λ ([x : (∨ ["coffee" Unit] ["tea" Unit])]) x)
+                 (var "coffee" = (void) as (∨ ["coffee" Unit]))))
+(check-type (var "coffee" = (void) as (∨ ["coffee" Unit] ["tea" Unit])) : (∨ ["coffee" Unit] ["tea" Unit]))
+(check-type (var "coffee" = (void) as (∨ ["coffee" Unit] ["tea" Unit] ["coke" Unit]))
+            : (∨ ["coffee" Unit] ["tea" Unit] ["coke" Unit]))
+
+(typecheck-fail
+ (case (var "coffee" = (void) as (∨ ["coffee" Unit] ["tea" Unit]))
+   ["coffee" x => 1])) ; not enough clauses
+(typecheck-fail
+ (case (var "coffee" = (void) as (∨ ["coffee" Unit] ["tea" Unit]))
+   ["coffee" x => 1]
+   ["teaaaaaa" x => 2])) ; wrong clause
+(typecheck-fail
+ (case (var "coffee" = (void) as (∨ ["coffee" Unit] ["tea" Unit]))
+   ["coffee" x => 1]
+   ["tea" x => 2]
+   ["coke" x => 3])) ; too many clauses
+(typecheck-fail
+ (case (var "coffee" = (void) as (∨ ["coffee" Unit] ["tea" Unit]))
+   ["coffee" x => "1"]
+   ["tea" x => 2])) ; mismatched branch types
+(check-type
+ (case (var "coffee" = 1 as (∨ ["coffee" Int] ["tea" Unit]))
+   ["coffee" x => x]
+   ["tea" x => 2]) : Int ⇒ 1)
+(define-type-alias Drink (∨ ["coffee" Int] ["tea" Unit] ["coke" Bool]))
+(check-type ((λ ([x : Int]) (+ x x)) 10) : Int ⇒ 20)
+(check-type (λ ([x : Int]) (+ (+ x x) (+ x x))) : (→ Int Int))
+(check-type
+ (case ((λ ([d : Drink]) d)
+        (var "coffee" = 1 as (∨ ["coffee" Int] ["tea" Unit] ["coke" Bool])))
+   ["coffee" x => (+ (+ x x) (+ x x))]
+   ["tea" x => 2]
+   ["coke" y => 3])
+ : Int ⇒ 4)
+
+(check-type
+ (case ((λ ([d : Drink]) d) (var "coffee" = 1 as Drink))
+   ["coffee" x => (+ (+ x x) (+ x x))]
+   ["tea" x => 2]
+   ["coke" y => 3])
+ : Int ⇒ 4)
+
+;; previous tests: ------------------------------------------------------------
 ;; tests for tuples -----------------------------------------------------------
 (check-type (tup 1 2 3) : (× Int Int Int))
 (check-type (tup 1 "1" #f +) : (× Int String Bool (→ Int Int Int)))

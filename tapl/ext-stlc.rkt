@@ -95,10 +95,10 @@
   (syntax-parse stx #:datum-literals (:)
     [(_ e : ascribed-τ)
      #:with (e- τ) (infer+erase #'e)
-     #:fail-unless (type=? #'ascribed-τ #'τ)
+     #:fail-unless (type=? #'τ #'ascribed-τ)
                    (format "~a does not have type ~a\n"
                            (syntax->datum #'e) (syntax->datum #'ascribed-τ))
-     (⊢ #'e- #'τ)]))
+     (⊢ #'e- #'ascribed-τ)]))
 
 (define-syntax (let/tc stx)
   (syntax-parse stx

@@ -46,26 +46,13 @@
              [_ #'τ]))
          (define τ (void))
          (define-for-syntax (τ? stx)
-           (syntax-parse stx
+           (syntax-parse (eval-τ stx)
              [(τ_arg (... ...))
               (for/or ([id (syntax->list #'(τ_arg (... ...)))])
                 (type=? #'τ id))]
              [_ #f]))
          )]))
 
-(define-syntax (define-type-alias stx)
-  (syntax-parse stx
-    [(_ τ:id τ-expanded)
-     #`(begin
-         (provide τ)
-         #,(if (identifier? #'τ-expanded)
-               #'(define-syntax τ (make-rename-transformer #'τ-expanded))
-               #'(define-syntax τ
-                   (λ (stx)
-                     (syntax-parse stx
-                       ; τ-expanded must have the context of its use, not definition
-                       ; so the appropriate #%app is used
-                       [x:id (datum->syntax #'x 'τ-expanded)])))))]))
 ;; type classes
 (begin-for-syntax
   (define (errmsg:bad-type τ)
@@ -81,9 +68,10 @@
 
 (begin-for-syntax
   (define (is-type? τ)
-    (if (identifier? τ)
-        (identifier-binding τ)
-        (stx-andmap is-type? τ)))
+    ;(printf "~a\n" τ)
+    (or (string? (syntax-e τ))
+        (and (identifier? τ) (identifier-binding τ))
+        (and (stx-pair? τ) (stx-andmap is-type? τ))))
   ;; ⊢ : Syntax Type -> Syntax
   ;; Attaches type τ to (expanded) expression e.
 ;  (define (⊢ e τ) (syntax-property (quasisyntax/loc e #,e) 'type τ))
@@ -101,6 +89,7 @@
             (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ))] ...) #,e)))
        (list #'xs+ #'e+ (typeof #'e+))]
       [([x τ] ...) (infer/type-ctxt+erase #'([x : τ] ...) e)]))
+  ; all xs are bound in the same scope
   (define (infers/type-ctxt+erase ctxt es)
     (syntax-parse ctxt
       [(b:typed-binding ...)
@@ -122,7 +111,10 @@
   (define (types=? τs1 τs2)
     (and (= (stx-length τs1) (stx-length τs2))
          (stx-andmap type=? τs1 τs2)))
-  
+  (define (same-types? τs)
+    (define τs-lst (syntax->list τs))
+    (or (null? τs-lst)
+        (andmap (λ (τ) (type=? (car τs-lst) τ)) (cdr τs-lst))))
   ;; typeof : Syntax -> Type or #f
   ;; Retrieves type of given stx, or #f if input has not been assigned a type.
   (define (typeof stx) (syntax-property stx 'type))
@@ -143,16 +135,21 @@
     (stx-andmap assert-type es τs))
 
   (define (eval-τ τ)
-    (define app (datum->syntax τ '#%app)) ; #%app in τ's ctxt
-    ;; stop right before expanding #%app
-    (define maybe-app-τ (local-expand τ 'expression (list app)))
-    ;; manually remove app and recursively expand
-    (if (identifier? maybe-app-τ) ; base type
-        maybe-app-τ
-        (syntax-parse maybe-app-τ
-          [(τ ...)
-           #:with (τ-exp ...) (stx-map eval-τ #'(τ ...))
-           #'(τ-exp ...)])))
+    (syntax-parse τ
+      [s:str τ] ; record field
+      [_
+;       (printf "eval: ~a\n" τ)
+       (define app (datum->syntax τ '#%app)) ; #%app in τ's ctxt
+       ;; stop right before expanding #%app
+       (define maybe-app-τ (local-expand τ 'expression (list app)))
+ ;      (printf "after eval: ~a\n" τ)
+       ;; manually remove app and recursively expand
+       (if (identifier? maybe-app-τ) ; base type
+           maybe-app-τ
+           (syntax-parse maybe-app-τ
+             [(τ ...)
+              #:with (τ-exp ...) (stx-map eval-τ #'(τ ...))
+              #'(τ-exp ...)]))]))
   
   ;; type=? : Type Type -> Boolean
   ;; Indicates whether two types are equal
@@ -168,6 +165,7 @@
       ; adding a type constructor should extend type equality
 ;      #:datum-literals (→)
       [(x:id y:id) (free-identifier=? τ1 τ2)]
+      [(s1:str s2:str) (string=? (syntax-e #'s1) (syntax-e #'s2))]
       [((τ1 ...) (τ2 ...))
        (types=? #'(τ1 ...) #'(τ2 ...))]
       #;[((x ... → x_out) (y ... → y_out))
@@ -244,6 +242,10 @@
                 #:when (stx-andmap assert-type #'es+ #'τs-ext)
                 (⊢ (syntax/loc stx (op . es+)) #'τ_result)])))]))
 
+(define-for-syntax (mk-pred x) (format-id x "~a?" x))
+(define-for-syntax (mk-acc base field) (format-id base "~a-~a" base field))
+
+       
 ;; type environment -----------------------------------------------------------
 #;(begin-for-syntax
   
