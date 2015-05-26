@@ -25,3 +25,17 @@ Types must be identifiers, but not macros
 - cannot be macros if we want to use expansion for type aliases
   - because then what does a base type like Int expand to?
   - if we define Int as a runtime identifier, then expansion will stop at Int
+
+
+debugging notes -------------
+- "datum" error:
+
+?: literal data is not allowed;
+ no #%datum syntax transformer is bound in: #f
+
+  - likely indicates use of wrong version of some overloaded form
+    - eg, using stlc:lambda instead of racket's lambda
+
+- vague "bad syntax" error
+  - means a syntax-parse #:when or #:with matching failed
+  - ideally would have better err msg at that spot

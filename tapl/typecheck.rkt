@@ -64,7 +64,14 @@
      #:with τ #f
      #:fail-when #t
      (format "Improperly formatted type annotation: ~a; should have shape [x : τ]"
-             (syntax->datum #'any)))))
+             (syntax->datum #'any))))
+  (define-syntax-class ann ; type instantiation
+    (pattern stx
+             #:when (stx-pair? #'stx)
+             #:when (and (syntax-property #'stx 'paren-shape)
+                         (char=? (syntax-property #'stx 'paren-shape) #\{))
+             #:with (τ) #'stx))
+  )
 
 (begin-for-syntax
   (define (is-type? τ)
@@ -150,7 +157,7 @@
              [(τ ...)
               #:with (τ-exp ...) (stx-map eval-τ #'(τ ...))
               #'(τ-exp ...)]))]))
-  
+
   ;; type=? : Type Type -> Boolean
   ;; Indicates whether two types are equal
   (define (type=? τa τb)
@@ -172,7 +179,8 @@
        (and (type=? #'x_out #'y_out)
             (stx-andmap type=? #'(x ...) #'(y ...)))]
       [_ #f]))
-            
+  
+  (define τ= type=?)
 
   ;; expand/df : Syntax -> Syntax
   ;; Local expands the given syntax object. 
