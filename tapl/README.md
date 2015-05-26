@@ -1,10 +1,12 @@
 extension hierarchy
 
-A file2 that is immediately below a fileX.rkt extends that fileX.rkt.
+A file extends its immediate parent file.
 
-1) stlc.rkt
-2) stlc+lit.rkt
-3) ext-stlc.rkt
-4) stlc+tup.rkt
-5) stlc+var.rkt
-6) stlc+cons.rkt
+- stlc.rkt
+   - stlc+lit.rkt
+     - ext-stlc.rkt
+       - stlc+tup.rkt
+         - stlc+var.rkt
+           - stlc+cons.rkt
+             - stlc+box.rkt
+  - stlc+sub.rkt
