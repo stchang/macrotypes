@@ -90,11 +90,25 @@
        #:with (x ...) #'(b.x ...)
        #:with (τ ...) #'(b.τ ...)
        #:with
-       (lam xs+ (lr-stxs+vs1 stxs1 vs1 (lr-stxs+vs2 stxs2 vs2 e+)))
+       ;; if e is (begin e1 ...), (e1 ...) will be spliced into expanded λ
+       ;; (and begin will be dropped), so must handle that 
+       (lam xs+ (lr-stxs+vs1 stxs1 vs1 (lr-stxs+vs2 stxs2 vs2 e_body+ ... e+)))
        (expand/df
         #`(λ (x ...)
             (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ))] ...) #,e)))
-       (list #'xs+ #'e+ (typeof #'e+))]
+;       #:with tmp
+;       (expand/df
+;        #`(λ (x ...)
+;            (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ))] ...) #,e)))
+;       #:when (printf "~a\n" (syntax->datum #'tmp))
+;       #:with (lam xs+ (lr-stxs+vs1 stxs1 vs1 (lr-stxs+vs2 stxs2 vs2 e+))) #'tmp
+
+       ;; if e is (begin ...), types (ie syntax properties) of all begins
+       ;; will be accumulated on e+, so only get the first type
+       #:with τ_e (if (null? (syntax->list #'(e_body+ ...)))
+                      (typeof #'e+)
+                      (stx-car (typeof #'e+)))
+       (list #'xs+ #'(begin e_body+ ... e+) #'τ_e)]
       [([x τ] ...) (infer/type-ctxt+erase #'([x : τ] ...) e)]))
   ; all xs are bound in the same scope
   (define (infers/type-ctxt+erase ctxt es)

@@ -14,9 +14,10 @@
 ;; Simply-Typed Lambda Calculus, plus cons
 ;; Types:
 ;; - types from stlc+var.rkt
+;; - List constructor
 ;; Terms:
 ;; - terms from stlc+var.rkt
-;; - define constants only
+;; - define, constants only
 
 ;; TODO: enable HO use of list primitives
 
