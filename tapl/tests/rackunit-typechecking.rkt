@@ -12,7 +12,9 @@
      #:with e+ (expand/df #'e)
      #:with τ (typeof #'e+)
      #:fail-unless
-     (type=? #'τ #'τ-expected)
+     ;; use subtyping if it's bound in the context of #'e
+     (with-handlers ([exn:fail? (λ _ (type=? #'τ #'τ-expected))])
+       ((eval-syntax (datum->syntax #'e 'sub?)) #'τ #'τ-expected))     
      (format
       "Expression ~a [loc ~a:~a] has type ~a, expected ~a"
       (syntax->datum #'e) (syntax-line #'e) (syntax-column #'e)
@@ -26,7 +28,8 @@
      #:with e+ (expand/df #'e)
      #:with τ (typeof #'e+)
      #:fail-when 
-     (type=? #'τ #'not-τ)
+     (with-handlers ([exn:fail? (λ _ (type=? #'τ #'τ-not))])
+       ((eval-syntax (datum->syntax #'e 'sub?)) #'τ #'τ-not))
      (format
       "(~a:~a) Expression ~a should not have type ~a"
       (syntax-line stx) (syntax-column stx)
