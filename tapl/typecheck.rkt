@@ -124,9 +124,18 @@
        (list #'xs+ #'(e+ ...) (stx-map typeof #'(e+ ...)))]
       [([x τ] ...) (infers/type-ctxt+erase #'([x : τ] ...) es)]))
 
-  (define (infer+erase e)
-    (define e+ (expand/df e))
-    (list e+ (eval-τ (typeof e+))))
+  (define (infer+erase e [tvs #'()])
+    (define e+
+      (syntax-parse (expand/df #`(λ #,tvs #,e)) #:literals (#%expression)
+        [(lam tvs+ (#%expression e+)) #'e+]
+        [(lam tvs+ e+) #'e+]))
+    (list e+ (eval-τ (typeof e+) tvs)))
+  (define (infer/tvs+erase e [tvs #'()])
+    (define-values (tvs+ e+)
+      (syntax-parse (expand/df #`(λ #,tvs #,e)) #:literals (#%expression)
+        [(lam tvs+ (#%expression e+)) (values #'tvs+ #'e+)]
+        [(lam tvs+ e+) (values #'tvs+ #'e+)]))
+    (list tvs+ e+ (eval-τ (typeof e+) tvs)))
   (define (infers+erase es)
     (stx-map infer+erase es))
   (define (types=? τs1 τs2)
@@ -155,7 +164,9 @@
   #;(define (assert-types es τs)
     (stx-andmap assert-type es τs))
 
-  (define (eval-τ τ)
+  (define (eval-τ τ [tvs #'()])
+    (if (and (identifier? τ) (stx-member τ tvs))
+        τ
     (syntax-parse τ
       [s:str τ] ; record field
       [_
@@ -169,8 +180,8 @@
            maybe-app-τ
            (syntax-parse maybe-app-τ
              [(τ ...)
-              #:with (τ-exp ...) (stx-map eval-τ #'(τ ...))
-              #'(τ-exp ...)]))]))
+              #:with (τ-exp ...) (stx-map (λ (t) (eval-τ t tvs)) #'(τ ...))
+              #'(τ-exp ...)]))])))
 
   ;; type=? : Type Type -> Boolean
   ;; Indicates whether two types are equal
@@ -267,7 +278,18 @@
 (define-for-syntax (mk-pred x) (format-id x "~a?" x))
 (define-for-syntax (mk-acc base field) (format-id base "~a-~a" base field))
 
-       
+(define-for-syntax (subst τ x e)
+  (syntax-parse e
+    [y:id
+     #:when (free-identifier=? e x)
+     τ]
+    [y:id #'y]
+    [(esub ...)
+     #:with (esub_subst ...) (stx-map (λ (e1) (subst τ x e1)) #'(esub ...))
+     #'(esub_subst ...)]))
+(define-for-syntax (substs τs xs e)
+  (stx-fold subst e τs xs))
+  
 ;; type environment -----------------------------------------------------------
 #;(begin-for-syntax
   
