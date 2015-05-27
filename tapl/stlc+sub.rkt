@@ -5,14 +5,12 @@
 (require (except-in "stlc+lit.rkt" #%app #%datum +)
          (prefix-in stlc: (only-in "stlc+lit.rkt" #%datum)))
 (provide (rename-out [app/tc #%app] [datum/tc #%datum]))
-(provide (all-from-out "stlc+lit.rkt"))
-(provide (for-syntax sub?))
-
-;; can't write any terms with no base types
+(provide (except-out (all-from-out "stlc+lit.rkt") stlc:#%datum))
+(provide (for-syntax sub? subs?))
 
 ;; Simply-Typed Lambda Calculus, plus subtyping
 ;; Types:
-;; - types from stlc.rkt and stlc+lit.rkt
+;; - types from and stlc+lit.rkt
 ;; - Top, Num, Nat
 ;; Type relations:
 ;; - sub?
@@ -21,7 +19,7 @@
 ;;   - Int <: Num
 ;;   - →
 ;; Terms:
-;; - terms from stlc.rkt, stlc+lit.rkt, except redefined: app and datum
+;; - terms from stlc+lit.rkt, except redefined: app, datum, +
 
 (define-base-type Top)
 (define-base-type Num)
@@ -30,14 +28,15 @@
 ;(define-subtype Int <: Num)
 ;(define-subtype Nat <: Int)
 
+(define-primop + : (→ Num Num Num))
+(define-primop * : (→ Num Num Num))
+
 (define-syntax (datum/tc stx)
   (syntax-parse stx
     [(_ . n:nat) (⊢ (syntax/loc stx (#%datum . n)) #'Nat)]
     [(_ . n:integer) (⊢ (syntax/loc stx (#%datum . n)) #'Int)]
     [(_ . n:number) (⊢ (syntax/loc stx (#%datum . n)) #'Num)]
     [(_ . x) #'(stlc:#%datum . x)]))
-
-(define-primop + : (→ Num Num Num))
 
 (begin-for-syntax
   (define (sub? τ1 τ2)
@@ -48,11 +47,11 @@
           [(Int τ) (sub? #'Num #'τ)]
           [(τ Num) (sub? #'τ #'Int)]
           [(τ Int) (sub? #'τ #'Nat)]
-          [((→ s1 s2) (→ t1 t2))
-           (and (sub? #'t1 #'s1)
+          [((→ s1 ... s2) (→ t1 ... t2))
+           (and (subs? #'(t1 ...) #'(s1 ...))
                 (sub? #'s2 #'t2))]
           [_ #f])))
-  (define (subs? τs1 τs2) (stx-andmap sub? τs1 τs2)))
+  (define (subs? τs1 τs2) (stx-andmap (eval-syntax (datum->syntax τs1 'sub?)) τs1 τs2)))
   ;(define (subs? ts1 ts2) (stx-andmap (λ (t1 t2) (printf "~a <: ~a: ~a\n" (syntax->datum t1) (syntax->datum t2) (sub? t1 t2)) (sub? t1 t2)) ts1 ts2)))
 
 (define-syntax (app/tc stx)

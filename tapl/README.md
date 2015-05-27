@@ -10,3 +10,4 @@ A file extends its immediate parent file.
            - stlc+cons.rkt
              - stlc+box.rkt
      - stlc+sub.rkt
+       - stlc+rec+var+sub.rkt

@@ -29,3 +29,6 @@
 
 (define (stx-str=? s1 s2)
   (string=? (syntax-e s1) (syntax-e s2)))
+
+(define (stx-sort stx cmp)
+  (sort (syntax->list stx) (λ (stx1 stx2) (cmp (syntax-e (stx-car stx1)) (syntax-e (stx-car stx2))))))

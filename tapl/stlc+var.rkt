@@ -7,7 +7,7 @@
 (require (prefix-in stlc: (only-in "stlc+tup.rkt" #%app λ tup proj let))
          (except-in "stlc+tup.rkt" #%app λ tup proj let))
 (provide (rename-out [stlc:#%app #%app] [stlc:λ λ] [stlc:let let]))
-(provide (all-from-out "stlc+tup.rkt"))
+(provide (except-out (all-from-out "stlc+tup.rkt") stlc:#%app stlc:#%datum))
 ;(provide define-type-alias define-variant module quote submod)
 (provide tup proj var case)
 

@@ -2,12 +2,9 @@
 (require
   (for-syntax racket/base syntax/parse)
   "typecheck.rkt")
-(require (prefix-in stlc: (only-in "stlc.rkt" #%app λ))
-         (except-in "stlc.rkt" #%app λ))
-(provide (rename-out [datum/tc #%datum]
-                     [stlc:#%app #%app]
-                     [stlc:λ λ]))
+(require "stlc.rkt")
 (provide (all-from-out "stlc.rkt"))
+(provide (rename-out [datum/tc #%datum]))
  
 ;; Simply-Typed Lambda Calculus, plus numeric literals and primitives
 ;; Types:

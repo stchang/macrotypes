@@ -30,7 +30,7 @@
 (check-not-type (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) :
                 (× ["name" String] ["phone" Int] ["is-male?" Bool]))
 
-
+;; variants
 (check-type (var "coffee" = (void) as (∨ ["coffee" Unit])) : (∨ ["coffee" Unit]))
 (check-not-type (var "coffee" = (void) as (∨ ["coffee" Unit])) : (∨ ["coffee" Unit] ["tea" Unit]))
 (typecheck-fail ((λ ([x : (∨ ["coffee" Unit] ["tea" Unit])]) x)
