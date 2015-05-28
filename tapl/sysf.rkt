@@ -13,8 +13,10 @@
 ;; System F
 ;; Types:
 ;; - types from stlc+lit.rkt
+;; - ∀
 ;; Terms:
 ;; - terms from stlc+lit.rkt
+;; - Λ and inst
 
 (define-type-constructor ∀)
 

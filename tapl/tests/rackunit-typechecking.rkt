@@ -8,13 +8,14 @@
   (syntax-parse stx #:datum-literals (:)
     [(_ e : τ ⇒ v) #'(check-type-and-result e : τ ⇒ v)]
     [(_ e : τ-expected)
-     #:fail-unless (is-type? #'τ-expected) (errmsg:bad-type #'τ-expected)
+;     #:fail-unless (is-type? #'τ-expected) (errmsg:bad-type #'τ-expected)
      #:with e+ (expand/df #'e)
      #:with τ (typeof #'e+)
+     #:with τ-expected+ (eval-τ #'τ-expected)
      #:fail-unless
      ;; use subtyping if it's bound in the context of #'e
-     (with-handlers ([exn:fail? (λ _ (type=? #'τ #'τ-expected))])
-       ((eval-syntax (datum->syntax #'e 'sub?)) #'τ #'τ-expected))     
+     (with-handlers ([exn:fail? (λ _ (type=? #'τ #'τ-expected+))])
+       ((eval-syntax (datum->syntax #'e 'sub?)) #'τ #'τ-expected+))     
      (format
       "Expression ~a [loc ~a:~a] has type ~a, expected ~a"
       (syntax->datum #'e) (syntax-line #'e) (syntax-column #'e)
@@ -24,12 +25,13 @@
 (define-syntax (check-not-type stx)
   (syntax-parse stx #:datum-literals (:)
     [(_ e : not-τ)
-     #:fail-unless (is-type? #'not-τ) (errmsg:bad-type #'not-τ)
+;     #:fail-unless (is-type? #'not-τ) (errmsg:bad-type #'not-τ)
      #:with e+ (expand/df #'e)
      #:with τ (typeof #'e+)
+     #:with not-τ+ (eval-τ #'not-τ)
      #:fail-when 
-     (with-handlers ([exn:fail? (λ _ (type=? #'τ #'τ-not))])
-       ((eval-syntax (datum->syntax #'e 'sub?)) #'τ #'τ-not))
+     (with-handlers ([exn:fail? (λ _ (type=? #'τ #'not-τ+))])
+       ((eval-syntax (datum->syntax #'e 'sub?)) #'τ #'not-τ+))
      (format
       "(~a:~a) Expression ~a should not have type ~a"
       (syntax-line stx) (syntax-column stx)

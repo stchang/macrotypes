@@ -18,7 +18,9 @@
 ;; - A base type is just a Racket identifier, so type equality, even with
 ;;   aliasing, is just free-identifier=?
 
-;; A Type is a Syntax Object
+;; Types are represented as (fully expanded, but not the same as racket fully expanded) syntax
+;; - base types are identifiers
+;; - type constructors are prefix
 
 (define-syntax (define-base-type stx)
   (syntax-parse stx
@@ -26,13 +28,8 @@
      #:with τ? (format-id #'τ "~a?" #'τ)
      #'(begin
          (provide τ (for-syntax τ?))
-         #;(define-syntax (τ stx)
-           (syntax-parse stx
-;             [_ #'(error 'Int "Cannot use type at run time.")]))
-             [_ #'τ]))
-         (define τ (void) #;(error 'Int "Cannot use type at run time."))
-         (define-for-syntax (τ? τ1)
-           (type=? τ1 #'τ)))]))
+         (define τ (void))
+         (define-for-syntax (τ? τ1) (type=? (eval-τ τ1) #'τ)))]))
 
 (define-syntax (define-type-constructor stx)
   (syntax-parse stx
@@ -40,41 +37,38 @@
      #:with τ? (format-id #'τ "~a?" #'τ)
      #'(begin
          (provide τ (for-syntax τ?))
-         #;(define-syntax (τ stx)
-           (syntax-parse stx
-;             [_ #'(error 'Int "Cannot use type at run time.")]))
-             [_ #'τ]))
          (define τ (void))
          (define-for-syntax (τ? stx)
-           (syntax-parse (eval-τ stx)
-             [(τ_arg (... ...))
-              (for/or ([id (syntax->list #'(τ_arg (... ...)))])
-                (type=? #'τ id))]
-             [_ #f]))
-         )]))
+           (syntax-parse (eval-τ stx) #:literals (τ)
+             [(τ τ_arg (... ...)) #t]
+             [_ #f])))]))
 
 ;; type classes
 (begin-for-syntax
-  (define (errmsg:bad-type τ)
+  #;(define (errmsg:bad-type τ)
     (format "~a is not a valid type" (syntax->datum τ)))
+  (define-syntax-class type
+    (pattern τ:expr))
   (define-syntax-class typed-binding #:datum-literals (:)
-    (pattern [x:id : τ] #:fail-unless (is-type? #'τ) (errmsg:bad-type #'τ))
-    (pattern (~not [x:id : τ])
+    (pattern [x:id : τ:type])
+    (pattern (~not [x:id : τ:type])
      #:with x #f
      #:with τ #f
      #:fail-when #t
      (format "Improperly formatted type annotation: ~a; should have shape [x : τ]"
              (syntax->datum #'any))))
+  (define (brace? stx)
+    (define paren-shape/#f (syntax-property stx 'paren-shape))
+    (and paren-shape/#f (char=? paren-shape/#f #\{)))
   (define-syntax-class ann ; type instantiation
     (pattern stx
              #:when (stx-pair? #'stx)
-             #:when (and (syntax-property #'stx 'paren-shape)
-                         (char=? (syntax-property #'stx 'paren-shape) #\{))
+             #:when (brace? #'stx)
              #:with (τ) #'stx))
   )
 
 (begin-for-syntax
-  (define (is-type? τ)
+  #;(define (is-type? τ)
     ;(printf "~a\n" τ)
     (or (string? (syntax-e τ))
         (and (identifier? τ) (identifier-binding τ))
@@ -83,10 +77,15 @@
   ;; ⊢ : Syntax Type -> Syntax
   ;; Attaches type τ to (expanded) expression e.
 ;  (define (⊢ e τ) (syntax-property (quasisyntax/loc e #,e) 'type τ))
-  (define (⊢ e τ) (syntax-property e 'type τ))
+  (define (⊢ e τ) (syntax-property e 'type (eval-τ τ)))
+  ;; typeof : Syntax -> Type or #f
+  ;; Retrieves type of given stx, or #f if input has not been assigned a type.
+  (define (typeof stx) (syntax-property stx 'type))
 
   (define (infer/type-ctxt+erase x+τs e)
-    (syntax-parse x+τs
+    (syntax-parse (infers/type-ctxt+erase x+τs (list e))
+      [(xs (e+) (τ)) (list #'xs #'e+ #'τ)])
+    #;(syntax-parse x+τs
       [(b:typed-binding ...)
        #:with (x ...) #'(b.x ...)
        #:with (τ ...) #'(b.τ ...)
@@ -115,25 +114,29 @@
       [(b:typed-binding ...)
        #:with (x ...) #'(b.x ...)
        #:with (τ ...) #'(b.τ ...)
+       #:with (e ...) es
        #:with
-       (lam xs+ (lr-stxs+vs1 stxs1 vs1 (lr-stxs+vs2 stxs2 vs2 e+ ...)))
+       ((~literal #%plain-lambda) xs+
+         (lr-stxs+vs1 stxs1 vs1 (lr-stxs+vs2 stxs2 vs2
+          ((~literal #%expression) e+) ...)))
        (expand/df
-        #`(λ (x ...)
-            (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ))] ...) #,@es)))
+        #'(λ (x ...)
+            (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ))] ...)
+              (#%expression e) ...)))
        (list #'xs+ #'(e+ ...) (stx-map typeof #'(e+ ...)))]
       [([x τ] ...) (infers/type-ctxt+erase #'([x : τ] ...) es)]))
 
   (define (infer+erase e)
     (define e+ (expand/df e))
-    (list e+ (eval-τ (typeof e+))))
-  (define (infer/tvs+erase e [tvs #'()])
-    (define-values (tvs+ e+)
-      (syntax-parse (expand/df #`(λ #,tvs #,e)) #:literals (#%expression)
-        [(lam tvs+ (#%expression e+)) (values #'tvs+ #'e+)]
-        [(lam tvs+ e+) (values #'tvs+ #'e+)]))
-    (list tvs+ e+ (eval-τ (typeof e+) tvs)))
+    (list e+ (typeof e+)))
   (define (infers+erase es)
     (stx-map infer+erase es))
+  (define (infer/tvs+erase e [tvs #'()])
+    (define-values (tvs+ e+)
+      (syntax-parse (expand/df #`(λ #,tvs (#%expression #,e))) #:literals (#%expression)
+        [(lam tvs+ (#%expression e+)) (values #'tvs+ #'e+)]
+        #;[(lam tvs+ e+) (values #'tvs+ #'e+)]))
+    (list tvs+ e+ (typeof e+)))
   (define (types=? τs1 τs2 #:eval? [eval? #t])
     (and (= (stx-length τs1) (stx-length τs2))
          (stx-andmap (λ (t1 t2) (type=? t1 t2 #:eval? eval?)) τs1 τs2)))
@@ -141,12 +144,9 @@
     (define τs-lst (syntax->list τs))
     (or (null? τs-lst)
         (andmap (λ (τ) (type=? (car τs-lst) τ)) (cdr τs-lst))))
-  ;; typeof : Syntax -> Type or #f
-  ;; Retrieves type of given stx, or #f if input has not been assigned a type.
-  (define (typeof stx) (syntax-property stx 'type))
   ;; When checking for just the presence of a type, 
   ;; the name has-type? makes more sense (see expand/df for an example).
-  (define has-type? typeof)
+  #;(define has-type? typeof)
 
   ;; assert-type : Syntax Type -> Boolean
   ;; Returns #t if (typeof e)==τ, else type error
@@ -165,15 +165,17 @@
         τ
     (syntax-parse τ
       [s:str τ] ; record field
+      [((~and (~datum ∀) forall) ts τ) #`(forall ts #,(eval-τ #'τ #'ts))]
       [_
-;       (printf "eval: ~a\n" τ)
+;       (printf "eval: ~a\n" (syntax->datum τ))
        (define app (datum->syntax τ '#%app)) ; #%app in τ's ctxt
        ;; stop right before expanding #%app
        (define maybe-app-τ (local-expand τ 'expression (list app)))
- ;      (printf "after eval: ~a\n" τ)
+;       (printf "after eval: ~a\n" (syntax->datum maybe-app-τ))
        ;; manually remove app and recursively expand
        (if (identifier? maybe-app-τ) ; base type
-           maybe-app-τ
+           ;; full expansion checks that type is a bound name
+           (local-expand maybe-app-τ 'expression null)
            (syntax-parse maybe-app-τ
              [(τ ...)
               #:with (τ-exp ...) (stx-map (λ (t) (eval-τ t tvs)) #'(τ ...))
@@ -185,10 +187,10 @@
     ;; expansion, and thus eval-τ is idempotent,
     ;; so should be ok to expand even if τa or τb are already expanded
 ;    (printf "t1: ~a => " (syntax->datum τa))
-    (define τ1 (if eval? (eval-τ τa) τa))
+    (define τ1 (if #f #;eval? (eval-τ τa) τa))
 ;    (printf "~a\n" (syntax->datum τ1))
 ;    (printf "t2: ~a => " (syntax->datum τb))
-    (define τ2 (if eval? (eval-τ τb) τb))
+    (define τ2 (if #f #;eval? (eval-τ τb) τb))
 ;    (printf "~a\n" (syntax->datum τ2))
     (syntax-parse #`(#,τ1 #,τ2) #:datum-literals (∀)
       ; → should not be datum literal;
