@@ -8,9 +8,7 @@
   (syntax-parse stx #:datum-literals (:)
     [(_ e : τ ⇒ v) #'(check-type-and-result e : τ ⇒ v)]
     [(_ e : τ-expected)
-;     #:fail-unless (is-type? #'τ-expected) (errmsg:bad-type #'τ-expected)
-     #:with e+ (expand/df #'e)
-     #:with τ (typeof #'e+)
+     #:with τ (typeof (expand/df #'e))
      #:with τ-expected+ (eval-τ #'τ-expected)
      #:fail-unless
      ;; use subtyping if it's bound in the context of #'e
@@ -25,9 +23,7 @@
 (define-syntax (check-not-type stx)
   (syntax-parse stx #:datum-literals (:)
     [(_ e : not-τ)
-;     #:fail-unless (is-type? #'not-τ) (errmsg:bad-type #'not-τ)
-     #:with e+ (expand/df #'e)
-     #:with τ (typeof #'e+)
+     #:with τ (typeof (expand/df #'e))
      #:with not-τ+ (eval-τ #'not-τ)
      #:fail-when 
      (with-handlers ([exn:fail? (λ _ (type=? #'τ #'not-τ+))])
