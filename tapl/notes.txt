@@ -1,3 +1,25 @@
+2015-05-28
+Problem: how to represent \forall types
+1) (Racket) functions
+- this gets the most linguistic reuse (is this true?)
+- but this does not allow equality comparisons
+- unless perhaps compare two foralls for equality by applying to the same tvar
+  - but these type vars would be unbound so it still wouldnt work without
+    adding a new special case
+2) syntax
+- easier to compare
+- but still need to manually implement alpha equality
+- would still require a special case for comparing the bodies, which have
+  unbound typevars
+
+Problem: begin in lambda body gets spliced
+- results in combined syntax properties, eg types
+Solution: 
+- wrap lambda body with #%expression to indicate expression, ie non-splicing,
+  begin
+
+Previous: -----------------
+
 macro system requirements:
 - depth-first expansion, i.e., localexpand, and stop-lists
 - language form hooks, e.g., #%app, etc

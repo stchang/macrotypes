@@ -78,6 +78,7 @@
     ;(printf "~a\n" τ)
     (or (string? (syntax-e τ))
         (and (identifier? τ) (identifier-binding τ))
+        (and (stx-pair? τ) (equal? '∀ (syntax->datum (stx-car τ))))
         (and (stx-pair? τ) (stx-andmap is-type? τ))))
   ;; ⊢ : Syntax Type -> Syntax
   ;; Attaches type τ to (expanded) expression e.
@@ -89,26 +90,24 @@
       [(b:typed-binding ...)
        #:with (x ...) #'(b.x ...)
        #:with (τ ...) #'(b.τ ...)
-       #:with
-       ;; if e is (begin e1 ...), (e1 ...) will be spliced into expanded λ
-       ;; (and begin will be dropped), so must handle that 
-       (lam xs+ (lr-stxs+vs1 stxs1 vs1 (lr-stxs+vs2 stxs2 vs2 e_body+ ... e+)))
-       (expand/df
-        #`(λ (x ...)
-            (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ))] ...) #,e)))
+       ;; wrap e with #%expression to prevent splicing begins into lambda body
+       #:with ((~literal #%plain-lambda) xs+
+                 (lr-stxs+vs1 stxs1 vs1 (lr-stxs+vs2 stxs2 vs2
+                   ((~literal #%expression) e+))))
+              (expand/df
+               #`(λ (x ...)
+                   (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ))] ...)
+                     (#%expression #,e))))
+;; print intermediate expansion -- for debugging
 ;       #:with tmp
 ;       (expand/df
 ;        #`(λ (x ...)
-;            (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ))] ...) #,e)))
-;       #:when (printf "~a\n" (syntax->datum #'tmp))
-;       #:with (lam xs+ (lr-stxs+vs1 stxs1 vs1 (lr-stxs+vs2 stxs2 vs2 e+))) #'tmp
-
-       ;; if e is (begin ...), types (ie syntax properties) of all begins
-       ;; will be accumulated on e+, so only get the first type
-       #:with τ_e (if (null? (syntax->list #'(e_body+ ...)))
-                      (typeof #'e+)
-                      (stx-car (typeof #'e+)))
-       (list #'xs+ #'(begin e_body+ ... e+) #'τ_e)]
+;            (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ))] ...)
+;              (#%expression #,e))))
+;       #:with ((~literal #%plain-lambda) xs+
+;                 (lr-stxs+vs1 stxs1 vs1 (lr-stxs+vs2 stxs2 vs2
+;                   ((~literal #%expression) e+)))) #'tmp
+       (list #'xs+ #'e+ (typeof #'e+))]
       [([x τ] ...) (infer/type-ctxt+erase #'([x : τ] ...) e)]))
   ; all xs are bound in the same scope
   (define (infers/type-ctxt+erase ctxt es)
@@ -124,12 +123,9 @@
        (list #'xs+ #'(e+ ...) (stx-map typeof #'(e+ ...)))]
       [([x τ] ...) (infers/type-ctxt+erase #'([x : τ] ...) es)]))
 
-  (define (infer+erase e [tvs #'()])
-    (define e+
-      (syntax-parse (expand/df #`(λ #,tvs #,e)) #:literals (#%expression)
-        [(lam tvs+ (#%expression e+)) #'e+]
-        [(lam tvs+ e+) #'e+]))
-    (list e+ (eval-τ (typeof e+) tvs)))
+  (define (infer+erase e)
+    (define e+ (expand/df e))
+    (list e+ (eval-τ (typeof e+))))
   (define (infer/tvs+erase e [tvs #'()])
     (define-values (tvs+ e+)
       (syntax-parse (expand/df #`(λ #,tvs #,e)) #:literals (#%expression)
@@ -138,9 +134,9 @@
     (list tvs+ e+ (eval-τ (typeof e+) tvs)))
   (define (infers+erase es)
     (stx-map infer+erase es))
-  (define (types=? τs1 τs2)
+  (define (types=? τs1 τs2 #:eval? [eval? #t])
     (and (= (stx-length τs1) (stx-length τs2))
-         (stx-andmap type=? τs1 τs2)))
+         (stx-andmap (λ (t1 t2) (type=? t1 t2 #:eval? eval?)) τs1 τs2)))
   (define (same-types? τs)
     (define τs-lst (syntax->list τs))
     (or (null? τs-lst)
@@ -185,21 +181,29 @@
 
   ;; type=? : Type Type -> Boolean
   ;; Indicates whether two types are equal
-  (define (type=? τa τb)
+  (define (type=? τa τb #:eval? [eval? #t])
     ;; expansion, and thus eval-τ is idempotent,
     ;; so should be ok to expand even if τa or τb are already expanded
-    (define τ1 (eval-τ τa))
-    (define τ2 (eval-τ τb))
-;    (printf "t1: ~a => ~a\n" (syntax->datum τa) (syntax->datum τ1))
-;    (printf "t2: ~a => ~a\n" (syntax->datum τb) (syntax->datum τ2))
-    (syntax-parse #`(#,τ1 #,τ2)
+;    (printf "t1: ~a => " (syntax->datum τa))
+    (define τ1 (if eval? (eval-τ τa) τa))
+;    (printf "~a\n" (syntax->datum τ1))
+;    (printf "t2: ~a => " (syntax->datum τb))
+    (define τ2 (if eval? (eval-τ τb) τb))
+;    (printf "~a\n" (syntax->datum τ2))
+    (syntax-parse #`(#,τ1 #,τ2) #:datum-literals (∀)
       ; → should not be datum literal;
       ; adding a type constructor should extend type equality
 ;      #:datum-literals (→)
       [(x:id y:id) (free-identifier=? τ1 τ2)]
       [(s1:str s2:str) (string=? (syntax-e #'s1) (syntax-e #'s2))]
+      [((∀ (x ...) t1) (∀ (y ...) t2))
+       #:when (= (stx-length #'(x ...)) (stx-length #'(y ...)))
+       #:with (z ...) (generate-temporaries #'(x ...))
+       (type=? (substs #'(z ...) #'(x ...) #'t1)
+               (substs #'(z ...) #'(y ...) #'t2)
+               #:eval? #f)]
       [((τ1 ...) (τ2 ...))
-       (types=? #'(τ1 ...) #'(τ2 ...))]
+       (types=? #'(τ1 ...) #'(τ2 ...) #:eval? eval?)]
       #;[((x ... → x_out) (y ... → y_out))
        (and (type=? #'x_out #'y_out)
             (stx-andmap type=? #'(x ...) #'(y ...)))]

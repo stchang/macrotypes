@@ -2,6 +2,34 @@
 (require "rackunit-typechecking.rkt")
 
 (check-type (inst (Λ (t) (λ ([x : t]) x)) Int) : (→ Int Int))
+(check-type (inst (Λ (t) 1) Bool) : Int)
+; first inst should be discarded
+(check-type (inst (inst (Λ (t) (Λ (t) (λ ([x : t]) x))) (→ Int Int)) Int) : (→ Int Int))
+; second inst is discarded
+(check-type (inst (inst (Λ (t1) (Λ (t2) (λ ([x : t1]) x))) Int) (→ Int Int)) : (→ Int Int))
+
+;; polymorphic arguments
+(check-type (Λ (t) (λ ([x : t]) x)) : (∀ (t) (→ t t)))
+(check-type (Λ (t) (λ ([x : t]) x)) : (∀ (s) (→ s s)))
+(check-type (Λ (s) (Λ (t) (λ ([x : t]) x))) : (∀ (s) (∀ (t) (→ t t))))
+(check-type (Λ (s) (Λ (t) (λ ([x : t]) x))) : (∀ (r) (∀ (t) (→ t t))))
+(check-type (Λ (s) (Λ (t) (λ ([x : t]) x))) : (∀ (r) (∀ (s) (→ s s))))
+(check-type (Λ (s) (Λ (t) (λ ([x : t]) x))) : (∀ (r) (∀ (u) (→ u u))))
+(check-type (λ ([x : (∀ (t) (→ t t))]) x) : (→ (∀ (s) (→ s s)) (∀ (u) (→ u u))))
+(typecheck-fail ((λ ([x : (∀ (t) (→ t t))]) x) (λ ([x : Int]) x)))
+(typecheck-fail ((λ ([x : (∀ (t) (→ t t))]) x) 1))
+(check-type ((λ ([x : (∀ (t) (→ t t))]) x) (Λ (s) (λ ([y : s]) y))) : (∀ (u) (→ u u)))
+(check-type
+ (inst ((λ ([x : (∀ (t) (→ t t))]) x) (Λ (s) (λ ([y : s]) y))) Int) : (→ Int Int))
+(check-type
+ ((inst ((λ ([x : (∀ (t) (→ t t))]) x) (Λ (s) (λ ([y : s]) y))) Int) 10)
+ : Int ⇒ 10)
+(check-type (λ ([x : (∀ (t) (→ t t))]) (inst x Int)) : (→ (∀ (t) (→ t t)) (→ Int Int)))
+(check-type (λ ([x : (∀ (t) (→ t t))]) ((inst x Int) 10)) : (→ (∀ (t) (→ t t)) Int))
+(check-type ((λ ([x : (∀ (t) (→ t t))]) ((inst x Int) 10))
+             (Λ (s) (λ ([y : s]) y)))
+             : Int ⇒ 10)
+
 
 ;; previous tests -------------------------------------------------------------
 (check-type 1 : Int)

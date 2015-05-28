@@ -21,6 +21,11 @@
 (check-type (begin 1) : Int)
 (typecheck-fail (begin 1 2 3))
 (check-type (begin (void) 1) : Int ⇒ 1)
+(check-type ((λ ([x : Int]) (begin (void) x)) 1) : Int)
+(check-type ((λ ([x : Int]) (begin x)) 1) : Int)
+(check-type ((λ ([x : Int]) (begin (begin x))) 1) : Int)
+(check-type ((λ ([x : Int]) (begin (void) (begin (void) x))) 1) : Int)
+(check-type ((λ ([x : Int]) (begin (begin (void) x))) 1) : Int)
 
 ;;ascription
 (typecheck-fail (ann 1 : Bool))
