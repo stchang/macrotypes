@@ -132,16 +132,6 @@
 ;      [((τ1 ...) (τ2 ...)) (types=? #'(τ1 ...) #'(τ2 ...))]
 ;      [_ #f]))
 
-  (define (add-origin τ τ-orig)
-    (define surface-τs/#f (syntax-property τ-orig 'surface-type))
-    (if surface-τs/#f
-        (syntax-property τ 'surface-type (cons τ-orig surface-τs/#f))
-        (syntax-property τ 'surface-type (list τ-orig))))
-  (define (get-origin τ)
-    (define surface-τs/#f (syntax-property τ 'surface-type))
-    (if surface-τs/#f
-        (car (reverse surface-τs/#f))
-        τ))
   ;; type expansion
   (define (eval-τ τ [tvs #'()])
     (syntax-parse τ
@@ -156,11 +146,11 @@
        (if (identifier? maybe-app-τ) ; base type
            ;; full expansion checks that type is a bound name
            ;; 'surface-type property is like 'origin (which seems to get lost)
-           (add-origin (local-expand maybe-app-τ 'expression null) τ)
+           (local-expand maybe-app-τ 'expression null)
            (syntax-parse maybe-app-τ
              [(τ1 ...)
               #:with (τ-exp ...) (stx-map (λ (t) (eval-τ t tvs)) #'(τ1 ...))
-              (add-origin #'(τ-exp ...) τ)]))]))
+              #'(τ-exp ...)]))]))
 
   ;; term expansion
   ;; expand/df : Syntax -> Syntax
