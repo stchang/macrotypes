@@ -5,14 +5,18 @@
   (for-meta 2 racket/base syntax/parse racket/syntax)
   "typecheck.rkt")
 (require (prefix-in stlc: (only-in "stlc+tup.rkt" #%app λ tup proj let))
-         (except-in "stlc+tup.rkt" #%app λ tup proj let))
+         (except-in "stlc+tup.rkt" #%app λ tup proj let type=? types=? same-types?))
 (provide (rename-out [stlc:#%app #%app] [stlc:λ λ] [stlc:let let]))
-(provide (except-out (all-from-out "stlc+tup.rkt") stlc:#%app stlc:#%datum))
+(provide (except-out (all-from-out "stlc+tup.rkt")
+                     stlc:#%app stlc:λ stlc:let stlc:tup stlc:proj))
 ;(provide define-type-alias define-variant module quote submod)
 (provide tup proj var case)
+(provide (for-syntax type=? types=? same-types?))
 
 
 ;; Simply-Typed Lambda Calculus, plus variants
+;; Type relations:
+;; - type=? extended to strings
 ;; define-type-alias (also provided to programmer)
 ;; Types:
 ;; - types from stlc+tup.rkt
@@ -22,6 +26,30 @@
 ;; - terms from stlc+tup.rkt
 ;; - extend tup to include records
 ;; - sums (var)
+
+(begin-for-syntax
+  ;; type=? : Type Type -> Boolean
+  ;; Indicates whether two types are equal
+  ;; TODO: fix this code duplication, should call stlc:type=?
+  (define (type=? τ1 τ2)
+    (syntax-parse (list τ1 τ2)
+      [(s1:str s2:str) (string=? (syntax-e #'s1) (syntax-e #'s2))]
+      [(x:id y:id) (free-identifier=? τ1 τ2)]
+      [((τa ...) (τb ...)) (types=? #'(τa ...) #'(τb ...))]
+      [_ #f]))
+
+  ;; redefine these to use the new type=?
+  
+  ;; type equality = structurally recursive identifier equality
+  ;; uses the type=? in the context of τs1 instead of here
+  (define (types=? τs1 τs2)
+    (and (= (stx-length τs1) (stx-length τs2))
+         (stx-andmap type=? τs1 τs2)))
+  ;; uses the type=? in the context of τs instead of here
+  (define (same-types? τs)
+    (define τs-lst (syntax->list τs))
+    (or (null? τs-lst)
+        (andmap (λ (τ) (type=? (car τs-lst) τ)) (cdr τs-lst)))))
 
 (provide define-type-alias)
 (define-syntax (define-type-alias stx)
@@ -61,12 +89,13 @@
 (define-syntax (var stx)
   (syntax-parse stx #:datum-literals (as =)
     [(_ l:str = e as τ)
-     #:when (∨? #'τ)
-     #:with (∨ (l_τ τ_l) ...) (eval-τ #'τ)
+     #:with τ+ (eval-τ #'τ)
+     #:when (∨? #'τ+)
+     #:with (∨ (l_τ τ_l) ...) #'τ+
      #:with (l_match τ_match) (str-stx-assoc #'l #'((l_τ τ_l) ...))
      #:with (e- τ_e) (infer+erase #'e)
      #:when (type=? #'τ_match #'τ_e)
-     (⊢ #'(list l e) #'τ)]))
+     (⊢ #'(list l e) #'τ+)]))
 (define-syntax (case stx)
   (syntax-parse stx #:datum-literals (of =>)
     [(_ e [l:str x => e_l] ...)

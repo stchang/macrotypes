@@ -2,14 +2,15 @@
 (require
   (for-syntax racket/base syntax/parse racket/string syntax/stx racket/set "stx-utils.rkt")
   "typecheck.rkt")
-(require (except-in "stlc+sub.rkt" #%app #%datum sub?)
+(require (except-in "stlc+sub.rkt" #%app #%datum sub? type=? types=? same-types?)
          (prefix-in stlc: (only-in "stlc+sub.rkt" #%app #%datum sub?))
          (except-in "stlc+var.rkt" #%app #%datum +)
          (prefix-in var: (only-in "stlc+var.rkt" #%datum)))
 (provide (rename-out [stlc:#%app #%app]
                      [datum/tc #%datum]))
-(provide (except-out (all-from-out "stlc+sub.rkt") stlc:#%app)
-         (all-from-out "stlc+var.rkt"))
+(provide (except-out (all-from-out "stlc+sub.rkt") stlc:#%app stlc:#%datum
+                     (for-syntax stlc:sub?))
+         (except-out (all-from-out "stlc+var.rkt") var:#%datum))
 (provide (for-syntax sub?))
 
 ;; Simply-Typed Lambda Calculus, plus subtyping, plus records

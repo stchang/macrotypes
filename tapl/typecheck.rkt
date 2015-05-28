@@ -29,7 +29,7 @@
      #'(begin
          (provide τ (for-syntax τ?))
          (define τ (void))
-         (define-for-syntax (τ? τ1) (type=? (eval-τ τ1) #'τ)))]))
+         (define-for-syntax (τ? τ1) (free-identifier=? #'τ τ1)))]))
 
 (define-syntax (define-type-constructor stx)
   (syntax-parse stx
@@ -39,7 +39,7 @@
          (provide τ (for-syntax τ?))
          (define τ (void))
          (define-for-syntax (τ? stx)
-           (syntax-parse (eval-τ stx) #:literals (τ)
+           (syntax-parse stx #:literals (τ)
              [(τ τ_arg (... ...)) #t]
              [_ #f])))]))
 
@@ -108,32 +108,40 @@
     (syntax-parse (expand/df #`(λ #,tvs (#%expression #,e))) #:literals (#%expression)
       [(lam tvs+ (#%expression e+)) (list #'tvs+ #'e+ (typeof #'e+))]))
 
-  ;; type equality = structurally recursive identifier equality
-  (define (types=? τs1 τs2)
-    (and (= (stx-length τs1) (stx-length τs2))
-         (stx-andmap type=? τs1 τs2)))
-  (define (same-types? τs)
-    (define τs-lst (syntax->list τs))
-    (or (null? τs-lst)
-        (andmap (λ (τ) (type=? (car τs-lst) τ)) (cdr τs-lst))))
+;  ;; type equality = structurally recursive identifier equality
+;  (define (types=? τs1 τs2)
+;    (and (= (stx-length τs1) (stx-length τs2))
+;         (stx-andmap type=? τs1 τs2)))
+;  (define (same-types? τs)
+;    (define τs-lst (syntax->list τs))
+;    (or (null? τs-lst)
+;        (andmap (λ (τ) (type=? (car τs-lst) τ)) (cdr τs-lst))))
+;
+;  ;; type=? : Type Type -> Boolean
+;  ;; Indicates whether two types are equal
+;  (define (type=? τ1 τ2)
+;    (syntax-parse #`(#,τ1 #,τ2) #:datum-literals (∀)
+;      ;; TODO: should not have any datum literals
+;      [(x:id y:id) (free-identifier=? τ1 τ2)]
+;      [(s1:str s2:str) (string=? (syntax-e #'s1) (syntax-e #'s2))]
+;      [((∀ (x ...) t1) (∀ (y ...) t2))
+;       #:when (= (stx-length #'(x ...)) (stx-length #'(y ...)))
+;       #:with (z ...) (generate-temporaries #'(x ...))
+;       (type=? (substs #'(z ...) #'(x ...) #'t1)
+;               (substs #'(z ...) #'(y ...) #'t2))]
+;      [((τ1 ...) (τ2 ...)) (types=? #'(τ1 ...) #'(τ2 ...))]
+;      [_ #f]))
 
-  ;; type=? : Type Type -> Boolean
-  ;; Indicates whether two types are equal
-  (define (type=? τ1 τ2)
-    (syntax-parse #`(#,τ1 #,τ2) #:datum-literals (∀)
-      ;; TODO: should not have any datum literals
-      [(x:id y:id) (free-identifier=? τ1 τ2)]
-      [(s1:str s2:str) (string=? (syntax-e #'s1) (syntax-e #'s2))]
-      [((∀ (x ...) t1) (∀ (y ...) t2))
-       #:when (= (stx-length #'(x ...)) (stx-length #'(y ...)))
-       #:with (z ...) (generate-temporaries #'(x ...))
-       (type=? (substs #'(z ...) #'(x ...) #'t1)
-               (substs #'(z ...) #'(y ...) #'t2))]
-      [((τ1 ...) (τ2 ...)) (types=? #'(τ1 ...) #'(τ2 ...))]
-      [_ #f]))
-  
-  (define τ= type=?)
-
+  (define (add-origin τ τ-orig)
+    (define surface-τs/#f (syntax-property τ-orig 'surface-type))
+    (if surface-τs/#f
+        (syntax-property τ 'surface-type (cons τ-orig surface-τs/#f))
+        (syntax-property τ 'surface-type (list τ-orig))))
+  (define (get-origin τ)
+    (define surface-τs/#f (syntax-property τ 'surface-type))
+    (if surface-τs/#f
+        (car (reverse surface-τs/#f))
+        τ))
   ;; type expansion
   (define (eval-τ τ [tvs #'()])
     (syntax-parse τ
@@ -147,11 +155,12 @@
        ;; manually remove app and recursively expand
        (if (identifier? maybe-app-τ) ; base type
            ;; full expansion checks that type is a bound name
-           (local-expand maybe-app-τ 'expression null)
+           ;; 'surface-type property is like 'origin (which seems to get lost)
+           (add-origin (local-expand maybe-app-τ 'expression null) τ)
            (syntax-parse maybe-app-τ
-             [(τ ...)
-              #:with (τ-exp ...) (stx-map (λ (t) (eval-τ t tvs)) #'(τ ...))
-              #'(τ-exp ...)]))]))
+             [(τ1 ...)
+              #:with (τ-exp ...) (stx-map (λ (t) (eval-τ t tvs)) #'(τ1 ...))
+              (add-origin #'(τ-exp ...) τ)]))]))
 
   ;; term expansion
   ;; expand/df : Syntax -> Syntax

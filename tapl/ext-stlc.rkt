@@ -2,16 +2,15 @@
 (require
   (for-syntax racket/base syntax/parse syntax/stx racket/string "stx-utils.rkt")
   "typecheck.rkt")
-(require (prefix-in stlc: (only-in "stlc+lit.rkt" #%app λ #%datum))
-         (except-in "stlc+lit.rkt" #%app λ #%datum))
+(require (prefix-in stlc: (only-in "stlc+lit.rkt" #%app #%datum))
+         (except-in "stlc+lit.rkt" #%app #%datum))
 (provide (rename-out [datum/tc #%datum]
                      [stlc:#%app #%app]
-                     [stlc:λ λ]
                      [and/tc and] [or/tc or] [if/tc if]
                      [begin/tc begin]
                      [let/tc let] [let*/tc let*] [letrec/tc letrec])
                      ann)
-(provide (all-from-out "stlc+lit.rkt"))
+(provide (except-out (all-from-out "stlc+lit.rkt") stlc:#%app stlc:#%datum))
  
 ;; Simply-Typed Lambda Calculus, plus extensions (TAPL ch11)
 ;; Types:

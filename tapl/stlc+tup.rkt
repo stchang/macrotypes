@@ -2,17 +2,19 @@
 (require
   (for-syntax racket/base syntax/parse syntax/stx racket/string "stx-utils.rkt")
   "typecheck.rkt")
-(require (prefix-in stlc: (only-in "ext-stlc.rkt" #%app λ))
-         (except-in "ext-stlc.rkt" #%app λ))
-(provide (rename-out [stlc:#%app #%app] [stlc:λ λ])
+(require (prefix-in stlc: (only-in "ext-stlc.rkt" #%app))
+         (except-in "ext-stlc.rkt" #%app))
+(provide (rename-out [stlc:#%app #%app])
          tup proj)
-(provide (all-from-out "ext-stlc.rkt"))
+(provide (except-out (all-from-out "ext-stlc.rkt") stlc:#%app))
  
 ;; Simply-Typed Lambda Calculus, plus tuples
 ;; Types:
 ;; - types from ext-stlc.rkt
+;; - ×
 ;; Terms:
 ;; - terms from ext-stlc.rkt
+;; - tup and proj
 
 (define-type-constructor ×)
 

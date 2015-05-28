@@ -34,5 +34,5 @@
     [(_ e_ref e)
      #:with (e_ref- ((~literal Ref) τ1)) (infer+erase #'e_ref)
      #:with (e- τ2) (infer+erase #'e)
-     #:when (τ= #'τ1 #'τ2)
+     #:when (type=? #'τ1 #'τ2)
      (⊢ #'(set-box! e_ref- e-) #'Unit)]))
