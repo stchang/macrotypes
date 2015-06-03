@@ -45,7 +45,7 @@
     [(_ e1 e2)
      #:with (e1- τ1) (infer+erase #'e1)
      #:with (e2- ((~literal List) τ2)) (infer+erase #'e2)
-     #:when (type=? #'τ1 #'τ2)
+     #:when ((current-type=?) #'τ1 #'τ2)
      (⊢ #'(cons e1- e2-) #'(List τ1))]))
 (define-syntax (isnil stx)
   (syntax-parse stx

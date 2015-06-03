@@ -108,6 +108,9 @@
     (syntax-parse (expand/df #`(λ #,tvs (#%expression #,e))) #:literals (#%expression)
       [(lam tvs+ (#%expression e+)) (list #'tvs+ #'e+ (typeof #'e+))]))
 
+  (define current-type=? (make-parameter #f))
+  (define current-sub? (make-parameter #f))
+  
 ;  ;; type equality = structurally recursive identifier equality
 ;  (define (types=? τs1 τs2)
 ;    (and (= (stx-length τs1) (stx-length τs2))

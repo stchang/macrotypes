@@ -27,17 +27,19 @@
       [(x:id y:id) (free-identifier=? τ1 τ2)]
       [((τa ...) (τb ...)) (types=? #'(τa ...) #'(τb ...))]
       [_ #f]))
-  
+
+  (current-type=? type=?)
+
   ;; type equality = structurally recursive identifier equality
   ;; uses the type=? in the context of τs1 instead of here
   (define (types=? τs1 τs2)
     (and (= (stx-length τs1) (stx-length τs2))
-         (stx-andmap type=? τs1 τs2)))
+         (stx-andmap (current-type=?) τs1 τs2)))
   ;; uses the type=? in the context of τs instead of here
   (define (same-types? τs)
     (define τs-lst (syntax->list τs))
     (or (null? τs-lst)
-        (andmap (λ (τ) (type=? (car τs-lst) τ)) (cdr τs-lst)))))
+        (andmap (λ (τ) ((current-type=?) (car τs-lst) τ)) (cdr τs-lst)))))
 
 (define-syntax (λ/tc stx)
   (syntax-parse stx 
@@ -54,7 +56,8 @@
                            (syntax->datum #'e_fn) (syntax->datum #'τ_fn))
      #:with (→ τ ... τ_res) #'τ_fn
      #:with ((e_arg- τ_arg) ...) (infers+erase #'(e_arg ...))
-     #:fail-unless ((eval-syntax (datum->syntax #'e_fn 'types=?)) #'(τ ...) #'(τ_arg ...))
+;     #:fail-unless ((eval-syntax (datum->syntax #'e_fn 'types=?)) #'(τ ...) #'(τ_arg ...))
+     #:fail-unless (types=? #'(τ_arg ...) #'(τ ...))
                    (string-append
                     (format
                      "Wrong number of args given to function ~a, or args have wrong type:\ngiven: "

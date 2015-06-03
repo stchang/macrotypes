@@ -2,7 +2,7 @@
 (require
   (for-syntax racket/base syntax/parse racket/string "stx-utils.rkt")
   "typecheck.rkt")
-(require (except-in "stlc+lit.rkt" #%app #%datum +)
+(require (except-in "stlc+lit.rkt" #%datum + #%app)
          (prefix-in stlc: (only-in "stlc+lit.rkt" #%datum)))
 (provide (rename-out [app/tc #%app] [datum/tc #%datum]))
 (provide (except-out (all-from-out "stlc+lit.rkt") stlc:#%datum))
@@ -40,19 +40,29 @@
 
 (begin-for-syntax
   (define (sub? τ1 τ2)
-    (or (type=? τ1 τ2)
-        (type=? #'Top τ2)
-        (syntax-parse (list τ1 τ2) #:literals (→ Nat Int Num)
-          [(Nat τ) (sub? #'Int #'τ)]
-          [(Int τ) (sub? #'Num #'τ)]
-          [(τ Num) (sub? #'τ #'Int)]
-          [(τ Int) (sub? #'τ #'Nat)]
+    (or ((current-type=?) τ1 τ2)
+        #;(and (identifier? τ2) (free-identifier=? τ2 #'Top))
+        (syntax-parse (list τ1 τ2) #:literals (→ Nat Int Num Top)
+          [(_ Top) #t]
+          #;[(t1:id t2:id) (free-identifier=? #'t1 #'t2)]
+          [(Nat τ) ((current-sub?) #'Int #'τ)]
+          [(Int τ) ((current-sub?) #'Num #'τ)]
+          [(τ Num) ((current-sub?) #'τ #'Int)]
+          [(τ Int) ((current-sub?) #'τ #'Nat)]
           [((→ s1 ... s2) (→ t1 ... t2))
            (and (subs? #'(t1 ...) #'(s1 ...))
-                (sub? #'s2 #'t2))]
+                ((current-sub?) #'s2 #'t2))]
           [_ #f])))
-  (define (subs? τs1 τs2) (stx-andmap (eval-syntax (datum->syntax τs1 'sub?)) τs1 τs2)))
-  ;(define (subs? ts1 ts2) (stx-andmap (λ (t1 t2) (printf "~a <: ~a: ~a\n" (syntax->datum t1) (syntax->datum t2) (sub? t1 t2)) (sub? t1 t2)) ts1 ts2)))
+  (current-sub? sub?)
+  (define (subs? τs1 τs2) (stx-andmap (current-sub?) τs1 τs2)))
+
+#;(define-syntax (app/tc stx)
+  (syntax-parse stx
+    [(_ x ...)
+     #:with res
+     (parameterize ([current-type=? (current-sub?)])
+       (local-expand #'(stlc:#%app x ...) 'expression null))
+     #'res]))
 
 (define-syntax (app/tc stx)
   (syntax-parse stx #:literals (→)

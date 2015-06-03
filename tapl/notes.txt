@@ -18,6 +18,30 @@ Solution:
 - wrap lambda body with #%expression to indicate expression, ie non-splicing,
   begin
 
+2015-05-29
+Notes: locally-nameless representation of lambdas (and other binding terms)
+- syntactically distinguishes bound names vs free vars
+- combination of debruijn (nameless) for bound vars and names
+- simplifies implementation of capture avoiding substitution
+  - I already get around by using Racket's identifiers and free-identifier=
+    to easily implement capture-avoiding subst
+- debruijn indices for boundvars avoids having to convert to canonical form
+  to compare for alpha-equal
+- using names for free vars avoids "shifting" of indices when adding or 
+  removing binders, ie free vars dont rely on context
+- two main operations:
+  - open: converts some bound vars to free vars
+    - eg subst into lambda body
+    - conversion and subst can be done in one pass?
+  - close: converts some free vars to bound vars 
+    - eg wrapping a term in a lambda
+    - similar to subst
+  - both operations involve traversing the term
+    - but can do straight-subst (instead of renaming subst) because
+      shadowing is not possible
+- multiple binders are more complicated
+  - require both depth and offset index
+
 Previous: -----------------
 
 macro system requirements:

@@ -4,14 +4,15 @@
               "stx-utils.rkt" "typecheck.rkt")
   (for-meta 2 racket/base syntax/parse racket/syntax)
   "typecheck.rkt")
-(require (prefix-in stlc: (only-in "stlc+tup.rkt" #%app λ tup proj let))
-         (except-in "stlc+tup.rkt" #%app λ tup proj let type=? types=? same-types?))
+(require (prefix-in stlc: (only-in "stlc+tup.rkt" #%app λ tup proj let type=?))
+         (except-in "stlc+tup.rkt" #%app λ tup proj let type=?))
 (provide (rename-out [stlc:#%app #%app] [stlc:λ λ] [stlc:let let]))
 (provide (except-out (all-from-out "stlc+tup.rkt")
-                     stlc:#%app stlc:λ stlc:let stlc:tup stlc:proj))
+                     stlc:#%app stlc:λ stlc:let stlc:tup stlc:proj
+                     (for-syntax stlc:type=?)))
 ;(provide define-type-alias define-variant module quote submod)
 (provide tup proj var case)
-(provide (for-syntax type=? types=? same-types?))
+(provide (for-syntax type=?))
 
 
 ;; Simply-Typed Lambda Calculus, plus variants
@@ -34,19 +35,21 @@
   (define (type=? τ1 τ2)
     (syntax-parse (list τ1 τ2)
       [(s1:str s2:str) (string=? (syntax-e #'s1) (syntax-e #'s2))]
-      [(x:id y:id) (free-identifier=? τ1 τ2)]
-      [((τa ...) (τb ...)) (types=? #'(τa ...) #'(τb ...))]
-      [_ #f]))
+      [_ (stlc:type=? τ1 τ2)]
+      #;[(x:id y:id) (free-identifier=? τ1 τ2)]
+      #;[((τa ...) (τb ...)) (types=? #'(τa ...) #'(τb ...))]
+      #;[_ #f]))
 
+  (current-type=? type=?)
   ;; redefine these to use the new type=?
   
   ;; type equality = structurally recursive identifier equality
   ;; uses the type=? in the context of τs1 instead of here
-  (define (types=? τs1 τs2)
+  #;(define (types=? τs1 τs2)
     (and (= (stx-length τs1) (stx-length τs2))
          (stx-andmap type=? τs1 τs2)))
   ;; uses the type=? in the context of τs instead of here
-  (define (same-types? τs)
+  #;(define (same-types? τs)
     (define τs-lst (syntax->list τs))
     (or (null? τs-lst)
         (andmap (λ (τ) (type=? (car τs-lst) τ)) (cdr τs-lst)))))
@@ -94,7 +97,7 @@
      #:with (∨ (l_τ τ_l) ...) #'τ+
      #:with (l_match τ_match) (str-stx-assoc #'l #'((l_τ τ_l) ...))
      #:with (e- τ_e) (infer+erase #'e)
-     #:when (type=? #'τ_match #'τ_e)
+     #:when ((current-type=?) #'τ_match #'τ_e)
      (⊢ #'(list l e) #'τ+)]))
 (define-syntax (case stx)
   (syntax-parse stx #:datum-literals (of =>)
@@ -104,7 +107,8 @@
      #:with (∨ (l_x τ_x) ...) #'τ_e
      #:fail-when (null? (syntax->list #'(l ...))) "no clauses"
      #:fail-unless (= (stx-length #'(l ...)) (stx-length #'(l_x ...))) "wrong number of case clauses"
-     #:fail-unless (stx-andmap stx-str=? #'(l ...) #'(l_x ...)) "case clauses is not exhaustive"
+;     #:fail-unless (stx-andmap stx-str=? #'(l ...) #'(l_x ...)) "case clauses not exhaustive"
+     #:fail-unless (types=? #'(l ...) #'(l_x ...)) "case clauses not exhaustive"
      #:with (((x-) e_l- τ_el) ...)
             (stx-map (λ (bs e) (infer/type-ctxt+erase bs e)) #'(([x : τ_x]) ...) #'(e_l ...))
      #:fail-unless (same-types? #'(τ_el ...)) "branches have different types"

@@ -68,7 +68,7 @@
      #:fail-unless (Bool? #'τ_tst) (format "given non-Bool test: ~a\n" (syntax->datum #'e_tst))
      #:with (e1- τ1) (infer+erase #'e1)
      #:with (e2- τ2) (infer+erase #'e2)
-     #:when (type=? #'τ1 #'τ2)
+     #:when ((current-type=?) #'τ1 #'τ2)
      (⊢ #'(if e_tst- e1- e2-) #'τ1)]))
 
 (define-base-type Unit)
@@ -94,7 +94,7 @@
   (syntax-parse stx #:datum-literals (:)
     [(_ e : ascribed-τ)
      #:with (e- τ) (infer+erase #'e)
-     #:fail-unless (type=? #'τ #'ascribed-τ)
+     #:fail-unless ((current-type=?) #'τ #'ascribed-τ)
                    (format "~a does not have type ~a\n"
                            (syntax->datum #'e) (syntax->datum #'ascribed-τ))
      (⊢ #'e- #'ascribed-τ)]))
