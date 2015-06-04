@@ -1,10 +1,10 @@
 #lang racket/base
-(require (for-syntax racket/base syntax/parse syntax/srcloc rackunit)
-         rackunit
+(require #;(for-syntax racket/base syntax/parse syntax/srcloc rackunit)
+         (for-syntax rackunit) rackunit
          "../typecheck.rkt")
 (provide (all-defined-out))
 
-(define-for-syntax (type=? t1 t2)
+#;(define-for-syntax (type=? t1 t2)
   (if (current-sub?)
       ((current-sub?) t1 t2)
       ((current-type=?) t1 t2)))
@@ -19,7 +19,7 @@
      ;; use subtyping if it's bound in the context of #'e
      #;(with-handlers ([exn:fail? (λ _ ((eval-syntax (datum->syntax #'e 'type=?)) #'τ #'τ-expected+))])
        ((eval-syntax (datum->syntax #'e 'sub?)) #'τ #'τ-expected+))
-     (type=? #'τ #'τ-expected+)
+     (typecheck? #'τ #'τ-expected+)
      (format
       "Expression ~a [loc ~a:~a] has type ~a, expected ~a"
       (syntax->datum #'e) (syntax-line #'e) (syntax-column #'e)
@@ -34,7 +34,7 @@
      #:fail-when 
      #;(with-handlers ([exn:fail? (λ _ ((eval-syntax (datum->syntax #'e 'type=?)) #'τ #'not-τ+))])
        ((eval-syntax (datum->syntax #'e 'sub?)) #'τ #'not-τ+))
-     (type=? #'τ #'not-τ+)
+     (typecheck? #'τ #'not-τ+)
      (format
       "(~a:~a) Expression ~a should not have type ~a"
       (syntax-line stx) (syntax-column stx)

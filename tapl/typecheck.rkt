@@ -1,10 +1,11 @@
 #lang racket/base
 (require
-  (for-syntax racket/base syntax/parse racket/list racket/syntax syntax/stx "stx-utils.rkt")
-  (for-meta 2 racket/base syntax/parse racket/list syntax/stx "stx-utils.rkt"))
+  (for-syntax racket syntax/parse racket/syntax syntax/stx "stx-utils.rkt")
+  #;(for-meta 2 racket/base syntax/parse racket/list syntax/stx "stx-utils.rkt"))
 (provide 
  (for-syntax (all-defined-out))
- (all-defined-out))
+ (all-defined-out)
+ (for-syntax (all-from-out racket syntax/parse racket/syntax syntax/stx "stx-utils.rkt")))
 
 ;; type checking functions/forms
 
@@ -29,7 +30,7 @@
      #'(begin
          (provide τ (for-syntax τ?))
          (define τ (void))
-         (define-for-syntax (τ? τ1) (free-identifier=? #'τ τ1)))]))
+         (define-for-syntax (τ? τ1) (typecheck? τ1 #'τ)))]))
 
 (define-syntax (define-type-constructor stx)
   (syntax-parse stx
@@ -108,8 +109,12 @@
     (syntax-parse (expand/df #`(λ #,tvs (#%expression #,e))) #:literals (#%expression)
       [(lam tvs+ (#%expression e+)) (list #'tvs+ #'e+ (typeof #'e+))]))
 
-  (define current-type=? (make-parameter #f))
-  (define current-sub? (make-parameter #f))
+  (define current-typecheck-relation (make-parameter #f))
+  (define (typecheck? t1 t2) ((current-typecheck-relation) t1 t2))
+  (define (typechecks? τs1 τs2)
+    (stx-andmap (current-typecheck-relation) τs1 τs2))
+ ; (define current-type=? (make-parameter #f))
+ ; (define current-sub? (make-parameter #f))
   
 ;  ;; type equality = structurally recursive identifier equality
 ;  (define (types=? τs1 τs2)

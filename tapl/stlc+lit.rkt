@@ -1,6 +1,6 @@
 #lang racket/base
 (require
-  (for-syntax racket/base syntax/parse)
+  #;(for-syntax racket/base syntax/parse)
   "typecheck.rkt")
 (require "stlc.rkt")
 (provide (all-from-out "stlc.rkt"))

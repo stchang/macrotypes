@@ -1,6 +1,6 @@
 #lang racket/base
 (require
-  (for-syntax racket/base syntax/parse syntax/stx racket/string "stx-utils.rkt")
+  #;(for-syntax racket/base syntax/parse syntax/stx racket/string "stx-utils.rkt")
   "typecheck.rkt")
 (require (prefix-in stlc: (only-in "ext-stlc.rkt" #%app))
          (except-in "ext-stlc.rkt" #%app))

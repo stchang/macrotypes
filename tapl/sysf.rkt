@@ -1,6 +1,6 @@
 #lang racket/base
 (require
-  (for-syntax racket/base syntax/parse "stx-utils.rkt")
+  #;(for-syntax racket/base syntax/parse "stx-utils.rkt")
   "typecheck.rkt")
 (require (except-in "stlc+lit.rkt" #%app type=?)
          (prefix-in stlc: (only-in "stlc+lit.rkt" #%app type=?)))
@@ -36,6 +36,7 @@
                (substs #'(z ...) #'(y ...) #'t2))]
       [_ (stlc:type=? τ1 τ2)]))
   (current-type=? type=?)
+  (current-typecheck-relation (current-type=?))
 ;      [(s1:str s2:str) (string=? (syntax-e #'s1) (syntax-e #'s2))]
 ;      [(x:id y:id) (free-identifier=? τ1 τ2)]
 ;      [((τa ...) (τb ...)) (types=? #'(τa ...) #'(τb ...))]

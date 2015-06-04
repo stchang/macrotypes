@@ -1,12 +1,12 @@
 #lang racket/base
 (require
-  (for-syntax racket/base syntax/parse racket/string "stx-utils.rkt")
+  #;(for-syntax racket/base syntax/parse racket/string "stx-utils.rkt")
   "typecheck.rkt")
 (require (except-in "stlc+lit.rkt" #%datum + #%app)
-         (prefix-in stlc: (only-in "stlc+lit.rkt" #%datum)))
-(provide (rename-out [app/tc #%app] [datum/tc #%datum]))
-(provide (except-out (all-from-out "stlc+lit.rkt") stlc:#%datum))
-(provide (for-syntax sub? subs?))
+         (prefix-in stlc: (only-in "stlc+lit.rkt" #%app #%datum)))
+(provide (rename-out #;[app/tc #%app] [stlc:#%app #%app] [datum/tc #%datum]))
+(provide (except-out (all-from-out "stlc+lit.rkt") stlc:#%app stlc:#%datum))
+(provide (for-syntax sub? subs? current-sub?))
 
 ;; Simply-Typed Lambda Calculus, plus subtyping
 ;; Types:
@@ -53,7 +53,8 @@
            (and (subs? #'(t1 ...) #'(s1 ...))
                 ((current-sub?) #'s2 #'t2))]
           [_ #f])))
-  (current-sub? sub?)
+  (define current-sub? (make-parameter sub?))
+  (current-typecheck-relation (current-sub?))
   (define (subs? τs1 τs2) (stx-andmap (current-sub?) τs1 τs2)))
 
 #;(define-syntax (app/tc stx)
@@ -64,7 +65,7 @@
        (local-expand #'(stlc:#%app x ...) 'expression null))
      #'res]))
 
-(define-syntax (app/tc stx)
+#;(define-syntax (app/tc stx)
   (syntax-parse stx #:literals (→)
     [(_ e_fn e_arg ...)
      #:with (e_fn- τ_fn) (infer+erase #'e_fn)

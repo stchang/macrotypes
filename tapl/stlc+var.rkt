@@ -1,8 +1,8 @@
 #lang racket/base
 (require
-  (for-syntax racket/base syntax/parse syntax/stx racket/syntax racket/string
+  #;(for-syntax racket/base syntax/parse syntax/stx racket/syntax racket/string
               "stx-utils.rkt" "typecheck.rkt")
-  (for-meta 2 racket/base syntax/parse racket/syntax)
+  #;(for-meta 2 racket/base syntax/parse racket/syntax)
   "typecheck.rkt")
 (require (prefix-in stlc: (only-in "stlc+tup.rkt" #%app λ tup proj let type=?))
          (except-in "stlc+tup.rkt" #%app λ tup proj let type=?))
@@ -41,6 +41,7 @@
       #;[_ #f]))
 
   (current-type=? type=?)
+  (current-typecheck-relation (current-type=?))
   ;; redefine these to use the new type=?
   
   ;; type equality = structurally recursive identifier equality
@@ -97,7 +98,7 @@
      #:with (∨ (l_τ τ_l) ...) #'τ+
      #:with (l_match τ_match) (str-stx-assoc #'l #'((l_τ τ_l) ...))
      #:with (e- τ_e) (infer+erase #'e)
-     #:when ((current-type=?) #'τ_match #'τ_e)
+     #:when (typecheck? #'τ_match #'τ_e)
      (⊢ #'(list l e) #'τ+)]))
 (define-syntax (case stx)
   (syntax-parse stx #:datum-literals (of =>)
@@ -108,7 +109,7 @@
      #:fail-when (null? (syntax->list #'(l ...))) "no clauses"
      #:fail-unless (= (stx-length #'(l ...)) (stx-length #'(l_x ...))) "wrong number of case clauses"
 ;     #:fail-unless (stx-andmap stx-str=? #'(l ...) #'(l_x ...)) "case clauses not exhaustive"
-     #:fail-unless (types=? #'(l ...) #'(l_x ...)) "case clauses not exhaustive"
+     #:fail-unless (typechecks? #'(l ...) #'(l_x ...)) "case clauses not exhaustive"
      #:with (((x-) e_l- τ_el) ...)
             (stx-map (λ (bs e) (infer/type-ctxt+erase bs e)) #'(([x : τ_x]) ...) #'(e_l ...))
      #:fail-unless (same-types? #'(τ_el ...)) "branches have different types"

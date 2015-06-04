@@ -1,6 +1,6 @@
 #lang racket/base
 (require
-  (for-syntax racket/base syntax/parse syntax/stx racket/string "stx-utils.rkt")
+  #;(for-syntax racket/base syntax/parse syntax/stx racket/string "stx-utils.rkt")
   "typecheck.rkt")
 (require (prefix-in stlc: (only-in "stlc+lit.rkt" #%app #%datum))
          (except-in "stlc+lit.rkt" #%app #%datum))
@@ -94,7 +94,7 @@
   (syntax-parse stx #:datum-literals (:)
     [(_ e : ascribed-τ)
      #:with (e- τ) (infer+erase #'e)
-     #:fail-unless ((current-type=?) #'τ #'ascribed-τ)
+     #:fail-unless (typecheck? #'τ #'ascribed-τ)
                    (format "~a does not have type ~a\n"
                            (syntax->datum #'e) (syntax->datum #'ascribed-τ))
      (⊢ #'e- #'ascribed-τ)]))
@@ -117,7 +117,7 @@
     [(_ ([b:typed-binding e] ...) e_body)
      #:with ((x- ...) (e- ... e_body-) (τ ... τ_body))
             (infers/type-ctxt+erase #'(b ...) #'(e ... e_body))
-     #:fail-unless (types=? #'(b.τ ...) #'(τ ...))
+     #:fail-unless (typechecks? #'(b.τ ...) #'(τ ...))
                    (string-append
                     "letrec: type check fail, args have wrong type:\n"
                     (string-join

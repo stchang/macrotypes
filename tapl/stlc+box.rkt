@@ -1,13 +1,13 @@
 #lang racket/base
 (require
-  (for-syntax racket/base syntax/parse syntax/stx racket/syntax racket/string
+  #;(for-syntax racket/base syntax/parse syntax/stx racket/syntax racket/string
               "stx-utils.rkt" "typecheck.rkt")
-  (for-meta 2 racket/base syntax/parse racket/syntax)
+  #;(for-meta 2 racket/base syntax/parse racket/syntax)
   "typecheck.rkt")
 (require (prefix-in stlc: (only-in "stlc+cons.rkt" #%app λ))
          (except-in "stlc+cons.rkt" #%app λ))
 (provide (rename-out [stlc:#%app #%app] [stlc:λ λ]))
-(provide (all-from-out "stlc+cons.rkt"))
+(provide (except-out (all-from-out "stlc+cons.rkt") stlc:#%app stlc:λ))
 (provide ref deref :=)
 
 ;; Simply-Typed Lambda Calculus, plus mutable references
@@ -34,5 +34,5 @@
     [(_ e_ref e)
      #:with (e_ref- ((~literal Ref) τ1)) (infer+erase #'e_ref)
      #:with (e- τ2) (infer+erase #'e)
-     #:when (type=? #'τ1 #'τ2)
+     #:when (typecheck? #'τ1 #'τ2)
      (⊢ #'(set-box! e_ref- e-) #'Unit)]))

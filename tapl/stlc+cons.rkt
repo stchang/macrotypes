@@ -1,14 +1,14 @@
 #lang racket/base
 (require
-  (for-syntax racket/base syntax/parse syntax/stx racket/syntax racket/string
+  #;(for-syntax racket/base syntax/parse syntax/stx racket/syntax racket/string
               "stx-utils.rkt" "typecheck.rkt")
-  (for-meta 2 racket/base syntax/parse racket/syntax)
+  #;(for-meta 2 racket/base syntax/parse racket/syntax)
   "typecheck.rkt")
 (require (prefix-in stlc: (only-in "stlc+var.rkt" #%app λ let begin))
          (except-in "stlc+var.rkt" #%app λ let begin))
 (provide (rename-out [stlc:#%app #%app] [stlc:λ λ] [stlc:let let] [stlc:begin begin]
                      [cons/tc cons] [define/tc define]))
-(provide (all-from-out "stlc+var.rkt"))
+(provide (except-out (all-from-out "stlc+var.rkt") stlc:#%app stlc:λ stlc:let stlc:begin))
 (provide nil isnil head tail)
 
 ;; Simply-Typed Lambda Calculus, plus cons
@@ -45,7 +45,7 @@
     [(_ e1 e2)
      #:with (e1- τ1) (infer+erase #'e1)
      #:with (e2- ((~literal List) τ2)) (infer+erase #'e2)
-     #:when ((current-type=?) #'τ1 #'τ2)
+     #:when (typecheck? #'τ1 #'τ2)
      (⊢ #'(cons e1- e2-) #'(List τ1))]))
 (define-syntax (isnil stx)
   (syntax-parse stx

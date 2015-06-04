@@ -1,9 +1,9 @@
 #lang racket/base
 (require
-  (for-syntax racket/base syntax/parse syntax/stx racket/string "stx-utils.rkt")
+  #;(for-syntax racket/base syntax/parse syntax/stx racket/string "stx-utils.rkt")
   "typecheck.rkt")
 (provide (rename-out [λ/tc λ] [app/tc #%app]))
-(provide (for-syntax type=? types=? same-types?))
+(provide (for-syntax type=? types=? same-types? current-type=?))
 (provide #%module-begin #%top-interaction #%top require) ; from racket
  
 ;; Simply-Typed Lambda Calculus
@@ -28,7 +28,8 @@
       [((τa ...) (τb ...)) (types=? #'(τa ...) #'(τb ...))]
       [_ #f]))
 
-  (current-type=? type=?)
+  (define current-type=? (make-parameter type=?))
+  (current-typecheck-relation (current-type=?))
 
   ;; type equality = structurally recursive identifier equality
   ;; uses the type=? in the context of τs1 instead of here
@@ -57,7 +58,7 @@
      #:with (→ τ ... τ_res) #'τ_fn
      #:with ((e_arg- τ_arg) ...) (infers+erase #'(e_arg ...))
 ;     #:fail-unless ((eval-syntax (datum->syntax #'e_fn 'types=?)) #'(τ ...) #'(τ_arg ...))
-     #:fail-unless (types=? #'(τ_arg ...) #'(τ ...))
+     #:fail-unless (typechecks? #'(τ_arg ...) #'(τ ...))
                    (string-append
                     (format
                      "Wrong number of args given to function ~a, or args have wrong type:\ngiven: "
