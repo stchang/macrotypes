@@ -1,7 +1,5 @@
 #lang racket/base
-(require
-  #;(for-syntax racket/base syntax/parse syntax/stx racket/string "stx-utils.rkt")
-  "typecheck.rkt")
+(require "typecheck.rkt")
 (provide (rename-out [λ/tc λ] [app/tc #%app]))
 (provide (for-syntax type=? types=? same-types? current-type=?))
 (provide #%module-begin #%top-interaction #%top require) ; from racket
@@ -21,8 +19,6 @@
   ;; Indicates whether two types are equal
   ;; structurally checks for free-identifier=?
   (define (type=? τ1 τ2)
-    ;(printf "~a\n" (syntax->datum τ1))
-    ;(printf "~a\n" (syntax-property τ1 'surface-type))
     (syntax-parse (list τ1 τ2)
       [(x:id y:id) (free-identifier=? τ1 τ2)]
       [((τa ...) (τb ...)) (types=? #'(τa ...) #'(τb ...))]
@@ -57,7 +53,6 @@
                            (syntax->datum #'e_fn) (syntax->datum #'τ_fn))
      #:with (→ τ ... τ_res) #'τ_fn
      #:with ((e_arg- τ_arg) ...) (infers+erase #'(e_arg ...))
-;     #:fail-unless ((eval-syntax (datum->syntax #'e_fn 'types=?)) #'(τ ...) #'(τ_arg ...))
      #:fail-unless (typechecks? #'(τ_arg ...) #'(τ ...))
                    (string-append
                     (format

@@ -1,9 +1,5 @@
 #lang racket/base
-(require
-  #;(for-syntax racket/base syntax/parse syntax/stx racket/syntax racket/string
-              "stx-utils.rkt" "typecheck.rkt")
-  #;(for-meta 2 racket/base syntax/parse racket/syntax)
-  "typecheck.rkt")
+(require "typecheck.rkt")
 (require (prefix-in stlc: (only-in "stlc+cons.rkt" #%app λ))
          (except-in "stlc+cons.rkt" #%app λ))
 (provide (rename-out [stlc:#%app #%app] [stlc:λ λ]))

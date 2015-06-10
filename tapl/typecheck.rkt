@@ -1,7 +1,6 @@
 #lang racket/base
 (require
-  (for-syntax racket syntax/parse racket/syntax syntax/stx "stx-utils.rkt")
-  #;(for-meta 2 racket/base syntax/parse racket/list syntax/stx "stx-utils.rkt"))
+  (for-syntax racket syntax/parse racket/syntax syntax/stx "stx-utils.rkt"))
 (provide 
  (for-syntax (all-defined-out))
  (all-defined-out)
@@ -50,7 +49,7 @@
     (pattern τ:expr))
   (define-syntax-class typed-binding #:datum-literals (:)
     (pattern [x:id : τ:type])
-    (pattern (~not [x:id : τ:type])
+    (pattern (~and any (~not [x:id : τ:type]))
      #:with x #f
      #:with τ #f
      #:fail-when #t
@@ -88,8 +87,9 @@
        #:with (e ...) es
        #:with
        ((~literal #%plain-lambda) xs+
-         (lr-stxs+vs1 stxs1 vs1 (lr-stxs+vs2 stxs2 vs2
-          ((~literal #%expression) e+) ...)))
+         ((~literal letrec-syntaxes+values) stxs1 ()
+           ((~literal letrec-syntaxes+values) stxs2 ()
+             ((~literal #%expression) e+) ...)))
        (expand/df
         #'(λ (x ...)
             (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ))] ...)
@@ -113,32 +113,6 @@
   (define (typecheck? t1 t2) ((current-typecheck-relation) t1 t2))
   (define (typechecks? τs1 τs2)
     (stx-andmap (current-typecheck-relation) τs1 τs2))
- ; (define current-type=? (make-parameter #f))
- ; (define current-sub? (make-parameter #f))
-  
-;  ;; type equality = structurally recursive identifier equality
-;  (define (types=? τs1 τs2)
-;    (and (= (stx-length τs1) (stx-length τs2))
-;         (stx-andmap type=? τs1 τs2)))
-;  (define (same-types? τs)
-;    (define τs-lst (syntax->list τs))
-;    (or (null? τs-lst)
-;        (andmap (λ (τ) (type=? (car τs-lst) τ)) (cdr τs-lst))))
-;
-;  ;; type=? : Type Type -> Boolean
-;  ;; Indicates whether two types are equal
-;  (define (type=? τ1 τ2)
-;    (syntax-parse #`(#,τ1 #,τ2) #:datum-literals (∀)
-;      ;; TODO: should not have any datum literals
-;      [(x:id y:id) (free-identifier=? τ1 τ2)]
-;      [(s1:str s2:str) (string=? (syntax-e #'s1) (syntax-e #'s2))]
-;      [((∀ (x ...) t1) (∀ (y ...) t2))
-;       #:when (= (stx-length #'(x ...)) (stx-length #'(y ...)))
-;       #:with (z ...) (generate-temporaries #'(x ...))
-;       (type=? (substs #'(z ...) #'(x ...) #'t1)
-;               (substs #'(z ...) #'(y ...) #'t2))]
-;      [((τ1 ...) (τ2 ...)) (types=? #'(τ1 ...) #'(τ2 ...))]
-;      [_ #f]))
 
   ;; type expansion
   (define (eval-τ τ [tvs #'()])

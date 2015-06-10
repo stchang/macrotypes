@@ -1,7 +1,5 @@
 #lang racket/base
-(require
-  #;(for-syntax racket/base syntax/parse syntax/stx racket/string "stx-utils.rkt")
-  "typecheck.rkt")
+(require "typecheck.rkt")
 (require (prefix-in stlc: (only-in "stlc+lit.rkt" #%app #%datum))
          (except-in "stlc+lit.rkt" #%app #%datum))
 (provide (rename-out [datum/tc #%datum]

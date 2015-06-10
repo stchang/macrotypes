@@ -1,9 +1,5 @@
 #lang racket/base
-(require
-  #;(for-syntax racket/base syntax/parse syntax/stx racket/syntax racket/string
-              "stx-utils.rkt" "typecheck.rkt")
-  #;(for-meta 2 racket/base syntax/parse racket/syntax)
-  "typecheck.rkt")
+(require "typecheck.rkt")
 (require (prefix-in stlc: (only-in "stlc+tup.rkt" #%app λ tup proj let type=?))
          (except-in "stlc+tup.rkt" #%app λ tup proj let type=?))
 (provide (rename-out [stlc:#%app #%app] [stlc:λ λ] [stlc:let let]))
@@ -31,29 +27,13 @@
 (begin-for-syntax
   ;; type=? : Type Type -> Boolean
   ;; Indicates whether two types are equal
-  ;; TODO: fix this code duplication, should call stlc:type=?
   (define (type=? τ1 τ2)
     (syntax-parse (list τ1 τ2)
       [(s1:str s2:str) (string=? (syntax-e #'s1) (syntax-e #'s2))]
-      [_ (stlc:type=? τ1 τ2)]
-      #;[(x:id y:id) (free-identifier=? τ1 τ2)]
-      #;[((τa ...) (τb ...)) (types=? #'(τa ...) #'(τb ...))]
-      #;[_ #f]))
+      [_ (stlc:type=? τ1 τ2)]))
 
   (current-type=? type=?)
-  (current-typecheck-relation (current-type=?))
-  ;; redefine these to use the new type=?
-  
-  ;; type equality = structurally recursive identifier equality
-  ;; uses the type=? in the context of τs1 instead of here
-  #;(define (types=? τs1 τs2)
-    (and (= (stx-length τs1) (stx-length τs2))
-         (stx-andmap type=? τs1 τs2)))
-  ;; uses the type=? in the context of τs instead of here
-  #;(define (same-types? τs)
-    (define τs-lst (syntax->list τs))
-    (or (null? τs-lst)
-        (andmap (λ (τ) (type=? (car τs-lst) τ)) (cdr τs-lst)))))
+  (current-typecheck-relation (current-type=?)))
 
 (provide define-type-alias)
 (define-syntax (define-type-alias stx)
@@ -108,7 +88,6 @@
      #:with (∨ (l_x τ_x) ...) #'τ_e
      #:fail-when (null? (syntax->list #'(l ...))) "no clauses"
      #:fail-unless (= (stx-length #'(l ...)) (stx-length #'(l_x ...))) "wrong number of case clauses"
-;     #:fail-unless (stx-andmap stx-str=? #'(l ...) #'(l_x ...)) "case clauses not exhaustive"
      #:fail-unless (typechecks? #'(l ...) #'(l_x ...)) "case clauses not exhaustive"
      #:with (((x-) e_l- τ_el) ...)
             (stx-map (λ (bs e) (infer/type-ctxt+erase bs e)) #'(([x : τ_x]) ...) #'(e_l ...))

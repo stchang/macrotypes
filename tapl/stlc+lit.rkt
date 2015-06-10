@@ -1,7 +1,5 @@
 #lang racket/base
-(require
-  #;(for-syntax racket/base syntax/parse)
-  "typecheck.rkt")
+(require "typecheck.rkt")
 (require "stlc.rkt")
 (provide (all-from-out "stlc.rkt"))
 (provide (rename-out [datum/tc #%datum]))

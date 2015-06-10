@@ -1,8 +1,6 @@
 #lang racket/base
-(require
-  #;(for-syntax racket/base syntax/parse racket/string syntax/stx racket/set "stx-utils.rkt")
-  "typecheck.rkt")
-;; want to use type=? from stlc+var.rkt
+(require "typecheck.rkt")
+;; want to use type=? from stlc+var.rkt, not stlc+sub.rkt
 (require (except-in "stlc+sub.rkt" #%app #%datum sub? type=?)
          (prefix-in stlc: (only-in "stlc+sub.rkt" #%app #%datum sub?))
          (except-in "stlc+var.rkt" #%app #%datum +)
