@@ -15,7 +15,8 @@
   (and paren-prop (char=? #\{ paren-prop)))
 
 (define (stx-member v stx)
-  (member v (syntax->list stx) free-identifier=?))
+  (member v (if (syntax? stx) (syntax->list stx) stx) free-identifier=?))
+
 (define (str-stx-member v stx)
   (member (datum->syntax v) (map datum->syntax (syntax->list stx)) string=?))
 (define (str-stx-assoc v stx)
@@ -32,5 +33,10 @@
 
 (define (stx-sort stx cmp)
   (sort (syntax->list stx) (λ (stx1 stx2) (cmp (syntax-e (stx-car stx1)) (syntax-e (stx-car stx2))))))
+
 (define (stx-fold f base . lsts)
   (apply foldl f base (map syntax->list lsts)))
+
+(define (stx-append stx1 stx2)
+  (append (if (syntax? stx1) (syntax->list stx1) stx1)
+          (if (syntax? stx2) (syntax->list stx2) stx2)))

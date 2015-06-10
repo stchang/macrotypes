@@ -2,9 +2,9 @@
 (require
   (for-syntax racket syntax/parse racket/syntax syntax/stx "stx-utils.rkt"))
 (provide 
- (for-syntax (all-defined-out))
- (all-defined-out)
- (for-syntax (all-from-out racket syntax/parse racket/syntax syntax/stx "stx-utils.rkt")))
+ (for-syntax (all-defined-out)) (all-defined-out)
+ (for-syntax
+  (all-from-out racket syntax/parse racket/syntax syntax/stx "stx-utils.rkt")))
 
 ;; type checking functions/forms
 
@@ -39,8 +39,8 @@
          (provide τ (for-syntax τ?))
          (define τ (void))
          (define-for-syntax (τ? stx)
-           (syntax-parse stx #:literals (τ)
-             [(τ τ_arg (... ...)) #t]
+           (syntax-parse ((current-τ-eval) stx)
+             [(τcons τ_arg (... ...)) (typecheck? #'τcons #'τ)]
              [_ #f])))]))
 
 ;; syntax classes
@@ -67,7 +67,8 @@
 (begin-for-syntax
   ;; ⊢ : Syntax Type -> Syntax
   ;; Attaches type τ to (expanded) expression e.
-  (define (⊢ e τ) (syntax-property e 'type (eval-τ τ)))
+  ;; must eval here, to catch unbound types
+  (define (⊢ e τ) (syntax-property e 'type ((current-τ-eval) τ)))
   ;; typeof : Syntax -> Type or #f
   ;; Retrieves type of given stx, or #f if input has not been assigned a type.
   (define (typeof stx) (syntax-property stx 'type))
@@ -97,6 +98,24 @@
        (list #'xs+ #'(e+ ...) (stx-map typeof #'(e+ ...)))]
       [([x τ] ...) (infers/type-ctxt+erase #'([x : τ] ...) es)]))
 
+  #;(define (eval-τ τ [tvs #'()])
+    (syntax-parse τ
+      [x:id #:when (stx-member τ tvs) τ]
+      [s:str τ] ; record field
+      [((~and (~datum ∀) forall) ts τ) #`(forall ts #,(eval-τ #'τ #'ts))]
+      [_
+       (define app (datum->syntax τ '#%app)) ; #%app in τ's ctxt
+       ;; stop right before expanding #%app
+       (define maybe-app-τ (local-expand τ 'expression (list app)))
+       ;; manually remove app and recursively expand
+       (if (identifier? maybe-app-τ) ; base type
+           ;; full expansion checks that type is a bound name
+           (local-expand maybe-app-τ 'expression null)
+           (syntax-parse maybe-app-τ
+             [(τ1 ...)
+              #:with (τ-exp ...) (stx-map (λ (t) (eval-τ t tvs)) #'(τ1 ...))
+              #'(τ-exp ...)]))]))
+  
   ;; infers the type and erases types in an expression
   (define (infer+erase e)
     (define e+ (expand/df e))
@@ -113,26 +132,8 @@
   (define (typecheck? t1 t2) ((current-typecheck-relation) t1 t2))
   (define (typechecks? τs1 τs2)
     (stx-andmap (current-typecheck-relation) τs1 τs2))
-
-  ;; type expansion
-  (define (eval-τ τ [tvs #'()])
-    (syntax-parse τ
-      [x:id #:when (stx-member τ tvs) τ]
-      [s:str τ] ; record field
-      [((~and (~datum ∀) forall) ts τ) #`(forall ts #,(eval-τ #'τ #'ts))]
-      [_
-       (define app (datum->syntax τ '#%app)) ; #%app in τ's ctxt
-       ;; stop right before expanding #%app
-       (define maybe-app-τ (local-expand τ 'expression (list app)))
-       ;; manually remove app and recursively expand
-       (if (identifier? maybe-app-τ) ; base type
-           ;; full expansion checks that type is a bound name
-           ;; 'surface-type property is like 'origin (which seems to get lost)
-           (local-expand maybe-app-τ 'expression null)
-           (syntax-parse maybe-app-τ
-             [(τ1 ...)
-              #:with (τ-exp ...) (stx-map (λ (t) (eval-τ t tvs)) #'(τ1 ...))
-              #'(τ-exp ...)]))]))
+  
+  (define current-τ-eval (make-parameter #f))
 
   ;; term expansion
   ;; expand/df : Syntax -> Syntax

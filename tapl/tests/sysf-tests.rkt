@@ -1,6 +1,15 @@
 #lang s-exp "../sysf.rkt"
 (require "rackunit-typechecking.rkt")
 
+(check-type (Λ (t1) (Λ (t2) (λ ([x : t1]) (λ ([y : t2]) y))))
+            : (∀ (t1) (∀ (t2) (→ t1 (→ t2 t2)))))
+
+(check-type (Λ (t1) (Λ (t2) (λ ([x : t1]) (λ ([y : t2]) y))))
+            : (∀ (t3) (∀ (t4) (→ t3 (→ t4 t4)))))
+
+(check-not-type (Λ (t1) (Λ (t2) (λ ([x : t1]) (λ ([y : t2]) y))))
+            : (∀ (t4) (∀ (t3) (→ t3 (→ t4 t4)))))
+
 (check-type (inst (Λ (t) (λ ([x : t]) x)) Int) : (→ Int Int))
 (check-type (inst (Λ (t) 1) Bool) : Int)
 ; first inst should be discarded

@@ -1,7 +1,7 @@
 #lang racket/base
 (require "typecheck.rkt")
-;; want to use type=? from stlc+var.rkt, not stlc+sub.rkt
-(require (except-in "stlc+sub.rkt" #%app #%datum sub? type=?)
+;; want to use type=? and eval-τ from stlc+var.rkt, not stlc+sub.rkt
+(require (except-in "stlc+sub.rkt" #%app #%datum sub? type=? eval-τ)
          (prefix-in stlc: (only-in "stlc+sub.rkt" #%app #%datum sub?))
          (except-in "stlc+var.rkt" #%app #%datum +)
          (prefix-in var: (only-in "stlc+var.rkt" #%datum)))
@@ -24,6 +24,7 @@
   (syntax-parse stx
     [(_ . n:number) #'(stlc:#%datum . n)]
     [(_ . x) #'(var:#%datum . x)]))
+
 (begin-for-syntax
   (define (sub? τ1 τ2)
     (or

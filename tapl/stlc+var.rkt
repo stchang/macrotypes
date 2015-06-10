@@ -1,14 +1,14 @@
 #lang racket/base
 (require "typecheck.rkt")
-(require (prefix-in stlc: (only-in "stlc+tup.rkt" #%app λ tup proj let type=?))
-         (except-in "stlc+tup.rkt" #%app λ tup proj let type=?))
+(require (prefix-in stlc: (only-in "stlc+tup.rkt" #%app λ tup proj let type=? eval-τ))
+         (except-in "stlc+tup.rkt" #%app λ tup proj let type=? eval-τ))
 (provide (rename-out [stlc:#%app #%app] [stlc:λ λ] [stlc:let let]))
 (provide (except-out (all-from-out "stlc+tup.rkt")
                      stlc:#%app stlc:λ stlc:let stlc:tup stlc:proj
-                     (for-syntax stlc:type=?)))
+                     (for-syntax stlc:type=? stlc:eval-τ)))
 ;(provide define-type-alias define-variant module quote submod)
 (provide tup proj var case)
-(provide (for-syntax type=?))
+(provide (for-syntax type=? eval-τ))
 
 
 ;; Simply-Typed Lambda Calculus, plus variants
@@ -25,10 +25,19 @@
 ;; - sums (var)
 
 (begin-for-syntax
-  ;; type=? : Type Type -> Boolean
-  ;; Indicates whether two types are equal
+  ;; type expansion
+  ;; extend to handle strings
+  (define (eval-τ τ)
+    (syntax-parse τ
+      [s:str τ] ; record field
+      [_ (stlc:eval-τ τ)]))
+  (current-τ-eval eval-τ)
+  
+  ; extend to:
+  ; 1) first eval types, to accomodate aliases
+  ; 2) accept strings (ie, record labels)
   (define (type=? τ1 τ2)
-    (syntax-parse (list τ1 τ2)
+    (syntax-parse (list (eval-τ τ1) (eval-τ τ2))
       [(s1:str s2:str) (string=? (syntax-e #'s1) (syntax-e #'s2))]
       [_ (stlc:type=? τ1 τ2)]))
 
@@ -73,7 +82,7 @@
 (define-syntax (var stx)
   (syntax-parse stx #:datum-literals (as =)
     [(_ l:str = e as τ)
-     #:with τ+ (eval-τ #'τ)
+     #:with τ+ ((current-τ-eval) #'τ)
      #:when (∨? #'τ+)
      #:with (∨ (l_τ τ_l) ...) #'τ+
      #:with (l_match τ_match) (str-stx-assoc #'l #'((l_τ τ_l) ...))

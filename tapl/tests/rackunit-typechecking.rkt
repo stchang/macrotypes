@@ -1,25 +1,14 @@
 #lang racket/base
-(require #;(for-syntax racket/base syntax/parse syntax/srcloc rackunit)
-         (for-syntax rackunit) rackunit
-         "../typecheck.rkt")
+(require (for-syntax rackunit) rackunit "../typecheck.rkt")
 (provide (all-defined-out))
-
-#;(define-for-syntax (type=? t1 t2)
-  (if (current-sub?)
-      ((current-sub?) t1 t2)
-      ((current-type=?) t1 t2)))
 
 (define-syntax (check-type stx)
   (syntax-parse stx #:datum-literals (:)
     [(_ e : τ ⇒ v) #'(check-type-and-result e : τ ⇒ v)]
     [(_ e : τ-expected)
      #:with τ (typeof (expand/df #'e))
-     #:with τ-expected+ (eval-τ #'τ-expected)
-     #:fail-unless
-     ;; use subtyping if it's bound in the context of #'e
-     #;(with-handlers ([exn:fail? (λ _ ((eval-syntax (datum->syntax #'e 'type=?)) #'τ #'τ-expected+))])
-       ((eval-syntax (datum->syntax #'e 'sub?)) #'τ #'τ-expected+))
-     (typecheck? #'τ #'τ-expected+)
+     #:with τ-expected+ ((current-τ-eval) #'τ-expected)
+     #:fail-unless (typecheck? #'τ #'τ-expected+)
      (format
       "Expression ~a [loc ~a:~a] has type ~a, expected ~a"
       (syntax->datum #'e) (syntax-line #'e) (syntax-column #'e)
@@ -30,11 +19,8 @@
   (syntax-parse stx #:datum-literals (:)
     [(_ e : not-τ)
      #:with τ (typeof (expand/df #'e))
-     #:with not-τ+ (eval-τ #'not-τ)
-     #:fail-when 
-     #;(with-handlers ([exn:fail? (λ _ ((eval-syntax (datum->syntax #'e 'type=?)) #'τ #'not-τ+))])
-       ((eval-syntax (datum->syntax #'e 'sub?)) #'τ #'not-τ+))
-     (typecheck? #'τ #'not-τ+)
+     #:with not-τ+ ((current-τ-eval) #'not-τ)
+     #:fail-when (typecheck? #'τ #'not-τ)
      (format
       "(~a:~a) Expression ~a should not have type ~a"
       (syntax-line stx) (syntax-column stx)

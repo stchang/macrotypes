@@ -1,7 +1,7 @@
 #lang racket/base
 (require "typecheck.rkt")
 (provide (rename-out [λ/tc λ] [app/tc #%app]))
-(provide (for-syntax type=? types=? same-types? current-type=?))
+(provide (for-syntax type=? types=? same-types? current-type=? eval-τ))
 (provide #%module-begin #%top-interaction #%top require) ; from racket
  
 ;; Simply-Typed Lambda Calculus
@@ -12,11 +12,26 @@
 ;; - multi-arg lambda
 ;; - multi-arg app
 
-(define-type-constructor →)
+(begin-for-syntax
+  ;; type expansion
+  ;; must structurally recur to check nested identifiers
+  (define (eval-τ τ)
+    ; we want #%app in τ's ctxt, not here (which is racket's #%app)
+    (define app (datum->syntax τ '#%app))
+    ;; stop right before expanding #%app,
+    ;; since type constructors dont have types (ie kinds) (yet)
+    ;; so the type checking in #%app will fail
+    (syntax-parse (local-expand τ 'expression (list app))
+      [x:id (local-expand #'x 'expression null)] ; full expansion
+      [(t ...)
+       ;; recursively expand
+       (stx-map (current-τ-eval) #'(t ...))]))
+  (current-τ-eval eval-τ))
 
 (begin-for-syntax
   ;; type=? : Type Type -> Boolean
   ;; Indicates whether two types are equal
+  ;; type equality = structurally recursive identifier equality
   ;; structurally checks for free-identifier=?
   (define (type=? τ1 τ2)
     (syntax-parse (list τ1 τ2)
@@ -25,18 +40,17 @@
       [_ #f]))
 
   (define current-type=? (make-parameter type=?))
-  (current-typecheck-relation (current-type=?))
+  (current-typecheck-relation type=?)
 
-  ;; type equality = structurally recursive identifier equality
-  ;; uses the type=? in the context of τs1 instead of here
   (define (types=? τs1 τs2)
     (and (= (stx-length τs1) (stx-length τs2))
          (stx-andmap (current-type=?) τs1 τs2)))
-  ;; uses the type=? in the context of τs instead of here
   (define (same-types? τs)
     (define τs-lst (syntax->list τs))
     (or (null? τs-lst)
         (andmap (λ (τ) ((current-type=?) (car τs-lst) τ)) (cdr τs-lst)))))
+
+(define-type-constructor →)
 
 (define-syntax (λ/tc stx)
   (syntax-parse stx 
