@@ -1,42 +1,57 @@
 #lang s-exp "../fomega.rkt"
 (require "rackunit-typechecking.rkt")
 
-(check-type (Λ (t1) (Λ (t2) (λ ([x : t1]) (λ ([y : t2]) y))))
-            : (∀ (t1) (∀ (t2) (→ t1 (→ t2 t2)))))
+(check-type Int : ★)
+(check-type (→ Int Int) : ★)
+(typecheck-fail (→ →))
 
-(check-type (Λ (t1) (Λ (t2) (λ ([x : t1]) (λ ([y : t2]) y))))
-            : (∀ (t3) (∀ (t4) (→ t3 (→ t4 t4)))))
+(typecheck-fail (λ ([x : (→ →)]) x))
 
-(check-not-type (Λ (t1) (Λ (t2) (λ ([x : t1]) (λ ([y : t2]) y))))
-            : (∀ (t4) (∀ (t3) (→ t3 (→ t4 t4)))))
+(typecheck-fail (∀ (t) t)) ; missing kind annotation
+(check-type (∀ ([t : ★]) t) : ★)
+(check-type (∀ ([→ : ★]) →) : ★) ; should be ok
+(check-type (∀ ([t : ★]) (∀ ([s : ★]) (→ t s))) : ★)
+(check-type (∀ ([t : ★] [s : ★]) (→ t s)) : ★)
+;(check-type (∀ ([t : (⇒ ★ ★)] [s : ★]) (t s)) : ★) ; doesnt work yet
+(typecheck-fail (∀ (t) (→ →)))
 
-(check-type (inst (Λ (t) (λ ([x : t]) x)) Int) : (→ Int Int))
-(check-type (inst (Λ (t) 1) Bool) : Int)
+;; sysf tests wont work, must be augmented with kinds
+(check-type (Λ ([t1 : ★]) (Λ ([t2 : ★]) (λ ([x : t1]) (λ ([y : t2]) y))))
+            : (∀ ([t1 : ★]) (∀ ([t2 : ★]) (→ t1 (→ t2 t2)))))
+
+(check-type (Λ ([t1 : ★]) (Λ ([t2 : ★]) (λ ([x : t1]) (λ ([y : t2]) y))))
+            : (∀ ([t3 : ★]) (∀ ([t4 : ★]) (→ t3 (→ t4 t4)))))
+
+(check-not-type (Λ ([t1 : ★]) (Λ ([t2 : ★]) (λ ([x : t1]) (λ ([y : t2]) y))))
+            : (∀ ([t4 : ★]) (∀ ([t3 : ★]) (→ t3 (→ t4 t4)))))
+
+(check-type (inst (Λ ([t : ★]) (λ ([x : t]) x)) Int) : (→ Int Int))
+(check-type (inst (Λ ([t : ★]) 1) (→ Int Int)) : Int)
 ; first inst should be discarded
-(check-type (inst (inst (Λ (t) (Λ (t) (λ ([x : t]) x))) (→ Int Int)) Int) : (→ Int Int))
+(check-type (inst (inst (Λ ([t : ★]) (Λ ([t : ★]) (λ ([x : t]) x))) (→ Int Int)) Int) : (→ Int Int))
 ; second inst is discarded
-(check-type (inst (inst (Λ (t1) (Λ (t2) (λ ([x : t1]) x))) Int) (→ Int Int)) : (→ Int Int))
+(check-type (inst (inst (Λ ([t1 : ★]) (Λ ([t2 : ★]) (λ ([x : t1]) x))) Int) (→ Int Int)) : (→ Int Int))
 
 ;; polymorphic arguments
-(check-type (Λ (t) (λ ([x : t]) x)) : (∀ (t) (→ t t)))
-(check-type (Λ (t) (λ ([x : t]) x)) : (∀ (s) (→ s s)))
-(check-type (Λ (s) (Λ (t) (λ ([x : t]) x))) : (∀ (s) (∀ (t) (→ t t))))
-(check-type (Λ (s) (Λ (t) (λ ([x : t]) x))) : (∀ (r) (∀ (t) (→ t t))))
-(check-type (Λ (s) (Λ (t) (λ ([x : t]) x))) : (∀ (r) (∀ (s) (→ s s))))
-(check-type (Λ (s) (Λ (t) (λ ([x : t]) x))) : (∀ (r) (∀ (u) (→ u u))))
-(check-type (λ ([x : (∀ (t) (→ t t))]) x) : (→ (∀ (s) (→ s s)) (∀ (u) (→ u u))))
+(check-type (Λ ([t : ★]) (λ ([x : t]) x)) : (∀ ([t : ★]) (→ t t)))
+(check-type (Λ ([t : ★]) (λ ([x : t]) x)) : (∀ ([s : ★]) (→ s s)))
+(check-type (Λ ([s : ★]) (Λ ([t : ★]) (λ ([x : t]) x))) : (∀ ([s : ★]) (∀ ([t : ★]) (→ t t))))
+(check-type (Λ ([s : ★]) (Λ ([t : ★]) (λ ([x : t]) x))) : (∀ ([r : ★]) (∀ ([t : ★]) (→ t t))))
+(check-type (Λ ([s : ★]) (Λ ([t : ★]) (λ ([x : t]) x))) : (∀ ([r : ★]) (∀ ([s : ★]) (→ s s))))
+(check-type (Λ ([s : ★]) (Λ ([t : ★]) (λ ([x : t]) x))) : (∀ ([r : ★]) (∀ ([u : ★]) (→ u u))))
+(check-type (λ ([x : (∀ ([t : ★]) (→ t t))]) x) : (→ (∀ ([s : ★]) (→ s s)) (∀ ([u : ★]) (→ u u))))
 (typecheck-fail ((λ ([x : (∀ (t) (→ t t))]) x) (λ ([x : Int]) x)))
 (typecheck-fail ((λ ([x : (∀ (t) (→ t t))]) x) 1))
-(check-type ((λ ([x : (∀ (t) (→ t t))]) x) (Λ (s) (λ ([y : s]) y))) : (∀ (u) (→ u u)))
+(check-type ((λ ([x : (∀ ([t : ★]) (→ t t))]) x) (Λ ([s : ★]) (λ ([y : s]) y))) : (∀ ([u : ★]) (→ u u)))
 (check-type
- (inst ((λ ([x : (∀ (t) (→ t t))]) x) (Λ (s) (λ ([y : s]) y))) Int) : (→ Int Int))
+ (inst ((λ ([x : (∀ ([t : ★]) (→ t t))]) x) (Λ ([s : ★]) (λ ([y : s]) y))) Int) : (→ Int Int))
 (check-type
- ((inst ((λ ([x : (∀ (t) (→ t t))]) x) (Λ (s) (λ ([y : s]) y))) Int) 10)
+ ((inst ((λ ([x : (∀ ([t : ★]) (→ t t))]) x) (Λ ([s : ★]) (λ ([y : s]) y))) Int) 10)
  : Int ⇒ 10)
-(check-type (λ ([x : (∀ (t) (→ t t))]) (inst x Int)) : (→ (∀ (t) (→ t t)) (→ Int Int)))
-(check-type (λ ([x : (∀ (t) (→ t t))]) ((inst x Int) 10)) : (→ (∀ (t) (→ t t)) Int))
-(check-type ((λ ([x : (∀ (t) (→ t t))]) ((inst x Int) 10))
-             (Λ (s) (λ ([y : s]) y)))
+(check-type (λ ([x : (∀ ([t : ★]) (→ t t))]) (inst x Int)) : (→ (∀ ([t : ★]) (→ t t)) (→ Int Int)))
+(check-type (λ ([x : (∀ ([t : ★]) (→ t t))]) ((inst x Int) 10)) : (→ (∀ ([t : ★]) (→ t t)) Int))
+(check-type ((λ ([x : (∀ ([t : ★]) (→ t t))]) ((inst x Int) 10))
+             (Λ ([s : ★]) (λ ([y : s]) y)))
              : Int ⇒ 10)
 
 

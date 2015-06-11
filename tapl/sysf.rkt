@@ -24,8 +24,6 @@
 (begin-for-syntax
   ;; Extend to handle ∀, skip typevars
   (define (eval-τ τ [tvs #'()])
-;    (printf "~a\n" (syntax->datum τ))
-;    (printf "tvs: ~a\n" tvs)
     (syntax-parse τ
       [x:id #:when (stx-member τ tvs) τ]
       [((~literal ∀) ts t-body)
@@ -47,7 +45,7 @@
   ;; extend to handle ∀
   (define (type=? τ1 τ2)
     (syntax-parse (list τ1 τ2) #:literals (∀)
-      [((∀ (x ...) t1) (∀ (y ...) t2))
+      [((∀ (x:id ...) t1) (∀ (y:id ...) t2))
        #:when (= (stx-length #'(x ...)) (stx-length #'(y ...)))
        #:with (z ...) (generate-temporaries #'(x ...))
        ((current-type=?) (substs #'(z ...) #'(x ...) #'t1)
@@ -59,11 +57,12 @@
 (define-syntax (Λ stx)
   (syntax-parse stx
     [(_ (tv:id ...) e)
-     #:with (tvs+ e- τ) (infer/tvs+erase #'e #'(tv ...))
-     (⊢ #'e- #'(∀ tvs+ τ))]))
+     #:with (tvs- e- τ) (infer/tvs+erase #'e #'(tv ...))
+     (⊢ #'e- #'(∀ tvs- τ))]))
 (define-syntax (inst stx)
   (syntax-parse stx
     [(_ e τ ...)
      #:with (e- τ_e) (infer+erase #'e)
      #:with ((~literal ∀) (tv ...) τ_body) #'τ_e
-     (⊢ #'e- (substs #'(τ ...) #'(tv ...) #'τ_body))]))
+     #:with (τ+ ...) (stx-map (current-τ-eval) #'(τ ...))
+     (⊢ #'e- (substs #'(τ+ ...) #'(tv ...) #'τ_body))]))

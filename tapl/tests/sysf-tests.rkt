@@ -11,7 +11,7 @@
             : (∀ (t4) (∀ (t3) (→ t3 (→ t4 t4)))))
 
 (check-type (inst (Λ (t) (λ ([x : t]) x)) Int) : (→ Int Int))
-(check-type (inst (Λ (t) 1) Bool) : Int)
+(check-type (inst (Λ (t) 1) (→ Int Int)) : Int)
 ; first inst should be discarded
 (check-type (inst (inst (Λ (t) (Λ (t) (λ ([x : t]) x))) (→ Int Int)) Int) : (→ Int Int))
 ; second inst is discarded

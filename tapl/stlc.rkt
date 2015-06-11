@@ -34,6 +34,8 @@
   ;; type equality = structurally recursive identifier equality
   ;; structurally checks for free-identifier=?
   (define (type=? τ1 τ2)
+;    (printf "t1 = ~a\n" (syntax->datum τ1))
+;    (printf "t2 = ~a\n" (syntax->datum τ2))
     (syntax-parse (list τ1 τ2)
       [(x:id y:id) (free-identifier=? τ1 τ2)]
       [((τa ...) (τb ...)) (types=? #'(τa ...) #'(τb ...))]

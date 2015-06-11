@@ -8,6 +8,7 @@
 (check-type (λ ([x : Int] [y : Int]) x) : (→ Int Int Int))
 (check-not-type (λ ([x : Int]) x) : Int)
 (check-type (λ ([x : Int]) x) : (→ Int Int))
+(check-type (λ ([x : (→ →)]) x) : (→ (→ →) (→ →))) ; TODO: should this fail?
 (check-type (λ ([f : (→ Int Int)]) 1) : (→ (→ Int Int) Int))
 (check-type ((λ ([x : Int]) x) 1) : Int ⇒ 1)
 (typecheck-fail ((λ ([x : Bool]) x) 1)) ; Bool is not valid type
