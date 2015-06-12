@@ -37,7 +37,6 @@
   (syntax-parse stx
     [(_ τ:id)
      #:with τ? (format-id #'τ "~a?" #'τ)
-     #:with tmp (generate-temporary)
      #'(begin
          (provide τ (for-syntax τ?))
          (define-syntax (τ stx)
