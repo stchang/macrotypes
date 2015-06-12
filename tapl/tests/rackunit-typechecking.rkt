@@ -34,7 +34,7 @@
              exn:fail?
              (λ () (expand/df #'e))
              (format
-              "Expression ~a has valid type, expected type check failure."
+              "Expected type check failure but expression ~a has valid type."
               (syntax->datum #'e)))
      #'(void)]))
 

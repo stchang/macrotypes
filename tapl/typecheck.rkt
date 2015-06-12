@@ -31,13 +31,24 @@
          (define τ (void))
          (define-for-syntax (τ? τ1) (typecheck? τ1 #'τ)))]))
 
+;; TODO: refine this to enable specifying arity information
+;; type constructors currently must have 1+ arguments
 (define-syntax (define-type-constructor stx)
   (syntax-parse stx
     [(_ τ:id)
      #:with τ? (format-id #'τ "~a?" #'τ)
+     #:with tmp (generate-temporary)
      #'(begin
          (provide τ (for-syntax τ?))
-         (define τ (void))
+         (define-syntax (τ stx)
+           (syntax-parse stx
+             [x:id
+              (type-error #:src #'x
+               #:msg "Cannot use type constructor in non-application position")]
+             [(_) (type-error #:src stx
+                   #:msg "Type constructor must have at least one argument.")]
+             ; this is racket's #%app
+             [(_ x (... ...)) #'(#%app τ x (... ...))]))
          (define-for-syntax (τ? stx)
            (syntax-parse ((current-τ-eval) stx)
              [(τcons τ_arg (... ...)) (typecheck? #'τcons #'τ)]

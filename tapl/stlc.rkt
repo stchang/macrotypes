@@ -14,18 +14,27 @@
 
 (begin-for-syntax
   ;; type expansion
-  ;; must structurally recur to check nested identifiers
-  (define (eval-τ τ)
-    ; we want #%app in τ's ctxt, not here (which is racket's #%app)
+  ;; - must structurally recur to check nested identifiers
+  ;; - rst allows adding extra args later
+  (define (eval-τ τ . rst)
+    ; app is #%app in τ's ctxt, not here (which is racket's #%app)
     (define app (datum->syntax τ '#%app))
-    ;; stop right before expanding #%app,
-    ;; since type constructors dont have types (ie kinds) (yet)
-    ;; so the type checking in #%app will fail
-    (syntax-parse (local-expand τ 'expression (list app))
-      [x:id (local-expand #'x 'expression null)] ; full expansion
-      [(t ...)
-       ;; recursively expand
-       (stx-map (current-τ-eval) #'(t ...))]))
+    ;; stop right before expanding:
+    ;; - #%app, this should mean tycon via define-type-constructor
+    ;; - app, other compound types, like variants
+    ;;   - ow, the type checking in #%app will fail
+    ;;   (could leave this case out until adding variants but it's general
+    ;;    enough, so leave it here)
+    ;; could match specific type constructors like → before expanding
+    ;; but this is more general and wont require subsequent extensions for
+    ;; every defined type constructor
+    (syntax-parse (local-expand τ 'expression (list app #'#%app))
+      ; full expansion checks for undefined types
+      [x:id (local-expand #'x 'expression null)]
+      [((~literal #%app) tcon t ...)
+       #`(tcon #,@(stx-map (λ (ty) (apply (current-τ-eval) ty rst)) #'(t ...)))]
+      ; else just structurually eval
+      [(t ...) (stx-map (λ (ty) (apply (current-τ-eval) ty rst)) #'(t ...))]))
   (current-τ-eval eval-τ))
 
 (begin-for-syntax
@@ -61,13 +70,13 @@
      (⊢ #'(λ xs- e-) #'(→ b.τ ... τ_res))]))
 
 (define-syntax (app/tc stx)
-  (syntax-parse stx #:literals (→)
+  (syntax-parse stx
     [(_ e_fn e_arg ...)
      #:with (e_fn- τ_fn) (infer+erase #'e_fn)
      #:fail-unless (→? #'τ_fn)
                    (format "Type error: Attempting to apply a non-function ~a with type ~a\n"
                            (syntax->datum #'e_fn) (syntax->datum #'τ_fn))
-     #:with (→ τ ... τ_res) #'τ_fn
+     #:with (_ τ ... τ_res) #'τ_fn
      #:with ((e_arg- τ_arg) ...) (infers+erase #'(e_arg ...))
      #:fail-unless (typechecks? #'(τ_arg ...) #'(τ ...))
                    (string-append

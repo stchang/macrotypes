@@ -4,6 +4,7 @@
 ;; define-type-alias
 (define-type-alias Integer Int)
 (define-type-alias ArithBinOp (→ Int Int Int))
+;(define-type-alias C Complex) ; error, Complex undefined
 
 (check-type ((λ ([x : Int]) (+ x 2)) 3) : Integer)
 (check-type ((λ ([x : Integer]) (+ x 2)) 3) : Int)

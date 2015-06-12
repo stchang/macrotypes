@@ -27,17 +27,17 @@
 (begin-for-syntax
   ;; type expansion
   ;; extend to handle strings
-  (define (eval-τ τ)
+  (define (eval-τ τ . rst)
     (syntax-parse τ
       [s:str τ] ; record field
-      [_ (stlc:eval-τ τ)]))
+      [_ (apply stlc:eval-τ τ rst)]))
   (current-τ-eval eval-τ)
   
   ; extend to:
   ; 1) first eval types, to accomodate aliases
   ; 2) accept strings (ie, record labels)
   (define (type=? τ1 τ2)
-    (syntax-parse (list (eval-τ τ1) (eval-τ τ2))
+    (syntax-parse (list τ1 τ2)
       [(s1:str s2:str) (string=? (syntax-e #'s1) (syntax-e #'s2))]
       [_ (stlc:type=? τ1 τ2)]))
 
@@ -45,17 +45,11 @@
   (current-typecheck-relation (current-type=?)))
 
 (provide define-type-alias)
-(define-syntax (define-type-alias stx)
-  (syntax-parse stx
-    [(_ τ:id τ-expanded)
-     (if (identifier? #'τ-expanded)
-         #'(define-syntax τ (make-rename-transformer #'τ-expanded))
-         #'(define-syntax τ
-             (λ (stx)
-               (syntax-parse stx
-                 ; τ-expanded must have the context of its use, not definition
-                 ; so the appropriate #%app is used
-                 [x:id (datum->syntax #'x 'τ-expanded)]))))]))
+(define-syntax define-type-alias
+  (syntax-parser
+    [(_ alias:id τ)
+     ; must eval, otherwise undefined types will be allowed
+     #'(define-syntax alias (syntax-parser [x:id ((current-τ-eval) #'τ)]))]))
 
 ;; records
 (define-syntax (tup stx)
