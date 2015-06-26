@@ -1,7 +1,7 @@
 #lang racket/base
 (require "typecheck.rkt")
-;; want to use type=? and eval-τ from stlc+var.rkt, not stlc+sub.rkt
-(require (except-in "stlc+sub.rkt" #%app #%datum sub? type=? eval-τ)
+;; want to use type=? and eval-type from stlc+var.rkt, not stlc+sub.rkt
+(require (except-in "stlc+sub.rkt" #%app #%datum sub? type=? type-eval)
          (prefix-in stlc: (only-in "stlc+sub.rkt" #%app #%datum sub?))
          (except-in "stlc+var.rkt" #%app #%datum +)
          (prefix-in var: (only-in "stlc+var.rkt" #%datum)))
@@ -28,8 +28,11 @@
 (begin-for-syntax
   (define (sub? τ1 τ2)
     (or
-     (syntax-parse (list τ1 τ2) #:literals (× ∨)
-       [((× [k:str τk] ...) (× [l:str τl] ...))
+     (syntax-parse (list τ1 τ2) #:literals (× ∨ quote)
+       [(tup1 tup2)
+        #:when (and (×? #'tup1) (×? #'tup2))
+        #:with (['k:str τk] ...) (stx-map :-args (×-args #'tup1))
+        #:with (['l:str τl] ...) (stx-map :-args (×-args #'tup2))
         #:when (subset? (stx-map syntax-e (syntax->list #'(l ...)))
                         (stx-map syntax-e (syntax->list #'(k ...))))
         (stx-andmap
@@ -38,7 +41,10 @@
             #:with (k_match τk_match) (str-stx-assoc #'l #'([k τk] ...))
             ((current-sub?) #'τk_match #'τl)])
          #'([l τl] ...))]
-       [((∨ [k:str τk] ...) (∨ [l:str τl] ...))
+       [(var1 var2)
+        #:when (and (∨? #'var1) (∨? #'var2))
+        #:with (['k:str τk] ...) (stx-map :-args (∨-args #'var1))
+        #:with (['l:str τl] ...) (stx-map :-args (∨-args #'var2))
         #:when (subset? (stx-map syntax-e (syntax->list #'(l ...)))
                         (stx-map syntax-e (syntax->list #'(k ...))))
         (stx-andmap

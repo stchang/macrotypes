@@ -2,20 +2,53 @@
 (require "rackunit-typechecking.rkt")
 
 (check-type Int : ★)
+(check-type String : ★)
+(typecheck-fail →)
 (check-type (→ Int Int) : ★)
 (typecheck-fail (→ →))
+(check-type 1 : Int)
 
-(typecheck-fail (λ ([x : (→ →)]) x))
+(check-type (∀ ([t : ★]) (→ t t)) : ★)
+(check-type (→ (∀ ([t : ★]) (→ t t)) (→ Int Int)) : ★)
 
-(typecheck-fail (∀ (t) t)) ; missing kind annotation
-(check-type (∀ ([t : ★]) t) : ★)
-(check-type (∀ ([→ : ★]) →) : ★) ; should be ok
-(check-type (∀ ([t : ★]) (∀ ([s : ★]) (→ t s))) : ★)
-(check-type (∀ ([t : ★] [s : ★]) (→ t s)) : ★)
-;(check-type (∀ ([t : (⇒ ★ ★)] [s : ★]) (t s)) : ★) ; doesnt work yet
-(typecheck-fail (∀ (t) (→ →)))
+(check-type ((λ ([x : (∀ ([X : ★]) (→ X X))]) x) (Λ ([X : ★]) (λ ([x : X]) x)))
+            : (∀ ([X : ★]) (→ X X )))
+(typecheck-fail ((λ ([x : (∀ ([X : ★]) (→ X X))]) x) (Λ ([X : (⇒ ★ ★)]) (λ ([x : X]) x))))
 
-;; sysf tests wont work, must be augmented with kinds
+;(check-type (λ ([x : (∀ ([t : ★]) t)]) x) : (→ (∀ ([t : ★]) t) (∀ ([t : ★]) t)))
+;(check-type (λ ([x : (∀ ([t : (⇒ ★ ★)]) (tyapp t Int))]) x) : Int #;(→ (∀ ([t : (⇒ ★ ★)]) t) (∀ ([t : (⇒ ★ ★)]) t)))
+
+;(check-type 1 : (tyapp (tyλ ([X : ★]) X) Int))
+;(check-not-type 1 : (tyapp (tyλ ([X : ★]) X) String))
+;
+;;(check-type (λ ([x : Int]) x) : (tyapp (tyλ ([X : ★]) (→ X X)) Int))
+;
+;; Mono Pair
+;#;(tyapp (tyλ ([Pair : (⇒ ★ ★)]) (λ ([p : (tyapp Pair Int)]) p))
+;      (tyλ ([X : ★]) (∀ ([P : ★]) (→ (→ X X P) P))))
+;
+;
+;;(check-type Int : ★)
+;;(check-type (→ Int Int) : ★)
+;;(typecheck-fail (→ →))
+;
+;(typecheck-fail (λ ([x : (→ →)]) x))
+;
+;(typecheck-fail (λ ([x : (∀ (t) t)]) x)) ; missing kind annotation
+;(check-type (∀ ([t : ★]) t) : ★)
+;(check-type (∀ ([→ : ★]) →) : ★) ; should be ok
+;(check-type (∀ ([t : ★]) (∀ ([s : ★]) (→ t s))) : ★)
+;(check-type (∀ ([t : ★] [s : ★]) (→ t s)) : ★)
+;;(check-type (∀ ([t : (⇒ ★ ★)] [s : ★]) (t s)) : ★) ; doesnt work yet
+;(typecheck-fail (∀ (t) (→ →)))
+;
+;;; sysf tests wont work, unless augmented with kinds
+(check-type (Λ ([X : ★]) (λ ([x : X]) x)) : (∀ ([X : ★]) (→ X X)))
+
+(check-type (Λ ([X : ★]) (λ ([t : X] [f : X]) t)) : (∀ ([X : ★]) (→ X X X))) ; true
+(check-type (Λ ([X : ★]) (λ ([t : X] [f : X]) f)) : (∀ ([X : ★]) (→ X X X))) ; false
+(check-type (Λ ([X : ★]) (λ ([t : X] [f : X]) f)) : (∀ ([Y : ★]) (→ Y Y Y))) ; false, alpha equiv
+
 (check-type (Λ ([t1 : ★]) (Λ ([t2 : ★]) (λ ([x : t1]) (λ ([y : t2]) y))))
             : (∀ ([t1 : ★]) (∀ ([t2 : ★]) (→ t1 (→ t2 t2)))))
 
@@ -58,7 +91,6 @@
 ;; previous tests -------------------------------------------------------------
 (check-type 1 : Int)
 (check-not-type 1 : (→ Int Int))
-(typecheck-fail "one") ; unsupported literal
 (typecheck-fail #f) ; unsupported literal
 (check-type (λ ([x : Int] [y : Int]) x) : (→ Int Int Int))
 (check-not-type (λ ([x : Int]) x) : Int)

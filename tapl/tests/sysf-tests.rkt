@@ -1,6 +1,12 @@
 #lang s-exp "../sysf.rkt"
 (require "rackunit-typechecking.rkt")
 
+(check-type (Λ (X) (λ ([x : X]) x)) : (∀ (X) (→ X X)))
+
+(check-type (Λ (X) (λ ([t : X] [f : X]) t)) : (∀ (X) (→ X X X))) ; true
+(check-type (Λ (X) (λ ([t : X] [f : X]) f)) : (∀ (X) (→ X X X))) ; false
+(check-type (Λ (X) (λ ([t : X] [f : X]) f)) : (∀ (Y) (→ Y Y Y))) ; false, alpha equiv
+
 (check-type (Λ (t1) (Λ (t2) (λ ([x : t1]) (λ ([y : t2]) y))))
             : (∀ (t1) (∀ (t2) (→ t1 (→ t2 t2)))))
 
@@ -17,7 +23,7 @@
 ; second inst is discarded
 (check-type (inst (inst (Λ (t1) (Λ (t2) (λ ([x : t1]) x))) Int) (→ Int Int)) : (→ Int Int))
 
-;; polymorphic arguments
+;;; polymorphic arguments
 (check-type (Λ (t) (λ ([x : t]) x)) : (∀ (t) (→ t t)))
 (check-type (Λ (t) (λ ([x : t]) x)) : (∀ (s) (→ s s)))
 (check-type (Λ (s) (Λ (t) (λ ([x : t]) x))) : (∀ (s) (∀ (t) (→ t t))))
@@ -40,7 +46,7 @@
              : Int ⇒ 10)
 
 
-;; previous tests -------------------------------------------------------------
+;;; previous tests -------------------------------------------------------------
 (check-type 1 : Int)
 (check-not-type 1 : (→ Int Int))
 (typecheck-fail "one") ; unsupported literal

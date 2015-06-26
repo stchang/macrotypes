@@ -119,7 +119,7 @@
                    (string-append
                     "letrec: type check fail, args have wrong type:\n"
                     (string-join
-                     (stx-map (λ (e τ τ-expect) (format "~a has type ~a, expected ~a"))
+                     (stx-map (λ (e τ τ-expect) (format "~a has type ~a, expected ~a" e τ τ-expect))
                               #'(e ...) #'(τ ...) #'(b.τ ...))
                      "\n"))
      (⊢ #'(letrec ([x- e-] ...) e_body-) #'τ_body)]))

@@ -31,34 +31,76 @@
          (define τ (void))
          (define-for-syntax (τ? τ1) (typecheck? τ1 #'τ)))]))
 
+(struct exn:fail:type:runtime exn:fail:user ())
+
 ;; TODO: refine this to enable specifying arity information
 ;; type constructors currently must have 1+ arguments
 (define-syntax (define-type-constructor stx)
   (syntax-parse stx
-    [(_ τ:id)
+    [(_ τ:id (~optional (~seq #:arity n:exact-positive-integer)))
      #:with τ? (format-id #'τ "~a?" #'τ)
-     #'(begin
-         (provide τ (for-syntax τ?))
+     #:with τ-ref (format-id #'τ "~a-ref" #'τ)
+     #:with τ-num-args (format-id #'τ "~a-num-args" #'τ)
+     #:with τ-args (format-id #'τ "~a-args" #'τ)
+     #:with tmp (generate-temporary #'τ)
+     #`(begin
+         ;; TODO: define syntax class instead of these separate tycon fns
+         (provide τ (for-syntax τ? τ-ref τ-num-args τ-args))
+         (define tmp (λ _ (raise (exn:fail:type:runtime
+                                  (format "~a: Cannot use type at run time" 'τ)
+                                  (current-continuation-marks)))))
          (define-syntax (τ stx)
            (syntax-parse stx
              [x:id
               (type-error #:src #'x
-               #:msg "Cannot use type constructor in non-application position")]
-             [(_) (type-error #:src stx
-                   #:msg "Type constructor must have at least one argument.")]
+               #:msg "Cannot use type constructor ~a in non-application position"
+                     #'τ)]
+             [(_) ; default tycon requires 1+ args
+              #:when (not #,(attribute n))
+              (type-error #:src stx
+               #:msg "Type constructor must have at least 1 argument.")]
+             [(_ x (... ...))
+              #:when #,(and (attribute n)
+                            #'(not (= n (stx-length #'(x (... ...))))))
+              #:with m #,(and (attribute n) #'n)
+              (type-error #:src stx
+               #:msg "Type constructor ~a expected ~a argument(s), given: ~a"
+               #'τ #'m #'(x (... ...)))]
              ; this is racket's #%app
-             [(_ x (... ...)) #'(#%app τ x (... ...))]))
+             [(_ x (... ...)) #'(tmp x (... ...))]))
+         ; TODO: ok to assume type in canonical (ie, fully expanded) form?
+         ;; yes for now
          (define-for-syntax (τ? stx)
-           (syntax-parse ((current-τ-eval) stx)
-             [(τcons τ_arg (... ...)) (typecheck? #'τcons #'τ)]
-             [_ #f])))]))
+           (syntax-parse stx 
+             [((~literal #%plain-app) tycon τ_arg (... ...)) (typecheck? #'tycon #'tmp)]
+             [_ #f]))
+         (define-for-syntax (τ-ref stx m)
+           (syntax-parse stx
+             [((~literal #%plain-app) tycon τ_arg (... ...))
+              #:when (typecheck? #'tycon #'tmp)
+              (stx-list-ref #'(τ_arg (... ...)) m)]))
+         (define-for-syntax (τ-args stx)
+           (syntax-parse stx
+             [((~literal #%plain-app) tycon τ_arg (... ...))
+              #:when (typecheck? #'tycon #'tmp)
+              #'(τ_arg (... ...))]))
+         (define-for-syntax (τ-num-args stx)
+           (syntax-parse stx
+             [((~literal #%plain-app) tycon τ_arg (... ...))
+              #:when (typecheck? #'tycon #'tmp)
+              (stx-length #'(τ_arg (... ...)))])))]))
 
 ;; syntax classes
 (begin-for-syntax
   (define-syntax-class type
-    (pattern τ:expr))
+    ;; stx = surface syntax, as written
+    ;; norm = canonical form for the type
+    (pattern stx:expr
+     #:with norm ((current-type-eval) #'stx)
+     #:with τ #'norm)) ; backwards compat
+;     #:with τ #'stx)) ; backwards compat
   (define-syntax-class typed-binding #:datum-literals (:)
-    (pattern [x:id : τ:type])
+    (pattern [x:id : stx:type] #:with τ #'stx.τ)
     (pattern (~and any (~not [x:id : τ:type]))
      #:with x #f
      #:with τ #f
@@ -78,11 +120,13 @@
   ;; ⊢ : Syntax Type -> Syntax
   ;; Attaches type τ to (expanded) expression e.
   ;; must eval here, to catch unbound types
-  (define (⊢ e τ) (syntax-property e 'type ((current-τ-eval) τ)))
+  (define (⊢ e τ)
+    (syntax-property e 'type (syntax-local-introduce ((current-type-eval) τ))))
+  
   ;; typeof : Syntax -> Type or #f
   ;; Retrieves type of given stx, or #f if input has not been assigned a type.
   (define (typeof stx) (syntax-property stx 'type))
-
+  
   ;; infers type and erases types in a single expression,
   ;; in the context of the given bindings and their types
   (define (infer/type-ctxt+erase x+τs e)
@@ -105,27 +149,9 @@
         #'(λ (x ...)
             (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ))] ...)
               (#%expression e) ...)))
-       (list #'xs+ #'(e+ ...) (stx-map typeof #'(e+ ...)))]
+       (list #'xs+ #'(e+ ...) (stx-map syntax-local-introduce (stx-map typeof #'(e+ ...))))]
       [([x τ] ...) (infers/type-ctxt+erase #'([x : τ] ...) es)]))
 
-  #;(define (eval-τ τ [tvs #'()])
-    (syntax-parse τ
-      [x:id #:when (stx-member τ tvs) τ]
-      [s:str τ] ; record field
-      [((~and (~datum ∀) forall) ts τ) #`(forall ts #,(eval-τ #'τ #'ts))]
-      [_
-       (define app (datum->syntax τ '#%app)) ; #%app in τ's ctxt
-       ;; stop right before expanding #%app
-       (define maybe-app-τ (local-expand τ 'expression (list app)))
-       ;; manually remove app and recursively expand
-       (if (identifier? maybe-app-τ) ; base type
-           ;; full expansion checks that type is a bound name
-           (local-expand maybe-app-τ 'expression null)
-           (syntax-parse maybe-app-τ
-             [(τ1 ...)
-              #:with (τ-exp ...) (stx-map (λ (t) (eval-τ t tvs)) #'(τ1 ...))
-              #'(τ-exp ...)]))]))
-  
   ;; infers the type and erases types in an expression
   (define (infer+erase e)
     (define e+ (expand/df e))
@@ -136,15 +162,17 @@
   ;; infers and erases types in an expression, in the context of given type vars
   (define (infer/tvs+erase e [tvs #'()])
     (syntax-parse (expand/df #`(λ #,tvs (#%expression #,e))) #:literals (#%expression)
-      [(lam tvs+ (#%expression e+)) (list #'tvs+ #'e+ (typeof #'e+))]))
+      [(lam tvs+ (#%expression e+))
+       (list #'tvs+ #'e+ (syntax-local-introduce (typeof #'e+)))]))
 
   (define current-typecheck-relation (make-parameter #f))
   (define (typecheck? t1 t2) ((current-typecheck-relation) t1 t2))
   (define (typechecks? τs1 τs2)
     (stx-andmap (current-typecheck-relation) τs1 τs2))
   
-  (define current-τ-eval (make-parameter #f))
+  (define current-type-eval (make-parameter #f))
 
+  (require inspect-syntax)
   ;; term expansion
   ;; expand/df : Syntax -> Syntax
   ;; Local expands the given syntax object. 
@@ -156,16 +184,20 @@
   (define (expand/df e)
     (local-expand e 'expression null))
 
-  ;; type-error #:src Syntax #:msg String Syntax ...
+  (struct exn:fail:type:check exn:fail:user ())
+
+;; type-error #:src Syntax #:msg String Syntax ...
   ;; usage:
   ;; type-error #:src src-stx
   ;;            #:msg msg-string msg-args ...
   (define-syntax-rule (type-error #:src stx-src #:msg msg args ...)
-    (raise-user-error
-     'TYPE-ERROR
-     (format (string-append "~a (~a:~a): " msg) 
-             (syntax-source stx-src) (syntax-line stx-src) (syntax-column stx-src) 
-             (syntax->datum args) ...))))
+    (raise
+     (exn:fail:type:check
+      (format (string-append "TYPE-ERROR: ~a (~a:~a): " msg) 
+              (syntax-source stx-src) (syntax-line stx-src) (syntax-column stx-src) 
+              (syntax->datum args) ...)
+      (current-continuation-marks)))))
+
 
 (define-syntax (define-primop stx)
     (syntax-parse stx #:datum-literals (:)
@@ -186,11 +218,15 @@
 
 (define-for-syntax (subst τ x e)
   (syntax-parse e
-    [y:id #:when (free-identifier=? e x) τ]
+    [y:id
+;     #:when (printf "~a = ~a? = ~a\n" #'y x (free-identifier=? e x))
+;     #:when (printf "~a = ~a? = ~a\n" #'y x (bound-identifier=? e x))
+     #:when (bound-identifier=? e x)
+     τ]
     [y:id #'y]
     [(esub ...)
      #:with (esub_subst ...) (stx-map (λ (e1) (subst τ x e1)) #'(esub ...))
-     #'(esub_subst ...)]))
+     (syntax-track-origin #'(esub_subst ...) e x)]))
 
 (define-for-syntax (substs τs xs e)
   (stx-fold subst e τs xs))

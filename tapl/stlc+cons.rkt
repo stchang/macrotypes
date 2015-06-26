@@ -27,7 +27,7 @@
          (define-syntax x (make-rename-transformer (⊢ #'y #'τ)))
          (define y e-))]))
 
-(define-type-constructor List)
+(define-type-constructor List #:arity 1)
 
 (define-syntax (nil stx)
   (syntax-parse stx
@@ -40,21 +40,25 @@
   (syntax-parse stx
     [(_ e1 e2)
      #:with (e1- τ1) (infer+erase #'e1)
-     #:with (e2- ((~literal List) τ2)) (infer+erase #'e2)
+     #:with (e2- τ-lst) (infer+erase #'e2)
+     #:with (τ2) (List-args #'τ-lst)
      #:when (typecheck? #'τ1 #'τ2)
      (⊢ #'(cons e1- e2-) #'(List τ1))]))
 (define-syntax (isnil stx)
   (syntax-parse stx
     [(_ e)
-     #:with (e- ((~literal List) τ)) (infer+erase #'e)
+     #:with (e- τ-lst) (infer+erase #'e)
+     #:when (List? #'τ-lst)
      (⊢ #'(null? e-) #'Bool)]))
 (define-syntax (head stx)
   (syntax-parse stx
     [(_ e)
-     #:with (e- ((~literal List) τ)) (infer+erase #'e)
+     #:with (e- τ-lst) (infer+erase #'e)
+     #:with (τ) (List-args #'τ-lst)
      (⊢ #'(car e-) #'τ)]))
 (define-syntax (tail stx)
   (syntax-parse stx
     [(_ e)
-     #:with (e- ((~literal List) τ)) (infer+erase #'e)
-     (⊢ #'(cdr e-) #'(List τ))]))
+     #:with (e- τ-lst) (infer+erase #'e)
+     #:when (List? #'τ-lst)
+     (⊢ #'(cdr e-) #'τ-lst)]))

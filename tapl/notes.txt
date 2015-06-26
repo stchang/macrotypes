@@ -1,3 +1,98 @@
+2015-06-26
+Random thought: Can kinds be "erased"?
+- first thought is no, since they appear to be needed for type equality?
+
+2015-06-26
+syntax marks problem: 
+- in the type created by \Lambda, eg \x.(-> x x), the binding x and body x's
+  were free-id= but not bound-id= because the body x's had extra marks
+- this is because (the syntax representing) types are marked going "into" an 
+  expansion, but do not receive the cancelling mark coming out of the
+  expansion since they are attached as a syntax-property
+- thus, when this lam goes through another expansion (via \vdash), the binding x
+  and body x's become neither free-id nor bound-id=?
+Solution: 
+- undo the mark (using syntax-local-introduce) before attaching a type 
+  as a syntax property (ie in \vdash)
+- need one more syntax-local-introduce in infer/tvs+erase
+- i guess the rule is I need as many syntax-local-introduce's as extra
+  expanding lambdas that I add
+
+
+2015-06-18
+Design Decision: 
+Types must be fully expanded, if we wish to use expansion to typecheck types
+(i.e., kinding).
+Problems:
+- Type constructors can't be both macro and function
+  - solution: macro that expands to tmp function
+    - must provide predicate to check
+- Recursive types
+  - solution: ???
+- Displaying error msgs
+  - need to keep track of surface stx (similar to 'origin prop?)
+  - solution: ???
+- repeated expansion of already expanded types
+  - solution: ???
+- what to do about tuples, where there may be a string in the fn position
+  - solution: add an extra "type constructor" in front of each pair
+    - todo: come up with a nicer way to handle "compound" types
+- what is the expansion of forall?
+
+2015-06-16
+Problem: 
+use expansion for typechecking of terms: ok
+- specifically, ok to go under lambda, since eval happens later
+use expansion for typechecking of types: doesnt work now
+- doesnt work because types currently are not fully-expandable
+  - eg a type constructor application (tycon x) is a macro that expands to 
+    (#%app tycon x), where this expression will error if expanded further 
+    since tycon cannot be used as an identifier
+  - if I define tycon as a regular function, so (tycon x) expands to
+    (#%app tycon x), then it wont catch non-app uses of tycon
+    - should be fine? - this is a parsing, not typechecking problem
+      - but then then parser need to be updated with every new type constructor
+        - this kind of monolithic architecture is what the paper is trying
+          to avoid
+  - alternative: define tycon as a macro where (tycon x) expands to
+    (#%app tycon_new x)
+    - drawback: can't use ~literal to match/destructure the tycon
+      - does this make things like type checking or type=? more difficult?
+    - will have to go through a separately-defined interface, 
+      like a \tau? predicate
+Subproblem: must completely change the representation of types?
+- must use fully-expanded forms instead of surface syntax
+- in particular, will be using *fully expanded identifiers*
+  - in this scenario, can I still match with ~literal?
+Subproblem: where/when to expand
+- types now must all be expanded since that is when kind checking occurs
+use expansion for eval of types: not ok
+- dont want to go under binders
+- expand then eval?
+  - but then type constructors cant be macros?
+Possible Solution
+- I think eval must be separate
+Subproblem: Do I need a new eval that is different from current-eval?
+- conflict:
+  - current-eval must go under forall to check for unbound ids
+  - but eval should not go under forall for the case of tyapps
+- maybe tyapp should go into type=?, as in tapl? 
+Subproblem: where to eval
+- currently call eval for user type annotations, and in \vdash
+Subproblem: Can type=? assume fully expanded (ie, evaled) types?
+
+2015-06-15
+New Thesis: The abstractions provided by macro systems are effective at
+implementing type systems
+
+2015-06-08
+Problem: how to represent \rightarrow kind operator
+1) If the kind operator is the same as the function type operator then how do I
+attach a kind to a function arrow, since the arrow is still undefined at the 
+time.
+2) If the kind arrow is a different arrow then #%app must be parameterized over
+the arrow
+
 2015-05-28
 Problem: how to represent \forall types
 1) (Racket) functions

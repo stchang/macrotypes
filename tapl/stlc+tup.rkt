@@ -26,6 +26,6 @@
     [(_ tup n:integer)
      #:with (tup- τ_tup) (infer+erase #'tup)
      #:fail-unless (×? #'τ_tup) "not tuple type"
-     #:fail-unless (< (add1 (syntax->datum #'n)) (stx-length #'τ_tup)) "proj index too large"
-     (⊢ #'(list-ref tup n) (stx-list-ref #'τ_tup (add1 (syntax->datum #'n))))]))
+     #:fail-unless (< (syntax-e #'n) (×-num-args #'τ_tup)) "proj index too large"
+     (⊢ #'(list-ref tup n) (×-ref #'τ_tup (syntax-e #'n)))]))
    
