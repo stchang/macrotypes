@@ -43,8 +43,8 @@
   ;; Indicates whether two types are equal
   ;; type equality = structurally free-identifier=?
   (define (type=? τ1 τ2)
-;    (printf "(τ=) t1 = ~a\n" τ1 #;(syntax->datum τ1))
-;    (printf "(τ=) t2 = ~a\n" τ2 #;(syntax->datum τ2))
+    (printf "(τ=) t1 = ~a\n" #;τ1 (syntax->datum τ1))
+    (printf "(τ=) t2 = ~a\n" #;τ2 (syntax->datum τ2))
     (syntax-parse (list τ1 τ2)
       [(x:id y:id) (free-identifier=? τ1 τ2)]
       [((τa ...) (τb ...)) (types=? #'(τa ...) #'(τb ...))]

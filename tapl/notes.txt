@@ -180,3 +180,11 @@ debugging notes -------------
 - vague "bad syntax" error
   - means a syntax-parse #:when or #:with matching failed
   - ideally would have better err msg at that spot
+
+- #%datum: keyword used as an expression in: #:with
+  - missing a #:when in front of a printf
+
+- one of type=? arguments is false
+  - term missing a type
+  - type missing a kind
+  - need to transfer syntax properties, eg subst

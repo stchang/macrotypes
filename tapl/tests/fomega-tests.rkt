@@ -15,6 +15,112 @@
             : (∀ ([X : ★]) (→ X X )))
 (typecheck-fail ((λ ([x : (∀ ([X : ★]) (→ X X))]) x) (Λ ([X : (⇒ ★ ★)]) (λ ([x : X]) x))))
 
+(check-type (tyλ ([t : ★]) t) : (⇒ ★ ★))
+(check-type (tyλ ([t : ★] [s : ★]) t) : (⇒ ★ ★ ★))
+(check-type (tyλ ([t : ★]) (tyλ ([s : ★]) t)) : (⇒ ★ (⇒ ★ ★)))
+(check-type (tyλ ([t : (⇒ ★ ★)]) t) : (⇒ (⇒ ★ ★) (⇒ ★ ★)))
+(check-type (tyλ ([t : (⇒ ★ ★ ★)]) t) : (⇒ (⇒ ★ ★ ★) (⇒ ★ ★ ★)))
+(check-type (tyλ ([arg : ★] [res : ★]) (→ arg res)) : (⇒ ★ ★ ★))
+
+(check-type (tyapp (tyλ ([t : ★]) t) Int) : ★)
+(check-type (λ ([x : (tyapp (tyλ ([t : ★]) t) Int)]) x) : (→ Int Int))
+(check-type ((λ ([x : (tyapp (tyλ ([t : ★]) t) Int)]) x) 1) : Int ⇒ 1)
+(check-type ((λ ([x : (tyapp (tyλ ([t : ★]) t) Int)]) (+ x 1)) 1) : Int ⇒ 2)
+(check-type ((λ ([x : (tyapp (tyλ ([t : ★]) t) Int)]) (+ 1 x)) 1) : Int ⇒ 2)
+(typecheck-fail ((λ ([x : (tyapp (tyλ ([t : ★]) t) Int)]) (+ 1 x)) "a-string"))
+
+;; partial-apply →
+(check-type (tyapp (tyλ ([arg : ★]) (tyλ ([res : ★]) (→ arg res))) Int)
+            : (⇒ ★ ★))
+; f's type must have kind ★
+(typecheck-fail (λ ([f : (tyapp (tyλ ([arg : ★]) (tyλ ([res : ★]) (→ arg res))) Int)]) f))
+(check-type (Λ ([tyf : (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) f)) :
+            (∀ ([tyf : (⇒ ★ ★)]) (→ (tyapp tyf String) (tyapp tyf String))))
+(check-type (inst
+             (Λ ([tyf : (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) f))
+             (tyapp (tyλ ([arg : ★]) (tyλ ([res : ★]) (→ arg res))) Int))
+            : (→ (→ Int String) (→ Int String)))
+;; applied f too early
+(typecheck-fail (inst
+                 (Λ ([tyf : (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) (f 1)))
+                 (tyapp (tyλ ([arg : ★]) (tyλ ([res : ★]) (→ arg res))) Int)))
+(check-type ((inst
+              (Λ ([tyf : (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) f))
+              (tyapp (tyλ ([arg : ★]) (tyλ ([res : ★]) (→ arg res))) Int))
+             (λ ([x : Int]) "int")) : (→ Int String))
+(check-type (((inst
+               (Λ ([tyf : (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) f))
+              (tyapp (tyλ ([arg : ★]) (tyλ ([res : ★]) (→ arg res))) Int))
+              (λ ([x : Int]) "int")) 1) : String ⇒ "int")
+
+; tapl examples, p441
+(define-type-alias Id (tyλ ([X : ★]) X))
+(check-type (λ ([f : (→ Int String)]) 1) : (→ (→ Int String) Int))
+(check-type (λ ([f : (→ Int String)]) 1) : (→ (→ Int (tyapp Id String)) Int))
+(check-type (λ ([f : (→ Int (tyapp Id String))]) 1) : (→ (→ Int String) Int))
+(check-type (λ ([f : (→ Int (tyapp Id String))]) 1) : (→ (→ Int (tyapp Id String)) Int))
+(check-type (λ ([f : (→ Int String)]) 1) : (→ (→ (tyapp Id Int) (tyapp Id String)) Int))
+(check-type (λ ([f : (→ Int String)]) 1) : (→ (→ (tyapp Id Int) String) Int))
+(check-type (λ ([f : (tyapp Id (→ Int String))]) 1) : (→ (→ Int String) Int))
+(check-type (λ ([f : (→ Int String)]) 1) : (→ (tyapp Id (→ Int String)) Int))
+(check-type (λ ([f : (tyapp Id (→ Int String))]) 1) : (→ (tyapp Id (→ Int String)) Int))
+(check-type (λ ([f : (tyapp Id (→ Int String))]) 1) : (→ (tyapp Id (tyapp Id (→ Int String))) Int))
+
+; tapl examples, p451
+(define-type-alias Pair (tyλ ([A : ★] [B : ★]) (∀ ([X : ★]) (→ (→ A B X) X))))
+
+(check-type Pair : (⇒ ★ ★ ★))
+
+(check-type (Λ ([X : ★] [Y : ★]) (λ ([x : X][y : Y]) x)) : (∀ ([X : ★][Y : ★]) (→ X Y X)))
+;; parametric pair constructor
+(check-type
+ (Λ ([X : ★] [Y : ★]) (λ ([x : X][y : Y]) (Λ ([R : ★]) (λ ([p : (→ X Y R)]) (p x y)))))
+ : (∀ ([X : ★][Y : ★]) (→ X Y (tyapp Pair X Y))))
+; concrete Pair Int String constructor
+(check-type
+ (inst (Λ ([X : ★] [Y : ★]) (λ ([x : X][y : Y]) (Λ ([R : ★]) (λ ([p : (→ X Y R)]) (p x y)))))
+       Int String)
+ : (→ Int String (tyapp Pair Int String)))
+; Pair Int String value
+(check-type
+ ((inst (Λ ([X : ★] [Y : ★]) (λ ([x : X][y : Y]) (Λ ([R : ★]) (λ ([p : (→ X Y R)]) (p x y)))))
+       Int String) 1 "1")
+ : (tyapp Pair Int String))
+; fst: parametric
+(check-type
+ (Λ ([X : ★][Y : ★]) (λ ([p : (∀ ([R : ★]) (→ (→ X Y R) R))]) ((inst p X) (λ ([x : X][y : Y]) x))))
+ : (∀ ([X : ★][Y : ★]) (→ (tyapp Pair X Y) X)))
+; fst: concrete Pair Int String accessor
+(check-type
+ (inst
+  (Λ ([X : ★][Y : ★]) (λ ([p : (∀ ([R : ★]) (→ (→ X Y R) R))]) ((inst p X) (λ ([x : X][y : Y]) x))))
+  Int String)
+ : (→ (tyapp Pair Int String) Int))
+; apply fst
+(check-type
+ ((inst
+   (Λ ([X : ★][Y : ★]) (λ ([p : (∀ ([R : ★]) (→ (→ X Y R) R))]) ((inst p X) (λ ([x : X][y : Y]) x))))
+   Int String)
+  ((inst (Λ ([X : ★] [Y : ★]) (λ ([x : X][y : Y]) (Λ ([R : ★]) (λ ([p : (→ X Y R)]) (p x y)))))
+         Int String) 1 "1"))
+ : Int ⇒ 1)
+; snd
+(check-type
+ (Λ ([X : ★][Y : ★]) (λ ([p : (∀ ([R : ★]) (→ (→ X Y R) R))]) ((inst p Y) (λ ([x : X][y : Y]) y))))
+ : (∀ ([X : ★][Y : ★]) (→ (tyapp Pair X Y) Y)))
+(check-type
+ (inst
+  (Λ ([X : ★][Y : ★]) (λ ([p : (∀ ([R : ★]) (→ (→ X Y R) R))]) ((inst p Y) (λ ([x : X][y : Y]) y))))
+  Int String)
+ : (→ (tyapp Pair Int String) String))
+(check-type
+ ((inst
+   (Λ ([X : ★][Y : ★]) (λ ([p : (∀ ([R : ★]) (→ (→ X Y R) R))]) ((inst p Y) (λ ([x : X][y : Y]) y))))
+   Int String)
+  ((inst (Λ ([X : ★] [Y : ★]) (λ ([x : X][y : Y]) (Λ ([R : ★]) (λ ([p : (→ X Y R)]) (p x y)))))
+         Int String) 1 "1"))
+ : String ⇒ "1")
+
 ;(check-type (λ ([x : (∀ ([t : ★]) t)]) x) : (→ (∀ ([t : ★]) t) (∀ ([t : ★]) t)))
 ;(check-type (λ ([x : (∀ ([t : (⇒ ★ ★)]) (tyapp t Int))]) x) : Int #;(→ (∀ ([t : (⇒ ★ ★)]) t) (∀ ([t : (⇒ ★ ★)]) t)))
 
