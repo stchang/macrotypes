@@ -7,12 +7,12 @@ syntax marks problem:
 - in the type created by \Lambda, eg \x.(-> x x), the binding x and body x's
   were free-id= but not bound-id= because the body x's had extra marks
 - this is because (the syntax representing) types are marked going "into" an 
-  expansion, but do not receive the cancelling mark coming out of the
+  expansion, but do not receive the cancelling mark coming *out of* the
   expansion since they are attached as a syntax-property
 - thus, when this lam goes through another expansion (via \vdash), the binding x
   and body x's become neither free-id nor bound-id=?
 Solution: 
-- undo the mark (using syntax-local-introduce) before attaching a type 
+- undo the mark (using syntax-local-introduce) when retrieving the a type 
   as a syntax property (ie in \vdash)
 - need one more syntax-local-introduce in infer/tvs+erase
 - i guess the rule is I need as many syntax-local-introduce's as extra

@@ -24,17 +24,8 @@
 ;; - sums (var)
 
 (begin-for-syntax
-  ;; type expansion
-  ;; extend to handle strings
-  #;(define (eval-τ τ . rst)
-    (syntax-parse τ
-      [s:str τ] ; record field
-      [_ (apply stlc:eval-τ τ rst)]))
-  #;(current-τ-eval eval-τ)
-  
   ; extend to:
-  ; 1) first eval types, to accomodate aliases
-  ; 2) accept strings (ie, record labels)
+  ; 1) accept strings (ie, record labels)
   (define (type=? τ1 τ2)
     (syntax-parse (list τ1 τ2)
       [(s1:str s2:str) (string=? (syntax-e #'s1) (syntax-e #'s2))]

@@ -10,5 +10,5 @@
 (require "stlc+sub-tests.rkt")
 (require "stlc+rec+sub-tests.rkt")
 
-;(require "sysf-tests.rkt")
-;(require "fomega-tests.rkt")
+(require "sysf-tests.rkt")
+(require "fomega-tests.rkt")

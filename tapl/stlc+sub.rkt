@@ -22,7 +22,7 @@
 (define-base-type Top)
 (define-base-type Num)
 (define-base-type Nat)
-;; TODO: implement define-subtype
+;; TODO: implement define-subtype, for now hardcode relations
 ;(define-subtype Int <: Num)
 ;(define-subtype Nat <: Int)
 

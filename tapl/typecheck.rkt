@@ -18,7 +18,7 @@
 ;; - A base type is just a Racket identifier, so type equality, even with
 ;;   aliasing, is just free-identifier=?
 
-;; Types are represented as (fully expanded, but not the same as racket fully expanded) syntax
+;; Types are represented as fully expanded syntax
 ;; - base types are identifiers
 ;; - type constructors are prefix
 
@@ -98,7 +98,6 @@
     (pattern stx:expr
      #:with norm ((current-type-eval) #'stx)
      #:with τ #'norm)) ; backwards compat
-;     #:with τ #'stx)) ; backwards compat
   (define-syntax-class typed-binding #:datum-literals (:)
     (pattern [x:id : stx:type] #:with τ #'stx.τ)
     (pattern (~and any (~not [x:id : τ:type]))
@@ -186,7 +185,7 @@
 
   (struct exn:fail:type:check exn:fail:user ())
 
-;; type-error #:src Syntax #:msg String Syntax ...
+  ;; type-error #:src Syntax #:msg String Syntax ...
   ;; usage:
   ;; type-error #:src src-stx
   ;;            #:msg msg-string msg-args ...
@@ -197,7 +196,6 @@
               (syntax-source stx-src) (syntax-line stx-src) (syntax-column stx-src) 
               (syntax->datum args) ...)
       (current-continuation-marks)))))
-
 
 (define-syntax (define-primop stx)
     (syntax-parse stx #:datum-literals (:)
@@ -216,13 +214,10 @@
 (define-for-syntax (mk-pred x) (format-id x "~a?" x))
 (define-for-syntax (mk-acc base field) (format-id base "~a-~a" base field))
 
+; subst τ for y in e, if (bound-id=? x y)
 (define-for-syntax (subst τ x e)
   (syntax-parse e
-    [y:id
-;     #:when (printf "~a = ~a? = ~a\n" #'y x (free-identifier=? e x))
-;     #:when (printf "~a = ~a? = ~a\n" #'y x (bound-identifier=? e x))
-     #:when (bound-identifier=? e x)
-     τ]
+    [y:id #:when (bound-identifier=? e x) τ]
     [y:id #'y]
     [(esub ...)
      #:with (esub_subst ...) (stx-map (λ (e1) (subst τ x e1)) #'(esub ...))

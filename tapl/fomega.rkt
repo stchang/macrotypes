@@ -26,13 +26,13 @@
 
 (begin-for-syntax
   ;; extend type-eval to handle tyapp
+  ;; - requires manually handling all other forms
   (define (type-eval τ)
-    (printf "eval: ~a\n" (syntax->datum τ))
+;    (printf "eval: ~a\n" (syntax->datum τ))
     (syntax-parse τ
       [((~literal #%plain-app) τ_fn τ_arg ...)
        #:with ((~literal #%plain-lambda) (tv ...) τ_body) ((current-type-eval) #'τ_fn)
        #:with (τ_arg+ ...) (stx-map (current-type-eval) #'(τ_arg ...))
-       #:when (printf "match\n")
        (substs #'(τ_arg+ ...) #'(tv ...) #'τ_body)]
       [((~literal ∀) _ ...) ((current-type-eval) (sysf:type-eval τ))]
       [((~literal →) _ ...) ((current-type-eval) (sysf:type-eval τ))]
@@ -47,23 +47,7 @@
        (syntax-track-origin #'(#%plain-app arg+ ...) τ #'#%plain-app)]
       [(τ ...) (stx-map (current-type-eval) #'(τ ...))]
       [_ (sysf:type-eval τ)]))
-  (current-type-eval type-eval)
-
-  ;; extend to handle tyapp
-;  (define (type=? τ1 τ2)
-;    (printf "(τ=) t1 = ~a\n" #;τ1 (syntax->datum τ1))
-;    (printf "(τ=) t2 = ~a\n" #;τ2 (syntax->datum τ2))
-;    (syntax-parse (list τ1 τ2)
-;      [(((~literal #%plain-app) ((~literal #%plain-lambda) (tv ...) τ_body) τ_arg ...) _)
-;       #:when (printf "match1\n")
-;       ((current-type=?) (substs  #'(τ_arg ...) #'(tv ...) #'τ_body) τ2)]
-;      [(_ ((~literal #%plain-app) ((~literal #%plain-lambda) (tv ...) τ_body) τ_arg ...))
-;       #:when (printf "match2\n")
-;       ((current-type=?) τ1 (substs  #'(τ_arg ...) #'(tv ...) #'τ_body))]
-;      [_ (sysf:type=? τ1 τ2)]))
-;  (current-type=? type=?)
-;  (current-typecheck-relation type=?))
-)
+  (current-type-eval type-eval))
 
 (define-base-type ★)
 (define-type-constructor ⇒)
@@ -110,13 +94,6 @@
      (⊢ #'e- (substs #'(τ.norm ...) #'(tv ...) #'τ_body))]))
 
 ;; TODO: merge with regular λ and app?
-#;(define-syntax (tyλ stx)
-  (syntax-parse stx
-    ; b = [tv : k]
-    [(_ (b:typed-binding ...) τ)
-     #:with ((tv- ...) τ- k) (infer/type-ctxt+erase #'(b ...) #'τ)
-     ; TODO: Racket lambda?
-     (⊢ #'(λ (tv- ...) τ-) #'(⇒ b.τ ... k))]))
 (define-syntax (tyλ stx)
   (syntax-parse stx 
     [(_ (b:typed-binding ...) τ)
@@ -124,10 +101,6 @@
      ;; b.τ's here are actually kinds
      (⊢ #'(λ tvs- τ-) #'(⇒ b.τ ... k))]))
 
-#;(define-syntax (tyapply stx)
-  (syntax-parse stx
-    [(_ ((~literal #%plain-lambda) (tv ...) τ_body) τ_arg ...)
-     (substs  #'(τ_arg ...) #'(tv ...) #'τ_body)]))
 (define-syntax (tyapp stx)
   (syntax-parse stx
     [(_ τ_fn τ_arg ...)
@@ -153,13 +126,6 @@
                      ", "))
       ;; cant do type-subst here bc τ_fn might be a (forall) tyvar
       ;#:with τ_res ((current-type-eval) #'(tyapply τ_fn- τ_arg- ...))
-     (⊢ #'(#%app τ_fn- τ_arg- ...) #'k_res)]))
-#;(define-syntax (tyapp stx)
-  (syntax-parse stx
-    [(_ τ_fn τ_arg ...)
-     #:with [τ_fn- ((~literal ⇒) k ... k_res)] (infer+erase #'τ_fn)
-     #:with ([τ_arg- k_arg] ...) (infers+erase #'(τ_arg ...))
-     #:when (typechecks? #'(k_arg ...) #'(k ...))
      (⊢ #'(#%app τ_fn- τ_arg- ...) #'k_res)]))
 
 ;; must override #%app and λ and primops to use new →

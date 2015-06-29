@@ -13,38 +13,20 @@
 ;; - multi-arg app
 
 (begin-for-syntax
-  ;; type expansion
-  ;; - must structurally recur to check nested identifiers
-  ;; - rst allows adding extra args later
+  ;; type eval
+  ;; - for now, type-eval = full expansion
+  ;; - must expand because:
+  ;;   - checks for unbound identifiers (ie, undefined types)
   (define (type-eval τ) (expand/df τ))
-;  #;(define (eval-τ τ . rst)
-;    ; app is #%app in τ's ctxt, not here (which is racket's #%app)
-;    (define app (datum->syntax τ '#%app))
-;    ;; stop right before expanding:
-;    ;; - #%app, this should mean tycon via define-type-constructor
-;    ;; - app, other compound types, like variants
-;    ;;   - ow, the type checking in #%app will fail
-;    ;;   (could leave this case out until adding variants but it's general
-;    ;;    enough, so leave it here)
-;    ;; could match specific type constructors like → before expanding
-;    ;; but this is more general and wont require subsequent extensions for
-;    ;; every defined type constructor
-;    (syntax-parse (local-expand τ 'expression (list app #'#%app))
-;      ; full expansion checks for undefined types
-;      [x:id (local-expand #'x 'expression null)]
-;      [((~literal #%app) tcon t ...)
-;       #`(tcon #,@(stx-map (λ (ty) (apply (current-τ-eval) ty rst)) #'(t ...)))]
-;      ; else just structurually eval
-;      [(t ...) (stx-map (λ (ty) (apply (current-τ-eval) ty rst)) #'(t ...))]))
   (current-type-eval type-eval))
 
 (begin-for-syntax
   ;; type=? : Type Type -> Boolean
   ;; Indicates whether two types are equal
-  ;; type equality = structurally free-identifier=?
+  ;; type equality == structurally free-identifier=?
   (define (type=? τ1 τ2)
-    (printf "(τ=) t1 = ~a\n" #;τ1 (syntax->datum τ1))
-    (printf "(τ=) t2 = ~a\n" #;τ2 (syntax->datum τ2))
+;    (printf "(τ=) t1 = ~a\n" #;τ1 (syntax->datum τ1))
+;    (printf "(τ=) t2 = ~a\n" #;τ2 (syntax->datum τ2))
     (syntax-parse (list τ1 τ2)
       [(x:id y:id) (free-identifier=? τ1 τ2)]
       [((τa ...) (τb ...)) (types=? #'(τa ...) #'(τb ...))]
@@ -67,10 +49,6 @@
   (syntax-parse stx 
     [(_ (b:typed-binding ...) e)
      #:with (xs- e- τ_res) (infer/type-ctxt+erase #'(b ...) #'e)
-;     #:with (a as ...) #'(b.τ ...)
-;     #:when (printf "lam: ~a\n" (free-identifier=? #'a #'τ_res))
-;     #:with (lam (aa) resres) (local-expand #'(λ (a) τ_res) 'expression null)
-;     #:when (printf "lam2: ~a\n" (free-identifier=? #'aa #'resres))
      (⊢ #'(λ xs- e-) #'(→ b.τ ... τ_res))]))
 
 (define-syntax (app/tc stx)

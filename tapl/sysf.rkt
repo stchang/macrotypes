@@ -28,16 +28,6 @@
      (syntax/loc stx (#%plain-lambda (x ...) body))]))
 
 (begin-for-syntax
-  ;; Extend to handle ∀, skip typevars
-;  #;(define (type-eval τ [tvs #'()] . rst)
-;    (syntax-parse τ
-;      [x:id #:when (stx-member τ tvs) τ]
-;      [((~literal ∀) ts t-body)
-;       #`(∀ ts #,(apply (current-τ-eval) #'t-body (stx-append tvs #'ts) rst))]
-;      ;; need to duplicate stlc:eval-τ here to pass extra params
-;      [_ (apply stlc:eval-τ τ tvs rst)]))
-;  #;(current-type-eval type-eval)
-
   ;; extend to handle ∀
   (define (type=? τ1 τ2)
     (syntax-parse (list τ1 τ2)
@@ -45,13 +35,6 @@
         ((~literal #%plain-lambda) (y:id ...) k2 ... t2))
        #:when (= (stx-length #'(x ...)) (stx-length #'(y ...)))
        #:with (z ...) (generate-temporaries #'(x ...))
-       ;#:when (typechecks? #'(k1 ...) #'(k2 ...))
-;       #:when (printf "t1 = ~a\n" (syntax->datum #'t1))
-;       #:when (printf "t2 = ~a\n" (syntax->datum #'t2))
-;       #:when (printf "~a\n"
-;                      (map syntax->datum
- ;                          (list (substs #'(z ...) #'(x ...) #'t1)
-;                            (substs #'(z ...) #'(y ...) #'t2))))
        ((current-type=?) (substs #'(z ...) #'(x ...) #'t1)
                          (substs #'(z ...) #'(y ...) #'t2))]
       [_ (stlc:type=? τ1 τ2)]))
