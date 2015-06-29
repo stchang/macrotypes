@@ -6,6 +6,8 @@
 
 (define (stx-andmap f . stx-lsts)
   (apply andmap f (map syntax->list stx-lsts)))
+(define (stx-ormap f . stx-lsts)
+  (apply ormap f (map syntax->list stx-lsts)))
 
 (define (stx-flatten stxs)
   (apply append (stx-map syntax->list stxs)))

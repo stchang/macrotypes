@@ -13,3 +13,4 @@ A file extends its immediate parent file.
        - stlc+rec+sub.rkt (also pull in tup from stlc+var.rkt)
      - sysf.rkt
        - fomega.rkt
+       - fomega2.rkt

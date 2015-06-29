@@ -7,10 +7,12 @@
                      sysf:Int sysf:→ sysf:∀
                      sysf:#%app sysf:λ
                      (for-syntax sysf:type-eval)))
-(provide Int → ∀ inst Λ tyλ tyapp
+(provide Int → ∀ inst Λ
          (for-syntax type-eval))
 
-;; System F_omega
+;; same as fomega.rkt, except tyapp == #%app, tyλ = λ, and ⇒ = →
+
+;; System F_omega 
 ;; Type relation:
 ;; Types:
 ;; - types from sysf.rkt
@@ -22,7 +24,11 @@
   (syntax-parser
     [(_ alias:id τ:type)
      ; must eval, otherwise undefined types will be allowed
-     #'(define-syntax alias (syntax-parser [x:id #'τ.norm]))]))
+     #'(define-syntax alias
+         (syntax-parser
+           [x:id #'τ.norm]
+           [(_ x (... ...))
+            ((current-type-eval) (⊢ #'(#%plain-app τ.norm x (... ...)) #'★))]))]))
 
 (begin-for-syntax
   ;; extend type-eval to handle tyapp
@@ -36,9 +42,9 @@
        (substs #'(τ_arg+ ...) #'(tv ...) #'τ_body)]
       [((~literal ∀) _ ...) ((current-type-eval) (sysf:type-eval τ))]
       [((~literal →) _ ...) ((current-type-eval) (sysf:type-eval τ))]
-      [((~literal ⇒) _ ...) ((current-type-eval) (sysf:type-eval τ))]
-      [((~literal tyλ) _ ...) (sysf:type-eval τ)]
-      [((~literal tyapp) _ ...) ((current-type-eval) (sysf:type-eval τ))]
+;      [((~literal ⇒) _ ...) ((current-type-eval) (sysf:type-eval τ))]
+;      [((~literal λ/tc) _ ...) (sysf:type-eval τ)]
+;      [((~literal app/tc) _ ...) ((current-type-eval) (sysf:type-eval τ))]
       [((~literal #%plain-lambda) (x ...) τ_body ...)
        #:with (τ_body+ ...) (stx-map (current-type-eval) #'(τ_body ...))
        (syntax-track-origin #'(#%plain-lambda (x ...) τ_body+ ...) τ #'plain-lambda)]
@@ -50,7 +56,7 @@
   (current-type-eval type-eval))
 
 (define-base-type ★)
-(define-type-constructor ⇒)
+;(define-type-constructor ⇒)
 
 ;; for now, handle kind checking in the types themselves
 ;; TODO: move kind checking to a common place (like #%app)?
@@ -68,8 +74,12 @@
   (syntax-parse stx
     [(_ τ ... τ_res)
      #:with ([τ- k] ... [τ_res- k_res]) (infers+erase #'(τ ... τ_res))
-     #:when (typecheck? #'k_res #'★)
-     #:when (same-types? #'(k ... k_res))
+     #:when (or
+             ; when used as →
+             (and (typecheck? #'k_res #'★)
+                  (same-types? #'(k ... k_res)))
+             ; when used as ⇒
+             (not (syntax-e (stx-ormap (λ (x) x) #'(k ... k_res)))))
      (⊢ #'(sysf:→ τ- ... τ_res-) #'★)]))
 
 (define-syntax (∀ stx)
@@ -94,14 +104,14 @@
      (⊢ #'e- (substs #'(τ.norm ...) #'(tv ...) #'τ_body))]))
 
 ;; TODO: merge with regular λ and app?
-(define-syntax (tyλ stx)
+#;(define-syntax (tyλ stx)
   (syntax-parse stx 
     [(_ (b:typed-binding ...) τ)
      #:with (tvs- τ- k) (infer/type-ctxt+erase #'(b ...) #'τ)
      ;; b.τ's here are actually kinds
      (⊢ #'(λ tvs- τ-) #'(⇒ b.τ ... k))]))
 
-(define-syntax (tyapp stx)
+#;(define-syntax (tyapp stx)
   (syntax-parse stx
     [(_ τ_fn τ_arg ...)
      #:with [τ_fn- k_fn] (infer+erase #'τ_fn)
@@ -136,7 +146,12 @@
 (define-syntax (λ/tc stx)
   (syntax-parse stx 
     [(_ (b:typed-binding ...) e)
-     #:when (andmap ★? (stx-map (λ (t) (typeof (expand/df t))) #'(b.τ ...)))
+     #:with (k ...) (stx-map (λ (t) (typeof (expand/df t))) #'(b.τ ...))
+     #:when (or
+             ; regular lambda
+             (stx-andmap ★? #'(k ...))
+             ; type-level lambda
+             (not (syntax-e (stx-ormap (λ (x) x) #'(k ...)))))
      #:with (xs- e- τ_res) (infer/type-ctxt+erase #'(b ...) #'e)
      (⊢ #'(λ xs- e-) #'(→ b.τ ... τ_res))]))
 

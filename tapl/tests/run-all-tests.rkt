@@ -12,3 +12,4 @@
 
 (require "sysf-tests.rkt")
 (require "fomega-tests.rkt")
+(require "fomega2-tests.rkt")
