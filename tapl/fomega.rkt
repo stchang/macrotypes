@@ -110,19 +110,32 @@
                            (syntax->datum #'τ_fn) (syntax->datum #'k_fn))
      #:with ((~literal #%plain-app) _ k ... k_res) #'k_fn
      #:with ([τ_arg- k_arg] ...) (infers+erase #'(τ_arg ...))
-     #:fail-unless (typechecks? #'(k_arg ...) #'(k ...))
+     #:fail-unless (stx-length=? #'(k_arg ...) #'(k ...))
                    (string-append
                     (format
-                     "Wrong number of args given to tyλ ~a, or args have wrong kind:\ngiven: "
+                     "Wrong number of args given to tyλ ~a:\ngiven: "
                      (syntax->datum #'τ_fn))
                     (string-join
                      (map
-                      (λ (τ+k) (format "~a : ~a" (car τ+k) (cadr τ+k)))
-                      (syntax->datum #'([τ_arg k_arg] ...)))
+                      (λ (t k) (format "~a : ~a" t k))
+                      (syntax->datum #'(τ_arg ...))
+                      (syntax->datum #`#,(stx-map get-orig #'(k_arg ...))))
+                     ", ")
+                    (format "\nexpected: ~a argument(s)." (stx-length #'(k ...))))
+     #:fail-unless (typechecks? #'(k_arg ...) #'(k ...))
+                   (string-append
+                    (format
+                     "Arguments to tyλ ~a have wrong type:\ngiven: "
+                     (syntax->datum #'τ_fn))
+                    (string-join
+                     (map
+                      (λ (t k) (format "~a : ~a" t k))
+                      (syntax->datum #'(τ_arg ...))
+                      (syntax->datum #`#,(stx-map get-orig #'(k_arg ...))))
                      ", ")
                     "\nexpected arguments with type: "
                     (string-join
-                     (map (λ (x) (format "~a" x)) (syntax->datum #'(k ...)))
+                     (map ~a (syntax->datum #`#,(stx-map get-orig #'(k ...))))
                      ", "))
       ;; cant do type-subst here bc τ_fn might be a (forall) tyvar
       ;#:with τ_res ((current-type-eval) #'(tyapply τ_fn- τ_arg- ...))
@@ -150,17 +163,32 @@
                            (syntax->datum #'e_fn) (syntax->datum #'τ_fn))
      #:with ((~literal #%plain-app) _ τ ... τ_res) #'τ_fn
      #:with ([e_arg- τ_arg] ...) (infers+erase #'(e_arg ...))
+     #:fail-unless (stx-length=? #'(τ_arg ...) #'(τ ...))
+                   (string-append
+                    (format
+                     "Wrong number of args given to function ~a:\ngiven: "
+                     (syntax->datum #'e_fn))
+                    (string-join
+                     (map
+                      (λ (e t) (format "~a : ~a" e t))
+                      (syntax->datum #'(e_arg ...))
+                      (syntax->datum #`#,(stx-map get-orig #'(τ_arg ...))))
+                     ", ")
+                    (format "\nexpected: ~a argument(s)." (stx-length #'(τ ...))))
      #:fail-unless (typechecks? #'(τ_arg ...) #'(τ ...))
                    (string-append
                     (format
-                     "Wrong number of args given to function ~a, or args have wrong type:\ngiven: "
+                     "Arguments to function ~a have wrong type:\ngiven: "
                      (syntax->datum #'e_fn))
                     (string-join
-                     (map (λ (e+τ) (format "~a : ~a" (car e+τ) (cadr e+τ))) (syntax->datum #'([e_arg τ_arg] ...)))
+                     (map
+                      (λ (e t) (format "~a : ~a" e t))
+                      (syntax->datum #'(e_arg ...))
+                      (syntax->datum #`#,(stx-map get-orig #'(τ_arg ...))))
                      ", ")
                     "\nexpected arguments with type: "
                     (string-join
-                     (map (λ (x) (format "~a" x)) (syntax->datum #'(τ ...)))
+                     (map ~a (syntax->datum #`#,(stx-map get-orig #'(τ ...))))
                      ", "))
      (⊢ #'(#%app e_fn- e_arg- ...) #'τ_res)]))
 

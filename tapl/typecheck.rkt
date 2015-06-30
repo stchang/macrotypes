@@ -33,6 +33,13 @@
 
 (struct exn:fail:type:runtime exn:fail:user ())
 
+(begin-for-syntax
+  (define (add-orig stx orig)
+    (define origs (or (syntax-property orig 'orig) null))
+    (syntax-property stx 'orig (cons orig origs)))
+  (define (get-orig τ)
+    (car (reverse (or (syntax-property τ 'orig) (list τ))))))
+
 ;; TODO: refine this to enable specifying arity information
 ;; type constructors currently must have 1+ arguments
 (define-syntax (define-type-constructor stx)
