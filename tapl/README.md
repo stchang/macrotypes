@@ -9,6 +9,7 @@ A file extends its immediate parent file.
          - stlc+var.rkt
            - stlc+cons.rkt
              - stlc+box.rkt
+           - stlc+rec-iso.rkt
      - stlc+sub.rkt
        - stlc+rec+sub.rkt (also pull in tup from stlc+var.rkt)
      - sysf.rkt

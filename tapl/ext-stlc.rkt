@@ -1,5 +1,8 @@
 #lang racket/base
 (require "typecheck.rkt")
+;; prefix-in an identifier if:
+;; - it will be extended, eg #%datum
+;; - want to use racket's version in this file, eg #%app
 (require (prefix-in stlc: (only-in "stlc+lit.rkt" #%app #%datum))
          (except-in "stlc+lit.rkt" #%app #%datum))
 (provide (rename-out [datum/tc #%datum]

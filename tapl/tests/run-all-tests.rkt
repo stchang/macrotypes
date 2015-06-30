@@ -7,6 +7,8 @@
 (require "stlc+cons-tests.rkt")
 (require "stlc+box-tests.rkt")
 
+(require "stlc+rec-iso-tests.rkt")
+
 (require "stlc+sub-tests.rkt")
 (require "stlc+rec+sub-tests.rkt")
 

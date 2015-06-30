@@ -120,7 +120,8 @@
     (pattern stx
              #:when (stx-pair? #'stx)
              #:when (brace? #'stx)
-             #:with (τ) #'stx)))
+             #:with (τ:type) #'stx
+             #:with norm #'τ.norm)))
 
 (begin-for-syntax
   ;; ⊢ : Syntax Type -> Syntax
@@ -178,7 +179,6 @@
   
   (define current-type-eval (make-parameter #f))
 
-  (require inspect-syntax)
   ;; term expansion
   ;; expand/df : Syntax -> Syntax
   ;; Local expands the given syntax object. 
@@ -225,10 +225,11 @@
 (define-for-syntax (subst τ x e)
   (syntax-parse e
     [y:id #:when (bound-identifier=? e x) τ]
-    [y:id #'y]
     [(esub ...)
      #:with (esub_subst ...) (stx-map (λ (e1) (subst τ x e1)) #'(esub ...))
-     (syntax-track-origin #'(esub_subst ...) e x)]))
+     (syntax-track-origin #'(esub_subst ...) e x)]
+    [_ e]))
+
 
 (define-for-syntax (substs τs xs e)
   (stx-fold subst e τs xs))

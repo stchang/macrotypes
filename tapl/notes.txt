@@ -1,6 +1,15 @@
+2015-06-30
+when extending a typed language, use prefix-in for identifiers:
+- that are extended, eg #%datum in ext-stlc.rkt
+  - rename-out the extended implementation of the form
+- or when you want to use racket's version, eg #%app in ext-stlc.rkt
+  - rename-out the prefixed form
+- must except-out the prefixed forms, eg stlc:#%app and stlc:#%datum in ext-stlc
+
 2015-06-26
 Random thought: Can kinds be "erased"?
 - first thought is no, since they appear to be needed for type equality?
+- Solution: add them to body of lambda (eg which represents a forall)
 
 2015-06-26
 syntax marks problem: 

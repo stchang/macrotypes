@@ -11,7 +11,7 @@
      (format
       "Expression ~a [loc ~a:~a] has type ~a, expected ~a"
       (syntax->datum #'e) (syntax-line #'e) (syntax-column #'e)
-      (syntax->datum #'τ) (syntax->datum #'τ-expected))
+      (syntax->datum (get-orig #'τ)) (syntax->datum (get-orig #'τ-expected)))
      #'(void)]))
 
 (define-syntax (check-not-type stx)
