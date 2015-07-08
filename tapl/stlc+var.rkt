@@ -1,10 +1,11 @@
 #lang racket/base
 (require "typecheck.rkt")
-(require (prefix-in stlc: (only-in "stlc+tup.rkt" #%app λ tup proj let type=?))
-         (except-in "stlc+tup.rkt" #%app λ tup proj let type=?))
-(provide (rename-out [stlc:#%app #%app] [stlc:λ λ] [stlc:let let]))
+(require (prefix-in stlc: (only-in "stlc+tup.rkt" #%app begin tup proj let type=?))
+         (except-in "stlc+tup.rkt" #%app begin tup proj let type=?))
+(provide (rename-out [stlc:#%app #%app] [stlc:let let] [stlc:begin begin]
+                     [define/tc define]))
 (provide (except-out (all-from-out "stlc+tup.rkt")
-                     stlc:#%app stlc:λ stlc:let stlc:tup stlc:proj
+                     stlc:#%app stlc:let stlc:begin stlc:tup stlc:proj
                      (for-syntax stlc:type=?)))
 (provide tup proj var case)
 (provide (for-syntax type=?))
@@ -22,6 +23,8 @@
 ;; - terms from stlc+tup.rkt
 ;; - extend tup to include records
 ;; - sums (var)
+;; TopLevel:
+;; - define (values only)
 
 (begin-for-syntax
   ; extend to:
@@ -88,4 +91,12 @@
      (⊢ #'(let ([l_e (car e-)])
             (cond [(string=? l_e l) (let ([x- (cadr e-)]) e_l-)] ...))
         (stx-car #'(τ_el ...)))]))
-     
+
+(define-syntax (define/tc stx)
+  (syntax-parse stx
+    [(_ x:id e)
+     #:with (e- τ) (infer+erase #'e)
+     #:with y (generate-temporary)
+     #'(begin
+         (define-syntax x (make-rename-transformer (⊢ #'y #'τ)))
+         (define y e-))]))

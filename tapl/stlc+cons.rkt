@@ -1,10 +1,9 @@
 #lang racket/base
 (require "typecheck.rkt")
-(require (prefix-in stlc: (only-in "stlc+var.rkt" #%app λ let begin))
-         (except-in "stlc+var.rkt" #%app λ let begin))
-(provide (rename-out [stlc:#%app #%app] [stlc:λ λ] [stlc:let let] [stlc:begin begin]
-                     [cons/tc cons] [define/tc define]))
-(provide (except-out (all-from-out "stlc+var.rkt") stlc:#%app stlc:λ stlc:let stlc:begin))
+(require (prefix-in stlc: (only-in "stlc+var.rkt" #%app))
+         (except-in "stlc+var.rkt" #%app))
+(provide (rename-out [stlc:#%app #%app] [cons/tc cons]))
+(provide (except-out (all-from-out "stlc+var.rkt") stlc:#%app))
 (provide nil isnil head tail)
 
 ;; Simply-Typed Lambda Calculus, plus cons
@@ -13,19 +12,8 @@
 ;; - List constructor
 ;; Terms:
 ;; - terms from stlc+var.rkt
-;; - define, constants only
 
 ;; TODO: enable HO use of list primitives
-
-;; constants only
-(define-syntax (define/tc stx)
-  (syntax-parse stx
-    [(_ x:id e)
-     #:with (e- τ) (infer+erase #'e)
-     #:with y (generate-temporary)
-     #'(begin
-         (define-syntax x (make-rename-transformer (⊢ #'y #'τ)))
-         (define y e-))]))
 
 (define-type-constructor List #:arity 1)
 

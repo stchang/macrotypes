@@ -1,9 +1,9 @@
 #lang racket/base
 (require "typecheck.rkt")
-(require (prefix-in stlc: (only-in "stlc+cons.rkt" #%app λ))
-         (except-in "stlc+cons.rkt" #%app λ))
-(provide (rename-out [stlc:#%app #%app] [stlc:λ λ]))
-(provide (except-out (all-from-out "stlc+cons.rkt") stlc:#%app stlc:λ))
+(require (prefix-in stlc: (only-in "stlc+cons.rkt" #%app))
+         (except-in "stlc+cons.rkt" #%app))
+(provide (rename-out [stlc:#%app #%app]))
+(provide (except-out (all-from-out "stlc+cons.rkt") stlc:#%app))
 (provide ref deref :=)
 
 ;; Simply-Typed Lambda Calculus, plus mutable references
