@@ -11,7 +11,7 @@
 (provide (for-syntax type=?))
 
 
-;; Simply-Typed Lambda Calculus, plus variants
+;; Simply-Typed Lambda Calculus, plus records and variants
 ;; Type relations:
 ;; - type=? extended to strings
 ;; define-type-alias (also provided to programmer)

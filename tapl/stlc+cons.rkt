@@ -1,17 +1,17 @@
 #lang racket/base
 (require "typecheck.rkt")
-(require (prefix-in stlc: (only-in "stlc+var.rkt" #%app))
-         (except-in "stlc+var.rkt" #%app))
+(require (prefix-in stlc: (only-in "stlc+reco+var.rkt" #%app))
+         (except-in "stlc+reco+var.rkt" #%app))
 (provide (rename-out [stlc:#%app #%app] [cons/tc cons]))
-(provide (except-out (all-from-out "stlc+var.rkt") stlc:#%app))
+(provide (except-out (all-from-out "stlc+reco+var.rkt") stlc:#%app))
 (provide nil isnil head tail)
 
 ;; Simply-Typed Lambda Calculus, plus cons
 ;; Types:
-;; - types from stlc+var.rkt
+;; - types from stlc+reco+var.rkt
 ;; - List constructor
 ;; Terms:
-;; - terms from stlc+var.rkt
+;; - terms from stlc+reco+var.rkt
 
 ;; TODO: enable HO use of list primitives
 

@@ -1,4 +1,4 @@
-#lang s-exp "../stlc+rec+sub.rkt"
+#lang s-exp "../stlc+reco+sub.rkt"
 (require "rackunit-typechecking.rkt")
 
 ;; record subtyping tests

@@ -1,15 +1,15 @@
 #lang racket/base
 (require "typecheck.rkt")
-;; want to use type=? and eval-type from stlc+var.rkt, not stlc+sub.rkt
+;; want to use type=? and eval-type from stlc+reco+var.rkt, not stlc+sub.rkt
 (require (except-in "stlc+sub.rkt" #%app #%datum sub? type=? type-eval)
          (prefix-in stlc: (only-in "stlc+sub.rkt" #%app #%datum sub?))
-         (except-in "stlc+var.rkt" #%app #%datum +)
-         (prefix-in var: (only-in "stlc+var.rkt" #%datum)))
+         (except-in "stlc+reco+var.rkt" #%app #%datum +)
+         (prefix-in var: (only-in "stlc+reco+var.rkt" #%datum)))
 (provide (rename-out [stlc:#%app #%app]
                      [datum/tc #%datum]))
 (provide (except-out (all-from-out "stlc+sub.rkt") stlc:#%app stlc:#%datum
                      (for-syntax stlc:sub?))
-         (except-out (all-from-out "stlc+var.rkt") var:#%datum))
+         (except-out (all-from-out "stlc+reco+var.rkt") var:#%datum))
 (provide (for-syntax sub?))
 
 ;; Simply-Typed Lambda Calculus, plus subtyping, plus records

@@ -1,6 +1,56 @@
-#lang s-exp "../stlc+var.rkt"
+#lang s-exp "../stlc+rec-iso.rkt"
 (require "rackunit-typechecking.rkt")
 
+(define-type-alias IntList (μ (X) (∨ [: "nil" Unit] [: "cons" (× Int X)])))
+(define-type-alias ILBody (∨ [: "nil" Unit] [: "cons" (× Int IntList)]))
+;; nil
+(define nil (fld {IntList} (var "nil" = (void) as ILBody)))
+(check-type nil : IntList)
+; cons
+(define cons (λ ([n : Int] [lst : IntList]) (fld {IntList} (var "cons" = (tup n lst) as ILBody))))
+(check-type cons : (→ Int IntList IntList))
+(check-type (cons 1 nil) : IntList)
+(typecheck-fail (cons 1 2))
+(typecheck-fail (cons "1" nil))
+
+; isnil
+(define isnil
+  (λ ([lst : IntList])
+    (case (unfld {IntList} lst)
+      ["nil" n => #t]
+      ["cons" p => #f])))
+(check-type isnil : (→ IntList Bool))
+(check-type (isnil nil) : Bool ⇒ #t)
+(check-type (isnil (cons 1 nil)) : Bool ⇒ #f)
+(typecheck-fail (isnil 1))
+(typecheck-fail (isnil (cons 1 2)))
+(check-type (λ ([f : (→ IntList Bool)]) (f nil)) : (→ (→ IntList Bool) Bool))
+(check-type ((λ ([f : (→ IntList Bool)]) (f nil)) isnil) : Bool ⇒ #t)
+
+; hd
+(define hd
+  (λ ([lst : IntList])
+    (case (unfld {IntList} lst)
+      ["nil" n => 0]
+      ["cons" p => (proj p 0)])))
+(check-type hd : (→ IntList Int))
+(check-type (hd nil) : Int ⇒ 0)
+(typecheck-fail (hd 1))
+(check-type (hd (cons 11 nil)) : Int ⇒ 11)
+
+; tl
+(define tl
+  (λ ([lst : IntList])
+    (case (unfld {IntList} lst)
+      ["nil" n => lst]
+      ["cons" p => (proj p 1)])))
+(check-type tl : (→ IntList IntList))
+(check-type (tl nil) : IntList ⇒ nil)
+(check-type (tl (cons 1 nil)) : IntList ⇒ nil)
+(check-type (tl (cons 1 (cons 2 nil))) : IntList ⇒ (cons 2 nil))
+(typecheck-fail (tl 1))
+
+;; previous stlc+var tests ----------------------------------------------------
 ;; define-type-alias
 (define-type-alias Integer Int)
 (define-type-alias ArithBinOp (→ Int Int Int))
