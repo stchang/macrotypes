@@ -138,33 +138,11 @@
   ;; in the context of the given bindings and their types
   (define (infer/type-ctxt+erase x+τs e)
     (syntax-parse (infer (list e) #:ctx x+τs)
-      [(_ xs (e+) (τ)) (list #'xs #'e+ #'τ)])
-    #;(syntax-parse (infers/type-ctxt+erase x+τs (list e))
-      [(xs (e+) (τ)) (list #'xs #'e+ #'τ)]))
+      [(_ xs (e+) (τ)) (list #'xs #'e+ #'τ)]))
   ;; infers type and erases types in multiple expressions,
   ;; in the context of (one set of) given bindings and their tpyes
   (define (infers/type-ctxt+erase ctxt es)
-    ;(printf "~a\n" (infer es #:ctx ctxt))
-    (stx-cdr (infer es #:ctx ctxt)) ; drop (empty) tyvars from result
-    #;(syntax-parse (infer es #:ctx ctxt)
-      [(tvs xs es+ τs) (list #'xs #'es+ #'τs)])
-    #;(syntax-parse ctxt
-      [(b:typed-binding ...)
-       #:with (x ...) #'(b.x ...)
-       #:with (τ ...) #'(b.τ ...)
-       #:with (e ...) es
-       #:with
-       ((~literal #%plain-lambda) xs+
-         ((~literal letrec-syntaxes+values) stxs1 ()
-           ((~literal letrec-syntaxes+values) stxs2 ()
-             ((~literal #%expression) e+) ...)))
-       (expand/df
-        #'(λ (x ...)
-            (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ))] ...)
-              (#%expression e) ...)))
-       (list #'xs+ #'(e+ ...) (stx-map syntax-local-introduce (stx-map typeof #'(e+ ...))))]
-      [([x τ] ...) (infers/type-ctxt+erase #'([x : τ] ...) es)]))
-
+    (stx-cdr (infer es #:ctx ctxt))) ; drop (empty) tyvars from result
   ;; infers the type and erases types in an expression
   (define (infer+erase e)
     (define e+ (expand/df e))
@@ -175,18 +153,17 @@
   ;; infers and erases types in an expression, in the context of given type vars
   (define (infer/tvs+erase e tvs)
     (syntax-parse (infer (list e) #:tvs tvs)
-      [(tvs xs (e+) (τ)) (list #'tvs #'e+ #'τ)])
-    #;(syntax-parse (expand/df #`(λ #,tvs (#%expression #,e))) #:literals (#%expression)
-      [(lam tvs+ (#%expression e+))
-       (list #'tvs+ #'e+ (syntax-local-introduce (typeof #'e+)))]))
+      [(tvs _ (e+) (τ)) (list #'tvs #'e+ #'τ)]))
 
   ;; This is the main "infer" function. All others are defined in terms of this.
   ;; It should be named infer+erase but leaving it for now for backward compat.
+  ;; NOTE: differs slightly from infer/type-ctxt+erase in that types are not
+  ;; expanded before wrapping in lambda
+  ;; - This caused one problem in fomega2.rkt #%app, but I just had to expand
+  ;; the types before typechecking, which is acceptable
   (define (infer es #:ctx [ctx null] #:tvs [tvs null])
     (syntax-parse ctx #:datum-literals (:)
       [([x : τ] ...) ; dont expand yet bc τ may have references to tvs
-;       #:with (x ...) #'(b.x ...)
-;       #:with (τ ...) #'(b.τ ...)
        #:with (e ...) es
        #:with
        ((~literal #%plain-lambda) tvs+

@@ -28,7 +28,6 @@
   ;; extend type-eval to handle tyapp
   ;; - requires manually handling all other forms
   (define (type-eval τ)
-;    (printf "eval: ~a\n" (syntax->datum τ))
     (syntax-parse τ
       [((~literal #%plain-app) τ_fn τ_arg ...)
        #:with ((~literal #%plain-lambda) (tv ...) τ_body) ((current-type-eval) #'τ_fn)

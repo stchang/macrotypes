@@ -34,7 +34,6 @@
   ;; extend type-eval to handle tyapp
   ;; - requires manually handling all other forms
   (define (type-eval τ)
-;    (printf "eval: ~a\n" (syntax->datum τ))
     (syntax-parse τ
       [((~literal #%plain-app) τ_fn τ_arg ...)
        #:with ((~literal #%plain-lambda) (tv ...) τ_body) ((current-type-eval) #'τ_fn)
@@ -102,44 +101,6 @@
      #:with ((~literal #%plain-lambda) (tv ...) k_tv ... τ_body) #'∀τ
      #:when (typechecks? #'(k ...) #'(k_tv ...))
      (⊢ #'e- (substs #'(τ.norm ...) #'(tv ...) #'τ_body))]))
-
-;; TODO: merge with regular λ and app?
-#;(define-syntax (tyλ stx)
-  (syntax-parse stx 
-    [(_ (b:typed-binding ...) τ)
-     #:with (tvs- τ- k) (infer/type-ctxt+erase #'(b ...) #'τ)
-     ;; b.τ's here are actually kinds
-     (⊢ #'(λ tvs- τ-) #'(⇒ b.τ ... k))]))
-
-#;(define-syntax (tyapp stx)
-  (syntax-parse stx
-    [(_ τ_fn τ_arg ...)
-     #:with [τ_fn- k_fn] (infer+erase #'τ_fn)
-     #:fail-unless (⇒? #'k_fn)
-                   (format "Kind error: Attempting to apply a non-tyλ with kind ~a\n"
-                           (syntax->datum #'τ_fn) (syntax->datum #'k_fn))
-     #:with ((~literal #%plain-app) _ k ... k_res) #'k_fn
-     #:with ([τ_arg- k_arg] ...) (infers+erase #'(τ_arg ...))
-     #:fail-unless (typechecks? #'(k_arg ...) #'(k ...))
-                   (string-append
-                    (format
-                     "Wrong number of args given to tyλ ~a, or args have wrong kind:\ngiven: "
-                     (syntax->datum #'τ_fn))
-                    (string-join
-                     (map
-                      (λ (τ+k) (format "~a : ~a" (car τ+k) (cadr τ+k)))
-                      (syntax->datum #'([τ_arg k_arg] ...)))
-                     ", ")
-                    "\nexpected arguments with type: "
-                    (string-join
-                     (map (λ (x) (format "~a" x)) (syntax->datum #'(k ...)))
-                     ", "))
-      ;; cant do type-subst here bc τ_fn might be a (forall) tyvar
-      ;#:with τ_res ((current-type-eval) #'(tyapply τ_fn- τ_arg- ...))
-     (⊢ #'(#%app τ_fn- τ_arg- ...) #'k_res)]))
-
-;; must override #%app and λ and primops to use new →
-;; TODO: parameterize →?
 
 (define-primop + : (→ Int Int Int))
 
