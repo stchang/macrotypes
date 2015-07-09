@@ -40,7 +40,6 @@
      #:when (typecheck? #'τ_e  (subst #'τ.norm #'τ_abstract #'τ_body))
      (⊢ #'e- #'∃τ)]))
 
-; TODO: the colon syntax might be misleading, since tv is not the type of x
 (define-syntax (open stx)
   (syntax-parse stx #:datum-literals (<=)
     [(_ ([(tv:id x:id) <= e_packed]) e)

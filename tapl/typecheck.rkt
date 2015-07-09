@@ -137,12 +137,18 @@
   ;; infers type and erases types in a single expression,
   ;; in the context of the given bindings and their types
   (define (infer/type-ctxt+erase x+τs e)
-    (syntax-parse (infers/type-ctxt+erase x+τs (list e))
+    (syntax-parse (infer (list e) #:ctx x+τs)
+      [(_ xs (e+) (τ)) (list #'xs #'e+ #'τ)])
+    #;(syntax-parse (infers/type-ctxt+erase x+τs (list e))
       [(xs (e+) (τ)) (list #'xs #'e+ #'τ)]))
   ;; infers type and erases types in multiple expressions,
   ;; in the context of (one set of) given bindings and their tpyes
   (define (infers/type-ctxt+erase ctxt es)
-    (syntax-parse ctxt
+    ;(printf "~a\n" (infer es #:ctx ctxt))
+    (stx-cdr (infer es #:ctx ctxt)) ; drop (empty) tyvars from result
+    #;(syntax-parse (infer es #:ctx ctxt)
+      [(tvs xs es+ τs) (list #'xs #'es+ #'τs)])
+    #;(syntax-parse ctxt
       [(b:typed-binding ...)
        #:with (x ...) #'(b.x ...)
        #:with (τ ...) #'(b.τ ...)
@@ -168,10 +174,14 @@
     (stx-map infer+erase es))
   ;; infers and erases types in an expression, in the context of given type vars
   (define (infer/tvs+erase e tvs)
-    (syntax-parse (expand/df #`(λ #,tvs (#%expression #,e))) #:literals (#%expression)
+    (syntax-parse (infer (list e) #:tvs tvs)
+      [(tvs xs (e+) (τ)) (list #'tvs #'e+ #'τ)])
+    #;(syntax-parse (expand/df #`(λ #,tvs (#%expression #,e))) #:literals (#%expression)
       [(lam tvs+ (#%expression e+))
        (list #'tvs+ #'e+ (syntax-local-introduce (typeof #'e+)))]))
 
+  ;; This is the main "infer" function. All others are defined in terms of this.
+  ;; It should be named infer+erase but leaving it for now for backward compat.
   (define (infer es #:ctx [ctx null] #:tvs [tvs null])
     (syntax-parse ctx #:datum-literals (:)
       [([x : τ] ...) ; dont expand yet bc τ may have references to tvs
@@ -190,8 +200,9 @@
             (λ (x ...)
               (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ))] ...)
                 (#%expression e) ...))))
-       (list #'tvs+ #'xs+ #'(e+ ...) (stx-map syntax-local-introduce (stx-map typeof #'(e+ ...))))]
-      [([x τ] ...) (infer+erase es #:ctx #'([x : τ] ...) #:tvs tvs)]))
+       (list #'tvs+ #'xs+ #'(e+ ...)
+             (stx-map syntax-local-introduce (stx-map typeof #'(e+ ...))))]
+      [([x τ] ...) (infer es #:ctx #'([x : τ] ...) #:tvs tvs)]))
 
   (define current-typecheck-relation (make-parameter #f))
   (define (typecheck? t1 t2) ((current-typecheck-relation) t1 t2))

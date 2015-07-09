@@ -163,8 +163,8 @@
      #:fail-unless (→? #'τ_fn)
                    (format "Type error: Attempting to apply a non-function ~a with type ~a\n"
                            (syntax->datum #'e_fn) (syntax->datum #'τ_fn))
-     #:with ((~literal #%plain-app) _ τ ... τ_res) #'τ_fn
-     #:with ([e_arg- τ_arg] ...) (infers+erase #'(e_arg ...))
+     #:with ((~literal #%plain-app) _ τ:type ... τ_res) #'τ_fn
+     #:with ([e_arg- τ_arg:type] ...) (infers+erase #'(e_arg ...))
      #:fail-unless (stx-length=? #'(τ_arg ...) #'(τ ...))
                    (string-append
                     (format
@@ -177,7 +177,7 @@
                       (syntax->datum #`#,(stx-map get-orig #'(τ_arg ...))))
                      ", ")
                     (format "\nexpected: ~a argument(s)." (stx-length #'(τ ...))))
-     #:fail-unless (typechecks? #'(τ_arg ...) #'(τ ...))
+     #:fail-unless (typechecks? #'(τ_arg.norm ...) #'(τ.norm ...))
                    (string-append
                     (format
                      "Arguments to function ~a have wrong type:\ngiven: "
