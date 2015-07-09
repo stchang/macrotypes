@@ -167,10 +167,31 @@
   (define (infers+erase es)
     (stx-map infer+erase es))
   ;; infers and erases types in an expression, in the context of given type vars
-  (define (infer/tvs+erase e [tvs #'()])
+  (define (infer/tvs+erase e tvs)
     (syntax-parse (expand/df #`(λ #,tvs (#%expression #,e))) #:literals (#%expression)
       [(lam tvs+ (#%expression e+))
        (list #'tvs+ #'e+ (syntax-local-introduce (typeof #'e+)))]))
+
+  (define (infer es #:ctx [ctx null] #:tvs [tvs null])
+    (syntax-parse ctx #:datum-literals (:)
+      [([x : τ] ...) ; dont expand yet bc τ may have references to tvs
+;       #:with (x ...) #'(b.x ...)
+;       #:with (τ ...) #'(b.τ ...)
+       #:with (e ...) es
+       #:with
+       ((~literal #%plain-lambda) tvs+
+        ((~literal #%expression)
+         ((~literal #%plain-lambda) xs+
+          ((~literal letrec-syntaxes+values) stxs1 ()
+            ((~literal letrec-syntaxes+values) stxs2 ()
+              ((~literal #%expression) e+) ...)))))
+       (expand/df
+        #`(λ #,tvs
+            (λ (x ...)
+              (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ))] ...)
+                (#%expression e) ...))))
+       (list #'tvs+ #'xs+ #'(e+ ...) (stx-map syntax-local-introduce (stx-map typeof #'(e+ ...))))]
+      [([x τ] ...) (infer+erase es #:ctx #'([x : τ] ...) #:tvs tvs)]))
 
   (define current-typecheck-relation (make-parameter #f))
   (define (typecheck? t1 t2) ((current-typecheck-relation) t1 t2))
