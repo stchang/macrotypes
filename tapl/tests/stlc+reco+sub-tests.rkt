@@ -21,7 +21,21 @@
 (check-type (tup ["plus" = +]) : (× [: "plus" (→ Int Num Top)]))
 (check-type (tup ["plus" = +] ["mul" = *]) : (× [: "plus" (→ Int Num Top)]))
 
-;; previous record tests
+;; examples from tapl ch26, bounded quantification
+(check-type (λ ([x : (× [: "a" Int])]) x) : (→ (× [: "a" Int]) (× [: "a" Int])))
+
+(check-type ((λ ([x : (× [: "a" Int])]) x) (tup ["a" = 0]))
+            : (× [: "a" Int]) ⇒ (tup ["a" = 0]))
+(check-type ((λ ([x : (× [: "a" Int])]) x) (tup ["a" = 0]["b" = #t]))
+            : (× [: "a" Int]) ⇒ (tup ["a" = 0]["b" = #t]))
+
+(check-type (proj ((λ ([x : (× [: "a" Int])]) x) (tup ["a" = 0]["b" = #t])) "a")
+            : Int ⇒ 0)
+
+;; this should work! but needs bounded quantification, see fsub.rkt
+(typecheck-fail (proj ((λ ([x : (× [: "a" Int])]) x) (tup ["a" = 0]["b" = #t])) "b"))
+
+;; previous record tests ------------------------------------------------------
 ;; records (ie labeled tuples)
 (check-type "Stephen" : String)
 (check-type (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) :

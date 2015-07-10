@@ -127,12 +127,12 @@
   ;; ⊢ : Syntax Type -> Syntax
   ;; Attaches type τ to (expanded) expression e.
   ;; must eval here, to catch unbound types
-  (define (⊢ e τ)
-    (syntax-property e 'type (syntax-local-introduce ((current-type-eval) τ))))
+  (define (⊢ e τ #:tag [tag 'type])
+    (syntax-property e tag (syntax-local-introduce ((current-type-eval) τ))))
   
   ;; typeof : Syntax -> Type or #f
   ;; Retrieves type of given stx, or #f if input has not been assigned a type.
-  (define (typeof stx) (syntax-property stx 'type))
+  (define (typeof stx #:tag [tag 'type]) (syntax-property stx tag))
   
   ;; infers type and erases types in a single expression,
   ;; in the context of the given bindings and their types
@@ -161,7 +161,7 @@
   ;; expanded before wrapping in lambda
   ;; - This caused one problem in fomega2.rkt #%app, but I just had to expand
   ;; the types before typechecking, which is acceptable
-  (define (infer es #:ctx [ctx null] #:tvs [tvs null])
+  (define (infer es #:ctx [ctx null] #:tvs [tvs null] #:tag [tag 'type])
     (syntax-parse ctx #:datum-literals (:)
       [([x : τ] ...) ; dont expand yet bc τ may have references to tvs
        #:with (e ...) es
@@ -175,7 +175,7 @@
        (expand/df
         #`(λ #,tvs
             (λ (x ...)
-              (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ))] ...)
+              (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ #:tag '#,tag))] ...)
                 (#%expression e) ...))))
        (list #'tvs+ #'xs+ #'(e+ ...)
              (stx-map syntax-local-introduce (stx-map typeof #'(e+ ...))))]
@@ -184,7 +184,8 @@
   (define current-typecheck-relation (make-parameter #f))
   (define (typecheck? t1 t2) ((current-typecheck-relation) t1 t2))
   (define (typechecks? τs1 τs2)
-    (stx-andmap (current-typecheck-relation) τs1 τs2))
+    (and (= (stx-length τs1) (stx-length τs2))
+         (stx-andmap (current-typecheck-relation) τs1 τs2)))
   
   (define current-type-eval (make-parameter #f))
 

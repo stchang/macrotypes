@@ -16,6 +16,7 @@
 ;; subtyping
 (require "stlc+sub-tests.rkt")
 (require "stlc+reco+sub-tests.rkt")
+(require "fsub-tests.rkt")
 
 ;; system F
 (require "sysf-tests.rkt")

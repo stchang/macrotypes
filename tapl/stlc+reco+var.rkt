@@ -56,9 +56,9 @@
      #'(stlc:tup e ...)]))
 (define-syntax (proj stx)
   (syntax-parse stx #:literals (quote)
-    [(_ rec l:str)
+    [(_ rec l:str ~!)
      #:with (rec- τ_rec) (infer+erase #'rec)
-     #:fail-unless (×? #'τ_rec) "not record type"
+     #:fail-unless (×? #'τ_rec) (format "not record type: ~a" (syntax->datum #'τ_rec))
      #:with (['l_τ:str τ] ...) (stx-map :-args (×-args #'τ_rec))
      #:with (l_match:str τ_match) (str-stx-assoc #'l #'([l_τ τ] ...))
      (⊢ #'(cadr (assoc l rec)) #'τ_match)]
