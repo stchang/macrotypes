@@ -2,15 +2,15 @@
 (require "typecheck.rkt")
 (require (except-in "sysf.rkt" #%app #%datum + ∀ Λ inst type=?)
          (prefix-in sysf: (only-in "sysf.rkt" #%app ∀ Λ inst type=?))
-         (except-in "stlc+reco+sub.rkt" #%app + type=? proj)
-         (prefix-in stlc: (only-in "stlc+reco+sub.rkt" type=? proj)))
-(provide (rename-out [app/tc #%app]))
+         (except-in "stlc+reco+sub.rkt" #%app + type=?)
+         (prefix-in stlc: (only-in "stlc+reco+sub.rkt" type=?)))
+(provide (rename-out [sysf:#%app #%app]))
 (provide (except-out (all-from-out "sysf.rkt")
                      sysf:#%app sysf:∀ sysf:Λ sysf:inst
                      (for-syntax sysf:type=?))
          (except-out (all-from-out "stlc+reco+sub.rkt")
                      (for-syntax stlc:type=?)))
-(provide ∀ Λ inst proj)
+(provide ∀ Λ inst)
  
 ;; System F<:
 ;; Types:
@@ -26,9 +26,7 @@
            (define sub (typeof t #:tag 'sub))
            (if sub (expose sub) t)]
           [else t]))
-  #;(define (type-eval t)
-    (expose (stlc:type-eval t)))
-  #;(current-type-eval type-eval)
+  (current-promote expose)
   ;; extend to handle new ∀
   (define (type=? τ1 τ2)
     (syntax-parse (list τ1 τ2)
@@ -47,11 +45,6 @@
 (define-syntax (∀ stx)
   (syntax-parse stx #:datum-literals (<:)
     [(_ ([X:id <: τ] ...) ~! body)
-     ;; CORRECTION: cant subst immediately, need to extend type=? instead
-     ;; subst immediately
-     ;; - need to save τ ... to verify during inst
-     ;; - but otherwise, since the typecheckrelation is sub?,
-     ;;   no behavior is changed by replacing X with τ
      (syntax/loc stx (#%plain-lambda (X ...) τ ... body))]
     [(_ x ...) #'(sysf:∀ x ...)]))
 
@@ -60,8 +53,8 @@
     [(_ ([tv:id <: τsub] ...) ~! e)
      ;; NOTE: we are storing the subtyping relation of tv and τsub in the
      ;; "environment", as we store type annotations
-     ;; So eval-type should be extended to "lookup" the subtype relation.
-     ;; This is analogous to "expose" in TaPL, fig 28-1
+     ;; So we need to add "expose" to certain forms that expect a certain type,
+     ;; as in TaPL (fig 28-1)
      #:with (_ (tv- ...) (e-) (τ)) (infer #'(e) #:ctx #'([tv : τsub] ...) #:tag 'sub)
      (⊢ #'e- #'(∀ ([tv- <: τsub] ...) τ))]
     [(_ x ...) #'(sysf:Λ x ...)]))
@@ -77,52 +70,3 @@
      #:with ((~literal #%plain-lambda) (tv:id ...) τ_body) #'∀τ
      #'(sysf:inst e τ ...)]))
 
-;; TODO: refactor to avoid reimplementing app/tc and others below, just to add expose
-(define-syntax (app/tc stx)
-  (syntax-parse stx
-    [(_ e_fn e_arg ...)
-     #:with (e_fn- τ_fn_unexposed) (infer+erase #'e_fn)
-     #:with τ_fn (expose #'τ_fn_unexposed)
-     #:fail-unless (→? #'τ_fn)
-                   (format "Type error: Attempting to apply a non-function ~a with type ~a\n"
-                           (syntax->datum #'e_fn) (syntax->datum #'τ_fn))
-     #:with ((~literal #%plain-app) _ τ ... τ_res) #'τ_fn
-     #:with ((e_arg- τ_arg) ...) (infers+erase #'(e_arg ...))
-     #:fail-unless (stx-length=? #'(τ_arg ...) #'(τ ...))
-                   (string-append
-                    (format
-                     "Wrong number of args given to function ~a:\ngiven: "
-                     (syntax->datum #'e_fn))
-                    (string-join
-                     (map
-                      (λ (e t) (format "~a : ~a" e t))
-                      (syntax->datum #'(e_arg ...))
-                      (syntax->datum #`#,(stx-map get-orig #'(τ_arg ...))))
-                     ", ")
-                    (format "\nexpected: ~a argument(s)." (stx-length #'(τ ...))))
-     #:fail-unless (typechecks? #'(τ_arg ...) #'(τ ...))
-                   (string-append
-                    (format
-                     "Arguments to function ~a have wrong type:\ngiven: "
-                     (syntax->datum #'e_fn))
-                    (string-join
-                     (map
-                      (λ (e t) (format "~a : ~a" e t))
-                      (syntax->datum #'(e_arg ...))
-                      (syntax->datum #`#,(stx-map get-orig #'(τ_arg ...))))
-                     ", ")
-                    "\nexpected arguments with type: "
-                    (string-join
-                     (map ~a (syntax->datum #`#,(stx-map get-orig #'(τ ...))))
-                     ", "))
-     (⊢ #'(#%app e_fn- e_arg- ...) #'τ_res)]))
-(define-syntax (proj stx)
-  (syntax-parse stx #:literals (quote)
-    [(_ rec l:str ~!)
-     #:with (rec- τ_rec_unexposed) (infer+erase #'rec)
-     #:with τ_rec (expose #'τ_rec_unexposed)
-     #:fail-unless (×? #'τ_rec) (format "not record type: ~a" (syntax->datum #'τ_rec))
-     #:with (['l_τ:str τ] ...) (stx-map :-args (×-args #'τ_rec))
-     #:with (l_match:str τ_match) (str-stx-assoc #'l #'([l_τ τ] ...))
-     (⊢ #'(cadr (assoc l rec)) #'τ_match)]
-    [(_ e ...) #'(stlc:proj e ...)]))

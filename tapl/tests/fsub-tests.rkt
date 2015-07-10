@@ -67,6 +67,7 @@
 (check-type f : (∀ ([X <: (→ Nat Nat)]) (→ X Nat)))
 (check-type (inst f (→ Nat Nat)) : (→ (→ Nat Nat) Nat))
 (check-type (inst f (→ Int Nat)) : (→ (→ Int Nat) Nat))
+(typecheck-fail (inst f (→ Nat Int)))
 (check-type ((inst f (→ Int Nat)) (λ ([z : Int]) 5)) : Nat)
 (check-type ((inst f (→ Int Nat)) (λ ([z : Num]) 5)) : Nat)
 (typecheck-fail ((inst f (→ Int Nat)) (λ ([z : Nat]) 5)))

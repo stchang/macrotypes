@@ -59,7 +59,7 @@
      #:fail-unless (→? #'τ_fn)
                    (format "Type error: Attempting to apply a non-function ~a with type ~a\n"
                            (syntax->datum #'e_fn) (syntax->datum #'τ_fn))
-     #:with ((~literal #%plain-app) _ τ ... τ_res) #'τ_fn
+     #:with (τ ... τ_res) (→-args #'τ_fn)
      #:with ((e_arg- τ_arg) ...) (infers+erase #'(e_arg ...))
      #:fail-unless (stx-length=? #'(τ_arg ...) #'(τ ...))
                    (string-append

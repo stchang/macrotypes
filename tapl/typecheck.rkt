@@ -78,7 +78,7 @@
          ; TODO: ok to assume type in canonical (ie, fully expanded) form?
          ;; yes for now
          (define-for-syntax (τ? stx)
-           (syntax-parse stx 
+           (syntax-parse ((current-promote) stx)
              [((~literal #%plain-app) tycon τ_arg (... ...)) (typecheck? #'tycon #'tmp)]
              [_ #f]))
          (define-for-syntax (τ-ref stx m)
@@ -87,7 +87,7 @@
               #:when (typecheck? #'tycon #'tmp)
               (stx-list-ref #'(τ_arg (... ...)) m)]))
          (define-for-syntax (τ-args stx)
-           (syntax-parse stx
+           (syntax-parse ((current-promote) stx)
              [((~literal #%plain-app) tycon τ_arg (... ...))
               #:when (typecheck? #'tycon #'tmp)
               #'(τ_arg (... ...))]))
@@ -188,6 +188,8 @@
          (stx-andmap (current-typecheck-relation) τs1 τs2)))
   
   (define current-type-eval (make-parameter #f))
+
+  (define current-promote (make-parameter (λ (x) x)))
 
   ;; term expansion
   ;; expand/df : Syntax -> Syntax
