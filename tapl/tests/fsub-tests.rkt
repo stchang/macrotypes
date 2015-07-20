@@ -25,6 +25,10 @@
 (check-type (f2 ra) : (× [: "orig" (× [: "a" Nat])][: "asucc" Nat]))
 (check-type (f2 rab) : (× [: "orig" (× [: "a" Nat])][: "asucc" Nat]))
 
+;; define-primop (actually #%app) needs to call current-promote
+(define fNat (Λ ([X <: Nat]) (λ ([x : X]) (+ x 1))))
+(check-type fNat : (∀ ([X <: Nat]) (→ X Nat)))
+
 (define f2poly
   (Λ ([X <: (× [: "a" Nat])])
      (λ ([x : X])

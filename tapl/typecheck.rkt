@@ -166,11 +166,19 @@
       [([x : τ] ...) ; dont expand yet bc τ may have references to tvs
        #:with (e ...) es
        #:with
+       ; old expander pattern
        ((~literal #%plain-lambda) tvs+
         ((~literal #%expression)
          ((~literal #%plain-lambda) xs+
           ((~literal letrec-syntaxes+values) stxs1 ()
             ((~literal letrec-syntaxes+values) stxs2 ()
+              ((~literal #%expression) e+) ...)))))
+       ; new expander pattern
+       #;((~literal #%plain-lambda) tvs+
+        ((~literal #%expression)
+         ((~literal #%plain-lambda) xs+
+          ((~literal let-values) ()
+            ((~literal let-values) ()
               ((~literal #%expression) e+) ...)))))
        (expand/df
         #`(λ #,tvs
@@ -182,10 +190,13 @@
       [([x τ] ...) (infer es #:ctx #'([x : τ] ...) #:tvs tvs)]))
 
   (define current-typecheck-relation (make-parameter #f))
-  (define (typecheck? t1 t2) ((current-typecheck-relation) t1 t2))
+  (define (typecheck? t1 t2)
+    ((current-typecheck-relation)
+     ((current-promote) t1)
+     ((current-promote) t2)))
   (define (typechecks? τs1 τs2)
     (and (= (stx-length τs1) (stx-length τs2))
-         (stx-andmap (current-typecheck-relation) τs1 τs2)))
+         (stx-andmap typecheck? τs1 τs2)))
   
   (define current-type-eval (make-parameter #f))
 
