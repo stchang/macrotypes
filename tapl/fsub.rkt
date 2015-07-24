@@ -2,14 +2,14 @@
 (require "typecheck.rkt")
 (require (except-in "sysf.rkt" #%app #%datum + ∀ Λ inst type=?)
          (prefix-in sysf: (only-in "sysf.rkt" #%app ∀ Λ inst type=?))
-         (except-in "stlc+reco+sub.rkt" #%app + type=?)
-         (prefix-in stlc: (only-in "stlc+reco+sub.rkt" type=?)))
-(provide (rename-out [sysf:#%app #%app]))
+         (except-in "stlc+reco+sub.rkt" #%app + type=? sub?)
+         (prefix-in stlc: (only-in "stlc+reco+sub.rkt" type=? sub?)))
+(provide (rename-out [sysf:#%app #%app]) (for-syntax sub?))
 (provide (except-out (all-from-out "sysf.rkt")
                      sysf:#%app sysf:∀ sysf:Λ sysf:inst
                      (for-syntax sysf:type=?))
          (except-out (all-from-out "stlc+reco+sub.rkt")
-                     (for-syntax stlc:type=?)))
+                     (for-syntax stlc:type=? stlc:sub?)))
 (provide ∀ Λ inst)
  
 ;; System F<:
@@ -27,6 +27,9 @@
            (if sub (expose sub) t)]
           [else t]))
   (current-promote expose)
+  (define (sub? t1 t2)
+    (stlc:sub? (expose t1) (expose t2)))
+  (current-sub? sub?)
   ;; extend to handle new ∀
   (define (type=? τ1 τ2)
     (syntax-parse (list τ1 τ2)

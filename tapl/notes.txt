@@ -1,3 +1,13 @@
+2015-07-24
+When to canonicalize (ie, eval) types:
+- calling eval before matching is too late
+  - wont catch things like unbound types
+- syntax-class evaling is too eager
+  - sometimes get error when you shouldnt or wrong erro
+    - eg type (-> 1 2)
+- I think the right place is to have \vdash eval
+  - and rackunit testing forms
+
 2015-06-30
 when extending a typed language, use prefix-in for identifiers:
 - that are extended, eg #%datum in ext-stlc.rkt

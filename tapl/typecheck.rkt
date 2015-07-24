@@ -1,6 +1,7 @@
 #lang racket/base
 (require
-  (for-syntax racket syntax/parse racket/syntax syntax/stx "stx-utils.rkt"))
+  (for-syntax racket syntax/parse racket/syntax syntax/stx "stx-utils.rkt")
+  (for-meta 2 racket/base syntax/parse))
 (provide 
  (for-syntax (all-defined-out)) (all-defined-out)
  (for-syntax
@@ -40,6 +41,70 @@
   (define (get-orig τ)
     (car (reverse (or (syntax-property τ 'orig) (list τ))))))
 
+(begin-for-syntax
+  (define-syntax (match-type stx)
+    (syntax-parse stx
+      [(_ ty tycon cls)
+       #'(syntax-parse ty ;((current-type-eval) ty)
+         [((~literal #%plain-app) t . args)
+          #:declare args cls
+          #:fail-unless (typecheck? #'t #'tycon)
+          (format "Type error: expected ~a type, got ~a"
+                  (syntax->datum #'τ) (syntax->datum ty))
+          #'args]
+         [_ #f
+          #;(type-error #:src ty
+                      #:msg "~a didn't match expected type pattern: ~a"
+                      ty pat)])])))
+
+(define-syntax define-tycon
+  (syntax-parser
+    [(_ (τ:id . pat))
+     #:with τ-match (format-id #'τ "~a-match" #'τ)
+     #:with τ? (format-id #'τ "~a?" #'τ)
+     #:with τ-match+erase (format-id #'τ "~a-match+erase" #'τ)
+     #:with pat-class (generate-temporary #'τ) ; syntax-class name
+     #:with tycon (generate-temporary #'τ) ; need a runtime id for expansion
+     #'(begin
+         (provide τ)
+         (begin-for-syntax
+           (define-syntax-class pat-class
+             (pattern pat))
+           (define (τ-match ty)
+             (or (match-type ty tycon pat-class)
+                 (type-error #:src ty
+                      #:msg "~a didn't match expected type pattern: ~a"
+                      ty (quote-syntax (τ . pat))))
+             #;(syntax-parse ty
+               [((~literal #%plain-app) t . args)
+                #:declare args pat-class
+                #:fail-unless (typecheck? #'t #'tycon)
+                (format "Type error: expected ~a type, got ~a"
+                        (syntax->datum #'τ) (syntax->datum ty))
+                #'args]
+               [_ (type-error #:src ty
+                              #:msg "~a didn't match expected type pattern: ~a"
+                              ty (quote-syntax (τ . pat)))]))
+           ; predicate version of τ-match
+           (define (τ? ty) (match-type ty tycon pat-class))
+           ;; expression version of τ-match
+           (define (τ-match+erase e)
+             (syntax-parse (infer+erase e)
+               [(e- τ)
+                #:with τ_matched (τ-match #'τ)
+                #'(e- τ_matched)])))
+         (define tycon (λ _ (raise (exn:fail:type:runtime
+                                    (format "~a: Cannot use type at run time" 'τ)
+                                    (current-continuation-marks)))))
+         (define-syntax (τ stx)
+           (syntax-parse stx
+             [(_ . pat) #'(tycon . pat)]
+             [_
+              (type-error #:src stx
+                          #:msg "Improper usage of type constructor ~a: ~a, expected pattern ~a"
+                          #'τ stx (quote-syntax (τ . pat)))]))
+         )]))
+
 ;; TODO: refine this to enable specifying arity information
 ;; type constructors currently must have 1+ arguments
 (define-syntax (define-type-constructor stx)
@@ -49,6 +114,7 @@
      #:with τ-ref (format-id #'τ "~a-ref" #'τ)
      #:with τ-num-args (format-id #'τ "~a-num-args" #'τ)
      #:with τ-args (format-id #'τ "~a-args" #'τ)
+     #:with τ-match (format-id #'τ "~a-match" #'τ)
      #:with tmp (generate-temporary #'τ)
      #`(begin
          ;; TODO: define syntax class instead of these separate tycon fns
@@ -102,17 +168,32 @@
   (define-syntax-class type
     ;; stx = surface syntax, as written
     ;; norm = canonical form for the type
-    (pattern stx:expr
-     #:with norm ((current-type-eval) #'stx)
-     #:with τ #'norm)) ; backwards compat
+    (pattern tycon:id
+     #:when (procedure? (syntax-local-value #'tycon (λ _ #f)))
+     #:with norm #f ; should this be #f?
+     #:with τ #f)
+    (pattern T:id
+     #:with norm #'T ;((current-type-eval) #'T)
+     #:with τ #'norm) ; backwards compat
+    (pattern (t:type ...)
+     #:with norm #'(t ...) ;((current-type-eval) #'(t ...))
+     #:with τ #'norm) ; backwards compat
+    (pattern any
+     #:with norm #f #:with τ #f
+     #:fail-when #t
+     (format "~a is not a valid type" (syntax->datum #'any))))
+
   (define-syntax-class typed-binding #:datum-literals (:)
     (pattern [x:id : stx:type] #:with τ #'stx.τ)
     (pattern (~and any (~not [x:id : τ:type]))
      #:with x #f
      #:with τ #f
      #:fail-when #t
-     (format "Improperly formatted type annotation: ~a; should have shape [x : τ]"
-             (syntax->datum #'any))))
+     (format
+      (string-append
+       "Improperly formatted type annotation: ~a; should have shape [x : τ], "
+       "where τ is a valid type.")
+      (syntax->datum #'any))))
   (define (brace? stx)
     (define paren-shape/#f (syntax-property stx 'paren-shape))
     (and paren-shape/#f (char=? paren-shape/#f #\{)))
@@ -129,20 +210,12 @@
   ;; must eval here, to catch unbound types
   (define (⊢ e τ #:tag [tag 'type])
     (syntax-property e tag (syntax-local-introduce ((current-type-eval) τ))))
+    ;(syntax-property e tag τ))
   
   ;; typeof : Syntax -> Type or #f
   ;; Retrieves type of given stx, or #f if input has not been assigned a type.
   (define (typeof stx #:tag [tag 'type]) (syntax-property stx tag))
   
-  ;; infers type and erases types in a single expression,
-  ;; in the context of the given bindings and their types
-  (define (infer/type-ctxt+erase x+τs e)
-    (syntax-parse (infer (list e) #:ctx x+τs)
-      [(_ xs (e+) (τ)) (list #'xs #'e+ #'τ)]))
-  ;; infers type and erases types in multiple expressions,
-  ;; in the context of (one set of) given bindings and their tpyes
-  (define (infers/type-ctxt+erase ctxt es)
-    (stx-cdr (infer es #:ctx ctxt))) ; drop (empty) tyvars from result
   ;; infers the type and erases types in an expression
   (define (infer+erase e)
     (define e+ (expand/df e))
@@ -150,10 +223,6 @@
   ;; infers the types and erases types in multiple expressions
   (define (infers+erase es)
     (stx-map infer+erase es))
-  ;; infers and erases types in an expression, in the context of given type vars
-  (define (infer/tvs+erase e tvs)
-    (syntax-parse (infer (list e) #:tvs tvs)
-      [(tvs _ (e+) (τ)) (list #'tvs #'e+ #'τ)]))
 
   ;; This is the main "infer" function. All others are defined in terms of this.
   ;; It should be named infer+erase but leaving it for now for backward compat.
@@ -167,14 +236,14 @@
        #:with (e ...) es
        #:with
        ; old expander pattern
-       ((~literal #%plain-lambda) tvs+
+       #;((~literal #%plain-lambda) tvs+
         ((~literal #%expression)
          ((~literal #%plain-lambda) xs+
           ((~literal letrec-syntaxes+values) stxs1 ()
             ((~literal letrec-syntaxes+values) stxs2 ()
               ((~literal #%expression) e+) ...)))))
        ; new expander pattern
-       #;((~literal #%plain-lambda) tvs+
+       ((~literal #%plain-lambda) tvs+
         ((~literal #%expression)
          ((~literal #%plain-lambda) xs+
           ((~literal let-values) ()
@@ -189,11 +258,26 @@
              (stx-map syntax-local-introduce (stx-map typeof #'(e+ ...))))]
       [([x τ] ...) (infer es #:ctx #'([x : τ] ...) #:tvs tvs)]))
 
+  ;; fns derived from infer ---------------------------------------------------
+  ;; some are syntactic shortcuts, some are for backwards compat
+  
+  ;; infers type and erases types in a single expression,
+  ;; in the context of the given bindings and their types
+  (define (infer/type-ctxt+erase x+τs e)
+    (syntax-parse (infer (list e) #:ctx x+τs)
+      [(_ xs (e+) (τ)) (list #'xs #'e+ #'τ)]))
+  ;; infers type and erases types in multiple expressions,
+  ;; in the context of (one set of) given bindings and their tpyes
+  (define (infers/type-ctxt+erase ctxt es)
+    (stx-cdr (infer es #:ctx ctxt))) ; drop (empty) tyvars from result
+  ;; infers and erases types in an expression, in the context of given type vars
+  (define (infer/tvs+erase e tvs)
+    (syntax-parse (infer (list e) #:tvs tvs)
+      [(tvs _ (e+) (τ)) (list #'tvs #'e+ #'τ)]))
+
   (define current-typecheck-relation (make-parameter #f))
   (define (typecheck? t1 t2)
-    ((current-typecheck-relation)
-     ((current-promote) t1)
-     ((current-promote) t2)))
+    ((current-typecheck-relation) t1 t2))
   (define (typechecks? τs1 τs2)
     (and (= (stx-length τs1) (stx-length τs2))
          (stx-andmap typecheck? τs1 τs2)))
