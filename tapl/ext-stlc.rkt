@@ -2,7 +2,7 @@
 (require "typecheck.rkt")
 ;; prefix-in an identifier if:
 ;; - it will be extended, eg #%datum
-;; - want to use racket's version in this file, eg #%app
+;; - want to use racket's version in implemetation (this) file, eg #%app
 (require (prefix-in stlc: (only-in "stlc+lit.rkt" #%app #%datum))
          (except-in "stlc+lit.rkt" #%app #%datum))
 (provide (rename-out [datum/tc #%datum]
@@ -33,8 +33,8 @@
 
 (define-syntax (datum/tc stx)
   (syntax-parse stx
-    [(_ . b:boolean) (⊢ (syntax/loc stx (#%datum . b)) #'Bool)]
-    [(_ . s:str) (⊢ (syntax/loc stx (#%datum . s)) #'String)]
+    [(_ . b:boolean) (⊢ (#%datum . b) : Bool)]
+    [(_ . s:str) (⊢ (#%datum . s) : String)]
     [(_ . x) #'(stlc:#%datum . x)]))
 
 (define-primop zero? : (→ Int Bool))
@@ -51,7 +51,7 @@
      #:fail-unless (Bool? #'τ1) (format "given non-Bool arg: ~a\n" (syntax->datum #'e1))
      #:with (e2- τ2) (infer+erase #'e2)
      #:fail-unless (Bool? #'τ2) (format "given non-Bool arg: ~a\n" (syntax->datum #'e2))
-     (⊢ #'(and e1- e2-) #'Bool)]))
+     (⊢ (and e1- e2-) : Bool)]))
   
 (define-syntax (or/tc stx)
   (syntax-parse stx
@@ -60,7 +60,7 @@
      #:fail-unless (Bool? #'τ1) (format "given non-Bool arg: ~a\n" (syntax->datum #'e1))
      #:with (e2- τ2) (infer+erase #'e2)
      #:fail-unless (Bool? #'τ2) (format "given non-Bool arg: ~a\n" (syntax->datum #'e2))
-     (⊢ #'(or e1- e2-) #'Bool)]))
+     (⊢ (or e1- e2-) : Bool)]))
 
 (define-syntax (if/tc stx)
   (syntax-parse stx
@@ -70,7 +70,7 @@
      #:with (e1- τ1) (infer+erase #'e1)
      #:with (e2- τ2) (infer+erase #'e2)
      #:when ((current-type=?) #'τ1 #'τ2)
-     (⊢ #'(if e_tst- e1- e2-) #'τ1)]))
+     (⊢ (if e_tst- e1- e2-) : τ1)]))
 
 (define-base-type Unit)
 (define-primop void : (→ Unit))
@@ -89,7 +89,7 @@
                       #'(e_unit ...) #'(τ_unit ...))
                      "\n")
                     "\n")
-     (⊢ #'(begin e_unit- ... e-) #'τ)]))
+     (⊢ (begin e_unit- ... e-) : τ)]))
 
 (define-syntax (ann stx)
   (syntax-parse stx #:datum-literals (:)
@@ -98,14 +98,14 @@
      #:fail-unless (typecheck? #'τ #'ascribed-τ)
                    (format "~a does not have type ~a\n"
                            (syntax->datum #'e) (syntax->datum #'ascribed-τ))
-     (⊢ #'e- #'ascribed-τ)]))
+     (⊢ e- : ascribed-τ)]))
 
 (define-syntax (let/tc stx)
   (syntax-parse stx
     [(_ ([x e] ...) e_body)
      #:with ((e- τ) ...) (infers+erase #'(e ...))
      #:with ((x- ...) e_body- τ_body) (infer/type-ctxt+erase #'([x τ] ...) #'e_body)
-     (⊢ #'(let ([x- e-] ...) e_body-) #'τ_body)]))
+     (⊢ (let ([x- e-] ...) e_body-) : τ_body)]))
 
 (define-syntax (let*/tc stx)
   (syntax-parse stx
@@ -118,13 +118,17 @@
     [(_ ([b:typed-binding e] ...) e_body)
      #:with ((x- ...) (e- ... e_body-) (τ ... τ_body))
             (infers/type-ctxt+erase #'(b ...) #'(e ... e_body))
-     #:fail-unless (typechecks? #'(b.τ ...) #'(τ ...))
+     #:fail-unless (typechecks? (type-evals #'(b.τ ...)) #'(τ ...))
                    (string-append
-                    "letrec: type check fail, args have wrong type:\n"
+                    "type check fail, args have wrong type:\n"
                     (string-join
-                     (stx-map (λ (e τ τ-expect) (format "~a has type ~a, expected ~a" e τ τ-expect))
-                              #'(e ...) #'(τ ...) #'(b.τ ...))
+                     (stx-map
+                      (λ (e τ τ-expect)
+                        (format
+                         "~a has type ~a, expected ~a"
+                         (syntax->datum e) (type->str τ) (type->str τ-expect)))
+                      #'(e ...) #'(τ ...) #'(b.τ ...))
                      "\n"))
-     (⊢ #'(letrec ([x- e-] ...) e_body-) #'τ_body)]))
+     (⊢ (letrec ([x- e-] ...) e_body-) : τ_body)]))
 
      

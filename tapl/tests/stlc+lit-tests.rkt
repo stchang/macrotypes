@@ -46,7 +46,6 @@
  (λ ([x : (→ Int Int)]) (+ x x))
   #:with-msg
  "Arguments to function \\+ have wrong type.+Given:.+(→ Int Int).+Expected: 2 arguments with type.+Int\\, Int")
-
 (typecheck-fail
  ((λ ([x : Int] [y : Int]) y) 1)
  #:with-msg "Arguments to function.+have.+wrong number of arguments")
