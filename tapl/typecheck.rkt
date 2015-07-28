@@ -27,10 +27,20 @@
   (syntax-parse stx
     [(_ τ:id)
      #:with τ? (format-id #'τ "~a?" #'τ)
+     #:with τ-internal (generate-temporary #'τ)
      #'(begin
          (provide τ (for-syntax τ?))
-         (define τ (void))
-         (define-for-syntax (τ? τ1) (typecheck? τ1 #'τ)))]))
+         (define τ-internal
+           (λ () (raise (exn:fail:type:runtime
+                         (format "~a: Cannot use type at run time" 'τ)
+                         (current-continuation-marks)))))
+         (define-syntax (τ stx)
+           (syntax-parse stx
+             [x:id (add-orig #'(#%type (τ-internal)) #'τ)]))
+         (define-for-syntax (τ? t)
+           (syntax-parse t
+             [((~literal #%type) ((~literal #%plain-app) ty))
+              (typecheck? #'ty #'τ-internal)])))]))
 
 (struct exn:fail:type:runtime exn:fail:user ())
 
@@ -39,8 +49,16 @@
     (define origs (or (syntax-property orig 'orig) null))
     (syntax-property stx 'orig (cons orig origs)))
   (define (get-orig τ)
-    (car (reverse (or (syntax-property τ 'orig) (list τ))))))
-
+    (car (reverse (or (syntax-property τ 'orig) (list τ)))))
+  (define (type->str ty)
+    (define τ (get-orig ty))
+    (cond
+      [(identifier? τ) (symbol->string (syntax->datum τ))]
+      [(stx-pair? τ) (string-join (stx-map type->str τ)
+                                  #:before-first "("
+                                  #:after-last ")")]
+      [else (format "~a" (syntax->datum τ))])))
+      
 (begin-for-syntax
   (define-syntax (match-type stx)
     (syntax-parse stx
@@ -57,7 +75,7 @@
                       #:msg "~a didn't match expected type pattern: ~a"
                       ty pat)])])))
 
-(define-syntax define-tycon
+(define-syntax define-type-constructor
   (syntax-parser
     [(_ (τ:id . pat))
      #:with τ-match (format-id #'τ "~a-match" #'τ)
@@ -73,8 +91,8 @@
            (define (τ-match ty)
              (or (match-type ty tycon pat-class)
                  (type-error #:src ty
-                      #:msg "~a didn't match expected type pattern: ~a"
-                      ty (quote-syntax (τ . pat))))
+                      #:msg "Expected type with pattern: ~a, got: ~a"
+                      (quote-syntax (τ . pat)) ty))
              #;(syntax-parse ty
                [((~literal #%plain-app) t . args)
                 #:declare args pat-class
@@ -98,7 +116,9 @@
                                     (current-continuation-marks)))))
          (define-syntax (τ stx)
            (syntax-parse stx
-             [(_ . pat) #'(tycon . pat)]
+             [(_ . pat) ; first check shape
+              #:with (~! (~var t type) (... ...)) #'pat ; then check for valid types
+              #'(#%type (tycon . pat))]
              [_
               (type-error #:src stx
                           #:msg "Improper usage of type constructor ~a: ~a, expected pattern ~a"
@@ -107,7 +127,7 @@
 
 ;; TODO: refine this to enable specifying arity information
 ;; type constructors currently must have 1+ arguments
-(define-syntax (define-type-constructor stx)
+#;(define-syntax (define-type-constructor stx)
   (syntax-parse stx
     [(_ τ:id (~optional (~seq #:arity n:exact-positive-integer)))
      #:with τ? (format-id #'τ "~a?" #'τ)
@@ -163,37 +183,44 @@
               #:when (typecheck? #'tycon #'tmp)
               (stx-length #'(τ_arg (... ...)))])))]))
 
+(define-syntax #%type (syntax-parser [(_ τ) #'τ]))
+
 ;; syntax classes
 (begin-for-syntax
   (define-syntax-class type
     ;; stx = surface syntax, as written
     ;; norm = canonical form for the type
-    (pattern tycon:id
+    (pattern τ
+     #:fail-unless (is-type? #'τ)
+                   (format "not a valid type: ~a" (syntax->datum #'τ))
+     #:attr norm (delay ((current-type-eval) #'τ)))
+    #;(pattern tycon:id
      #:when (procedure? (syntax-local-value #'tycon (λ _ #f)))
      #:with norm #f ; should this be #f?
      #:with τ #f)
-    (pattern T:id
+    #;(pattern T:id
      #:with norm #'T ;((current-type-eval) #'T)
      #:with τ #'norm) ; backwards compat
-    (pattern (t:type ...)
+    #;(pattern (t:type ...)
      #:with norm #'(t ...) ;((current-type-eval) #'(t ...))
      #:with τ #'norm) ; backwards compat
-    (pattern any
+    #;(pattern any
      #:with norm #f #:with τ #f
      #:fail-when #t
      (format "~a is not a valid type" (syntax->datum #'any))))
 
   (define-syntax-class typed-binding #:datum-literals (:)
-    (pattern [x:id : stx:type] #:with τ #'stx.τ)
-    (pattern (~and any (~not [x:id : τ:type]))
-     #:with x #f
-     #:with τ #f
+    #:attributes (x τ norm)
+    (pattern [x:id : ~! τ:type] #:attr norm (delay #'τ.norm))
+    (pattern any
      #:fail-when #t
      (format
       (string-append
        "Improperly formatted type annotation: ~a; should have shape [x : τ], "
        "where τ is a valid type.")
-      (syntax->datum #'any))))
+      (syntax->datum #'any))
+     #:attr x #f #:attr τ #f #:attr norm #f))
+
   (define (brace? stx)
     (define paren-shape/#f (syntax-property stx 'paren-shape))
     (and paren-shape/#f (char=? paren-shape/#f #\{)))
@@ -283,9 +310,15 @@
          (stx-andmap typecheck? τs1 τs2)))
   
   (define current-type-eval (make-parameter #f))
+  (define (type-evals τs) #`#,(stx-map (current-type-eval) τs))
 
   (define current-promote (make-parameter (λ (x) x)))
 
+  (define (is-type? τ)
+    (syntax-parse (local-expand τ 'expression (list #'#%type))
+      [((~literal #%type) t) #t]
+      [_ #f]))
+        
   ;; term expansion
   ;; expand/df : Syntax -> Syntax
   ;; Local expands the given syntax object. 
@@ -308,7 +341,7 @@
      (exn:fail:type:check
       (format (string-append "TYPE-ERROR: ~a (~a:~a): " msg) 
               (syntax-source stx-src) (syntax-line stx-src) (syntax-column stx-src) 
-              (syntax->datum args) ...)
+              (type->str args) ...)
       (current-continuation-marks)))))
 
 (define-syntax (define-primop stx)

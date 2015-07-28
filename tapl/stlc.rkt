@@ -1,7 +1,7 @@
 #lang racket/base
 (require "typecheck.rkt")
 (provide (rename-out [λ/tc λ] [app/tc #%app]))
-(provide (for-syntax type=? types=? same-types? current-type=? type-eval))
+(provide (for-syntax type=? #;types=? #;same-types? current-type=? type-eval))
 (provide #%module-begin #%top-interaction #%top require) ; from racket
  
 ;; Simply-Typed Lambda Calculus
@@ -32,14 +32,14 @@
       [(x:id y:id) (free-identifier=? τ1 τ2)]
       [((τa ...) (τb ...)) (types=? #'(τa ...) #'(τb ...))]
       [_ #f]))
-
+  (define (types=? τs1 τs2)
+    (and (stx-length=? τs1 τs2)
+         (stx-andmap (current-type=?) τs1 τs2)))
+  
   (define current-type=? (make-parameter type=?))
   (current-typecheck-relation type=?)
 
-  (define (types=? τs1 τs2)
-    (and (= (stx-length τs1) (stx-length τs2))
-         (stx-andmap (current-type=?) τs1 τs2)))
-  (define (same-types? τs)
+  #;(define (same-types? τs)
     (define τs-lst (syntax->list τs))
     (or (null? τs-lst)
         (andmap (λ (τ) ((current-type=?) (car τs-lst) τ)) (cdr τs-lst)))))
@@ -70,13 +70,13 @@
 ;    [( τ pat)
 ;     #:with 
 
-(define-tycon (→ τ_in ... τ_out))
+(define-type-constructor (→ τ_in ... τ_out))
 
 (define-syntax (λ/tc stx)
   (syntax-parse stx 
     [(_ (b:typed-binding ...) e)
      #:with (xs- e- τ_res) (infer/type-ctxt+erase #'(b ...) #'e)
-     (⊢ #'(λ xs- e-) #'(→ b.τ ... τ_res))]))
+     (⊢ #'(λ xs- e-) #`(→ b.τ ... #,(syntax-track-origin #'(#%type τ_res) #'τ_res #'λ)))]))
 
 (define-syntax (app/tc stx)
   (syntax-parse stx
@@ -106,17 +106,19 @@
                     (format "Arguments to function ~a have wrong type(s), "
                             (syntax->datum #'e_fn))
                     "or wrong number of arguments:\n"
-                    "given: "
+                    "given:\n"
                     (string-join
                      (map
-                      (λ (e t) (format "~a : ~a" e t))
+                      (λ (e t) (format "  ~a : ~a" e t))
                       (syntax->datum #'(e_arg ...))
-                      (syntax->datum #`#,(stx-map get-orig #'(τ_arg ...))))
-                     ", ")
+                      (stx-map type->str #'(τ_arg ...))
+                      #;(syntax->datum #`#,(stx-map get-orig #'(τ_arg ...))))
+                     "\n")
                     "\n"
                     (format "expected ~a arguments with type(s): "
                             (stx-length #'(τ_in ...)))
                     (string-join
-                     (map ~a (syntax->datum #`#,(stx-map get-orig #'(τ_in ...))))
+                     (stx-map type->str #'(τ_in ...))
+                     #;(map ~a (syntax->datum #`#,(stx-map get-orig #'(τ_in ...))))
                      ", "))
      (⊢ #'(#%app e_fn- e_arg- ...) #'τ_out)]))

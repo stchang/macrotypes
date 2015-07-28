@@ -25,14 +25,14 @@
 (check-type ((λ ([x : Int]) x) 1) : Int ⇒ 1)
 
 (typecheck-fail ((λ ([x : Bool]) x) 1)
-                #:with-msg "Bool: unbound identifier")
+                #:with-msg "not a valid type: Bool")
 (typecheck-fail (λ ([x : (→ Bool Bool)]) x)
-                #:with-msg "Bool: unbound identifier")
+                #:with-msg "not a valid type: Bool")
 (typecheck-fail (λ ([x : Bool]) x)
-                #:with-msg "Bool: unbound identifier")
+                #:with-msg "not a valid type: Bool")
 (typecheck-fail (λ ([f : Int]) (f 1 2))
                 #:with-msg
-                "didn't match expected type pattern: \\(→ τ_in ... τ_out\\)")
+                "Expected type with pattern: \\(→ τ_in ... τ_out\\), got: Int")
 
 (check-type (λ ([f : (→ Int Int Int)] [x : Int] [y : Int]) (f x y))
             : (→ (→ Int Int Int) Int Int Int))
@@ -41,18 +41,18 @@
 (typecheck-fail
  (+ 1 (λ ([x : Int]) x))
  #:with-msg
- "Arguments to function \\+ have wrong type.+given: 1 : Int.+→.+expected 2 arguments with type.+Int\\, Int")
+ "Arguments to function \\+ have wrong type.+given:\n  1 : Int.+(→ Int Int).+expected 2 arguments with type.+Int\\, Int")
 (typecheck-fail
  (λ ([x : (→ Int Int)]) (+ x x))
   #:with-msg
- "Arguments to function \\+ have wrong type.+given: x.+→.+expected 2 arguments with type.+Int\\, Int")
+ "Arguments to function \\+ have wrong type.+given:.+(→ Int Int).+expected 2 arguments with type.+Int\\, Int")
 (typecheck-fail
  ((λ ([x : Int] [y : Int]) y) 1)
  #:with-msg "Arguments to function.+have.+wrong number of arguments")
 
 (check-type ((λ ([x : Int]) (+ x x)) 10) : Int ⇒ 20)
 
-(typecheck-fail (λ ([x : (→ 1 2)]) x)
-                #:with-msg "Improperly formatted type annotation")
-(typecheck-fail (λ ([x : 1]) x)
-                #:with-msg "Improperly formatted type annotation")
+(typecheck-fail (λ ([x : (→ 1 2)]) x) #:with-msg "not a valid type")
+(typecheck-fail (λ ([x : 1]) x) #:with-msg "not a valid type")
+(typecheck-fail (λ ([x : (+ 1 2)]) x) #:with-msg "not a valid type")
+(typecheck-fail (λ ([x : (λ ([y : Int]) y)]) x) #:with-msg "not a valid type")

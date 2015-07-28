@@ -7,7 +7,7 @@
     [(_ e : τ ⇒ v) #'(check-type-and-result e : τ ⇒ v)]
     [(_ e : τ-expected:type)
      #:with τ (typeof (expand/df #'e))
-     #:fail-unless (typecheck? #'τ ((current-type-eval) #'τ-expected))
+     #:fail-unless (typecheck? #'τ #'τ-expected.norm)
      (format
       "Expression ~a [loc ~a:~a] has type ~a, expected ~a"
       (syntax->datum #'e) (syntax-line #'e) (syntax-column #'e)
@@ -18,7 +18,7 @@
   (syntax-parse stx #:datum-literals (:)
     [(_ e : not-τ:type)
      #:with τ (typeof (expand/df #'e))
-     #:fail-when (typecheck? #'τ ((current-type-eval) #'not-τ.norm))
+     #:fail-when (typecheck? #'τ #'not-τ.norm)
      (format
       "(~a:~a) Expression ~a should not have type ~a"
       (syntax-line stx) (syntax-column stx)
@@ -38,8 +38,8 @@
                        (unless (regexp-match? (syntax-e #'msg-pat) (exn-message ex))
                          (printf
                           (string-append
-                           "ERROR: wrong err msg produced by expression ~v:\n"
-                           "expected msg matching pattern ~v, got:\n ~v")
+                           "ERROR-MSG ERROR: wrong err msg produced by expression ~v:\n"
+                           "EXPECTED:\nmsg matching pattern ~v,\nGOT:\n~v\n")
                           (syntax->datum #'e) (syntax-e #'msg-pat) (exn-message ex)))
                        (raise ex))])
                  (expand/df #'e)))
