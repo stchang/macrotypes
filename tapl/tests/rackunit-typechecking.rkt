@@ -11,7 +11,7 @@
      (format
       "Expression ~a [loc ~a:~a] has type ~a, expected ~a"
       (syntax->datum #'e) (syntax-line #'e) (syntax-column #'e)
-      (syntax->datum (get-orig #'τ)) (syntax->datum (get-orig #'τ-expected)))
+      (type->str #'τ) (type->str #'τ-expected))
      #'(void)]))
 
 (define-syntax (check-not-type stx)
@@ -22,7 +22,7 @@
      (format
       "(~a:~a) Expression ~a should not have type ~a"
       (syntax-line stx) (syntax-column stx)
-      (syntax->datum #'e) (syntax->datum #'τ))
+      (syntax->datum #'e) (type->str #'τ))
      #'(void)]))
 
 (define-syntax (typecheck-fail stx)
