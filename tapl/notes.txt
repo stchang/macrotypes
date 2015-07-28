@@ -1,3 +1,21 @@
+2015-07-28
+Problem: How to handle mixed types, ie combining expanded and unexpanded types.
+Problem: When to eval, ie expand, types into canonical form
+Solution:
+- use two tags, #%type and #%plain-type, representing surface type syntax and
+  fully expanded type representation, respectively
+- #%type wrapper automatically added by the define-type- macros
+- #%plain-type wrapper added by type-eval
+- both are macros that expand into their (single) sub-form
+  - enables elegant mixing of expanded and unexpanded types
+    - mixed types still need to be eval'ed
+    - needed to construct other types, eg inferring type of lambda
+- enables easy checking of is-type?
+  - only checks outer wrapper
+  - rely on each tycon to validate its own arguments
+- eval-type only expands if not #%plain-type, ie not already expanded
+- this solution thus far does not require any awkward "hacks" in implementations
+
 2015-07-25
 Problem: types and terms occur in the same space
 What to do about "valid" terms like \x:(void).x or \x:1.x ?
@@ -12,6 +30,8 @@ What to do about "valid" terms like \x:(void).x or \x:1.x ?
   - unless you hard-code the type names, but then it's not extensible?
     - can extend the reader but then you have code duplication?
 - wrap types with a tag, like #%type ?
+  - this might work
+  - will this have extensibility problems later, ie with records and variants?
 
 2015-07-24
 When to canonicalize (ie, eval) types:

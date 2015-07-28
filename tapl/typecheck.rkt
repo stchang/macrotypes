@@ -38,8 +38,8 @@
            (syntax-parse stx
              [x:id (add-orig #'(#%type (τ-internal)) #'τ)]))
          (define-for-syntax (τ? t)
-           (syntax-parse t
-             [((~literal #%type) ((~literal #%plain-app) ty))
+           (syntax-parse ((current-type-eval) t)
+             [((~literal #%plain-type) ((~literal #%plain-app) ty))
               (typecheck? #'ty #'τ-internal)])))]))
 
 (struct exn:fail:type:runtime exn:fail:user ())
@@ -63,8 +63,8 @@
   (define-syntax (match-type stx)
     (syntax-parse stx
       [(_ ty tycon cls)
-       #'(syntax-parse ty ;((current-type-eval) ty)
-         [((~literal #%plain-app) t . args)
+       #'(syntax-parse ((current-type-eval) ty)
+         [((~literal #%plain-type) ((~literal #%plain-app) t . args))
           #:declare args cls
           #:fail-unless (typecheck? #'t #'tycon)
           (format "Type error: expected ~a type, got ~a"
@@ -87,6 +87,8 @@
          (provide τ)
          (begin-for-syntax
            (define-syntax-class pat-class
+             ;; dont check is-type? here; should already be types
+             ;; only need to check is-type? for user-entered types
              (pattern pat))
            (define (τ-match ty)
              (or (match-type ty tycon pat-class)
@@ -183,7 +185,12 @@
               #:when (typecheck? #'tycon #'tmp)
               (stx-length #'(τ_arg (... ...)))])))]))
 
-(define-syntax #%type (syntax-parser [(_ τ) #'τ]))
+;; when combining #%type's with #%plain-type's, eg when inferring type for λ
+;; (call this mixed type) we create a type that still needs expansion, ie type-eval
+;; With the #%type and #%plain-type distinction, mixed types can simply be eval'ed
+;; and the #%plain-type will wrappers will simply go away
+(define-syntax #%type (syntax-parser [(_ τ) #'τ]))       ; surface stx
+(define-syntax #%plain-type (syntax-parser [(_ τ) #'τ])) ; expanded representation
 
 ;; syntax classes
 (begin-for-syntax
@@ -192,7 +199,9 @@
     ;; norm = canonical form for the type
     (pattern τ
      #:fail-unless (is-type? #'τ)
-                   (format "not a valid type: ~a" (syntax->datum #'τ))
+                   (format "~a (~a:~a) not a valid type: ~a"
+                           (syntax-source #'τ) (syntax-line #'τ) (syntax-column #'τ)
+                           (syntax->datum #'τ))
      #:attr norm (delay ((current-type-eval) #'τ)))
     #;(pattern tycon:id
      #:when (procedure? (syntax-local-value #'tycon (λ _ #f)))
@@ -232,10 +241,15 @@
              #:with norm #'τ.norm)))
 
 (begin-for-syntax
+  (define-syntax (⊢ stx)
+    (syntax-parse stx #:datum-literals (:)
+      [(_ e : τ) #'(assign-type #'e #'τ)]
+      [(_ e τ) #'(⊢ e : τ)]))
+       
   ;; ⊢ : Syntax Type -> Syntax
   ;; Attaches type τ to (expanded) expression e.
   ;; must eval here, to catch unbound types
-  (define (⊢ e τ #:tag [tag 'type])
+  (define (assign-type e τ #:tag [tag 'type])
     (syntax-property e tag (syntax-local-introduce ((current-type-eval) τ))))
     ;(syntax-property e tag τ))
   
@@ -279,7 +293,7 @@
        (expand/df
         #`(λ #,tvs
             (λ (x ...)
-              (let-syntax ([x (make-rename-transformer (⊢ #'x #'τ #:tag '#,tag))] ...)
+              (let-syntax ([x (make-rename-transformer (assign-type #'x #'τ #:tag '#,tag))] ...)
                 (#%expression e) ...))))
        (list #'tvs+ #'xs+ #'(e+ ...)
              (stx-map syntax-local-introduce (stx-map typeof #'(e+ ...))))]
@@ -304,7 +318,7 @@
 
   (define current-typecheck-relation (make-parameter #f))
   (define (typecheck? t1 t2)
-    ((current-typecheck-relation) t1 t2))
+    ((current-typecheck-relation) ((current-type-eval) t1) ((current-type-eval) t2)))
   (define (typechecks? τs1 τs2)
     (and (= (stx-length τs1) (stx-length τs2))
          (stx-andmap typecheck? τs1 τs2)))
@@ -314,10 +328,14 @@
 
   (define current-promote (make-parameter (λ (x) x)))
 
+  ;; only check top level; tycons are responsible for verifying their own args
   (define (is-type? τ)
-    (syntax-parse (local-expand τ 'expression (list #'#%type))
-      [((~literal #%type) t) #t]
-      [_ #f]))
+    (or (plain-type? τ)
+        ; partial expand to reveal #%type wrapper
+        (syntax-parse (local-expand τ 'expression (list #'#%type))
+          [((~literal #%type) _) #t] [_ #f])))
+  (define (plain-type? τ)
+    (syntax-parse τ [((~literal #%plain-type) _) #t] [_ #f]))
         
   ;; term expansion
   ;; expand/df : Syntax -> Syntax
@@ -352,11 +370,11 @@
            (provide (rename-out [op/tc op]))
            (define-syntax (op/tc stx)
              (syntax-parse stx
-               [f:id (⊢ (syntax/loc stx op) #'τ)] ; HO case
+               [f:id (assign-type (syntax/loc stx op) #'τ)] ; HO case
                [(_ x (... ...))
                 #:with app (datum->syntax stx '#%app)
                 #:with op (format-id stx "~a" #'op)
-                #'(app op x (... ...))])))]))
+                (syntax/loc stx (app op x (... ...)))])))]))
 
 (define-for-syntax (mk-pred x) (format-id x "~a?" x))
 (define-for-syntax (mk-acc base field) (format-id base "~a-~a" base field))
