@@ -1,7 +1,10 @@
 #lang racket/base
 (require
-  (for-syntax racket syntax/parse racket/syntax syntax/stx "stx-utils.rkt")
-  (for-meta 2 racket/base syntax/parse))
+  (for-syntax (except-in racket extends)
+              syntax/parse racket/syntax syntax/stx
+              "stx-utils.rkt")
+  (for-meta 2 racket/base syntax/parse)
+  racket/provide)
 (provide 
  (for-syntax (all-defined-out)) (all-defined-out)
  (for-syntax
@@ -25,6 +28,30 @@
 
 (struct exn:fail:type:runtime exn:fail:user ())
 
+;; need options for
+;; - pass through
+;;   - use (generated) prefix to avoid conflicts
+;;   - exceptions - dont pass through
+;;     - either because id from another lang, or extending
+;; - use in impl
+;;   - either as is
+;;   - or prefixed
+(define-syntax extends
+  (syntax-parser
+    [(_ base-lang
+        (~optional (~seq #:use (x ...)) #:defaults ([(x 1) null])))
+     #:with pre (generate-temporary)
+     #:with pre: (format-id #'pre "~a:" #'pre)
+     #'(begin
+         (require (prefix-in pre: base-lang))
+         (require (only-in base-lang x ...))
+         (provide (filtered-out
+                   (let ([pre-pat (regexp (format "^~a" (syntax->datum #'pre:)))])
+                     (λ (name)
+                       (and (regexp-match? pre-pat name)
+                            (regexp-replace pre-pat name ""))))
+                   (all-from-out base-lang))))]))
+                 
 ;; when combining #%type's with #%plain-type's, eg when inferring type for λ
 ;; (call this mixed type) we create a type that still needs expansion, ie eval
 ;; With the #%type and #%plain-type distinction, mixed types can be evaled
