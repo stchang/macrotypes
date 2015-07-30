@@ -3,7 +3,7 @@
   (for-syntax (except-in racket extends)
               syntax/parse racket/syntax syntax/stx
               "stx-utils.rkt")
-  (for-meta 2 racket/base syntax/parse)
+  (for-meta 2 racket/base syntax/parse racket/syntax)
   racket/provide)
 (provide 
  (for-syntax (all-defined-out)) (all-defined-out)
@@ -39,7 +39,7 @@
 (define-syntax extends
   (syntax-parser
     [(_ base-lang
-        (~optional (~seq #:use (x ...)) #:defaults ([(x 1) null])))
+        (~optional (~seq #:impl-uses (x ...)) #:defaults ([(x 1) null])))
      #:with pre (generate-temporary)
      #:with pre: (format-id #'pre "~a:" #'pre)
      #'(begin
@@ -122,18 +122,25 @@
 
 (define-syntax define-type-constructor
   (syntax-parser
-    [(_ (τ:id . pat))
+    [(_ (τ:id . pat)
+        (~optional (~seq #:lits (lit ...)) #:defaults ([(lit 1) null]))
+        decls ...
+        #;(~optional (~seq (~seq #:decl tvar (~datum as) cls) ...)
+                   #:defaults ([(tvar 1) null][(cls 1) null])))
      #:with τ-match (format-id #'τ "~a-match" #'τ)
      #:with τ? (format-id #'τ "~a?" #'τ)
+     #:with τ-get (format-id #'τ "~a-get" #'τ)
      #:with τ-match+erase (format-id #'τ "~a-match+erase" #'τ)
      #:with pat-class (generate-temporary #'τ) ; syntax-class name
      #:with tycon (generate-temporary #'τ) ; need a runtime id for expansion
-     #'(begin
+     #`(begin
+         (define lit void) ...
          (provide τ)
          (begin-for-syntax
-           (define-syntax-class pat-class
+           (define-syntax-class pat-class #:literals (lit ...)
              ;; dont check is-type? here; should already be types
-             ;; only need to check is-type? for user-entered types
+             ;; only check is-type? for user-entered types, eg tycon call
+             ;; thus, dont include decls here, only want shape
              (pattern pat))
            (define (τ-match ty)
              (or (match-type ty tycon pat-class)
@@ -146,17 +153,38 @@
            ;; expression version of τ-match
            (define (τ-match+erase e)
              (syntax-parse (infer+erase e)
-               [(e- τ)
-                #:with τ_matched (τ-match #'τ)
-                #'(e- τ_matched)])))
+               [(e- ty)
+                #:with τ_matched/#f (match-type #'ty tycon pat-class)
+                #:fail-unless (syntax-e #'τ_matched/#f)
+                              (format
+                               "~a (~a:~a): Expected type of expression ~a to match pattern ~a, got: ~a"
+                               (syntax-source e) (syntax-line e) (syntax-column e)
+                               (syntax->datum e) (type->str (quote-syntax (τ . pat))) (type->str #'ty))
+                #'(e- τ_matched/#f)]))
+           ;; get syntax bound to specific pat var (as declared in def-tycon)
+           (define-syntax (τ-get stx)
+             (syntax-parse stx #:datum-literals (from)
+               [(_ attr from ty)
+                #:with args (generate-temporary)
+                #:with args.attr (format-id #'args "~a.~a" #'args #'attr)
+                #'(syntax-parse ((current-type-eval) ty)
+                    [((~literal #%plain-type) ((~literal #%plain-app) t . args))
+                     #:declare args pat-class ; check shape of arguments
+                     #:fail-unless (typecheck? #'t #'tycon) ; check tycons match
+                                   (format "Type error: expected ~a type, got ~a"
+                                           (type->str #'τ) (type->str ty))
+                     (attribute args.attr)])])))
          (define tycon (λ _ (raise (exn:fail:type:runtime
                                     (format "~a: Cannot use type at run time" 'τ)
                                     (current-continuation-marks)))))
          (define-syntax (τ stx)
-           (syntax-parse stx
-             [(_ . pat) ; first check shape
-              #:with (~! (~var t type) (... ...)) #'pat ; then check for valid types
-              #'(#%type (tycon . pat))]
+           (syntax-parse stx #:literals (lit ...)
+             [(_ . (~and pat !~ args)) ; first check shape
+              ; this inner syntax-parse gets the ~! to register
+              ; otherwise, apparently #:declare's get subst into pat (before ~!)
+              (syntax-parse #'args
+                [pat #,@#'(decls ...) ; then check declarations (eg, valid type)
+                 #'(#%type (tycon . args))])]
              [_ (type-error #:src stx
                             #:msg "Improper usage of type constructor ~a: ~a, expected pattern ~a"
                             #'τ stx (quote-syntax (τ . pat)))])))]))
@@ -258,7 +286,7 @@
   ;; macro for nicer syntax
   (define-syntax (⊢ stx)
     (syntax-parse stx #:datum-literals (:)
-      [(_ e : τ) #'(assign-type #'e #'τ)]
+      [(_ e : τ) #'(assign-type #'e #`τ)]
       [(_ e τ) #'(⊢ e : τ)]))
        
   ;; assign-type Type -> Syntax

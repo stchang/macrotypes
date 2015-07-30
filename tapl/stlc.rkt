@@ -48,7 +48,9 @@
   (define current-type=? (make-parameter type=?))
   (current-typecheck-relation type=?))
 
-(define-type-constructor (→ τ_in ... τ_out))
+(define-type-constructor (→ τ_in ... τ_out)
+  #:declare τ_in type
+  #:declare τ_out type)
 
 (define-syntax (λ/tc stx)
   (syntax-parse stx 

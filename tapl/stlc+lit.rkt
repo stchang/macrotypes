@@ -1,7 +1,8 @@
 #lang racket/base
 (require "typecheck.rkt")
-(require "stlc.rkt")
-(provide (all-from-out "stlc.rkt"))
+(extends "stlc.rkt" #:impl-uses (→))
+;(require "stlc.rkt")
+;(provide (all-from-out "stlc.rkt"))
 (provide (rename-out [datum/tc #%datum]))
  
 ;; Simply-Typed Lambda Calculus, plus numeric literals and primitives
