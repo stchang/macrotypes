@@ -61,6 +61,9 @@
 (define-syntax (app/tc stx)
   (syntax-parse stx
     [(_ e_fn e_arg ...)
+;     #:with [e_fn- τ_fn] (infer+erase #'e_fn)
+;     #:with (τ_in ...) (→-get τ_in from #'τ_fn)
+;     #:with τ_out (→-get τ_out from #'τ_fn)
      #:with [e_fn- (τ_in ... τ_out)] (→-match+erase #'e_fn)
      #:with ([e_arg- τ_arg] ...) (infers+erase #'(e_arg ...))
      #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))

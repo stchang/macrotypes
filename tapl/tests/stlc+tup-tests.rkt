@@ -12,8 +12,11 @@
 (check-type (proj (tup 1 "2" #f) 0) : Int ⇒ 1)
 (check-type (proj (tup 1 "2" #f) 1) : String ⇒ "2")
 (check-type (proj (tup 1 "2" #f) 2) : Bool ⇒ #f)
-(typecheck-fail (proj (tup 1 "2" #f) 3)) ; index too large
-(typecheck-fail (proj 1 2)) ; not tuple
+(typecheck-fail (proj (tup 1 "2" #f) 3) #:with-msg "index too large")
+(typecheck-fail
+ (proj 1 2)
+ #:with-msg
+ "Expected type of expression 1 to match pattern \\(× τ ...\\), got: Int")
 
 ;; ext-stlc.rkt tests ---------------------------------------------------------
 ;; should still pass

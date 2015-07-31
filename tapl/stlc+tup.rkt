@@ -14,18 +14,17 @@
 ;; - terms from ext-stlc.rkt
 ;; - tup and proj
 
-(define-type-constructor ×)
+(define-type-constructor (× τ ...) #:declare τ type)
 
 (define-syntax (tup stx)
   (syntax-parse stx
     [(_ e ...)
-     #:with ((e- τ) ...) (infers+erase #'(e ...))
-     (⊢ #'(list e- ...) #'(× τ ...))]))
+     #:with ([e- τ] ...) (infers+erase #'(e ...))
+     (⊢ (list e- ...) : (× τ ...))]))
 (define-syntax (proj stx)
   (syntax-parse stx
-    [(_ tup n:integer)
-     #:with (tup- τ_tup) (infer+erase #'tup)
-     #:fail-unless (×? #'τ_tup) "not tuple type"
-     #:fail-unless (< (syntax-e #'n) (×-num-args #'τ_tup)) "proj index too large"
-     (⊢ #'(list-ref tup n) (×-ref #'τ_tup (syntax-e #'n)))]))
+    [(_ e_tup n:integer)
+     #:with [e_tup- τs_tup] (×-match+erase #'e_tup)
+     #:fail-unless (< (syntax-e #'n) (stx-length #'τs_tup)) "proj index too large"
+     (⊢ (list-ref e_tup- n) : #,(stx-list-ref #'τs_tup (syntax-e #'n)))]))
    

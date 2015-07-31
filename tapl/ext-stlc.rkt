@@ -78,7 +78,7 @@
 (define-syntax (begin/tc stx)
   (syntax-parse stx
     [(_ e_unit ... e)
-     #:with ((e_unit- τ_unit) ...) (infers+erase #'(e_unit ...))
+     #:with ([e_unit- τ_unit] ...) (infers+erase #'(e_unit ...))
      #:with (e- τ) (infer+erase #'e)
      #:fail-unless (stx-andmap Unit? #'(τ_unit ...))
                    (string-append

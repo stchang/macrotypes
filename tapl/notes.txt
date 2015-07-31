@@ -1,3 +1,21 @@
+2015-07-31
+Problem: pattern-expander not being recognized
+Solution: syntax-parse pattern directives must begin with ~ prefix
+
+2015-07-30:
+Problem: How to match against an "expanded" type when I have an unexpanded pat?
+- use the 'orig syntax?
+  - this would probably work but now 'orig is used for more than debugging/msgs
+  - so dont do this
+  - also, wont work because you're only matching part of the type
+- use pattern expanders!
+  - a declared literal in define-type-constructor is defined as *both*:
+    - and macro that applies a temporary id (defined as void)
+    - a  pattern-expander that expands into the expanded form: 
+      ((~literal #%plain-app) (~literal tmp-id) . args)
+
+Note to self: when getting weird macro pattern matching errors, always check if you're accidentally using a pattern variable!
+
 2015-07-28
 Problem: How to handle mixed types, ie combining expanded and unexpanded types.
 Problem: When to eval, ie expand, types into canonical form

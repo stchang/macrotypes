@@ -112,9 +112,10 @@
  #:with-msg
  "Arguments to function.+have wrong type.+Given:.+Int.+Expected:.+Bool")
 ;(typecheck-fail (λ ([x : Bool]) x)) ; Bool is now valid type
-(typecheck-fail (λ ([f : Int]) (f 1 2))
-                #:with-msg
-                "Expected type with pattern: \\(→ τ_in ... τ_out\\), got: Int")
+(typecheck-fail
+ (λ ([f : Int]) (f 1 2))
+ #:with-msg
+ "Expected type of expression f to match pattern \\(→ τ_in ... τ_out\\), got: Int")
 
 (check-type (λ ([f : (→ Int Int Int)] [x : Int] [y : Int]) (f x y))
             : (→ (→ Int Int Int) Int Int Int))

@@ -2,8 +2,10 @@
 (require
   (for-syntax (except-in racket extends)
               syntax/parse racket/syntax syntax/stx
-              "stx-utils.rkt")
+              "stx-utils.rkt"
+              syntax/parse/debug)
   (for-meta 2 racket/base syntax/parse racket/syntax)
+  (for-meta 3 racket/base syntax/parse racket/syntax)
   racket/provide)
 (provide 
  (for-syntax (all-defined-out)) (all-defined-out)
@@ -118,11 +120,13 @@
                           (format "Type error: expected ~a type, got ~a"
                                   (type->str #'τ) (type->str ty))
             #'args]
-           [_ #f])])))
+           [_ #f])]))
+)
 
 (define-syntax define-type-constructor
   (syntax-parser
     [(_ (τ:id . pat)
+        ; lits must have ~ prefix (for syntax-parse compat) for now
         (~optional (~seq #:lits (lit ...)) #:defaults ([(lit 1) null]))
         decls ...
         #;(~optional (~seq (~seq #:decl tvar (~datum as) cls) ...)
@@ -133,15 +137,43 @@
      #:with τ-match+erase (format-id #'τ "~a-match+erase" #'τ)
      #:with pat-class (generate-temporary #'τ) ; syntax-class name
      #:with tycon (generate-temporary #'τ) ; need a runtime id for expansion
+     #:with (lit-tmp ...) (generate-temporaries #'(lit ...))
      #`(begin
-         (define lit void) ...
+         ;; list can't be function, ow it will use typed #%app
+         ;; define lit as macro that expands into #%app,
+         ;; so it will use the #%app here (racket's #%app)
+         (define lit-tmp void) ...
+         (define-syntax lit (syntax-parser [(_ . xs) #'(lit-tmp . xs)])) ...
+         (provide lit ...)
          (provide τ)
          (begin-for-syntax
-           (define-syntax-class pat-class #:literals (lit ...)
+           (define-syntax lit
+             (pattern-expander
+              (syntax-parser
+                [(_ . xs)
+                 ;#:when (displayln "pattern expanding")
+                 #'((~literal #%plain-app) (~literal lit-tmp) . xs)]))) ...
+           (define-syntax-class pat-class
              ;; dont check is-type? here; should already be types
              ;; only check is-type? for user-entered types, eg tycon call
              ;; thus, dont include decls here, only want shape
-             (pattern pat))
+             #;(pattern (~and pre (~do (printf "trying to match: ~a\n"(syntax->datum  #'pre))) pat (~do (displayln "no")))) ; uses "lit" pattern expander
+             (pattern pat)
+             #;(pattern any
+                      #:when (printf "trying to match: ~a\n" (syntax->datum #'any))
+                      #:when (printf "orig: ~a\n" (type->str #'any))
+                      #:when (printf "against pattern: ~a\n" (syntax->datum (quote-syntax pat)))
+                      #:when (displayln #`(#,(stx-cdr (stx-car #'any))))
+                      #:when (pretty-print (debug-parse #`(#,(stx-cdr (stx-car #'any))) pat))
+                      #:with pat #'any) ;#`(#,(stx-cdr (stx-car #'any))))
+             #;(pattern any
+                      #:when (displayln "match failed")
+                      #:when (displayln "pat: ")
+                      #:when (displayln (quote-syntax pat))
+                      #:when (displayln #'any)
+                      #:when (displayln "orig")
+                      #:when (displayln (type->str #'any))
+                      #:with pat #'any))
            (define (τ-match ty)
              (or (match-type ty tycon pat-class)
                  ;; error msg should go in specific macro def?
@@ -167,12 +199,12 @@
                [(_ attr from ty)
                 #:with args (generate-temporary)
                 #:with args.attr (format-id #'args "~a.~a" #'args #'attr)
-                #'(syntax-parse ((current-type-eval) ty)
-                    [((~literal #%plain-type) ((~literal #%plain-app) t . args))
+                #'(syntax-parse ((current-type-eval) #'ty)
+                    [((~literal #%plain-type) ((~literal #%plain-app) (~literal tycon) . args))
                      #:declare args pat-class ; check shape of arguments
-                     #:fail-unless (typecheck? #'t #'tycon) ; check tycons match
-                                   (format "Type error: expected ~a type, got ~a"
-                                           (type->str #'τ) (type->str ty))
+;                     #:fail-unless (typecheck? #'t #'tycon) ; check tycons match
+;                                   (format "Type error: expected ~a type, got ~a"
+;                                           (type->str #'τ) (type->str #'ty))
                      (attribute args.attr)])])))
          (define tycon (λ _ (raise (exn:fail:type:runtime
                                     (format "~a: Cannot use type at run time" 'τ)
@@ -182,12 +214,21 @@
              [(_ . (~and pat !~ args)) ; first check shape
               ; this inner syntax-parse gets the ~! to register
               ; otherwise, apparently #:declare's get subst into pat (before ~!)
-              (syntax-parse #'args
+              (syntax-parse #'args #:literals (lit ...)
                 [pat #,@#'(decls ...) ; then check declarations (eg, valid type)
                  #'(#%type (tycon . args))])]
-             [_ (type-error #:src stx
-                            #:msg "Improper usage of type constructor ~a: ~a, expected pattern ~a"
-                            #'τ stx (quote-syntax (τ . pat)))])))]))
+             [_
+              (type-error #:src stx
+                          #:msg (string-append
+                                 "Improper usage of type constructor ~a: ~a, expected pattern ~a, "
+                                 #;(format
+                                  "where: ~a"
+                                  (string-join
+                                   (stx-map
+                                    (λ (typ clss) (format "~a is a ~a" typ clss))
+                                    #'(ty (... ...)) #'(cls (... ...)))
+                                   ", ")))
+                          #'τ stx (quote-syntax (τ . pat)))])))]))
 
 ;; TODO: refine this to enable specifying arity information
 ;; type constructors currently must have 1+ arguments
