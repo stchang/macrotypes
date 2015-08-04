@@ -7,7 +7,7 @@
 (provide (except-out (all-from-out "stlc+tup.rkt")
                      stlc:#%app stlc:let stlc:begin stlc:tup stlc:proj
                      (for-syntax stlc:type=?)))
-(provide tup proj); var case)
+(provide tup proj var case)
 (provide (for-syntax type=?))
 
 
@@ -56,7 +56,7 @@
 
 ; re-define tuples as records
 (define-type-constructor
-  (× [~$ label τ_fld] ...) #:lits (~$)
+  (× [~× label τ_fld] ...) #:lits (~×)
   #:declare label str
   #:declare τ_fld type
   )
@@ -68,12 +68,12 @@
   (syntax-parse stx #:datum-literals (=)
     [(_ [l:str = e] ...)
      #:with ([e- τ] ...) (infers+erase #'(e ...))
-     (⊢ (list (list l e-) ...) : (× [~$ l τ] ...))]
+     (⊢ (list (list l e-) ...) : (× [~× l τ] ...))]
     #;[(_ e ...)
      #'(stlc:tup e ...)]))
 (define-syntax (proj stx)
   (syntax-parse stx #:literals (quote)
-    [(_ rec l:str ~!)
+    [(_ rec l:str)
      #:with [rec- τ_rec] (infer+erase #'rec)
 ;     #:when (printf "inferred type: ~a\n" (syntax->datum #'τ_rec))
 ;     #:when (printf "inferred type eval ~a\n" (syntax->datum ((current-type-eval) #'τ_rec)))
@@ -86,32 +86,39 @@
     #;[(_ e ...) #'(stlc:proj e ...)]))
 
 
-#;(define-type-constructor (∨ [: label τ] ...))
+(define-type-constructor
+  (∨ [~∨ label τ_var] ...) #:lits (~∨)
+  #:declare label str
+  #:declare τ_var type)
 
-#;(define-syntax (var stx)
+(define-syntax (var stx)
   (syntax-parse stx #:datum-literals (as =) #:literals (quote)
     [(_ l:str = e as τ:type)
-     #:when (∨? #'τ.norm)
-     #:with (['l_τ:str τ_l] ...) (stx-map :-args (∨-args #'τ.norm))
+;     #:when (∨? #'τ.norm)
+;     #:with (['l_τ:str τ_l] ...) (stx-map :-args (∨-args #'τ.norm))
+     #:with ('l_τ:str ...) (∨-get label from τ)
+     #:with (τ_l ...) (∨-get τ_var from τ)
      #:with (l_match:str τ_match) (str-stx-assoc #'l #'((l_τ τ_l) ...))
      #:with (e- τ_e) (infer+erase #'e)
      #:when (typecheck? #'τ_e #'τ_match)
-     (⊢ #'(list l e) #'τ.norm)]))
-#;(define-syntax (case stx)
+     (⊢ (list l e) : τ)]))
+(define-syntax (case stx)
   (syntax-parse stx #:datum-literals (of =>) #:literals (quote)
     [(_ e [l:str x => e_l] ...)
      #:fail-when (null? (syntax->list #'(l ...))) "no clauses"
      #:with (e- τ_e) (infer+erase #'e)
-     #:when (∨? #'τ_e)
-     #:with (['l_x:str τ_x] ...) (stx-map :-args (∨-args #'τ_e))
+     #:with ('l_x:str ...) (∨-get label from τ_e)
+     #:with (τ_x ...) (∨-get τ_var from τ_e)
+;     #:when (∨? #'τ_e)
+;     #:with (['l_x:str τ_x] ...) (stx-map :-args (∨-args #'τ_e))
      #:fail-unless (= (stx-length #'(l ...)) (stx-length #'(l_x ...))) "wrong number of case clauses"
      #:fail-unless (typechecks? #'(l ...) #'(l_x ...)) "case clauses not exhaustive"
      #:with (((x-) e_l- τ_el) ...)
             (stx-map (λ (bs e) (infer/type-ctxt+erase bs e)) #'(([x : τ_x]) ...) #'(e_l ...))
      #:fail-unless (same-types? #'(τ_el ...)) "branches have different types"
-     (⊢ #'(let ([l_e (car e-)])
-            (cond [(string=? l_e l) (let ([x- (cadr e-)]) e_l-)] ...))
-        (stx-car #'(τ_el ...)))]))
+     (⊢ (let ([l_e (car e-)])
+          (cond [(string=? l_e l) (let ([x- (cadr e-)]) e_l-)] ...))
+        : #,(stx-car #'(τ_el ...)))]))
 
 (define-syntax (define/tc stx)
   (syntax-parse stx
