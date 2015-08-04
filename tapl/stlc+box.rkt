@@ -13,24 +13,24 @@
 ;; Terms:
 ;; - terms from stlc+cons.rkt
 
-(define-type-constructor Ref #:arity 1)
+(define-type-constructor (Ref τ) #:declare τ type)
 
 (define-syntax (ref stx)
   (syntax-parse stx
     [(_ e)
      #:with (e- τ) (infer+erase #'e)
-     (⊢ #'(box e-) #'(Ref τ))]))
+     (⊢ (box e-) : (Ref τ))]))
 (define-syntax (deref stx)
   (syntax-parse stx
     [(_ e)
      #:with (e- ref-τ) (infer+erase #'e)
-     #:with (τ) (Ref-args #'ref-τ)
-     (⊢ #'(unbox e-) #'τ)]))
+     #:with τ (Ref-get τ from ref-τ)
+     (⊢ (unbox e-) : τ)]))
 (define-syntax (:= stx)
   (syntax-parse stx
     [(_ e_ref e)
      #:with (e_ref- ref-τ) (infer+erase #'e_ref)
-     #:with (τ1) (Ref-args #'ref-τ)
+     #:with τ1 (Ref-get τ from ref-τ)
      #:with (e- τ2) (infer+erase #'e)
      #:when (typecheck? #'τ1 #'τ2)
-     (⊢ #'(set-box! e_ref- e-) #'Unit)]))
+     (⊢ (set-box! e_ref- e-) : Unit)]))

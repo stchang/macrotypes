@@ -130,10 +130,10 @@
 ;; should still pass
 
 ;; new literals and base types
-;(check-type "one" : String) ; literal now supported
-;(check-type #f : Bool) ; literal now supported
+(check-type "one" : String) ; literal now supported
+(check-type #f : Bool) ; literal now supported
 
-;(check-type (λ ([x : Bool]) x) : (→ Bool Bool)) ; Bool is now valid type
+(check-type (λ ([x : Bool]) x) : (→ Bool Bool)) ; Bool is now valid type
 
 ;; Unit
 (check-type (void) : Unit)
