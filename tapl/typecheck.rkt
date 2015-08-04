@@ -199,10 +199,17 @@
                [(_ attr from ty)
                 #:with args (generate-temporary)
                 #:with args.attr (format-id #'args "~a.~a" #'args #'attr)
-                #'(syntax-parse ((current-type-eval) #'ty)
-                    [((~literal #%plain-type) ((~literal #%plain-app) (~literal tycon) . args))
+                #:with the-pat (quote-syntax (τ . pat))
+                #'(syntax-parse #'ty ;((current-type-eval) #'ty)
+                    [typ ;((~literal #%plain-type) ((~literal #%plain-app) f . args))
+                     #:fail-unless (τ? #'typ)
+                                   (format "~a (~a:~a) Expected type with pattern: ~a, got: ~a"
+                                           (syntax-source  #'typ) (syntax-line #'typ) (syntax-column #'typ)
+                                           (type->str (quote-syntax the-pat)) (type->str #'typ))
+                     #:with ((~literal #%plain-type) ((~literal #%plain-app) f . args))
+                            ((current-type-eval) #'typ)
                      #:declare args pat-class ; check shape of arguments
-;                     #:fail-unless (typecheck? #'t #'tycon) ; check tycons match
+;                     #:fail-unless (typecheck? #'f #'tycon) ; check tycons match
 ;                                   (format "Type error: expected ~a type, got ~a"
 ;                                           (type->str #'τ) (type->str #'ty))
                      (attribute args.attr)])])))
@@ -316,11 +323,20 @@
     (define paren-shape/#f (syntax-property stx 'paren-shape))
     (and paren-shape/#f (char=? paren-shape/#f #\{)))
   (define-syntax-class ann ; type instantiation
+    #:attributes (τ norm)
     (pattern stx
              #:when (stx-pair? #'stx)
              #:when (brace? #'stx)
              #:with (τ:type) #'stx
-             #:attr norm (delay #'τ.norm))))
+             #:attr norm (delay #'τ.norm))
+    (pattern any
+     #:fail-when #t
+     (format
+      (string-append
+       "Improperly formatted type annotation: ~a; should have shape {τ}, "
+       "where τ is a valid type.")
+      (type->str #'any))
+      #:attr τ #f #:attr norm #f)))
 
 ;; type assignment
 (begin-for-syntax

@@ -15,12 +15,12 @@
 
 ;; TODO: enable HO use of list primitives
 
-(define-type-constructor List #:arity 1)
+(define-type-constructor (List τ) #:declare τ type)
 
 (define-syntax (nil stx)
   (syntax-parse stx
-    [(_ τi:ann)
-     (⊢ #'null #'(List τi.τ))]
+    [(_ ~! τi:ann)
+     (⊢ null : (List τi.τ))]
     [null:id
      #:fail-when #t (error 'nil "requires type annotation")
      #'null]))
@@ -29,24 +29,26 @@
     [(_ e1 e2)
      #:with (e1- τ1) (infer+erase #'e1)
      #:with (e2- τ-lst) (infer+erase #'e2)
-     #:with (τ2) (List-args #'τ-lst)
+;     #:when (displayln #'τ-lst)
+     #:with τ2 (List-get τ from τ-lst)
+ ;    #:when (displayln #'τ2)
      #:when (typecheck? #'τ1 #'τ2)
-     (⊢ #'(cons e1- e2-) #'(List τ1))]))
+     (⊢ (cons e1- e2-) : (List τ1))]))
 (define-syntax (isnil stx)
   (syntax-parse stx
     [(_ e)
      #:with (e- τ-lst) (infer+erase #'e)
-     #:when (List? #'τ-lst)
-     (⊢ #'(null? e-) #'Bool)]))
+     #:fail-unless (List? #'τ-lst) "expected argument of List type"
+     (⊢ (null? e-) : Bool)]))
 (define-syntax (head stx)
   (syntax-parse stx
     [(_ e)
      #:with (e- τ-lst) (infer+erase #'e)
-     #:with (τ) (List-args #'τ-lst)
-     (⊢ #'(car e-) #'τ)]))
+     #:with τ (List-get τ from τ-lst)
+     (⊢ (car e-) : τ)]))
 (define-syntax (tail stx)
   (syntax-parse stx
     [(_ e)
      #:with (e- τ-lst) (infer+erase #'e)
      #:when (List? #'τ-lst)
-     (⊢ #'(cdr e-) #'τ-lst)]))
+     (⊢ (cdr e-) : τ-lst)]))

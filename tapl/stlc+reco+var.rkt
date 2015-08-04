@@ -126,5 +126,5 @@
      #:with (e- τ) (infer+erase #'e)
      #:with y (generate-temporary)
      #'(begin
-         (define-syntax x (make-rename-transformer (⊢ #'y #'τ)))
+         (define-syntax x (make-rename-transformer (⊢ y : τ)))
          (define y e-))]))
