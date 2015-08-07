@@ -162,7 +162,9 @@
 
 (define-syntax define-type-constructor
   (syntax-parser
-    [(_ (τ:id (~optional bvs-pat:bound-vars #:defaults ([bvs-pat.stx #'[[]]])) . pat)
+    [(_ (τ:id (~optional (~and bvs-pat:bound-vars bvs-test)
+                         #:defaults ([bvs-pat.stx #'[[]]]))
+              . pat)
         ; lits must have ~ prefix (for syntax-parse compat) for now
         (~optional (~seq #:lits (lit ...)) #:defaults ([(lit 1) null]))
         decls ...
@@ -269,7 +271,8 @@
                                     (current-continuation-marks)))))
          (define-syntax (τ stx)
            (syntax-parse stx #:literals (lit ...)
-             [(_ (~optional (~and bvs:bound-vars bvs-pat.stx) #:defaults ([(bvs.x 1) null]))
+             [(_ (~optional (~and bvs:bound-vars bvs-pat.stx)
+                            #:defaults ([(bvs.x 1) null]))
                  . (~and pat !~ args)) ; first check shape
               ; this inner syntax-parse gets the ~! to register
               ; otherwise, apparently #:declare's get subst into pat (before ~!)
@@ -280,6 +283,10 @@
                       (let-syntax ([bvs.x (syntax-parser [bvs.x:id #'(#%type bvs.x)])] (... ...))
                         (tycon . args))))])]
              [_
+              #:with expected-pat
+                     #,(if (attribute bvs-test)
+                           #'(quote-syntax (τ bvs-pat.stx . pat))
+                           #'(quote-syntax (τ . pat)))
               (type-error #:src stx
                           #:msg (string-append
                                  "Improper usage of type constructor ~a: ~a, expected pattern ~a, "
@@ -290,7 +297,7 @@
                                     (λ (typ clss) (format "~a is a ~a" typ clss))
                                     #'(ty (... ...)) #'(cls (... ...)))
                                    ", ")))
-                          #'τ stx (quote-syntax (τ . pat)))])))]))
+                          #'τ stx #'expected-pat)])))]))
 
 ;; TODO: refine this to enable specifying arity information
 ;; type constructors currently must have 1+ arguments
@@ -429,6 +436,7 @@
     (syntax-parse ctx #:datum-literals (:)
       [([x : τ] ...) ; dont expand yet bc τ may have references to tvs
        #:with (e ...) es
+       #:with (tv ...) tvs
        #:with
        ; old expander pattern
        #;((~literal #%plain-lambda) tvs+
@@ -439,16 +447,17 @@
               ((~literal #%expression) e+) ...)))))
        ; new expander pattern
        ((~literal #%plain-lambda) tvs+
-        ((~literal #%expression)
-         ((~literal #%plain-lambda) xs+
-          ((~literal let-values) ()
-            ((~literal let-values) ()
-              ((~literal #%expression) e+) ...)))))
+        ((~literal let-values) () ((~literal let-values) ()
+         ((~literal #%expression)
+          ((~literal #%plain-lambda) xs+
+           ((~literal let-values) () ((~literal let-values) ()
+            ((~literal #%expression) e+) ...)))))))
        (expand/df
-        #`(λ #,tvs
-            (λ (x ...)
-              (let-syntax ([x (make-rename-transformer (assign-type #'x #'τ #:tag '#,tag))] ...)
-                (#%expression e) ...))))
+        #`(λ (tv ...)
+            (let-syntax ([tv (syntax-parser [tv:id #'(#%type tv)])] ...)
+              (λ (x ...)
+                (let-syntax ([x (make-rename-transformer (assign-type #'x #'τ #:tag '#,tag))] ...)
+                  (#%expression e) ...)))))
        (list #'tvs+ #'xs+ #'(e+ ...)
              (stx-map syntax-local-introduce (stx-map typeof #'(e+ ...))))]
       [([x τ] ...) (infer es #:ctx #'([x : τ] ...) #:tvs tvs)]))

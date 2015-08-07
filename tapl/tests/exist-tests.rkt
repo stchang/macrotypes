@@ -1,39 +1,39 @@
 #lang s-exp "../exist.rkt"
 (require "rackunit-typechecking.rkt")
 
-(check-type (pack (Int 0) as (∃ (X) X)) : (∃ (X) X))
-(check-type (pack (Int 0) as (∃ (X) X)) : (∃ (Y) Y))
-(typecheck-fail (pack (Int 0) as (∃ (X) Y)))
-(check-type (pack (Bool #t) as (∃ (X) X)) : (∃ (X) X))
-(typecheck-fail (pack (Int #t) as (∃ (X) X)))
+(check-type (pack (Int 0) as (∃ [[X]] X)) : (∃ [[X]] X))
+(check-type (pack (Int 0) as (∃ [[X]] X)) : (∃ [[Y]] Y))
+(typecheck-fail (pack (Int 0) as (∃ [[X]] Y)))
+(check-type (pack (Bool #t) as (∃ [[X]] X)) : (∃ [[X]] X))
+(typecheck-fail (pack (Int #t) as (∃ [[X]] X)))
 
 ; cant typecheck bc X has local scope, and no X elimination form
-;(check-type (open ([(X x) <= (pack (Int 0) as (∃ (X) X))]) x) : X) 
+;(check-type (open ([(X x) <= (pack (Int 0) as (∃ [[X]] X))]) x) : X) 
 
 (check-type 0 : Int)
 (check-type (+ 0 1) : Int ⇒ 1)
 (check-type ((λ ([x : Int]) (+ x 1)) 0) : Int ⇒ 1)
-(typecheck-fail (open ([(X x) <= (pack (Int 0) as (∃ (X) X))]) (+ x 1))) ; can't use as Int
+(typecheck-fail (open ([(X x) <= (pack (Int 0) as (∃ [[X]] X))]) (+ x 1))) ; can't use as Int
 
-(check-type (λ ([x : (∃ (X) X)]) x) : (→ (∃ (X) X) (∃ (Y) Y)))
-(check-type ((λ ([x : (∃ (X) X)]) x) (pack (Int 0) as (∃ (Z) Z)))
-            : (∃ (X) X) ⇒ 0)
-(check-type ((λ ([x : (∃ (X) X)]) x) (pack (Bool #t) as (∃ (Z) Z)))
-            : (∃ (X) X) ⇒ #t)
+(check-type (λ ([x : (∃ [[X]] X)]) x) : (→ (∃ [[X]] X) (∃ [[Y]] Y)))
+(check-type ((λ ([x : (∃ [[X]] X)]) x) (pack (Int 0) as (∃ [[Z]] Z)))
+            : (∃ [[X]] X) ⇒ 0)
+(check-type ((λ ([x : (∃ [[X]] X)]) x) (pack (Bool #t) as (∃ [[Z]] Z)))
+            : (∃ [[X]] X) ⇒ #t)
 
 ;; example where the two binding X's are conflated, see exist.rkt for explanation
-(check-type (open ([(X x) <= (pack (Int 0) as (∃ (X) X))]) ((λ ([y : X]) 1) x))
+(check-type (open ([(X x) <= (pack (Int 0) as (∃ [[X]] X))]) ((λ ([y : X]) 1) x))
             : Int ⇒ 1)
             
 (check-type
  (pack (Int (tup ["a" = 5] ["f" = (λ ([x : Int]) (+ x 1))]))
-       as (∃ (X) (× [: "a" X] [: "f" (→ X X)])))
- : (∃ (X) (× [: "a" X] [: "f" (→ X X)])))
+       as (∃ [[X]] (× [: "a" X] [: "f" (→ X X)])))
+ : (∃ [[X]] (× [: "a" X] [: "f" (→ X X)])))
 
 (define p4
   (pack (Int (tup ["a" = 5] ["f" = (λ ([x : Int]) (+ x 1))]))
-        as (∃ (X) (× [: "a" X] [: "f" (→ X Int)]))))
-(check-type p4 : (∃ (X) (× [: "a" X] [: "f" (→ X Int)])))
+        as (∃ [[X]] (× [: "a" X] [: "f" (→ X Int)]))))
+(check-type p4 : (∃ [[X]] (× [: "a" X] [: "f" (→ X Int)])))
 
 (check-not-type (open ([(X x) <= p4]) (proj x "a")) : Int) ; type is X, not Int
 ; type is (→ X X), not (→ Int Int)
@@ -43,37 +43,37 @@
 (check-type (open ([(X x) <= p4]) ((λ ([y : X]) ((proj x "f") y)) (proj x "a"))) : Int ⇒ 6)
 
 (check-type
- (open ([(X x) <= (pack (Int 0) as (∃ (Y) Y))])
+ (open ([(X x) <= (pack (Int 0) as (∃ [[Y]] Y))])
        ((λ ([y : X]) 1) x))
  : Int ⇒ 1)
 
 (check-type
  (pack (Int (tup ["a" = 5] ["f" = (λ ([x : Int]) (+ x 1))]))
-       as (∃ (X) (× [: "a" Int] [: "f" (→ Int Int)])))
- : (∃ (X) (× [: "a" Int] [: "f" (→ Int Int)])))
+       as (∃ [[X]] (× [: "a" Int] [: "f" (→ Int Int)])))
+ : (∃ [[X]] (× [: "a" Int] [: "f" (→ Int Int)])))
 
 (typecheck-fail
  (pack (Int (tup ["a" = 5] ["f" = (λ ([x : Int]) (+ x 1))]))
-       as (∃ (X) (× [: "a" Int] [: "f" (→ Bool Int)]))))
+       as (∃ [[X]] (× [: "a" Int] [: "f" (→ Bool Int)]))))
 
 (typecheck-fail
  (pack (Int (tup ["a" = 5] ["f" = (λ ([x : Int]) (+ x 1))]))
-       as (∃ (X) (× [: "a" X] [: "f" (→ X Bool)]))))
+       as (∃ [[X]] (× [: "a" X] [: "f" (→ X Bool)]))))
 
 (check-type
  (pack (Bool (tup ["a" = #t] ["f" = (λ ([x : Bool]) (if x 1 2))]))
-       as (∃ (X) (× [: "a" X] [: "f" (→ X Int)])))
- : (∃ (X) (× [: "a" X] [: "f" (→ X Int)])))
+       as (∃ [[X]] (× [: "a" X] [: "f" (→ X Int)])))
+ : (∃ [[X]] (× [: "a" X] [: "f" (→ X Int)])))
 
 (define counterADT
   (pack (Int (tup ["new" = 1]
                   ["get" = (λ ([i : Int]) i)]
                   ["inc" = (λ ([i : Int]) (+ i 1))]))
-        as (∃ (Counter) (× [: "new" Counter]
+        as (∃ [[Counter]] (× [: "new" Counter]
                            [: "get" (→ Counter Int)]
                            [: "inc" (→ Counter Counter)]))))
 (check-type counterADT :
-            (∃ (Counter) (× [: "new" Counter]
+            (∃ [[Counter]] (× [: "new" Counter]
                             [: "get" (→ Counter Int)]
                             [: "inc" (→ Counter Counter)])))
 (check-type
@@ -107,7 +107,7 @@
                                        ["read" = (λ ([c : Counter]) (is-even? (get c)))]
                                        ["toggle" = (λ ([c : Counter]) (inc c))]
                                        ["reset" = (λ ([c : Counter]) (new))]))
-                         as (∃ (FlipFlop) (× [: "new" FlipFlop]
+                         as (∃ [[FlipFlop]] (× [: "new" FlipFlop]
                                              [: "read" (→ FlipFlop Bool)]
                                              [: "toggle" (→ FlipFlop FlipFlop)]
                                              [: "reset" (→ FlipFlop FlipFlop)])))])
@@ -121,11 +121,11 @@
          (tup ["new" = (tup ["x" = 1])]
               ["get" = (λ ([i : (× [: "x" Int])]) (proj i "x"))]
               ["inc" = (λ ([i : (× [: "x" Int])]) (tup ["x" = (+ 1 (proj i "x"))]))]))
-        as (∃ (Counter) (× [: "new" Counter]
+        as (∃ [[Counter]] (× [: "new" Counter]
                            [: "get" (→ Counter Int)]
                            [: "inc" (→ Counter Counter)]))))
 (check-type counterADT2 :
-            (∃ (Counter) (× [: "new" Counter]
+            (∃ [[Counter]] (× [: "new" Counter]
                             [: "get" (→ Counter Int)]
                             [: "inc" (→ Counter Counter)])))
 
@@ -148,7 +148,7 @@
                                        ["read" = (λ ([c : Counter]) (is-even? (get c)))]
                                        ["toggle" = (λ ([c : Counter]) (inc c))]
                                        ["reset" = (λ ([c : Counter]) (new))]))
-                         as (∃ (FlipFlop) (× [: "new" FlipFlop]
+                         as (∃ [[FlipFlop]] (× [: "new" FlipFlop]
                                              [: "read" (→ FlipFlop Bool)]
                                              [: "toggle" (→ FlipFlop FlipFlop)]
                                              [: "reset" (→ FlipFlop FlipFlop)])))])
@@ -189,40 +189,40 @@
                 (× [: "name" String] [: "phone" Int] [: "is-male?" Bool]))
 
 ;; variants
-(check-type (var "coffee" = (void) as (∨ [: "coffee" Unit])) : (∨ [: "coffee" Unit]))
-(check-not-type (var "coffee" = (void) as (∨ [: "coffee" Unit])) : (∨ [: "coffee" Unit] [: "tea" Unit]))
-(typecheck-fail ((λ ([x : (∨ [: "coffee" Unit] [: "tea" Unit])]) x)
-                 (var "coffee" = (void) as (∨ [: "coffee" Unit]))))
-(check-type (var "coffee" = (void) as (∨ [: "coffee" Unit] [: "tea" Unit])) : (∨ [: "coffee" Unit] [: "tea" Unit]))
-(check-type (var "coffee" = (void) as (∨ [: "coffee" Unit] [: "tea" Unit] [: "coke" Unit]))
-            : (∨ [: "coffee" Unit] [: "tea" Unit] [: "coke" Unit]))
+(check-type (var "coffee" = (void) as (∨ [<> "coffee" Unit])) : (∨ [<> "coffee" Unit]))
+(check-not-type (var "coffee" = (void) as (∨ [<> "coffee" Unit])) : (∨ [<> "coffee" Unit] [<> "tea" Unit]))
+(typecheck-fail ((λ ([x : (∨ [<> "coffee" Unit] [<> "tea" Unit])]) x)
+                 (var "coffee" = (void) as (∨ [<> "coffee" Unit]))))
+(check-type (var "coffee" = (void) as (∨ [<> "coffee" Unit] [<> "tea" Unit])) : (∨ [<> "coffee" Unit] [<> "tea" Unit]))
+(check-type (var "coffee" = (void) as (∨ [<> "coffee" Unit] [<> "tea" Unit] [<> "coke" Unit]))
+            : (∨ [<> "coffee" Unit] [<> "tea" Unit] [<> "coke" Unit]))
 
 (typecheck-fail
- (case (var "coffee" = (void) as (∨ [: "coffee" Unit] [: "tea" Unit]))
+ (case (var "coffee" = (void) as (∨ [<> "coffee" Unit] [<> "tea" Unit]))
    ["coffee" x => 1])) ; not enough clauses
 (typecheck-fail
- (case (var "coffee" = (void) as (∨ [: "coffee" Unit] [: "tea" Unit]))
+ (case (var "coffee" = (void) as (∨ [<> "coffee" Unit] [<> "tea" Unit]))
    ["coffee" x => 1]
    ["teaaaaaa" x => 2])) ; wrong clause
 (typecheck-fail
- (case (var "coffee" = (void) as (∨ [: "coffee" Unit] [: "tea" Unit]))
+ (case (var "coffee" = (void) as (∨ [<> "coffee" Unit] [<> "tea" Unit]))
    ["coffee" x => 1]
    ["tea" x => 2]
    ["coke" x => 3])) ; too many clauses
 (typecheck-fail
- (case (var "coffee" = (void) as (∨ [: "coffee" Unit] [: "tea" Unit]))
+ (case (var "coffee" = (void) as (∨ [<> "coffee" Unit] [<> "tea" Unit]))
    ["coffee" x => "1"]
    ["tea" x => 2])) ; mismatched branch types
 (check-type
- (case (var "coffee" = 1 as (∨ [: "coffee" Int] [: "tea" Unit]))
+ (case (var "coffee" = 1 as (∨ [<> "coffee" Int] [<> "tea" Unit]))
    ["coffee" x => x]
    ["tea" x => 2]) : Int ⇒ 1)
-(define-type-alias Drink (∨ [: "coffee" Int] [: "tea" Unit] [: "coke" Bool]))
+(define-type-alias Drink (∨ [<> "coffee" Int] [<> "tea" Unit] [<> "coke" Bool]))
 (check-type ((λ ([x : Int]) (+ x x)) 10) : Int ⇒ 20)
 (check-type (λ ([x : Int]) (+ (+ x x) (+ x x))) : (→ Int Int))
 (check-type
  (case ((λ ([d : Drink]) d)
-        (var "coffee" = 1 as (∨ [: "coffee" Int] [: "tea" Unit] [: "coke" Bool])))
+        (var "coffee" = 1 as (∨ [<> "coffee" Int] [<> "tea" Unit] [<> "coke" Bool])))
    ["coffee" x => (+ (+ x x) (+ x x))]
    ["tea" x => 2]
    ["coke" y => 3])
@@ -237,18 +237,19 @@
 
 ;; previous tests: ------------------------------------------------------------
 ;; tests for tuples -----------------------------------------------------------
-(check-type (tup 1 2 3) : (× Int Int Int))
-(check-type (tup 1 "1" #f +) : (× Int String Bool (→ Int Int Int)))
-(check-not-type (tup 1 "1" #f +) : (× Unit String Bool (→ Int Int Int)))
-(check-not-type (tup 1 "1" #f +) : (× Int Unit Bool (→ Int Int Int)))
-(check-not-type (tup 1 "1" #f +) : (× Int String Unit (→ Int Int Int)))
-(check-not-type (tup 1 "1" #f +) : (× Int String Bool (→ Int Int Unit)))
-
-(check-type (proj (tup 1 "2" #f) 0) : Int ⇒ 1)
-(check-type (proj (tup 1 "2" #f) 1) : String ⇒ "2")
-(check-type (proj (tup 1 "2" #f) 2) : Bool ⇒ #f)
-(typecheck-fail (proj (tup 1 "2" #f) 3)) ; index too large
-(typecheck-fail (proj 1 2)) ; not tuple
+;; old tuple syntax not supported here
+;(check-type (tup 1 2 3) : (× Int Int Int))
+;(check-type (tup 1 "1" #f +) : (× Int String Bool (→ Int Int Int)))
+;(check-not-type (tup 1 "1" #f +) : (× Unit String Bool (→ Int Int Int)))
+;(check-not-type (tup 1 "1" #f +) : (× Int Unit Bool (→ Int Int Int)))
+;(check-not-type (tup 1 "1" #f +) : (× Int String Unit (→ Int Int Int)))
+;(check-not-type (tup 1 "1" #f +) : (× Int String Bool (→ Int Int Unit)))
+;
+;(check-type (proj (tup 1 "2" #f) 0) : Int ⇒ 1)
+;(check-type (proj (tup 1 "2" #f) 1) : String ⇒ "2")
+;(check-type (proj (tup 1 "2" #f) 2) : Bool ⇒ #f)
+;(typecheck-fail (proj (tup 1 "2" #f) 3)) ; index too large
+;(typecheck-fail (proj 1 2)) ; not tuple
 
 ;; ext-stlc.rkt tests ---------------------------------------------------------
 ;; should still pass

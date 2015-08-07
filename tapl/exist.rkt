@@ -26,25 +26,28 @@
   (current-typecheck-relation type=?))
 
 ;; TODO: disambiguate expanded representation of ∃, ok to use lambda in this calculus
-(provide ∃)
-(define-syntax (∃ stx)
-  (syntax-parse stx
-    [(_ (tv:id) body)
-     (syntax/loc stx (#%plain-lambda (tv) body))]))
+(define-type-constructor (∃ [[X]] τ_body))
+;(provide ∃)
+;(define-syntax (∃ stx)
+;  (syntax-parse stx
+;    [(_ (tv:id) body)
+;     (syntax/loc stx (#%plain-lambda (tv) body))]))
 
 (define-syntax (pack stx)
   (syntax-parse stx
     [(_ (τ:type e) as ∃τ:type)
-     #:with (#%plain-lambda (τ_abstract:id) τ_body) #'∃τ.norm
+     #:with (~∃ [[τ_abstract]] τ_body) #'∃τ.norm
+;     #:with (#%plain-lambda (τ_abstract:id) τ_body) #'∃τ.norm
      #:with [e- τ_e] (infer+erase #'e)
      #:when (typecheck? #'τ_e  (subst #'τ.norm #'τ_abstract #'τ_body))
-     (⊢ #'e- #'∃τ)]))
+     (⊢ e- : ∃τ)]))
 
 (define-syntax (open stx)
   (syntax-parse stx #:datum-literals (<=)
     [(_ ([(tv:id x:id) <= e_packed]) e)
-     #:with [e_packed- τ_packed] (infer+erase #'e_packed)
-     #:with (#%plain-lambda (τ_abstract:id) τ_body) #'τ_packed ; existential
+     #:with [e_packed- (~∃ [[τ_abstract]] τ_body)] (infer+erase #'e_packed)
+;     #:with [e_packed- τ_packed] (infer+erase #'e_packed)
+;     #:with (#%plain-lambda (τ_abstract:id) τ_body) #'τ_packed ; existential
      ;; The subst below appears to be a hack, but it's not really.
      ;; It's the (TaPL) type rule itself that is fast and loose.
      ;; Leveraging the macro system's management of binding reveals this.
@@ -91,4 +94,4 @@
      #:with [tvs- (x-) (e-) (τ_e)]
             (infer #'(e) #:ctx #`([x : #,(subst #'tv #'τ_abstract #'τ_body)])
                          #:tvs #'(tv))
-     (⊢ #'(let ([x- e_packed-]) e-) #'τ_e)]))
+     (⊢ (let ([x- e_packed-]) e-) : τ_e)]))

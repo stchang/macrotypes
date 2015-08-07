@@ -12,8 +12,8 @@
 (require "stlc+rec-iso-tests.rkt")
 
 ;(require "exist-tests.rkt")
-;
-;;; subtyping
+
+;; subtyping
 ;(require "stlc+sub-tests.rkt")
 ;(require "stlc+reco+sub-tests.rkt")
 ;(require "fsub-tests.rkt")
