@@ -47,26 +47,31 @@
 (define-syntax (and/tc stx)
   (syntax-parse stx
     [(_ e1 e2)
-     #:with (e1- τ1) (infer+erase #'e1)
-     #:fail-unless (Bool? #'τ1) (format "given non-Bool arg: ~a\n" (syntax->datum #'e1))
-     #:with (e2- τ2) (infer+erase #'e2)
-     #:fail-unless (Bool? #'τ2) (format "given non-Bool arg: ~a\n" (syntax->datum #'e2))
+     #:with e1- (inferBool+erase #'e1)
+     #:with e2- (inferBool+erase #'e2)
+;     #:with (e1- τ1) (infer+erase #'e1)
+;     #:fail-unless (Bool? #'τ1) (format "given non-Bool arg: ~a\n" (syntax->datum #'e1))
+;     #:with (e2- τ2) (infer+erase #'e2)
+;     #:fail-unless (Bool? #'τ2) (format "given non-Bool arg: ~a\n" (syntax->datum #'e2))
      (⊢ (and e1- e2-) : Bool)]))
   
 (define-syntax (or/tc stx)
   (syntax-parse stx
     [(_ e1 e2)
-     #:with (e1- τ1) (infer+erase #'e1)
-     #:fail-unless (Bool? #'τ1) (format "given non-Bool arg: ~a\n" (syntax->datum #'e1))
-     #:with (e2- τ2) (infer+erase #'e2)
-     #:fail-unless (Bool? #'τ2) (format "given non-Bool arg: ~a\n" (syntax->datum #'e2))
+     #:with e1- (inferBool+erase #'e1)
+     #:with e2- (inferBool+erase #'e2)
+;     #:with (e1- τ1) (infer+erase #'e1)
+;     #:fail-unless (Bool? #'τ1) (format "given non-Bool arg: ~a\n" (syntax->datum #'e1))
+;     #:with (e2- τ2) (infer+erase #'e2)
+;     #:fail-unless (Bool? #'τ2) (format "given non-Bool arg: ~a\n" (syntax->datum #'e2))
      (⊢ (or e1- e2-) : Bool)]))
 
 (define-syntax (if/tc stx)
   (syntax-parse stx
     [(_ e_tst e1 e2)
-     #:with (e_tst- τ_tst) (infer+erase #'e_tst)
-     #:fail-unless (Bool? #'τ_tst) (format "given non-Bool test: ~a\n" (syntax->datum #'e_tst))
+     #:with e_tst- (inferBool+erase #'e_tst)
+;     #:with (e_tst- τ_tst) (infer+erase #'e_tst)
+;     #:fail-unless (Bool? #'τ_tst) (format "given non-Bool test: ~a\n" (syntax->datum #'e_tst))
      #:with (e1- τ1) (infer+erase #'e1)
      #:with (e2- τ2) (infer+erase #'e2)
      #:when ((current-type=?) #'τ1 #'τ2)
@@ -118,7 +123,7 @@
     [(_ ([b:typed-binding e] ...) e_body)
      #:with ((x- ...) (e- ... e_body-) (τ ... τ_body))
             (infers/type-ctxt+erase #'(b ...) #'(e ... e_body))
-     #:fail-unless (typechecks? (type-evals #'(b.τ ...)) #'(τ ...))
+     #:fail-unless (typechecks? #'(b.τ ...) #;(type-evals #'(b.τ ...)) #'(τ ...))
                    (string-append
                     "type check fail, args have wrong type:\n"
                     (string-join

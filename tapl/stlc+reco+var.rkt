@@ -1,7 +1,7 @@
 #lang racket/base
 (require "typecheck.rkt")
 (require (prefix-in stlc: (only-in "stlc+tup.rkt" #%app begin tup proj let type=?))
-         (except-in "stlc+tup.rkt" #%app begin tup proj let type=? ×))
+         (except-in "stlc+tup.rkt" #%app begin tup proj let type=? × ~×))
 (provide (rename-out [stlc:#%app #%app] [stlc:let let] [stlc:begin begin]
                      [define/tc define]))
 (provide (except-out (all-from-out "stlc+tup.rkt")
@@ -56,7 +56,8 @@
 
 ; re-define tuples as records
 (define-type-constructor
-  (× [~× label τ_fld] ...) #:lits (~×)
+  ;(× [~× label τ_fld] ...) #:lits (~×)
+  (× [: label τ_fld] ...) #:lits (:)
   #:declare label str
   #:declare τ_fld type
   )
@@ -68,26 +69,24 @@
   (syntax-parse stx #:datum-literals (=)
     [(_ [l:str = e] ...)
      #:with ([e- τ] ...) (infers+erase #'(e ...))
-     (⊢ (list (list l e-) ...) : (× [~× l τ] ...))]
+     ;(⊢ (list (list l e-) ...) : (× [~× l τ] ...))]
+     (⊢ (list (list l e-) ...) : (× [: l τ] ...))]
     #;[(_ e ...)
      #'(stlc:tup e ...)]))
 (define-syntax (proj stx)
   (syntax-parse stx #:literals (quote)
-    [(_ rec l:str)
-     #:with [rec- τ_rec] (infer+erase #'rec)
-;     #:when (printf "inferred type: ~a\n" (syntax->datum #'τ_rec))
-;     #:when (printf "inferred type eval ~a\n" (syntax->datum ((current-type-eval) #'τ_rec)))
-     #:with ('l_τ:str ...) (×-get label from τ_rec)
-     #:with (τ ...) (×-get τ_fld from τ_rec)
-;     #:fail-unless (×? #'τ_rec) (format "not record type: ~a" (syntax->datum #'τ_rec))
-;     #:with (['l_τ:str τ] ...) (stx-map :-args (×-args #'τ_rec))
+    [(_ e_rec l:str)
+     #:with (e_rec- (~× [: 'l_τ τ] ...)) (infer+erase #'e_rec)
+;     #:with [rec- τ_rec] (infer+erase #'e_rec) ; match method #2: get
+;     #:with ('l_τ:str ...) (×-get label from τ_rec)
+;     #:with (τ ...) (×-get τ_fld from τ_rec)
      #:with (l_match:str τ_match) (str-stx-assoc #'l #'([l_τ τ] ...))
-     (⊢ (cadr (assoc l rec)) : τ_match)]
+     (⊢ (cadr (assoc l e_rec-)) : τ_match)]
     #;[(_ e ...) #'(stlc:proj e ...)]))
 
 
 (define-type-constructor
-  (∨ [~∨ label τ_var] ...) #:lits (~∨)
+  (∨ [<> label τ_var] ...) #:lits (<>)
   #:declare label str
   #:declare τ_var type)
 
@@ -96,8 +95,9 @@
     [(_ l:str = e as τ:type)
 ;     #:when (∨? #'τ.norm)
 ;     #:with (['l_τ:str τ_l] ...) (stx-map :-args (∨-args #'τ.norm))
-     #:with ('l_τ:str ...) (∨-get label from τ)
-     #:with (τ_l ...) (∨-get τ_var from τ)
+     #:with (~∨ [<> 'l_τ τ_l] ...) #'τ.norm
+;     #:with ('l_τ:str ...) (∨-get label from τ)
+;     #:with (τ_l ...) (∨-get τ_var from τ)
      #:with (l_match:str τ_match) (str-stx-assoc #'l #'((l_τ τ_l) ...))
      #:with (e- τ_e) (infer+erase #'e)
      #:when (typecheck? #'τ_e #'τ_match)
@@ -106,11 +106,9 @@
   (syntax-parse stx #:datum-literals (of =>) #:literals (quote)
     [(_ e [l:str x => e_l] ...)
      #:fail-when (null? (syntax->list #'(l ...))) "no clauses"
-     #:with (e- τ_e) (infer+erase #'e)
-     #:with ('l_x:str ...) (∨-get label from τ_e)
-     #:with (τ_x ...) (∨-get τ_var from τ_e)
-;     #:when (∨? #'τ_e)
-;     #:with (['l_x:str τ_x] ...) (stx-map :-args (∨-args #'τ_e))
+     #:with (e- (~∨ [<> 'l_x τ_x] ...)) (infer+erase #'e)
+;     #:with ('l_x:str ...) (∨-get label from τ_e)
+;     #:with (τ_x ...) (∨-get τ_var from τ_e)
      #:fail-unless (= (stx-length #'(l ...)) (stx-length #'(l_x ...))) "wrong number of case clauses"
      #:fail-unless (typechecks? #'(l ...) #'(l_x ...)) "case clauses not exhaustive"
      #:with (((x-) e_l- τ_el) ...)

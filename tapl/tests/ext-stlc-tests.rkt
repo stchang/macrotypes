@@ -2,7 +2,6 @@
 (require "rackunit-typechecking.rkt")
 
 ;; tests for stlc extensions
-
 ;; new literals and base types
 (check-type "one" : String) ; literal now supported
 (check-type #f : Bool) ; literal now supported
@@ -95,6 +94,14 @@
                   (is-even? (sub1 n))))])
    (is-odd? 11)) : Bool ⇒ #t)
 
+;; check some more err msgs
+(typecheck-fail (and "1" #f) #:with-msg "Expected type of.+to be Bool")
+(typecheck-fail (and #t "2") #:with-msg "Expected type of.+to be Bool")
+(typecheck-fail (or "1" #f) #:with-msg "Expected type of.+to be Bool")
+(typecheck-fail (or #t "2") #:with-msg "Expected type of.+to be Bool")
+(typecheck-fail (if "true" 1 2) #:with-msg "Expected type of.+to be Bool")
+
+
 ;; tests from stlc+lit-tests.rkt --------------------------
 ; most should pass, some failing may now pass due to added types/forms
 (check-type 1 : Int)
@@ -115,7 +122,7 @@
 (typecheck-fail
  (λ ([f : Int]) (f 1 2))
  #:with-msg
- "Expected type of expression f to match pattern \\(→ τ_in ... τ_out\\), got: Int")
+ "Expected type of expression to match pattern \\(→ τ_in ... τ_out\\), got: Int")
 
 (check-type (λ ([f : (→ Int Int Int)] [x : Int] [y : Int]) (f x y))
             : (→ (→ Int Int Int) Int Int Int))

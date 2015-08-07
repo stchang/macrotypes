@@ -4,7 +4,7 @@
               syntax/parse racket/syntax syntax/stx
               "stx-utils.rkt"
               syntax/parse/debug)
-  (for-meta 2 racket/base syntax/parse racket/syntax)
+  (for-meta 2 racket/base syntax/parse racket/syntax syntax/stx "stx-utils.rkt")
   (for-meta 3 racket/base syntax/parse racket/syntax)
   racket/provide)
 (provide 
@@ -66,8 +66,10 @@
     [(_ τ:id)
      #:with τ? (format-id #'τ "~a?" #'τ)
      #:with τ-internal (generate-temporary #'τ)
+     #:with inferτ+erase (format-id #'τ "infer~a+erase" #'τ)
+     #:with τ-cls (generate-temporary #'τ)
      #'(begin
-         (provide τ (for-syntax τ?))
+         (provide τ (for-syntax τ? inferτ+erase))
          (define τ-internal
            (λ () (raise (exn:fail:type:runtime
                          (format "~a: Cannot use type at run time" 'τ)
@@ -75,10 +77,25 @@
          (define-syntax (τ stx)
            (syntax-parse stx
              [x:id (add-orig #'(#%type (τ-internal)) #'τ)]))
-         (define-for-syntax (τ? t)
-           (syntax-parse ((current-type-eval) t)
-             [((~literal #%plain-type) ((~literal #%plain-app) ty))
-              (typecheck? #'ty #'τ-internal)])))]))
+         (begin-for-syntax
+           ; expanded form of τ
+           (define-syntax-class τ-cls
+             (pattern ((~literal #%plain-type) ((~literal #%plain-app) ty))))
+           (define (τ? t)
+             (syntax-parse ((current-type-eval) t)
+               [expanded-type
+                #:declare expanded-type τ-cls
+                (typecheck? #'expanded-type.ty #'τ-internal)]))
+           (define (inferτ+erase e)
+             (syntax-parse (infer+erase e) #:context e
+               [(e- expanded-type)
+                #:declare expanded-type τ-cls
+                #:fail-unless (typecheck? #'expanded-type.ty #'τ-internal)
+                              (format
+                               "~a (~a:~a): Expected type of expression ~v to be ~a, got: ~a"
+                               (syntax-source e) (syntax-line e) (syntax-column e)
+                               (syntax->datum e) (type->str #'τ) (type->str #'expanded-type))
+                #'e-]))))]))
 
 (begin-for-syntax
   ;; type validation
@@ -114,7 +131,10 @@
     (syntax-parse stx
       [(_ ty tycon cls)
        #'(syntax-parse ((current-type-eval) ty)
-           [((~literal #%plain-type) ((~literal #%plain-app) t . args))
+           [((~literal #%plain-type)
+             ((~literal #%plain-lambda) (tv:id (... ...))
+              ((~literal let-values) () ((~literal let-values) ()
+               ((~literal #%plain-app) t . args)))))
             #:declare args cls ; check shape of arguments
             #:fail-unless (typecheck? #'t #'tycon) ; check tycons match
                           (format "Type error: expected ~a type, got ~a"
@@ -123,9 +143,26 @@
            [_ #f])]))
 )
 
+(begin-for-syntax
+  (define (bracket? stx)
+    (define paren-shape/#f (syntax-property stx 'paren-shape))
+    (and paren-shape/#f (char=? paren-shape/#f #\[)))
+  (define-syntax-class bound-vars
+    (pattern (~and stx [[x:id ...]])
+             #:when (and (bracket? #'stx)
+                         (bracket? (stx-car #'stx)))))
+  (begin-for-syntax
+    (define (bracket? stx)
+      (define paren-shape/#f (syntax-property stx 'paren-shape))
+      (and paren-shape/#f (char=? paren-shape/#f #\[)))
+    (define-syntax-class bound-vars
+      (pattern (~and stx [[x:id ...]])
+               #:when (and (bracket? #'stx)
+                           (bracket? (stx-car #'stx)))))))
+
 (define-syntax define-type-constructor
   (syntax-parser
-    [(_ (τ:id . pat)
+    [(_ (τ:id (~optional bvs-pat:bound-vars #:defaults ([bvs-pat.stx #'[[]]])) . pat)
         ; lits must have ~ prefix (for syntax-parse compat) for now
         (~optional (~seq #:lits (lit ...)) #:defaults ([(lit 1) null]))
         decls ...
@@ -134,7 +171,8 @@
      #:with τ-match (format-id #'τ "~a-match" #'τ)
      #:with τ? (format-id #'τ "~a?" #'τ)
      #:with τ-get (format-id #'τ "~a-get" #'τ)
-     #:with τ-match+erase (format-id #'τ "~a-match+erase" #'τ)
+     #:with τ-match+erase (format-id #'τ "infer~a+erase" #'τ)
+     #:with τ-expander (format-id #'τ "~~~a" #'τ)
      #:with pat-class (generate-temporary #'τ) ; syntax-class name
      #:with tycon (generate-temporary #'τ) ; need a runtime id for expansion
      #:with (lit-tmp ...) (generate-temporaries #'(lit ...))
@@ -145,35 +183,45 @@
          (define lit-tmp void) ...
          (define-syntax lit (syntax-parser [(_ . xs) #'(lit-tmp . xs)])) ...
          (provide lit ...)
-         (provide τ)
+         (provide τ (for-syntax τ-expander))
          (begin-for-syntax
-           (define-syntax lit
+           #'(define-syntax lit
              (pattern-expander
               (syntax-parser
                 [(_ . xs)
-                 ;#:when (displayln "pattern expanding")
                  #'((~literal #%plain-app) (~literal lit-tmp) . xs)]))) ...
+           (define-syntax τ-expander
+             (pattern-expander
+              (syntax-parser
+                [(_ (~optional
+                     (~and bvs:bound-vars bvs-pat.stx) #:defaults ([(bvs.x 1) null]))
+                    . match-pat)
+                 #:with pat-from-constructor (quote-syntax (τ . pat))
+                 ;; manually replace literals with expanded form, to get around ~ restriction
+                 #:with new-match-pat
+                 #`#,(subst-datum-lits
+                      #`((#,(quote-syntax ~seq) (~literal #%plain-app) (~literal lit-tmp)) ...)
+                      #'(lit ...)
+                      #'match-pat)
+                 #'(~and
+                    (~or
+                     ((~literal #%plain-type)
+                      ((~literal #%plain-lambda) (bvs.x (... ...))
+                       ((~literal let-values) () ((~literal let-values) ()
+                        ((~literal #%plain-app) (~literal tycon) . new-match-pat)))))
+                     (~and any
+                           (~do
+                            (type-error #:src #'any
+                                        #:msg
+                                        "Expected type of expression to match pattern ~a, got: ~a"
+                                        (quote-syntax pat-from-constructor) #'any))))
+                    ~!)])))
            (define-syntax-class pat-class
              ;; dont check is-type? here; should already be types
              ;; only check is-type? for user-entered types, eg tycon call
              ;; thus, dont include decls here, only want shape
-             #;(pattern (~and pre (~do (printf "trying to match: ~a\n"(syntax->datum  #'pre))) pat (~do (displayln "no")))) ; uses "lit" pattern expander
-             (pattern pat)
-             #;(pattern any
-                      #:when (printf "trying to match: ~a\n" (syntax->datum #'any))
-                      #:when (printf "orig: ~a\n" (type->str #'any))
-                      #:when (printf "against pattern: ~a\n" (syntax->datum (quote-syntax pat)))
-                      #:when (displayln #`(#,(stx-cdr (stx-car #'any))))
-                      #:when (pretty-print (debug-parse #`(#,(stx-cdr (stx-car #'any))) pat))
-                      #:with pat #'any) ;#`(#,(stx-cdr (stx-car #'any))))
-             #;(pattern any
-                      #:when (displayln "match failed")
-                      #:when (displayln "pat: ")
-                      #:when (displayln (quote-syntax pat))
-                      #:when (displayln #'any)
-                      #:when (displayln "orig")
-                      #:when (displayln (type->str #'any))
-                      #:with pat #'any))
+             ; uses "lit" pattern expander
+             (pattern pat))
            (define (τ-match ty)
              (or (match-type ty tycon pat-class)
                  ;; error msg should go in specific macro def?
@@ -206,7 +254,10 @@
                                    (format "~a (~a:~a) Expected type with pattern: ~a, got: ~a"
                                            (syntax-source  #'typ) (syntax-line #'typ) (syntax-column #'typ)
                                            (type->str (quote-syntax the-pat)) (type->str #'typ))
-                     #:with ((~literal #%plain-type) ((~literal #%plain-app) f . args))
+                     #:with ((~literal #%plain-type)
+                             ((~literal #%plain-lambda) tvs
+                              ((~literal let-values) () ((~literal let-values) ()
+                               ((~literal #%plain-app) f . args)))))
                             ((current-type-eval) #'typ)
                      #:declare args pat-class ; check shape of arguments
 ;                     #:fail-unless (typecheck? #'f #'tycon) ; check tycons match
@@ -218,12 +269,16 @@
                                     (current-continuation-marks)))))
          (define-syntax (τ stx)
            (syntax-parse stx #:literals (lit ...)
-             [(_ . (~and pat !~ args)) ; first check shape
+             [(_ (~optional (~and bvs:bound-vars bvs-pat.stx) #:defaults ([(bvs.x 1) null]))
+                 . (~and pat !~ args)) ; first check shape
               ; this inner syntax-parse gets the ~! to register
               ; otherwise, apparently #:declare's get subst into pat (before ~!)
               (syntax-parse #'args #:literals (lit ...)
                 [pat #,@#'(decls ...) ; then check declarations (eg, valid type)
-                 #'(#%type (tycon . args))])]
+                 #'(#%type
+                    (λ (bvs.x (... ...))
+                      (let-syntax ([bvs.x (syntax-parser [bvs.x:id #'(#%type bvs.x)])] (... ...))
+                        (tycon . args))))])]
              [_
               (type-error #:src stx
                           #:msg (string-append
@@ -239,61 +294,61 @@
 
 ;; TODO: refine this to enable specifying arity information
 ;; type constructors currently must have 1+ arguments
-#;(define-syntax (define-type-constructor stx)
-  (syntax-parse stx
-    [(_ τ:id (~optional (~seq #:arity n:exact-positive-integer)))
-     #:with τ? (format-id #'τ "~a?" #'τ)
-     #:with τ-ref (format-id #'τ "~a-ref" #'τ)
-     #:with τ-num-args (format-id #'τ "~a-num-args" #'τ)
-     #:with τ-args (format-id #'τ "~a-args" #'τ)
-     #:with τ-match (format-id #'τ "~a-match" #'τ)
-     #:with tmp (generate-temporary #'τ)
-     #`(begin
-         ;; TODO: define syntax class instead of these separate tycon fns
-         (provide τ (for-syntax τ? τ-ref τ-num-args τ-args))
-         (define tmp (λ _ (raise (exn:fail:type:runtime
-                                  (format "~a: Cannot use type at run time" 'τ)
-                                  (current-continuation-marks)))))
-         (define-syntax (τ stx)
-           (syntax-parse stx
-             [x:id
-              (type-error #:src #'x
-               #:msg "Cannot use type constructor ~a in non-application position"
-                     #'τ)]
-             [(_) ; default tycon requires 1+ args
-              #:when (not #,(attribute n))
-              (type-error #:src stx
-               #:msg "Type constructor must have at least 1 argument.")]
-             [(_ x (... ...))
-              #:when #,(and (attribute n)
-                            #'(not (= n (stx-length #'(x (... ...))))))
-              #:with m #,(and (attribute n) #'n)
-              (type-error #:src stx
-               #:msg "Type constructor ~a expected ~a argument(s), given: ~a"
-               #'τ #'m #'(x (... ...)))]
-             ; this is racket's #%app
-             [(_ x (... ...)) #'(tmp x (... ...))]))
-         ; TODO: ok to assume type in canonical (ie, fully expanded) form?
-         ;; yes for now
-         (define-for-syntax (τ? stx)
-           (syntax-parse ((current-promote) stx)
-             [((~literal #%plain-app) tycon τ_arg (... ...)) (typecheck? #'tycon #'tmp)]
-             [_ #f]))
-         (define-for-syntax (τ-ref stx m)
-           (syntax-parse stx
-             [((~literal #%plain-app) tycon τ_arg (... ...))
-              #:when (typecheck? #'tycon #'tmp)
-              (stx-list-ref #'(τ_arg (... ...)) m)]))
-         (define-for-syntax (τ-args stx)
-           (syntax-parse ((current-promote) stx)
-             [((~literal #%plain-app) tycon τ_arg (... ...))
-              #:when (typecheck? #'tycon #'tmp)
-              #'(τ_arg (... ...))]))
-         (define-for-syntax (τ-num-args stx)
-           (syntax-parse stx
-             [((~literal #%plain-app) tycon τ_arg (... ...))
-              #:when (typecheck? #'tycon #'tmp)
-              (stx-length #'(τ_arg (... ...)))])))]))
+;#;(define-syntax (define-type-constructor stx)
+;  (syntax-parse stx
+;    [(_ τ:id (~optional (~seq #:arity n:exact-positive-integer)))
+;     #:with τ? (format-id #'τ "~a?" #'τ)
+;     #:with τ-ref (format-id #'τ "~a-ref" #'τ)
+;     #:with τ-num-args (format-id #'τ "~a-num-args" #'τ)
+;     #:with τ-args (format-id #'τ "~a-args" #'τ)
+;     #:with τ-match (format-id #'τ "~a-match" #'τ)
+;     #:with tmp (generate-temporary #'τ)
+;     #`(begin
+;         ;; TODO: define syntax class instead of these separate tycon fns
+;         (provide τ (for-syntax τ? τ-ref τ-num-args τ-args))
+;         (define tmp (λ _ (raise (exn:fail:type:runtime
+;                                  (format "~a: Cannot use type at run time" 'τ)
+;                                  (current-continuation-marks)))))
+;         (define-syntax (τ stx)
+;           (syntax-parse stx
+;             [x:id
+;              (type-error #:src #'x
+;               #:msg "Cannot use type constructor ~a in non-application position"
+;                     #'τ)]
+;             [(_) ; default tycon requires 1+ args
+;              #:when (not #,(attribute n))
+;              (type-error #:src stx
+;               #:msg "Type constructor must have at least 1 argument.")]
+;             [(_ x (... ...))
+;              #:when #,(and (attribute n)
+;                            #'(not (= n (stx-length #'(x (... ...))))))
+;              #:with m #,(and (attribute n) #'n)
+;              (type-error #:src stx
+;               #:msg "Type constructor ~a expected ~a argument(s), given: ~a"
+;               #'τ #'m #'(x (... ...)))]
+;             ; this is racket's #%app
+;             [(_ x (... ...)) #'(tmp x (... ...))]))
+;         ; TODO: ok to assume type in canonical (ie, fully expanded) form?
+;         ;; yes for now
+;         (define-for-syntax (τ? stx)
+;           (syntax-parse ((current-promote) stx)
+;             [((~literal #%plain-app) tycon τ_arg (... ...)) (typecheck? #'tycon #'tmp)]
+;             [_ #f]))
+;         (define-for-syntax (τ-ref stx m)
+;           (syntax-parse stx
+;             [((~literal #%plain-app) tycon τ_arg (... ...))
+;              #:when (typecheck? #'tycon #'tmp)
+;              (stx-list-ref #'(τ_arg (... ...)) m)]))
+;         (define-for-syntax (τ-args stx)
+;           (syntax-parse ((current-promote) stx)
+;             [((~literal #%plain-app) tycon τ_arg (... ...))
+;              #:when (typecheck? #'tycon #'tmp)
+;              #'(τ_arg (... ...))]))
+;         (define-for-syntax (τ-num-args stx)
+;           (syntax-parse stx
+;             [((~literal #%plain-app) tycon τ_arg (... ...))
+;              #:when (typecheck? #'tycon #'tmp)
+;              (stx-length #'(τ_arg (... ...)))])))]))
 
 ;; syntax classes
 (begin-for-syntax
@@ -471,17 +526,31 @@
 (define-for-syntax (mk-pred x) (format-id x "~a?" x))
 (define-for-syntax (mk-acc base field) (format-id base "~a-~a" base field))
 
-; subst τ for y in e, if (bound-id=? x y)
-(define-for-syntax (subst τ x e)
-  (syntax-parse e
-    [y:id #:when (bound-identifier=? e x) τ]
-    [(esub ...)
-     #:with (esub_subst ...) (stx-map (λ (e1) (subst τ x e1)) #'(esub ...))
-     (syntax-track-origin #'(esub_subst ...) e x)]
-    [_ e]))
+(begin-for-syntax
+  ; subst τ for y in e, if (bound-id=? x y)
+  (define (subst τ x e)
+    (syntax-parse e
+      [y:id #:when (bound-identifier=? e x) τ]
+      [(esub ...)
+       #:with (esub_subst ...) (stx-map (λ (e1) (subst τ x e1)) #'(esub ...))
+       (syntax-track-origin #'(esub_subst ...) e x)]
+      [_ e]))
 
-(define-for-syntax (substs τs xs e)
-  (stx-fold subst e τs xs))
+  (define (substs τs xs e)
+    (stx-fold subst e τs xs))
+
+  ; subst τ for y in e, if (equal? (syntax-e x) (syntax-e y))
+  (define-for-syntax (subst-datum-lit τ x e)
+    (syntax-parse e
+      [y:id #:when (equal? (syntax-e e) (syntax-e x)) τ]
+      [(esub ...)
+       #:with (esub_subst ...) (stx-map (λ (e1) (subst-datum-lit τ x e1)) #'(esub ...))
+       (syntax-track-origin #'(esub_subst ...) e x)]
+      [_ e]))
+
+  (define-for-syntax (subst-datum-lits τs xs e)
+    (stx-fold subst-datum-lit e τs xs)))
+
   
 ;; type environment -----------------------------------------------------------
 #;(begin-for-syntax

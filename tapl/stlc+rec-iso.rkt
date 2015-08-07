@@ -1,10 +1,12 @@
 #lang racket/base
 (require "typecheck.rkt")
 (require (prefix-in stlc: (only-in "stlc+reco+var.rkt" #%app λ type=?))
-         (except-in "stlc+reco+var.rkt" #%app λ type=?))
+         (except-in "stlc+reco+var.rkt" #%app λ type=? × tup proj)
+         (only-in "stlc+tup.rkt" × tup proj))
 (provide (rename-out [stlc:#%app #%app] [stlc:λ λ]))
 (provide (except-out (all-from-out "stlc+reco+var.rkt")
-                     stlc:#%app stlc:λ (for-syntax stlc:type=?)))
+                     stlc:#%app stlc:λ (for-syntax stlc:type=?))
+         (all-from-out "stlc+tup.rkt"))
 (provide μ fld unfld (for-syntax type=?))
 
 ;; stlc + (iso) recursive types
@@ -15,11 +17,23 @@
 ;; - terms from stlc+reco+var.rkt
 ;; - fld/unfld
 
+(define-type-constructor
+  (μ [[tv]] τ_body))
+; can't enforce this because bound ids wont have #%type tag
+  ;#:declare τ_body type)
+#;(define-syntax (μ stx)
+  (syntax-parse stx
+    [(_ (tv:id) τ_body)
+     #'(#%type
+        (λ (tv)
+          (let-syntax ([tv (syntax-parser [tv:id #'(#%type tv)])])
+            τ_body)))]))
+
 (begin-for-syntax
   ;; extend to handle μ
   (define (type=? τ1 τ2)
-    ;(printf "(τ=) t1 = ~a\n" #;τ1 (syntax->datum τ1))
-    ;(printf "(τ=) t2 = ~a\n" #;τ2 (syntax->datum τ2))
+;    (printf "(τ=) t1 = ~a\n" #;τ1 (syntax->datum τ1))
+;    (printf "(τ=) t2 = ~a\n" #;τ2 (syntax->datum τ2))
     (syntax-parse (list τ1 τ2)
       [(((~literal #%plain-lambda) (x:id ...) k1 ... t1)
         ((~literal #%plain-lambda) (y:id ...) k2 ... t2))
@@ -31,22 +45,19 @@
   (current-type=? type=?)
   (current-typecheck-relation type=?))
 
-(define-syntax (μ stx)
-  (syntax-parse stx
-    [(_ (tv:id) τ_body)
-     #'(λ (tv) τ_body)]))
-
 (define-syntax (unfld stx)
   (syntax-parse stx
     [(_ τ:ann e)
-     #:with ((~literal #%plain-lambda) (tv:id) τ_body) #'τ.norm
+     #:with (~μ [[tv]] τ_body) #'τ.norm
+;     #:with ((~literal #%plain-lambda) (tv:id) τ_body) #'τ.norm
      #:with [e- τ_e] (infer+erase #'e)
-     #:when ((current-typecheck-relation) #'τ_e #'τ.norm)
-     (⊢ #'e- (subst #'τ.norm #'tv #'τ_body))]))
+     #:when (typecheck? #'τ_e #'τ.norm)
+     (⊢ e- : #,(subst #'τ.norm #'tv #'τ_body))]))
 (define-syntax (fld stx)
   (syntax-parse stx
     [(_ τ:ann e)
-     #:with ((~literal #%plain-lambda) (tv:id) τ_body) #'τ.norm
+     #:with (~μ [[tv]] τ_body) #'τ.norm
+;     #:with ((~literal #%plain-type) ((~literal #%plain-lambda) (tv:id) τ_body)) #'τ.norm
      #:with [e- τ_e] (infer+erase #'e)
-     #:when ((current-typecheck-relation) #'τ_e (subst #'τ.norm #'tv #'τ_body))
-     (⊢ #'e- #'τ.norm)]))
+     #:when (typecheck? #'τ_e (subst #'τ.norm #'tv #'τ_body))
+     (⊢ e- : τ.τ)]))

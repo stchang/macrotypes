@@ -61,10 +61,12 @@
 (define-syntax (app/tc stx)
   (syntax-parse stx
     [(_ e_fn e_arg ...)
-;     #:with [e_fn- τ_fn] (infer+erase #'e_fn)
-;     #:with (τ_in ...) (→-get τ_in from #'τ_fn)
-;     #:with τ_out (→-get τ_out from #'τ_fn)
-     #:with [e_fn- (τ_in ... τ_out)] (→-match+erase #'e_fn)
+     ;; 2015-08-06: there are currently three alternative tycon matching syntaxes
+     #:with [e_fn- (~→ τ_in ... τ_out)] (infer+erase #'e_fn) ; #1 (external) pattern expander
+     ;#:with [e_fn- τ_fn] (infer+erase #'e_fn) ; #2 get, via (internal) pattern expander
+     ;#:with (τ_in ...) (→-get τ_in from #'τ_fn)
+     ;#:with τ_out (→-get τ_out from #'τ_fn)
+     ;#:with [e_fn- (τ_in ... τ_out)] (infer→+erase #'e_fn) ; #3 work directly on term
      #:with ([e_arg- τ_arg] ...) (infers+erase #'(e_arg ...))
      #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
                    (string-append

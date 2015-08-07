@@ -28,23 +28,24 @@
   (syntax-parse stx
     [(_ e1 e2)
      #:with (e1- τ1) (infer+erase #'e1)
-     #:with (e2- τ-lst) (infer+erase #'e2)
-;     #:when (displayln #'τ-lst)
-     #:with τ2 (List-get τ from τ-lst)
- ;    #:when (displayln #'τ2)
+     #:with (e2- (~List τ2)) (infer+erase #'e2)
+;     #:with (e2- τ-lst) (infer+erase #'e2)
+;     #:with τ2 (List-get τ from τ-lst)
      #:when (typecheck? #'τ1 #'τ2)
      (⊢ (cons e1- e2-) : (List τ1))]))
 (define-syntax (isnil stx)
   (syntax-parse stx
     [(_ e)
-     #:with (e- τ-lst) (infer+erase #'e)
-     #:fail-unless (List? #'τ-lst) "expected argument of List type"
+     #:with (e- _) (inferList+erase #'e)
+;     #:with (e- τ-lst) (infer+erase #'e)
+;     #:fail-unless (List? #'τ-lst) "expected argument of List type"
      (⊢ (null? e-) : Bool)]))
 (define-syntax (head stx)
   (syntax-parse stx
     [(_ e)
-     #:with (e- τ-lst) (infer+erase #'e)
-     #:with τ (List-get τ from τ-lst)
+     #:with (e- (τ)) (inferList+erase #'e)
+;     #:with (e- τ-lst) (infer+erase #'e)
+;     #:with τ (List-get τ from τ-lst)
      (⊢ (car e-) : τ)]))
 (define-syntax (tail stx)
   (syntax-parse stx

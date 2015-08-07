@@ -33,7 +33,7 @@
 (typecheck-fail
  (λ ([f : Int]) (f 1 2))
  #:with-msg
- "Expected type of expression f to match pattern \\(→ τ_in ... τ_out\\), got: Int")
+ "Expected type of expression to match pattern \\(→ τ_in ... τ_out\\), got: Int")
 
 (check-type (λ ([f : (→ Int Int Int)] [x : Int] [y : Int]) (f x y))
             : (→ (→ Int Int Int) Int Int Int))

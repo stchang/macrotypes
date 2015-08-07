@@ -12,6 +12,7 @@
 (check-type (proj (tup 1 "2" #f) 0) : Int ⇒ 1)
 (check-type (proj (tup 1 "2" #f) 1) : String ⇒ "2")
 (check-type (proj (tup 1 "2" #f) 2) : Bool ⇒ #f)
+(typecheck-fail (proj (tup 1 "2" #f) -1) #:with-msg "expected exact-nonnegative-integer")
 (typecheck-fail (proj (tup 1 "2" #f) 3) #:with-msg "index too large")
 (typecheck-fail
  (proj 1 2)
