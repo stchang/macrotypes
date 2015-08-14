@@ -15,77 +15,118 @@
 ; records (ie labeled tuples)
 (check-type "Stephen" : String)
 (check-type (tup) : (×))
-(check-type (tup ["name" = "Stephen"]) : (× [: "name" String]))
-(check-type (proj (tup ["name" = "Stephen"]) "name") : String ⇒ "Stephen")
-(check-type (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) :
-            (× [: "name" String] [: "phone" Int] [: "male?" Bool]))
-(check-type (proj (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) "name")
+(check-type (tup [name = "Stephen"]) : (× [name : String]))
+(check-type (proj (tup [name = "Stephen"]) name) : String ⇒ "Stephen")
+(check-type (tup [name = "Stephen"] [phone = 781] [male? = #t]) :
+            (× [name : String] [phone : Int] [male? : Bool]))
+(check-type (proj (tup [name = "Stephen"] [phone = 781] [male? = #t]) name)
             : String ⇒ "Stephen")
-(check-type (proj (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) "name")
+(check-type (proj (tup [name = "Stephen"] [phone = 781] [male? = #t]) name)
             : String ⇒ "Stephen")
-(check-type (proj (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) "phone")
+(check-type (proj (tup [name = "Stephen"] [phone = 781] [male? = #t]) phone)
             : Int ⇒ 781)
-(check-type (proj (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) "male?")
+(check-type (proj (tup [name = "Stephen"] [phone = 781] [male? = #t]) male?)
             : Bool ⇒ #t)
-(check-not-type (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) :
-                (× [: "my-name" String] [: "phone" Int] [: "male?" Bool]))
-(check-not-type (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) :
-                (× [: "name" String] [: "my-phone" Int] [: "male?" Bool]))
-(check-not-type (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) :
-                (× [: "name" String] [: "phone" Int] [: "is-male?" Bool]))
+(check-not-type (tup [name = "Stephen"] [phone = 781] [male? = #t]) :
+                (× [my-name : String] [phone : Int] [male? : Bool]))
+(check-not-type (tup [name = "Stephen"] [phone = 781] [male? = #t]) :
+                (× [name : String] [my-phone : Int] [male? : Bool]))
+(check-not-type (tup [name = "Stephen"] [phone = 781] [male? = #t]) :
+                (× [name : String] [phone : Int] [is-male? : Bool]))
+
+;; record errors
+(typecheck-fail
+ (proj 1 "a")
+ #:with-msg
+ "expected identifier")
+(typecheck-fail
+ (proj 1 a)
+ #:with-msg
+ "Expected expression 1 to have × type, got: Int")
 
 ;; variants
-(check-type (var "coffee" = (void) as (∨ [<> "coffee" Unit])) : (∨ [<> "coffee" Unit]))
-(check-not-type (var "coffee" = (void) as (∨ [<> "coffee" Unit])) : (∨ [<> "coffee" Unit] [<> "tea" Unit]))
-(typecheck-fail ((λ ([x : (∨ [<> "coffee" Unit] [<> "tea" Unit])]) x)
-                 (var "coffee" = (void) as (∨ [<> "coffee" Unit])))
+(check-type (var coffee = (void) as (∨ [coffee : Unit])) : (∨ [coffee : Unit]))
+(check-not-type (var coffee = (void) as (∨ [coffee : Unit])) : (∨ [coffee : Unit] [tea : Unit]))
+(typecheck-fail ((λ ([x : (∨ [coffee : Unit] [tea : Unit])]) x)
+                 (var coffee = (void) as (∨ [coffee : Unit])))
                 #:with-msg "Arguments to function.+have wrong type")
-(check-type (var "coffee" = (void) as (∨ [<> "coffee" Unit] [<> "tea" Unit])) :
-            (∨ [<> "coffee" Unit] [<> "tea" Unit]))
-(check-type (var "coffee" = (void) as (∨ [<> "coffee" Unit] [<> "tea" Unit] [<> "coke" Unit]))
-            : (∨ [<> "coffee" Unit] [<> "tea" Unit] [<> "coke" Unit]))
+(check-type (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit])) :
+            (∨ [coffee : Unit] [tea : Unit]))
+(check-type (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit] [coke : Unit]))
+            : (∨ [coffee : Unit] [tea : Unit] [coke : Unit]))
 
 (typecheck-fail
- (case (var "coffee" = (void) as (∨ [<> "coffee" Unit] [<> "tea" Unit]))
-   ["coffee" x => 1])
+ (case (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit]))
+   [coffee x => 1])
  #:with-msg "wrong number of case clauses")
 (typecheck-fail
- (case (var "coffee" = (void) as (∨ [<> "coffee" Unit] [<> "tea" Unit]))
-   ["coffee" x => 1]
-   ["teaaaaaa" x => 2])
+ (case (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit]))
+   [coffee x => 1]
+   [teaaaaaa x => 2])
  #:with-msg "case clauses not exhaustive")
 (typecheck-fail
- (case (var "coffee" = (void) as (∨ [<> "coffee" Unit] [<> "tea" Unit]))
-   ["coffee" x => 1]
-   ["tea" x => 2]
-   ["coke" x => 3])
+ (case (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit]))
+   [coffee x => 1]
+   [tea x => 2]
+   [coke x => 3])
  #:with-msg "wrong number of case clauses")
 (typecheck-fail
- (case (var "coffee" = (void) as (∨ [<> "coffee" Unit] [<> "tea" Unit]))
-   ["coffee" x => "1"]
-   ["tea" x => 2])
+ (case (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit]))
+   [coffee x => "1"]
+   [tea x => 2])
  #:with-msg "branches have different types")
 (check-type
- (case (var "coffee" = 1 as (∨ [<> "coffee" Int] [<> "tea" Unit]))
-   ["coffee" x => x]
-   ["tea" x => 2]) : Int ⇒ 1)
-(define-type-alias Drink (∨ [<> "coffee" Int] [<> "tea" Unit] [<> "coke" Bool]))
+ (case (var coffee = 1 as (∨ [coffee : Int] [tea : Unit]))
+   [coffee x => x]
+   [tea x => 2]) : Int ⇒ 1)
+(define-type-alias Drink (∨ [coffee : Int] [tea : Unit] [coke : Bool]))
 (check-type ((λ ([x : Int]) (+ x x)) 10) : Int ⇒ 20)
 (check-type (λ ([x : Int]) (+ (+ x x) (+ x x))) : (→ Int Int))
 (check-type
  (case ((λ ([d : Drink]) d)
-        (var "coffee" = 1 as (∨ [<> "coffee" Int] [<> "tea" Unit] [<> "coke" Bool])))
-   ["coffee" x => (+ (+ x x) (+ x x))]
-   ["tea" x => 2]
-   ["coke" y => 3])
+        (var coffee = 1 as (∨ [coffee : Int] [tea : Unit] [coke : Bool])))
+   [coffee x => (+ (+ x x) (+ x x))]
+   [tea x => 2]
+   [coke y => 3])
  : Int ⇒ 4)
 
 (check-type
- (case ((λ ([d : Drink]) d) (var "coffee" = 1 as Drink))
-   ["coffee" x => (+ (+ x x) (+ x x))]
-   ["tea" x => 2]
-   ["coke" y => 3])
+ (case ((λ ([d : Drink]) d) (var coffee = 1 as Drink))
+   [coffee x => (+ (+ x x) (+ x x))]
+   [tea x => 2]
+   [coke y => 3])
  : Int ⇒ 4)
+
+;; variant errors
+(typecheck-fail
+ (var name = "Steve" as Int)
+ #:with-msg
+ "Expected ∨ type, got: Int")
+(typecheck-fail
+ (case 1 [racket x => 1])
+ #:with-msg
+ "Expected expression 1 to have ∨ type, got: Int")
+(typecheck-fail
+ (λ ([x : (∨)]) x)
+ #:with-msg "Improper usage of type constructor ∨: \\(∨), expected \\(∨ [label:id : τ:type] ...+)")
+(typecheck-fail
+ (λ ([x : (∨ 1)]) x)
+ #:with-msg "Improper usage of type constructor ∨: \\(∨ 1\\), expected \\(∨ [label:id : τ:type] ...+)")
+(typecheck-fail
+ (λ ([x : (∨ [1 2])]) x)
+ #:with-msg "Improper usage of type constructor ∨: \\(∨ (1 2)), expected \\(∨ [label:id : τ:type] ...+)")
+(typecheck-fail
+ (λ ([x : (∨ [a 2])]) x)
+ #:with-msg "Improper usage of type constructor ∨: \\(∨ (a 2)), expected \\(∨ [label:id : τ:type] ...+)")
+(typecheck-fail
+ (λ ([x : (∨ [a Int])]) x)
+ #:with-msg "Improper usage of type constructor ∨: \\(∨ (a Int)), expected \\(∨ [label:id : τ:type] ...+)")
+(typecheck-fail
+ (λ ([x : (∨ [1 : Int])]) x)
+ #:with-msg "Improper usage of type constructor ∨: \\(∨ (1 : Int)), expected \\(∨ [label:id : τ:type] ...+)")
+(typecheck-fail
+ (λ ([x : (∨ [a : 1])]) x)
+ #:with-msg "Improper usage of type constructor ∨: \\(∨ (a : 1)), expected \\(∨ [label:id : τ:type] ...+)")
 
 ;; previous tuple tests: ------------------------------------------------------------
 ;; wont work anymore

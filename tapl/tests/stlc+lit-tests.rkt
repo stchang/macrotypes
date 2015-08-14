@@ -13,27 +13,27 @@
 
 (typecheck-fail
  (λ ([x : →]) x)
- #:with-msg "Improper usage of type constructor →: →, expected pattern")
+ #:with-msg "Improper usage of type constructor →: →, expected >= 1 arguments")
 (typecheck-fail
  (λ ([x : (→ →)]) x)
- #:with-msg "Improper usage of type constructor →: →, expected pattern")
+ #:with-msg "Improper usage of type constructor →: →, expected >= 1 arguments")
 (typecheck-fail
  (λ ([x : (→)]) x)
- #:with-msg "Improper usage of type constructor →: \\(→\\), expected pattern")
+ #:with-msg "Improper usage of type constructor →: \\(→), expected >= 1 arguments")
 
 (check-type (λ ([f : (→ Int Int)]) 1) : (→ (→ Int Int) Int))
 (check-type ((λ ([x : Int]) x) 1) : Int ⇒ 1)
 
 (typecheck-fail ((λ ([x : Bool]) x) 1)
-                #:with-msg "not a valid type: Bool")
+                #:with-msg "Bool: unbound identifier")
 (typecheck-fail (λ ([x : (→ Bool Bool)]) x)
-                #:with-msg "not a valid type: Bool")
+                #:with-msg "Bool: unbound identifier")
 (typecheck-fail (λ ([x : Bool]) x)
-                #:with-msg "not a valid type: Bool")
+                #:with-msg "Bool: unbound identifier")
 (typecheck-fail
  (λ ([f : Int]) (f 1 2))
  #:with-msg
- "Expected type of expression to match pattern \\(→ τ_in ... τ_out\\), got: Int")
+ "Expected expression f to have → type, got: Int")
 
 (check-type (λ ([f : (→ Int Int Int)] [x : Int] [y : Int]) (f x y))
             : (→ (→ Int Int Int) Int Int Int))

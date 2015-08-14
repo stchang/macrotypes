@@ -15,7 +15,8 @@
 
 ;; TODO: enable HO use of list primitives
 
-(define-type-constructor (List τ) #:declare τ type)
+;(define-type-constructor (List τ) #:declare τ type)
+(define-basic-checked-stx List #:arity = 1)
 
 (define-syntax (nil stx)
   (syntax-parse stx
@@ -28,7 +29,7 @@
   (syntax-parse stx
     [(_ e1 e2)
      #:with (e1- τ1) (infer+erase #'e1)
-     #:with (e2- (~List τ2)) (infer+erase #'e2)
+     #:with (e2- (τ2)) (inferList+erase #'e2)
 ;     #:with (e2- τ-lst) (infer+erase #'e2)
 ;     #:with τ2 (List-get τ from τ-lst)
      #:when (typecheck? #'τ1 #'τ2)

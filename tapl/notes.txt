@@ -1,3 +1,25 @@
+2015-08-13
+Requirements for define-type-constructor syntax:
+- identifier types, like Int
+- basic tuples, like arrow
+  - arity
+- nested tuples, like records
+- binding forms, like forall
+
+Problem: 
+Types must be expanded, to check that they are valid, catch unbound ids, etc.
+But should I attach the expanded type to a term, or the original surface stx?
+- maybe this is just repeating the same thing I wrote below?
+- Related question: fully expand types before calling type=? or typecheck?
+Answer: must only compare fully expanded forms, otherwise these will not work
+- define-type-alias
+Rules:
+- all user-written types must be expanded and checked
+  - check for invalid types, unbound ids
+- use expanded types (when available) to create new types
+- expand all types before attaching
+- assume types are expanded in type=? and typechecks
+
 2015-07-31
 Problem: pattern-expander not being recognized
 Solution: syntax-parse pattern directives must begin with ~ prefix

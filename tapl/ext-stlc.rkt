@@ -74,7 +74,10 @@
 ;     #:fail-unless (Bool? #'τ_tst) (format "given non-Bool test: ~a\n" (syntax->datum #'e_tst))
      #:with (e1- τ1) (infer+erase #'e1)
      #:with (e2- τ2) (infer+erase #'e2)
-     #:when ((current-type=?) #'τ1 #'τ2)
+     #:fail-unless (or ((current-typecheck-relation) #'τ1 #'τ2)
+                       ((current-typecheck-relation) #'τ2 #'τ1))
+                   (format "branches must have the same type: given ~a and ~a"
+                           (type->str #'τ1) (type->str #'τ2))
      (⊢ (if e_tst- e1- e2-) : τ1)]))
 
 (define-base-type Unit)
@@ -83,24 +86,25 @@
 (define-syntax (begin/tc stx)
   (syntax-parse stx
     [(_ e_unit ... e)
-     #:with ([e_unit- τ_unit] ...) (infers+erase #'(e_unit ...))
+     #:with (e_unit- ...) (stx-map inferUnit+erase #'(e_unit ...))
+;     #:with ([e_unit- τ_unit] ...) (infers+erase #'(e_unit ...))
+;     #:fail-unless (stx-andmap Unit? #'(τ_unit ...))
+;                   (string-append
+;                    "all begin expressions except the last one should have type Unit\n"
+;                    (string-join
+;                     (stx-map
+;                      (λ (e τ) (format "~a : ~a" (syntax->datum e) (syntax->datum τ)))
+;                      #'(e_unit ...) #'(τ_unit ...))
+;                     "\n")
+;                    "\n")
      #:with (e- τ) (infer+erase #'e)
-     #:fail-unless (stx-andmap Unit? #'(τ_unit ...))
-                   (string-append
-                    "all begin expressions except the last one should have type Unit\n"
-                    (string-join
-                     (stx-map
-                      (λ (e τ) (format "~a : ~a" (syntax->datum e) (syntax->datum τ)))
-                      #'(e_unit ...) #'(τ_unit ...))
-                     "\n")
-                    "\n")
      (⊢ (begin e_unit- ... e-) : τ)]))
 
 (define-syntax (ann stx)
   (syntax-parse stx #:datum-literals (:)
-    [(_ e : ascribed-τ)
+    [(_ e : ascribed-τ:type)
      #:with (e- τ) (infer+erase #'e)
-     #:fail-unless (typecheck? #'τ #'ascribed-τ)
+     #:fail-unless (typecheck? #'τ #'ascribed-τ.norm)
                    (format "~a does not have type ~a\n"
                            (syntax->datum #'e) (syntax->datum #'ascribed-τ))
      (⊢ e- : ascribed-τ)]))
@@ -123,7 +127,7 @@
     [(_ ([b:typed-binding e] ...) e_body)
      #:with ((x- ...) (e- ... e_body-) (τ ... τ_body))
             (infers/type-ctxt+erase #'(b ...) #'(e ... e_body))
-     #:fail-unless (typechecks? #'(b.τ ...) #;(type-evals #'(b.τ ...)) #'(τ ...))
+     #:fail-unless (typechecks? #'(b.τ ...) #'(τ ...))
                    (string-append
                     "type check fail, args have wrong type:\n"
                     (string-join

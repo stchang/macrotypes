@@ -3,7 +3,7 @@
 (provide (all-defined-out))
 
 (define-syntax (check-type stx)
-  (syntax-parse stx #:datum-literals (:)
+  (syntax-parse stx #:datum-literals (: ⇒)
     [(_ e : τ ⇒ v) #'(check-type-and-result e : τ ⇒ v)]
     [(_ e : τ-expected:type)
      #:with τ (typeof (expand/df #'e))

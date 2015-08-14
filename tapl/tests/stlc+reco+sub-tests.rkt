@@ -4,10 +4,10 @@
 ;; record subtyping tests
 (check-type "coffee" : String)
 (check-type (tup ["coffee" = 3]) : (× [: "coffee" Int])) ; element subtyping
-(check-type (var "coffee" = 3 as (∨ [: "coffee" Nat])) : (∨ [: "coffee" Int])) ; element subtyping
+(check-type (var "coffee" = 3 as (∨ [<> "coffee" Nat])) : (∨ [<> "coffee" Int])) ; element subtyping
 (check-type (tup ["coffee" = 3]) : (× [: "coffee" Nat]))
 (check-type (tup ["coffee" = 3]) : (× [: "coffee" Top]))
-(check-type (var "coffee" = 3 as (∨ [: "coffee" Int])) : (∨ [: "coffee" Top])) ; element subtyping (twice)
+(check-type (var "coffee" = 3 as (∨ [<> "coffee" Int])) : (∨ [<> "coffee" Top])) ; element subtyping (twice)
 (check-type (tup ["coffee" = 3]) : (× [: "coffee" Num]))
 (check-not-type (tup ["coffee" = -3]) : (× [: "coffee" Nat]))
 (check-type (tup ["coffee" = -3]) : (× [: "coffee" Num]))

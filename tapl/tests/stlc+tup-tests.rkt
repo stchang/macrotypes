@@ -17,7 +17,7 @@
 (typecheck-fail
  (proj 1 2)
  #:with-msg
- "Expected type of expression 1 to match pattern \\(× τ ...\\), got: Int")
+ "Expected expression 1 to have × type, got: Int")
 
 ;; ext-stlc.rkt tests ---------------------------------------------------------
 ;; should still pass

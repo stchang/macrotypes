@@ -16,6 +16,8 @@
 
 (define-base-type Int)
 
+;(define-base-type Int)
+
 (define-primop + : (→ Int Int Int))
 
 (define-syntax (datum/tc stx)

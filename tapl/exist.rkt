@@ -1,12 +1,13 @@
 #lang racket/base
 (require "typecheck.rkt")
 (require (except-in "stlc+reco+var.rkt" #%app λ let type=?)
-         (prefix-in stlc: (only-in "stlc+reco+var.rkt" #%app λ let type=?))
-         (prefix-in sysf: (only-in "sysf.rkt" type=?)))
+         (prefix-in stlc: (only-in "stlc+reco+var.rkt" #%app λ let #;type=?))
+         (only-in "stlc+rec-iso.rkt" type=?))
 (provide (rename-out [stlc:#%app #%app] [stlc:λ λ] [stlc:let let])
-         (for-syntax type=?))
+         #;(for-syntax type=?))
 (provide (except-out (all-from-out "stlc+reco+var.rkt") stlc:#%app stlc:λ stlc:let
-                     (for-syntax stlc:type=?)))
+                     #;(for-syntax stlc:type=?))
+         (all-from-out "stlc+rec-iso.rkt"))
 (provide ∃ pack open)
 
 ;; existential types
@@ -18,25 +19,43 @@
 ;; - terms from stlc+reco+var.rkt
 ;; - pack and open
 
-(begin-for-syntax
+#;(begin-for-syntax
   (define (type=? t1 t2)
     (or (stlc:type=? t1 t2)
         (sysf:type=? t1 t2)))
   (current-type=? type=?)
   (current-typecheck-relation type=?))
 
-;; TODO: disambiguate expanded representation of ∃, ok to use lambda in this calculus
-(define-type-constructor (∃ [[X]] τ_body))
-;(provide ∃)
-;(define-syntax (∃ stx)
-;  (syntax-parse stx
-;    [(_ (tv:id) body)
-;     (syntax/loc stx (#%plain-lambda (tv) body))]))
+
+#;(define-type-constructor (∃ [[X]] τ_body))
+; this is exactly the same as μ
+(define-syntax ∃
+  (syntax-parser
+    [(_ (tv:id) τ_body)
+     #:with ((tv-) τ_body- k) (infer/ctx+erase #'([tv : #%type]) #'τ_body)
+     #:when (#%type? #'k)
+     (mk-type #'(λ (tv-) τ_body-))]))
+(begin-for-syntax
+  (define (infer∃+erase e)
+    (syntax-parse (infer+erase e) #:context e
+      [(e- τ_e)
+       #:with ((~literal #%plain-lambda) (tv) τ) #'τ_e
+       #'(e- (tv τ))]))
+  (define-syntax ~∃*
+    (pattern-expander
+     (syntax-parser
+       [(_ (tv:id) τ)
+        #'(~or
+           ((~literal #%plain-lambda) (tv) τ)
+           (~and any (~do
+                      (type-error
+                       #:src #'any
+                       #:msg "Expected ∃ type, got: ~a" #'any))))]))))
 
 (define-syntax (pack stx)
   (syntax-parse stx
     [(_ (τ:type e) as ∃τ:type)
-     #:with (~∃ [[τ_abstract]] τ_body) #'∃τ.norm
+     #:with (~∃* (τ_abstract) τ_body) #'∃τ.norm
 ;     #:with (#%plain-lambda (τ_abstract:id) τ_body) #'∃τ.norm
      #:with [e- τ_e] (infer+erase #'e)
      #:when (typecheck? #'τ_e  (subst #'τ.norm #'τ_abstract #'τ_body))
@@ -45,7 +64,7 @@
 (define-syntax (open stx)
   (syntax-parse stx #:datum-literals (<=)
     [(_ ([(tv:id x:id) <= e_packed]) e)
-     #:with [e_packed- (~∃ [[τ_abstract]] τ_body)] (infer+erase #'e_packed)
+     #:with [e_packed- (τ_abstract τ_body)] (infer∃+erase #'e_packed)
 ;     #:with [e_packed- τ_packed] (infer+erase #'e_packed)
 ;     #:with (#%plain-lambda (τ_abstract:id) τ_body) #'τ_packed ; existential
      ;; The subst below appears to be a hack, but it's not really.
@@ -91,7 +110,6 @@
      ;; ------------------------------
      ;; Γ ⊢ let {X_2,x}=t_1 in t_2 : T_2
      ;;
-     #:with [tvs- (x-) (e-) (τ_e)]
-            (infer #'(e) #:ctx #`([x : #,(subst #'tv #'τ_abstract #'τ_body)])
-                         #:tvs #'(tv))
+     #:with [_ (x-) (e-) (τ_e)]
+            (infer #'(e) #:tvctx #'([tv : #%type]) #:ctx #`([x : #,(subst #'tv #'τ_abstract #'τ_body)]))
      (⊢ (let ([x- e_packed-]) e-) : τ_e)]))

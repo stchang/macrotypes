@@ -29,7 +29,7 @@
 (typecheck-fail (begin) #:with-msg "expected more terms")
 (typecheck-fail
  (begin 1 2 3)
- #:with-msg "all begin expressions except the last one should have type Unit")
+ #:with-msg "Expected expression 1 to have type Unit, got: Int")
 
 (check-type (begin (void) 1) : Int ⇒ 1)
 (check-type ((λ ([x : Int]) (begin (void) x)) 1) : Int)
@@ -42,6 +42,11 @@
 (check-type (ann 1 : Int) : Int ⇒ 1)
 (check-type ((λ ([x : Int]) (ann x : Int)) 10) : Int ⇒ 10)
 (typecheck-fail (ann 1 : Bool) #:with-msg "ann: 1 does not have type Bool")
+;ann errs
+(typecheck-fail (ann 1 : Complex) #:with-msg "unbound identifier")
+(typecheck-fail (ann 1 : 1) #:with-msg "not a valid type")
+(typecheck-fail (ann 1 : (λ ([x : Int]) x)) #:with-msg "not a valid type")
+(typecheck-fail (ann Int : Int) #:with-msg "does not have type Int")
 
 ; let
 (check-type (let () (+ 1 1)) : Int ⇒ 2)
@@ -59,7 +64,6 @@
  (let* ([x #t] [y (+ x 1)]) 1)
   #:with-msg
  "Arguments to function \\+.+have wrong type.+Given:.+Bool.+Int.+Expected:.+Int.+Int")
-
 
 ; letrec
 (typecheck-fail
@@ -95,12 +99,29 @@
    (is-odd? 11)) : Bool ⇒ #t)
 
 ;; check some more err msgs
-(typecheck-fail (and "1" #f) #:with-msg "Expected type of.+to be Bool")
-(typecheck-fail (and #t "2") #:with-msg "Expected type of.+to be Bool")
-(typecheck-fail (or "1" #f) #:with-msg "Expected type of.+to be Bool")
-(typecheck-fail (or #t "2") #:with-msg "Expected type of.+to be Bool")
-(typecheck-fail (if "true" 1 2) #:with-msg "Expected type of.+to be Bool")
-
+(typecheck-fail
+ (and "1" #f)
+ #:with-msg "Expected expression \"1\" to have type Bool, got: String")
+(typecheck-fail
+ (and #t "2")
+ #:with-msg
+ "Expected expression \"2\" to have type Bool, got: String")
+(typecheck-fail
+ (or "1" #f)
+ #:with-msg
+ "Expected expression \"1\" to have type Bool, got: String")
+(typecheck-fail
+ (or #t "2")
+ #:with-msg
+ "Expected expression \"2\" to have type Bool, got: String")
+(typecheck-fail
+ (if "true" 1 2)
+ #:with-msg
+ "Expected expression \"true\" to have type Bool, got: String")
+(typecheck-fail
+ (if #t 1 "2")
+ #:with-msg 
+ "branches must have the same type: given Int and String")
 
 ;; tests from stlc+lit-tests.rkt --------------------------
 ; most should pass, some failing may now pass due to added types/forms
@@ -122,7 +143,7 @@
 (typecheck-fail
  (λ ([f : Int]) (f 1 2))
  #:with-msg
- "Expected type of expression to match pattern \\(→ τ_in ... τ_out\\), got: Int")
+ "Expected expression f to have → type, got: Int")
 
 (check-type (λ ([f : (→ Int Int Int)] [x : Int] [y : Int]) (f x y))
             : (→ (→ Int Int Int) Int Int Int))

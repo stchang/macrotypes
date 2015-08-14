@@ -2,7 +2,7 @@
 (require syntax/stx racket/list)
 (provide (all-defined-out))
 
-(define (stx-cadr stx) (car (stx-cdr stx)))
+(define (stx-cadr stx) (stx-car (stx-cdr stx)))
 
 (define (stx-andmap f . stx-lsts)
   (apply andmap f (map syntax->list stx-lsts)))
@@ -23,6 +23,8 @@
   (member (datum->syntax v) (map datum->syntax (syntax->list stx)) string=?))
 (define (str-stx-assoc v stx)
   (assoc v (map syntax->list (syntax->list stx)) stx-str=?))
+(define (stx-assoc v stx) ; v = id
+  (assoc v (map syntax->list (syntax->list stx)) free-identifier=?))
 
 (define (stx-length stx) (length (syntax->list stx)))
 (define (stx-length=? stx1 stx2)

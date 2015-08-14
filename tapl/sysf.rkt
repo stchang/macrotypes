@@ -20,12 +20,13 @@
 ;; - Λ and inst
 
 ;; dont use define-type-constructor, instead define explicit macro
-(provide ∀)
-(define-syntax (∀ stx)
+;(provide ∀)
+#;(define-syntax (∀ stx)
   (syntax-parse stx
     [(_ (x:id ...) body) ; cannot use :type annotation on body bc of unbound vars
      ;; use #%plain-lambda to avoid insertion of #%expression
      (syntax/loc stx (#%plain-lambda (x ...) body))]))
+(define-type-constructor (∀ [[x ...]] body))
 
 (begin-for-syntax
   ;; extend to handle ∀
@@ -44,11 +45,12 @@
 (define-syntax (Λ stx)
   (syntax-parse stx
     [(_ (tv:id ...) e)
-     #:with (tvs- e- τ) (infer/tvs+erase #'e #'(tv ...))
-     (⊢ #'e- #'(∀ tvs- τ))]))
+     #:with ((tv- ...) e- τ) (infer/tvs+erase #'e #'(tv ...))
+     (⊢ e- : (∀ #:bind (tv- ...) τ))]))
 (define-syntax (inst stx)
   (syntax-parse stx
     [(_ e τ:type ...)
-     #:with (e- ∀τ) (infer+erase #'e)
-     #:with ((~literal #%plain-lambda) (tv ...) τ_body) #'∀τ
-     (⊢ #'e- (substs #'(τ.norm ...) #'(tv ...) #'τ_body))]))
+     #:with (e- (~∀* [[tv ...]] τ_body)) (infer+erase #'e)
+;     #:with (e- ∀τ) (infer+erase #'e)
+;     #:with ((~literal #%plain-lambda) (tv ...) τ_body) #'∀τ
+     (⊢ e- : #,(substs #'(τ.norm ...) #'(tv ...) #'τ_body))]))

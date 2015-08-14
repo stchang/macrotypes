@@ -17,17 +17,25 @@
 ;; - terms from stlc+reco+var.rkt
 ;; - fld/unfld
 
-(define-type-constructor
+#;(define-type-constructor
   (μ [[tv]] τ_body))
-; can't enforce this because bound ids wont have #%type tag
-  ;#:declare τ_body type)
-#;(define-syntax (μ stx)
-  (syntax-parse stx
+(define-syntax μ
+  (syntax-parser
     [(_ (tv:id) τ_body)
-     #'(#%type
-        (λ (tv)
-          (let-syntax ([tv (syntax-parser [tv:id #'(#%type tv)])])
-            τ_body)))]))
+     #:with ((tv-) τ_body- k) (infer/ctx+erase #'([tv : #%type]) #'τ_body)
+     #:when (#%type? #'k)
+     (mk-type #'(λ (tv-) τ_body-))]))
+(begin-for-syntax
+  (define-syntax ~μ*
+    (pattern-expander
+     (syntax-parser
+       [(_ (tv:id) τ)
+        #'(~or
+           ((~literal #%plain-lambda) (tv) τ)
+         (~and any (~do
+                    (type-error
+                     #:src #'any
+                     #:msg "Expected μ type, got: ~a" #'any))))]))))
 
 (begin-for-syntax
   ;; extend to handle μ
@@ -48,7 +56,7 @@
 (define-syntax (unfld stx)
   (syntax-parse stx
     [(_ τ:ann e)
-     #:with (~μ [[tv]] τ_body) #'τ.norm
+     #:with (~μ* (tv) τ_body) #'τ.norm
 ;     #:with ((~literal #%plain-lambda) (tv:id) τ_body) #'τ.norm
      #:with [e- τ_e] (infer+erase #'e)
      #:when (typecheck? #'τ_e #'τ.norm)
@@ -56,7 +64,7 @@
 (define-syntax (fld stx)
   (syntax-parse stx
     [(_ τ:ann e)
-     #:with (~μ [[tv]] τ_body) #'τ.norm
+     #:with (~μ* (tv) τ_body) #'τ.norm
 ;     #:with ((~literal #%plain-type) ((~literal #%plain-lambda) (tv:id) τ_body)) #'τ.norm
      #:with [e- τ_e] (infer+erase #'e)
      #:when (typecheck? #'τ_e (subst #'τ.norm #'tv #'τ_body))

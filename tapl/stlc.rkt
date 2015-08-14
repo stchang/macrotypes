@@ -21,9 +21,8 @@
   ;;   - may require some caution when mixing expanded and unexpanded types to
   ;;     create other types
   (define (type-eval τ)
-    (if (plain-type? τ) ; don't expand if already expanded
-        τ 
-        (add-orig #`(#%plain-type #,(expand/df τ)) τ)))
+    (or (plain-type? τ) ; don't expand if already expanded
+        (add-orig (expand/df τ) τ)))
   
   (current-type-eval type-eval)
 
@@ -48,7 +47,9 @@
   (define current-type=? (make-parameter type=?))
   (current-typecheck-relation type=?))
 
-(define-type-constructor (→ τ_in ... τ_out)
+(define-basic-checked-stx → #:arity >= 1)
+
+#;(define-type-constructor (→ τ_in ... τ_out)
   #:declare τ_in type
   #:declare τ_out type)
 
@@ -62,11 +63,11 @@
   (syntax-parse stx
     [(_ e_fn e_arg ...)
      ;; 2015-08-06: there are currently three alternative tycon matching syntaxes
-     #:with [e_fn- (~→ τ_in ... τ_out)] (infer+erase #'e_fn) ; #1 (external) pattern expander
+;     #:with [e_fn- (~→* τ_in ... τ_out)] (infer→+erase #'e_fn) ; #1 (external) pattern expander
      ;#:with [e_fn- τ_fn] (infer+erase #'e_fn) ; #2 get, via (internal) pattern expander
      ;#:with (τ_in ...) (→-get τ_in from #'τ_fn)
      ;#:with τ_out (→-get τ_out from #'τ_fn)
-     ;#:with [e_fn- (τ_in ... τ_out)] (infer→+erase #'e_fn) ; #3 work directly on term
+     #:with [e_fn- (τ_in ... τ_out)] (infer→+erase #'e_fn) ; #3 work directly on term -- better err msg
      #:with ([e_arg- τ_arg] ...) (infers+erase #'(e_arg ...))
      #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
                    (string-append

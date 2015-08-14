@@ -11,16 +11,16 @@
 
 (require "stlc+rec-iso-tests.rkt")
 
-;(require "exist-tests.rkt")
+(require "exist-tests.rkt")
 
 ;; subtyping
-;(require "stlc+sub-tests.rkt")
+(require "stlc+sub-tests.rkt")
 ;(require "stlc+reco+sub-tests.rkt")
-;(require "fsub-tests.rkt")
+;;(require "fsub-tests.rkt")
 ;
 ;;; system F
 ;(require "sysf-tests.rkt")
-;
+
 ;;; F_omega
 ;(require "fomega-tests.rkt")
 ;(require "fomega2-tests.rkt")

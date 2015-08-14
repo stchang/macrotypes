@@ -1,15 +1,15 @@
 #lang s-exp "../stlc+rec-iso.rkt"
 (require "rackunit-typechecking.rkt")
 
-(define-type-alias IntList (μ [[X]] (∨ [<> "nil" Unit] [<> "cons" (× Int X)])))
-(define-type-alias ILBody (∨ [<> "nil" Unit] [<> "cons" (× Int IntList)]))
+(define-type-alias IntList (μ (X) (∨ [nil : Unit] [cons : (× Int X)])))
+(define-type-alias ILBody (∨ [nil : Unit] [cons : (× Int IntList)]))
 
 ;; nil
-(define nil (fld {IntList} (var "nil" = (void) as ILBody)))
+(define nil (fld {IntList} (var nil = (void) as ILBody)))
 (check-type nil : IntList)
 
 ;; cons
-(define cons (λ ([n : Int] [lst : IntList]) (fld {IntList} (var "cons" = (tup n lst) as ILBody))))
+(define cons (λ ([n : Int] [lst : IntList]) (fld {IntList} (var cons = (tup n lst) as ILBody))))
 (check-type cons : (→ Int IntList IntList))
 (check-type (cons 1 nil) : IntList)
 (typecheck-fail (cons 1 2))
@@ -19,8 +19,8 @@
 (define isnil
   (λ ([lst : IntList])
     (case (unfld {IntList} lst)
-      ["nil" n => #t]
-      ["cons" p => #f])))
+      [nil n => #t]
+      [cons p => #f])))
 (check-type isnil : (→ IntList Bool))
 (check-type (isnil nil) : Bool ⇒ #t)
 (check-type (isnil (cons 1 nil)) : Bool ⇒ #f)
@@ -33,8 +33,8 @@
 (define hd
   (λ ([lst : IntList])
     (case (unfld {IntList} lst)
-      ["nil" n => 0]
-      ["cons" p => (proj p 0)])))
+      [nil n => 0]
+      [cons p => (proj p 0)])))
 (check-type hd : (→ IntList Int))
 (check-type (hd nil) : Int ⇒ 0)
 (typecheck-fail (hd 1))
@@ -44,13 +44,23 @@
 (define tl
   (λ ([lst : IntList])
     (case (unfld {IntList} lst)
-      ["nil" n => lst]
-      ["cons" p => (proj p 1)])))
+      [nil n => lst]
+      [cons p => (proj p 1)])))
 (check-type tl : (→ IntList IntList))
 (check-type (tl nil) : IntList ⇒ nil)
 (check-type (tl (cons 1 nil)) : IntList ⇒ nil)
 (check-type (tl (cons 1 (cons 2 nil))) : IntList ⇒ (cons 2 nil))
 (typecheck-fail (tl 1))
+
+;; some typecheck failure msgs
+(typecheck-fail
+ (fld {Int} 1)
+ #:with-msg
+ "Expected type of expression to match pattern \\(μ \\(\\(tv)) τ_body), got: Int")
+(typecheck-fail
+ (unfld {Int} 1)
+ #:with-msg
+ "Expected type of expression to match pattern \\(μ \\(\\(tv)) τ_body), got: Int")
 
 ;; previous stlc+var tests ----------------------------------------------------
 ;; define-type-alias
@@ -85,50 +95,50 @@
 ;                (× [: "name" String] [: "phone" Int] [: "is-male?" Bool]))
 
 ;; variants
-(check-type (var "coffee" = (void) as (∨ [<> "coffee" Unit])) : (∨ [<> "coffee" Unit]))
-(check-not-type (var "coffee" = (void) as (∨ [<> "coffee" Unit])) : (∨ [<> "coffee" Unit] [<> "tea" Unit]))
-(typecheck-fail ((λ ([x : (∨ [<> "coffee" Unit] [<> "tea" Unit])]) x)
-                 (var "coffee" = (void) as (∨ [<> "coffee" Unit]))))
-(check-type (var "coffee" = (void) as (∨ [<> "coffee" Unit] [<> "tea" Unit])) : (∨ [<> "coffee" Unit] [<> "tea" Unit]))
-(check-type (var "coffee" = (void) as (∨ [<> "coffee" Unit] [<> "tea" Unit] [<> "coke" Unit]))
-            : (∨ [<> "coffee" Unit] [<> "tea" Unit] [<> "coke" Unit]))
+(check-type (var coffee = (void) as (∨ [coffee : Unit])) : (∨ [coffee : Unit]))
+(check-not-type (var coffee = (void) as (∨ [coffee : Unit])) : (∨ [coffee : Unit] [tea : Unit]))
+(typecheck-fail ((λ ([x : (∨ [coffee : Unit] [tea : Unit])]) x)
+                 (var coffee = (void) as (∨ [coffee : Unit]))))
+(check-type (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit])) : (∨ [coffee : Unit] [tea : Unit]))
+(check-type (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit] [coke : Unit]))
+            : (∨ [coffee : Unit] [tea : Unit] [coke : Unit]))
 
 (typecheck-fail
- (case (var "coffee" = (void) as (∨ [<> "coffee" Unit] [<> "tea" Unit]))
-   ["coffee" x => 1])) ; not enough clauses
+ (case (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit]))
+   [coffee x => 1])) ; not enough clauses
 (typecheck-fail
- (case (var "coffee" = (void) as (∨ [<> "coffee" Unit] [<> "tea" Unit]))
-   ["coffee" x => 1]
-   ["teaaaaaa" x => 2])) ; wrong clause
+ (case (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit]))
+   [coffee x => 1]
+   [teaaaaaa x => 2])) ; wrong clause
 (typecheck-fail
- (case (var "coffee" = (void) as (∨ [<> "coffee" Unit] [<> "tea" Unit]))
-   ["coffee" x => 1]
-   ["tea" x => 2]
-   ["coke" x => 3])) ; too many clauses
+ (case (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit]))
+   [coffee x => 1]
+   [tea x => 2]
+   [coke x => 3])) ; too many clauses
 (typecheck-fail
- (case (var "coffee" = (void) as (∨ [<> "coffee" Unit] [<> "tea" Unit]))
-   ["coffee" x => "1"]
-   ["tea" x => 2])) ; mismatched branch types
+ (case (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit]))
+   [coffee x => "1"]
+   [tea x => 2])) ; mismatched branch types
 (check-type
- (case (var "coffee" = 1 as (∨ [<> "coffee" Int] [<> "tea" Unit]))
-   ["coffee" x => x]
-   ["tea" x => 2]) : Int ⇒ 1)
-(define-type-alias Drink (∨ [<> "coffee" Int] [<> "tea" Unit] [<> "coke" Bool]))
+ (case (var coffee = 1 as (∨ [coffee : Int] [tea : Unit]))
+   [coffee x => x]
+   [tea x => 2]) : Int ⇒ 1)
+(define-type-alias Drink (∨ [coffee : Int] [tea : Unit] [coke : Bool]))
 (check-type ((λ ([x : Int]) (+ x x)) 10) : Int ⇒ 20)
 (check-type (λ ([x : Int]) (+ (+ x x) (+ x x))) : (→ Int Int))
 (check-type
  (case ((λ ([d : Drink]) d)
-        (var "coffee" = 1 as (∨ [<> "coffee" Int] [<> "tea" Unit] [<> "coke" Bool])))
-   ["coffee" x => (+ (+ x x) (+ x x))]
-   ["tea" x => 2]
-   ["coke" y => 3])
+        (var coffee = 1 as (∨ [coffee : Int] [tea : Unit] [coke : Bool])))
+   [coffee x => (+ (+ x x) (+ x x))]
+   [tea x => 2]
+   [coke y => 3])
  : Int ⇒ 4)
 
 (check-type
- (case ((λ ([d : Drink]) d) (var "coffee" = 1 as Drink))
-   ["coffee" x => (+ (+ x x) (+ x x))]
-   ["tea" x => 2]
-   ["coke" y => 3])
+ (case ((λ ([d : Drink]) d) (var coffee = 1 as Drink))
+   [coffee x => (+ (+ x x) (+ x x))]
+   [tea x => 2]
+   [coke y => 3])
  : Int ⇒ 4)
 
 ;; previous tests: ------------------------------------------------------------
