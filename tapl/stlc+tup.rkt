@@ -25,7 +25,8 @@
 (define-syntax (proj stx)
   (syntax-parse stx
     [(_ e_tup n:nat)
-     #:with [e_tup- τs_tup] (infer×+erase #'e_tup)
+;     #:with [e_tup- τs_tup] (infer×+erase #'e_tup)
+     #:with [e_tup- τs_tup] (⇑ e_tup as ×)
      #:fail-unless (< (syntax-e #'n) (stx-length #'τs_tup)) "index too large"
      (⊢ (list-ref e_tup- n) : #,(stx-list-ref #'τs_tup (syntax-e #'n)))]))
    

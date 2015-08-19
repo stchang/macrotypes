@@ -17,15 +17,16 @@
 ;; - terms from stlc+reco+var.rkt
 ;; - fld/unfld
 
+(define-basic-checked-stx μ #:arity = 1 #:bvs = 1)
 #;(define-type-constructor
   (μ [[tv]] τ_body))
-(define-syntax μ
+#;(define-syntax μ
   (syntax-parser
     [(_ (tv:id) τ_body)
      #:with ((tv-) τ_body- k) (infer/ctx+erase #'([tv : #%type]) #'τ_body)
      #:when (#%type? #'k)
      (mk-type #'(λ (tv-) τ_body-))]))
-(begin-for-syntax
+#;(begin-for-syntax
   (define-syntax ~μ*
     (pattern-expander
      (syntax-parser

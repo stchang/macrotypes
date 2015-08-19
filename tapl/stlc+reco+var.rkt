@@ -1,15 +1,16 @@
 #lang racket/base
 (require "typecheck.rkt")
 (require (only-in racket/bool symbol=?))
-(require (prefix-in stlc: (only-in "stlc+tup.rkt" #%app begin let #;type=? × infer×+erase))
-         (except-in "stlc+tup.rkt" #%app begin tup proj let #;type=? × infer×+erase))
+(require (prefix-in stlc: (only-in "stlc+tup.rkt" #%app begin let × ×?))
+         (except-in "stlc+tup.rkt" #%app begin tup proj let ×)
+         (rename-in (only-in "stlc+tup.rkt" ~×)  [~× ~stlc:×]))
 (provide (rename-out [stlc:#%app #%app] [stlc:let let] [stlc:begin begin]
                      [define/tc define]))
 (provide (except-out (all-from-out "stlc+tup.rkt")
                      stlc:#%app stlc:let stlc:begin stlc:×
-                     (for-syntax #;stlc:type=? stlc:infer×+erase)))
-(provide tup proj × var case ∨)
-(provide (for-syntax #;type=? same-types?))
+                     (for-syntax ~stlc:× stlc:×?)))
+(provide × tup proj ∨ var case)
+(provide (for-syntax same-types? ~× ~×* ~∨ ~∨*))
 
 
 ;; Simply-Typed Lambda Calculus, plus records and variants
@@ -61,11 +62,29 @@
     [(_ [label:id : τ:type] ...)
      #:with (valid-τ ...) (stx-map mk-type #'(('label τ.norm) ...))
      #`(stlc:× valid-τ ...)]))
-(define-for-syntax (infer×+erase e)
-  (syntax-parse (stlc:infer×+erase e) #:context e
-    [(e- τ_e)
-     #:with (((~literal #%plain-app) (quote l) τ) ...) #'τ_e
-     #'(e- ((l τ) ...))]))
+(begin-for-syntax
+  #;(define (infer×+erase e)
+    (syntax-parse (stlc:infer×+erase e) #:context e
+      [(e- τ_e)
+       #:with (((~literal #%plain-app) (quote l) τ) ...) #'τ_e
+       #'(e- ((l τ) ...))]))
+  (define-syntax ~×
+    (pattern-expander
+     (syntax-parser #:datum-literals (:)
+       [(_ [l : τ_l] (~and ddd (~literal ...)))
+        #'(~stlc:× ((~literal #%plain-app) (quote l) τ_l) ddd)]
+       [(_ . args)
+        #'(~and (~stlc:× ((~literal #%plain-app) (quote l) τ_l) (... ...))
+                (~parse args #'((l τ_l) (... ...))))])))
+  (define ×? stlc:×?)
+  (define-syntax ~×*
+    (pattern-expander
+     (syntax-parser #:datum-literals (:)
+       [(_ [l : τ_l] (~and ddd (~literal ...)))
+        #'(~or (~× [l : τ_l] ddd)
+               (~and any (~do (type-error
+                               #:src #'any
+                               #:msg "Expected × type, got: ~a" #'any))))]))))
 
 #;(define-type-constructor
   ;(× [~× label τ_fld] ...) #:lits (~×)
@@ -89,7 +108,8 @@
   (syntax-parse stx #:literals (quote)
     [(_ e_rec l:id)
 ;     #:with (e_rec- (~×* [: 'l_τ τ] ...)) (infer+erase #'e_rec)
-     #:with (e_rec- ([l_τ τ] ...)) (infer×+erase #'e_rec)
+;     #:with (e_rec- ([l_τ τ] ...)) (infer×+erase #'e_rec)
+     #:with (e_rec- ([l_τ τ] ...)) (⇑ e_rec as ×)
 ;     #:with [rec- τ_rec] (infer+erase #'e_rec) ; match method #2: get
 ;     #:with ('l_τ:str ...) (×-get label from τ_rec)
 ;     #:with (τ ...) (×-get τ_fld from τ_rec)
@@ -112,7 +132,7 @@
                         "Improper usage of type constructor ∨: ~a, expected (∨ [label:id : τ:type] ...+)")
                  #'any)]))
 (begin-for-syntax
-  (define (infer∨+erase e)
+  #;(define (infer∨+erase e)
     (syntax-parse (infer+erase e) #:context e
       [(e- τ_e)
        #:fail-unless (∨/internal? #'τ_e)
@@ -122,14 +142,24 @@
         (syntax->datum e) (type->str #'τ_e))
        #:with (~∨/internal ((~literal #%plain-app) (quote l) τ) ...) #'τ_e
        #'(e- ((l τ) ...))]))
+  (define ∨? ∨/internal?)
+  (define-syntax ~∨
+    (pattern-expander
+     (syntax-parser #:datum-literals (:)
+      [(_ [l : τ_l] (~and ddd (~literal ...)))
+       #'(~∨/internal ((~literal #%plain-app) (quote l) τ_l) ddd)]
+      [(_ . args)
+        #'(~and (~∨/internal ((~literal #%plain-app) (quote l) τ_l) (... ...))
+                (~parse args #'((l τ_l) (... ...))))])))
   (define-syntax ~∨*
     (pattern-expander
      (syntax-parser #:datum-literals (:)
       [(_ [l : τ_l] (~and ddd (~literal ...)))
-       #'(~or (~∨/internal ((~literal #%plain-app) (quote l) τ_l) ddd)
-              (~and any (~do (type-error
-                              #:src #'any
-                              #:msg "Expected ∨ type, got: ~a" #'any))))]))))
+       #'(~and (~or (~∨ [l : τ_l] ddd)
+                    (~and any (~do (type-error
+                                    #:src #'any
+                                    #:msg "Expected ∨ type, got: ~a" #'any))))
+               ~!)])))) ; dont backtrack here
 
 #;(define-type-constructor
   (∨ [<> label τ_var] ...) #:lits (<>)
@@ -141,10 +171,16 @@
     [(_ l:id = e as τ:type)
 ;     #:when (∨? #'τ.norm)
 ;     #:with (['l_τ:str τ_l] ...) (stx-map :-args (∨-args #'τ.norm))
+;     #:when (displayln #'τ)
+;     #:when (displayln #'τ.norm)
+;     #:when (displayln (type->str #'τ.norm))
      #:with (~∨* [l_τ : τ_l] ...) #'τ.norm
 ;     #:with ('l_τ:str ...) (∨-get label from τ)
 ;     #:with (τ_l ...) (∨-get τ_var from τ)
-     #:with (_ τ_match) (stx-assoc #'l #'((l_τ τ_l) ...))
+     #:with match_res (stx-assoc #'l #'((l_τ τ_l) ...))
+     #:fail-unless (syntax-e #'match_res)
+                   (format "~a field does not exist" (syntax->datum #'l))
+     #:with (_ τ_match) #'match_res
      #:with (e- τ_e) (infer+erase #'e)
      #:when (typecheck? #'τ_e #'τ_match)
      (⊢ (list 'l e) : τ)]))
@@ -153,7 +189,8 @@
     [(_ e [l:id x:id => e_l] ...)
      #:fail-when (null? (syntax->list #'(l ...))) "no clauses"
 ;     #:with (e- (~∨* [<> 'l_x τ_x] ...)) (infer+erase #'e)
-     #:with (e- ([l_x τ_x] ...)) (infer∨+erase #'e)
+     ;#:with (e- ([l_x τ_x] ...)) (infer∨+erase #'e)
+     #:with (e- ([l_x τ_x] ...)) (⇑ e as ∨)
 ;     #:with ('l_x:str ...) (∨-get label from τ_e)
 ;     #:with (τ_x ...) (∨-get τ_var from τ_e)
      #:fail-unless (= (stx-length #'(l ...)) (stx-length #'(l_x ...))) "wrong number of case clauses"

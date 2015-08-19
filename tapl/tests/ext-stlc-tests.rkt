@@ -29,7 +29,7 @@
 (typecheck-fail (begin) #:with-msg "expected more terms")
 (typecheck-fail
  (begin 1 2 3)
- #:with-msg "Expected expression 1 to have type Unit, got: Int")
+ #:with-msg "Expected expression 1 to have Unit type, got: Int")
 
 (check-type (begin (void) 1) : Int ⇒ 1)
 (check-type ((λ ([x : Int]) (begin (void) x)) 1) : Int)
@@ -101,23 +101,23 @@
 ;; check some more err msgs
 (typecheck-fail
  (and "1" #f)
- #:with-msg "Expected expression \"1\" to have type Bool, got: String")
+ #:with-msg "Expected expression \"1\" to have Bool type, got: String")
 (typecheck-fail
  (and #t "2")
  #:with-msg
- "Expected expression \"2\" to have type Bool, got: String")
+ "Expected expression \"2\" to have Bool type, got: String")
 (typecheck-fail
  (or "1" #f)
  #:with-msg
- "Expected expression \"1\" to have type Bool, got: String")
+ "Expected expression \"1\" to have Bool type, got: String")
 (typecheck-fail
  (or #t "2")
  #:with-msg
- "Expected expression \"2\" to have type Bool, got: String")
+ "Expected expression \"2\" to have Bool type, got: String")
 (typecheck-fail
  (if "true" 1 2)
  #:with-msg
- "Expected expression \"true\" to have type Bool, got: String")
+ "Expected expression \"true\" to have Bool type, got: String")
 (typecheck-fail
  (if #t 1 "2")
  #:with-msg 

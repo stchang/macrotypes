@@ -37,7 +37,7 @@
     [(_ . x) #'(stlc:#%datum . x)]))
 
 (begin-for-syntax
-  (define (sub? τ1 τ2)
+  (define (sub? t1 t2)
     ; only need this because recursive calls made with unexpanded types
     (define τ1 ((current-type-eval) t1))
     (define τ2 ((current-type-eval) t2))

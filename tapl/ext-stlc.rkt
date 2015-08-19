@@ -47,8 +47,10 @@
 (define-syntax (and/tc stx)
   (syntax-parse stx
     [(_ e1 e2)
-     #:with e1- (inferBool+erase #'e1)
-     #:with e2- (inferBool+erase #'e2)
+;     #:with e1- (inferBool+erase #'e1)
+;     #:with e2- (inferBool+erase #'e2)
+     #:with e1- (⇑ e1 as Bool)
+     #:with e2- (⇑ e2 as Bool)
 ;     #:with (e1- τ1) (infer+erase #'e1)
 ;     #:fail-unless (Bool? #'τ1) (format "given non-Bool arg: ~a\n" (syntax->datum #'e1))
 ;     #:with (e2- τ2) (infer+erase #'e2)
@@ -58,8 +60,10 @@
 (define-syntax (or/tc stx)
   (syntax-parse stx
     [(_ e1 e2)
-     #:with e1- (inferBool+erase #'e1)
-     #:with e2- (inferBool+erase #'e2)
+;     #:with e1- (inferBool+erase #'e1)
+;     #:with e2- (inferBool+erase #'e2)
+     #:with e1- (⇑ e1 as Bool)
+     #:with e2- (⇑ e2 as Bool)
 ;     #:with (e1- τ1) (infer+erase #'e1)
 ;     #:fail-unless (Bool? #'τ1) (format "given non-Bool arg: ~a\n" (syntax->datum #'e1))
 ;     #:with (e2- τ2) (infer+erase #'e2)
@@ -69,13 +73,13 @@
 (define-syntax (if/tc stx)
   (syntax-parse stx
     [(_ e_tst e1 e2)
-     #:with e_tst- (inferBool+erase #'e_tst)
+     #:with e_tst- (⇑ e_tst as Bool)
 ;     #:with (e_tst- τ_tst) (infer+erase #'e_tst)
 ;     #:fail-unless (Bool? #'τ_tst) (format "given non-Bool test: ~a\n" (syntax->datum #'e_tst))
      #:with (e1- τ1) (infer+erase #'e1)
      #:with (e2- τ2) (infer+erase #'e2)
-     #:fail-unless (or ((current-typecheck-relation) #'τ1 #'τ2)
-                       ((current-typecheck-relation) #'τ2 #'τ1))
+     #:fail-unless (or (typecheck? #'τ1 #'τ2)
+                       (typecheck? #'τ2 #'τ1))
                    (format "branches must have the same type: given ~a and ~a"
                            (type->str #'τ1) (type->str #'τ2))
      (⊢ (if e_tst- e1- e2-) : τ1)]))
@@ -86,7 +90,8 @@
 (define-syntax (begin/tc stx)
   (syntax-parse stx
     [(_ e_unit ... e)
-     #:with (e_unit- ...) (stx-map inferUnit+erase #'(e_unit ...))
+     ;#:with (e_unit- ...) (stx-map inferUnit+erase #'(e_unit ...))
+     #:with (e_unit- ...) (⇑s (e_unit ...) as Unit)
 ;     #:with ([e_unit- τ_unit] ...) (infers+erase #'(e_unit ...))
 ;     #:fail-unless (stx-andmap Unit? #'(τ_unit ...))
 ;                   (string-append

@@ -29,7 +29,8 @@
   (syntax-parse stx
     [(_ e1 e2)
      #:with (e1- τ1) (infer+erase #'e1)
-     #:with (e2- (τ2)) (inferList+erase #'e2)
+;     #:with (e2- (τ2)) (inferList+erase #'e2)
+     #:with (e2- (τ2)) (⇑ e2 as List)
 ;     #:with (e2- τ-lst) (infer+erase #'e2)
 ;     #:with τ2 (List-get τ from τ-lst)
      #:when (typecheck? #'τ1 #'τ2)
@@ -37,14 +38,16 @@
 (define-syntax (isnil stx)
   (syntax-parse stx
     [(_ e)
-     #:with (e- _) (inferList+erase #'e)
+;     #:with (e- _) (inferList+erase #'e)
+     #:with (e- _) (⇑ e as List)
 ;     #:with (e- τ-lst) (infer+erase #'e)
 ;     #:fail-unless (List? #'τ-lst) "expected argument of List type"
      (⊢ (null? e-) : Bool)]))
 (define-syntax (head stx)
   (syntax-parse stx
     [(_ e)
-     #:with (e- (τ)) (inferList+erase #'e)
+;     #:with (e- (τ)) (inferList+erase #'e)
+     #:with (e- (τ)) (⇑ e as List)
 ;     #:with (e- τ-lst) (infer+erase #'e)
 ;     #:with τ (List-get τ from τ-lst)
      (⊢ (car e-) : τ)]))

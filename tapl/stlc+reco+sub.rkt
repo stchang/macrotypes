@@ -1,15 +1,16 @@
 #lang racket/base
 (require "typecheck.rkt")
-;; want to use type=? and eval-type from stlc+reco+var.rkt, not stlc+sub.rkt
-(require (except-in "stlc+sub.rkt" #%app #%datum sub? type=? type-eval)
-         (prefix-in stlc: (only-in "stlc+sub.rkt" #%app #%datum sub?))
+;;use type=? and eval-type from stlc+reco+var.rkt, not stlc+sub.rkt
+;; but extend sub? from stlc+sub.rkt
+(require (except-in "stlc+sub.rkt" #%app #%datum sub?)
+         (prefix-in stlc+sub: (only-in "stlc+sub.rkt" #%app #%datum sub?))
          (except-in "stlc+reco+var.rkt" #%app #%datum +)
-         (prefix-in var: (only-in "stlc+reco+var.rkt" #%datum)))
-(provide (rename-out [stlc:#%app #%app]
+         (prefix-in stlc+reco+var: (only-in "stlc+reco+var.rkt" #%datum)))
+(provide (rename-out [stlc+sub:#%app #%app]
                      [datum/tc #%datum]))
-(provide (except-out (all-from-out "stlc+sub.rkt") stlc:#%app stlc:#%datum
-                     (for-syntax stlc:sub?))
-         (except-out (all-from-out "stlc+reco+var.rkt") var:#%datum))
+(provide (except-out (all-from-out "stlc+sub.rkt") stlc+sub:#%app stlc+sub:#%datum
+                     (for-syntax stlc+sub:sub?))
+         (except-out (all-from-out "stlc+reco+var.rkt") stlc+reco+var:#%datum))
 (provide (for-syntax sub?))
 
 ;; Simply-Typed Lambda Calculus, plus subtyping, plus records
@@ -22,40 +23,34 @@
 
 (define-syntax (datum/tc stx)
   (syntax-parse stx
-    [(_ . n:number) #'(stlc:#%datum . n)]
-    [(_ . x) #'(var:#%datum . x)]))
+    [(_ . n:number) #'(stlc+sub:#%datum . n)]
+    [(_ . x) #'(stlc+reco+var:#%datum . x)]))
 
 (begin-for-syntax
   (define (sub? τ1 τ2)
+;    (printf "t1 = ~a\n" (syntax->datum τ1))
+;    (printf "t2 = ~a\n" (syntax->datum τ2))
     (or
-     (syntax-parse (list τ1 τ2) #:literals (quote)
-       [((~× [: 'k τk] ...) (~× [: 'l τl] ...))
-;       [(tup1 tup2)
-;        #:when (and (×? #'tup1) (×? #'tup2))
-;        #:with (['k:str τk] ...) (stx-map :-args (×-args #'tup1))
-;        #:with (['l:str τl] ...) (stx-map :-args (×-args #'tup2))
+     (syntax-parse (list τ1 τ2)
+       [((~× [k : τk] ...) (~× [l : τl] ...))
         #:when (subset? (stx-map syntax-e (syntax->list #'(l ...)))
                         (stx-map syntax-e (syntax->list #'(k ...))))
         (stx-andmap
          (syntax-parser
-           [(l:str τl)
-            #:with (k_match τk_match) (str-stx-assoc #'l #'([k τk] ...))
-            ((current-sub?) #'τk_match #'τl)])
+           [(label τlabel)
+            #:with (k_match τk_match) (stx-assoc #'label #'([k τk] ...))
+            ((current-sub?) #'τk_match #'τlabel)])
          #'([l τl] ...))]
-       [((~∨ [<> 'k τk] ...) (~∨ [<> 'l τl] ...))
-;       [(var1 var2)
-;        #:when (and (∨? #'var1) (∨? #'var2))
-;        #:with (['k:str τk] ...) (stx-map :-args (∨-args #'var1))
-;        #:with (['l:str τl] ...) (stx-map :-args (∨-args #'var2))
+       [((~∨ [k : τk] ...) (~∨ [l : τl] ...))
         #:when (subset? (stx-map syntax-e (syntax->list #'(l ...)))
                         (stx-map syntax-e (syntax->list #'(k ...))))
         (stx-andmap
          (syntax-parser
-           [(l:str τl)
-            #:with (k_match τk_match) (str-stx-assoc #'l #'([k τk] ...))
-            ((current-sub?) #'τk_match #'τl)])
+           [(label τlabel)
+            #:with (k_match τk_match) (stx-assoc #'label #'([k τk] ...))
+            ((current-sub?) #'τk_match #'τlabel)])
          #'([l τl] ...))]
        [_ #f])
-     (stlc:sub? τ1 τ2)))
+     (stlc+sub:sub? τ1 τ2)))
   (current-sub? sub?)
   (current-typecheck-relation (current-sub?)))

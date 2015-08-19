@@ -3,57 +3,61 @@
 
 ;; record subtyping tests
 (check-type "coffee" : String)
-(check-type (tup ["coffee" = 3]) : (× [: "coffee" Int])) ; element subtyping
-(check-type (var "coffee" = 3 as (∨ [<> "coffee" Nat])) : (∨ [<> "coffee" Int])) ; element subtyping
-(check-type (tup ["coffee" = 3]) : (× [: "coffee" Nat]))
-(check-type (tup ["coffee" = 3]) : (× [: "coffee" Top]))
-(check-type (var "coffee" = 3 as (∨ [<> "coffee" Int])) : (∨ [<> "coffee" Top])) ; element subtyping (twice)
-(check-type (tup ["coffee" = 3]) : (× [: "coffee" Num]))
-(check-not-type (tup ["coffee" = -3]) : (× [: "coffee" Nat]))
-(check-type (tup ["coffee" = -3]) : (× [: "coffee" Num]))
-(check-type (tup ["coffee" = -3] ["tea" = 3]) : (× [: "coffee" Int])) ; width subtyping
-(check-type (tup ["coffee" = -3] ["tea" = 3]) : (× [: "coffee" Num])) ; width+element subtyping
+(check-type (tup [coffee = 3]) : (× [coffee : Int])) ; element subtyping
+(check-type (var coffee = 3 as (∨ [coffee : Nat])) : (∨ [coffee : Int])) ; element subtyping
+;err
+(typecheck-fail
+ (var cooffee = 3 as (∨ [coffee : Nat]))
+ #:with-msg "cooffee field does not exist")
+(check-type (tup [coffee = 3]) : (× [coffee : Nat]))
+(check-type (tup [coffee = 3]) : (× [coffee : Top]))
+(check-type (var coffee = 3 as (∨ [coffee : Int])) : (∨ [coffee : Top])) ; element subtyping (twice)
+(check-type (tup [coffee = 3]) : (× [coffee : Num]))
+(check-not-type (tup [coffee = -3]) : (× [coffee : Nat]))
+(check-type (tup [coffee = -3]) : (× [coffee : Num]))
+(check-type (tup [coffee = -3] [tea = 3]) : (× [coffee : Int])) ; width subtyping
+(check-type (tup [coffee = -3] [tea = 3]) : (× [coffee : Num])) ; width+element subtyping
 
 ;; record + fns
-(check-type (tup ["plus" = +]) : (× [: "plus" (→ Num Num Num)]))
+(check-type (tup [plus = +]) : (× [plus : (→ Num Num Num)]))
 (check-type + : (→ Num Num Num))
-(check-type (tup ["plus" = +]) : (× [: "plus" (→ Int Num Num)]))
-(check-type (tup ["plus" = +]) : (× [: "plus" (→ Int Num Top)]))
-(check-type (tup ["plus" = +] ["mul" = *]) : (× [: "plus" (→ Int Num Top)]))
+(check-type (tup [plus = +]) : (× [plus : (→ Int Num Num)]))
+(check-type (tup [plus = +]) : (× [plus : (→ Int Num Top)]))
+(check-type (tup [plus = +] [mul = *]) : (× [plus : (→ Int Num Top)]))
 
 ;; examples from tapl ch26, bounded quantification
-(check-type (λ ([x : (× [: "a" Int])]) x) : (→ (× [: "a" Int]) (× [: "a" Int])))
+(check-type (λ ([x : (× [a : Int])]) x) : (→ (× [a : Int]) (× [a : Int])))
 
-(check-type ((λ ([x : (× [: "a" Int])]) x) (tup ["a" = 0]))
-            : (× [: "a" Int]) ⇒ (tup ["a" = 0]))
-(check-type ((λ ([x : (× [: "a" Int])]) x) (tup ["a" = 0]["b" = #t]))
-            : (× [: "a" Int]) ⇒ (tup ["a" = 0]["b" = #t]))
+(check-type ((λ ([x : (× [a : Int])]) x) (tup [a = 0]))
+            : (× [a : Int]) ⇒ (tup [a = 0]))
+(check-type ((λ ([x : (× [a : Int])]) x) (tup [a = 0][b = #t]))
+            : (× [a : Int]) ⇒ (tup [a = 0][b = #t]))
 
-(check-type (proj ((λ ([x : (× [: "a" Int])]) x) (tup ["a" = 0]["b" = #t])) "a")
+(check-type (proj ((λ ([x : (× [a : Int])]) x) (tup [a = 0][b = #t])) a)
             : Int ⇒ 0)
 
 ;; this should work! but needs bounded quantification, see fsub.rkt
-(typecheck-fail (proj ((λ ([x : (× [: "a" Int])]) x) (tup ["a" = 0]["b" = #t])) "b"))
+(typecheck-fail (proj ((λ ([x : (× [a : Int])]) x) (tup [a = 0][b = #t])) b))
 
 ;; previous record tests ------------------------------------------------------
 ;; records (ie labeled tuples)
 (check-type "Stephen" : String)
-(check-type (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) :
-            (× [: "name" String] [: "phone" Int] [: "male?" Bool]))
-(check-type (proj (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) "name")
+(check-type (tup [name = "Stephen"] [phone = 781] [male? = #t]) :
+            (× [name : String] [phone : Int] [male? : Bool]))
+(check-type (proj (tup [name = "Stephen"] [phone = 781] [male? = #t]) name)
             : String ⇒ "Stephen")
-(check-type (proj (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) "name")
+(check-type (proj (tup [name = "Stephen"] [phone = 781] [male? = #t]) name)
             : String ⇒ "Stephen")
-(check-type (proj (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) "phone")
+(check-type (proj (tup [name = "Stephen"] [phone = 781] [male? = #t]) phone)
             : Int ⇒ 781)
-(check-type (proj (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) "male?")
+(check-type (proj (tup [name = "Stephen"] [phone = 781] [male? = #t]) male?)
             : Bool ⇒ #t)
-(check-not-type (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) :
-                (× [: "my-name" String] [: "phone" Int] [: "male?" Bool]))
-(check-not-type (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) :
-                (× [: "name" String] [: "my-phone" Int] [: "male?" Bool]))
-(check-not-type (tup ["name" = "Stephen"] ["phone" = 781] ["male?" = #t]) :
-                (× [: "name" String] [: "phone" Int] [: "is-male?" Bool]))
+(check-not-type (tup [name = "Stephen"] [phone = 781] [male? = #t]) :
+                (× [my-name : String] [phone : Int] [male? : Bool]))
+(check-not-type (tup [name = "Stephen"] [phone = 781] [male? = #t]) :
+                (× [name : String] [my-phone : Int] [male? : Bool]))
+(check-not-type (tup [name = "Stephen"] [phone = 781] [male? = #t]) :
+                (× [name : String] [phone : Int] [is-male? : Bool]))
 
 
 ;; previous basic subtyping tests ------------------------------------------------------

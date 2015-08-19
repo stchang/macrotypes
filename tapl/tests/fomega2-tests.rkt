@@ -6,14 +6,17 @@
 (typecheck-fail →)
 (check-type (→ Int Int) : ★)
 (typecheck-fail (→ →))
+(typecheck-fail (→ 1))
 (check-type 1 : Int)
 
 (check-type (∀ ([t : ★]) (→ t t)) : ★)
 (check-type (→ (∀ ([t : ★]) (→ t t)) (→ Int Int)) : ★)
 
+(check-type (Λ ([X : ★]) (λ ([x : X]) x)) : (∀ ([X : ★]) (→ X X)))
+
 (check-type ((λ ([x : (∀ ([X : ★]) (→ X X))]) x) (Λ ([X : ★]) (λ ([x : X]) x)))
-            : (∀ ([X : ★]) (→ X X )))
-(typecheck-fail ((λ ([x : (∀ ([X : ★]) (→ X X))]) x) (Λ ([X : (⇒ ★ ★)]) (λ ([x : X]) x))))
+            : (∀ ([X : ★]) (→ X X)))
+(typecheck-fail ((λ ([x : (∀ ([X : ★]) (→ X X))]) x) (Λ ([X : (→ ★ ★)]) (λ ([x : X]) x))))
 
 (check-type (λ ([t : ★]) t) : (→ ★ ★))
 (check-type (λ ([t : ★] [s : ★]) t) : (→ ★ ★ ★))
@@ -40,9 +43,13 @@
              (Λ ([tyf : (→ ★ ★)]) (λ ([f : (tyf String)]) f))
              ((λ ([arg : ★]) (λ ([res : ★]) (→ arg res))) Int))
             : (→ (→ Int String) (→ Int String)))
+(typecheck-fail
+ (inst (Λ ([X : ★]) (λ ([x : X]) x)) 1)
+ #:with-msg "not a valid type: 1")
+
 ;; applied f too early
 (typecheck-fail (inst
-                 (Λ ([yf : (→ ★ ★)]) (λ ([f : (tyf String)]) (f 1)))
+                 (Λ ([tyf : (→ ★ ★)]) (λ ([f : (tyf String)]) (f 1)))
                  ((λ ([arg : ★]) (λ ([res : ★]) (→ arg res))) Int)))
 (check-type ((inst
               (Λ ([tyf : (→ ★ ★)]) (λ ([f : (tyf String)]) f))
@@ -53,7 +60,10 @@
               ((λ ([arg : ★]) (λ ([res : ★]) (→ arg res))) Int))
               (λ ([x : Int]) "int")) 1) : String ⇒ "int")
 
-; tapl examples, p441
+;; tapl examples, p441
+(typecheck-fail
+ (define-type-alias tmp 1)
+ #:with-msg "not a valid type: 1")
 (define-type-alias Id (λ ([X : ★]) X))
 (check-type (λ ([f : (→ Int String)]) 1) : (→ (→ Int String) Int))
 (check-type (λ ([f : (→ Int String)]) 1) : (→ (→ Int (Id String)) Int))
@@ -66,13 +76,13 @@
 (check-type (λ ([f : (Id (→ Int String))]) 1) : (→ (Id (→ Int String)) Int))
 (check-type (λ ([f : (Id (→ Int String))]) 1) : (→ (Id (Id (→ Int String))) Int))
 
-; tapl examples, p451
+;; tapl examples, p451
 (define-type-alias Pair (λ ([A : ★] [B : ★]) (∀ ([X : ★]) (→ (→ A B X) X))))
 
 (check-type Pair : (→ ★ ★ ★))
 
 (check-type (Λ ([X : ★] [Y : ★]) (λ ([x : X][y : Y]) x)) : (∀ ([X : ★][Y : ★]) (→ X Y X)))
-;; parametric pair constructor
+; parametric pair constructor
 (check-type
  (Λ ([X : ★] [Y : ★]) (λ ([x : X][y : Y]) (Λ ([R : ★]) (λ ([p : (→ X Y R)]) (p x y)))))
  : (∀ ([X : ★][Y : ★]) (→ X Y (Pair X Y))))
