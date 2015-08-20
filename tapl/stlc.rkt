@@ -21,7 +21,7 @@
   ;;   - may require some caution when mixing expanded and unexpanded types to
   ;;     create other types
   (define (type-eval τ)
-    (or (expanded-type? τ) ; don't expand if already expanded
+    (or #;(expanded-type? τ) ; don't expand if already expanded
         (add-orig (expand/df τ) τ)))
   
   (current-type-eval type-eval)
@@ -46,6 +46,8 @@
   
   (define current-type=? (make-parameter type=?))
   (current-typecheck-relation type=?))
+
+;(define-syntax-category type)
 
 (define-basic-checked-stx → #:arity >= 1)
 

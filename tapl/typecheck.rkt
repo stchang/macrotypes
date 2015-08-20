@@ -287,7 +287,7 @@
   (define (bracket? stx)
     (define paren-shape/#f (syntax-property stx 'paren-shape))
     (and paren-shape/#f (char=? paren-shape/#f #\[)))
-  (define-syntax-class bound-vars
+  #;(define-syntax-class bound-vars
     (pattern
      (~and stx [[x:id ...]]
            #;[[(~and x:id (~not (~literal ...))) ... (~optional (~literal ...))]])
@@ -297,7 +297,7 @@
     (define (bracket? stx)
       (define paren-shape/#f (syntax-property stx 'paren-shape))
       (and paren-shape/#f (char=? paren-shape/#f #\[)))
-    (define-syntax-class bound-vars
+    #;(define-syntax-class bound-vars
       (pattern
        (~and stx [[x:id ...]]
              #;[[(~and x:id (~not (~literal ...))) ... (~optional (~literal ...))]])
@@ -901,17 +901,21 @@
      #:with #%tag? (mk-? #'#%tag)
      #:with name? (mk-? #'name)
      #:with named-binding (format-id #'name "~aed-binding" #'name)
+     #:with current-name? (format-id #'name? "current-~a" #'name?)
      #'(begin
          (define #%tag void)
          (begin-for-syntax
            (define (#%tag? t) (typecheck? t #'#%tag))
            (define (name? t) (#%tag? (typeof t)))
+           (define current-name? (make-parameter name?))
            (define-syntax-class name
              #:attributes (norm)
              (pattern τ
               #:with norm ((current-type-eval) #'τ)
               #:with k (typeof #'norm)
               #:fail-unless (#%tag? #'k)
+              ;#:fail-unless ((current-name?) #'norm)
+              ;#:fail-unless ((current-name?) #'norm)
               (format "~a (~a:~a) not a valid ~a: ~a"
                       (syntax-source #'τ) (syntax-line #'τ) (syntax-column #'τ)
                       'name (type->str #'τ))))
@@ -1009,7 +1013,7 @@
     (stx-fold subst e τs xs))
 
   ; subst τ for y in e, if (equal? (syntax-e x) (syntax-e y))
-  (define-for-syntax (subst-datum-lit τ x e)
+  #;(define-for-syntax (subst-datum-lit τ x e)
     (syntax-parse e
       [y:id #:when (equal? (syntax-e e) (syntax-e x)) τ]
       [(esub ...)
@@ -1017,7 +1021,7 @@
        (syntax-track-origin #'(esub_subst ...) e x)]
       [_ e]))
 
-  (define-for-syntax (subst-datum-lits τs xs e)
+  #;(define-for-syntax (subst-datum-lits τs xs e)
     (stx-fold subst-datum-lit e τs xs)))
 
   

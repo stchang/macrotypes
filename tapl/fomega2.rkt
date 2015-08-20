@@ -27,32 +27,37 @@
 (define-syntax define-type-alias
   (syntax-parser
     [(_ alias:id τ)
-     #:with (τ- k_τ) (infer+erase #'τ)
+     ;#:with (τ- k_τ) (infer+erase #'τ)
+     #:with τ+ ((current-type-eval) #'τ)
+     #:with k_τ (typeof #'τ+)
      #:fail-unless (kind? #'k_τ) (format "not a valid type: ~a\n" (type->str #'τ))
-     #'(define-syntax alias (syntax-parser [x:id #'τ-]))]))
+     #'(define-syntax alias
+         (syntax-parser [x:id #'τ+] [(_ . rst) #'(τ+ . rst)]))]))
 
 (begin-for-syntax
   ;; extend type-eval to handle tyapp
   ;; - requires manually handling all other forms
   (define (type-eval τ)
+    (beta (sysf:type-eval τ)))
+  (define (beta τ)
     (syntax-parse τ
       [((~literal #%plain-app) τ_fn τ_arg ...)
-       #:with ((~literal #%plain-lambda) (tv ...) τ_body) ((current-type-eval) #'τ_fn)
-       #:with (τ_arg+ ...) (stx-map (current-type-eval) #'(τ_arg ...))
-       (substs #'(τ_arg+ ...) #'(tv ...) #'τ_body)]
-      [((~literal ∀) _ ...) ((current-type-eval) (sysf:type-eval τ))]
-      [((~literal →) _ ...) ((current-type-eval) (sysf:type-eval τ))]
+       #:with ((~literal #%plain-lambda) (tv ...) τ_body) #'τ_fn
+       ;#:with (τ_arg+ ...) (stx-map (current-type-eval) #'(τ_arg ...))
+       ((current-type-eval) (substs #'(τ_arg ...) #'(tv ...) #'τ_body))]
+      ;[((~literal ∀) _ ...) ((current-type-eval) (sysf:type-eval τ))]
+      ;[((~literal →) _ ...) ((current-type-eval) (sysf:type-eval τ))]
 ;      [((~literal ⇒) _ ...) ((current-type-eval) (sysf:type-eval τ))]
 ;      [((~literal λ/tc) _ ...) (sysf:type-eval τ)]
 ;      [((~literal app/tc) _ ...) ((current-type-eval) (sysf:type-eval τ))]
-      [((~literal #%plain-lambda) (x ...) τ_body ...)
-       #:with (τ_body+ ...) (stx-map (current-type-eval) #'(τ_body ...))
-       (syntax-track-origin #'(#%plain-lambda (x ...) τ_body+ ...) τ #'plain-lambda)]
+      #;[((~literal #%plain-lambda) (x ...) τ_body ...)
+       #:with (τ_body+ ...) (stx-map beta #'(τ_body ...))
+       (syntax-track-origin #'(#%plain-lambda (x ...) τ_body+ ...) τ #'#%plain-lambda)]
       [((~literal #%plain-app) arg ...)
-       #:with (arg+ ...) (stx-map (current-type-eval) #'(arg ...))
+       #:with (arg+ ...) (stx-map beta #'(arg ...))
        (syntax-track-origin #'(#%plain-app arg+ ...) τ #'#%plain-app)]
       ;[(τ ...) (stx-map (current-type-eval) #'(τ ...))]
-      [_ (sysf:type-eval τ)]))
+      [_ τ]))
   (current-type-eval type-eval))
 
 (define-basic-checked-id-stx ★ : #%kind)
@@ -69,13 +74,15 @@
           (define-syntax (tycon stx)
             (syntax-parse stx
               [(_ τ ... τ_res)
-               #:with ([τ- k] ... [τ_res- k_res]) (infers+erase #'(τ ... τ_res))
+               ;#:with ([τ- k] ... [τ_res- k_res]) (infers+erase #'(τ ... τ_res))
+               #:with (τ+ ...) (stx-map (current-type-eval) #'(τ ... τ_res))
+               #:with (k ... k_res) (stx-map typeof #'(τ+ ...))
                #:when (or ; when used as →
                        (and (or (★? #'k_res) (#%kind? #'k_res))
                             (same-types? #'(k ... k_res))))
                (if (★? #'k_res)
-                   (⊢ (tycon-internal τ- ... τ_res-) : ★)
-                   (⊢ (tycon-internal τ- ... τ_res-) : #%kind))]))))]))
+                   (⊢ (tycon-internal τ+ ...) : ★)
+                   (⊢ (tycon-internal τ+ ...) : #%kind))]))))]))
 (define-multi →)
 
 (define-syntax (∀ stx)
@@ -93,7 +100,9 @@
 (define-syntax (inst stx)
   (syntax-parse stx
     [(_ e τ ...)
-     #:with ([τ- k_τ] ...) (infers+erase #'(τ ...))
+     ;#:with ([τ- k_τ] ...) (infers+erase #'(τ ...))
+     #:with (τ+ ...) (stx-map (current-type-eval) #'(τ ...))
+     #:with (k_τ ...) (stx-map typeof #'(τ+ ...))
      #:when (stx-andmap
              (λ (t k)
                (or (kind? k)
@@ -103,7 +112,7 @@
      #:with (e- ∀τ) (infer+erase #'e)
      #:with ((~literal #%plain-lambda) (tv ...) k_tv ... τ_body) #'∀τ
      #:when (typechecks? #'(k_τ ...) #'(k_tv ...))
-     (⊢ e- : #,(substs #'(τ ...) #'(tv ...) #'τ_body))]))
+     (⊢ e- : #,((current-type-eval) (substs #'(τ+ ...) #'(tv ...) #'τ_body)))]))
 #;(define-syntax (inst stx)
   (syntax-parse stx
     [(_ e τ:type ...)
@@ -140,7 +149,7 @@
 (define-syntax (app/tc stx)
   (syntax-parse stx
     [(_ e_fn e_arg ...)
-     #:with [e_fn- ((~literal #%plain-lambda) _ τ_in ... τ_out)] (infer+erase #'e_fn)
+     #:with [e_fn- ((~literal #%plain-app) _ τ_in ... τ_out)] (infer+erase #'e_fn)
      #:with ([e_arg- τ_arg] ...) (infers+erase #'(e_arg ...))
      #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
                    (string-append
