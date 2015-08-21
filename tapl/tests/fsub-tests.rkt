@@ -15,6 +15,10 @@
 (check-type (proj ((λ ([x : (× [a : Int])]) x) rab) a)
             : Int ⇒ 0)
 
+(check-type (Λ ([X <: Top]) (λ ([x : X]) x)) : (∀ ([X <: Top]) (→ X X)))
+(check-type (inst (Λ ([X <: Top]) (λ ([x : X]) x)) (× [a : Int][b : Bool]))
+            : (→ (× [a : Int][b : Bool]) (× [a : Int][b : Bool])))
+
 (check-type (proj ((inst (Λ ([X <: Top]) (λ ([x : X]) x))
                          (× [a : Int][b : Bool]))
                    rab) b)
@@ -29,7 +33,7 @@
 (define fNat (Λ ([X <: Nat]) (λ ([x : X]) (+ x 1))))
 (check-type fNat : (∀ ([X <: Nat]) (→ X Nat)))
 
-; check type constructors properly call expose
+;; check type constructors properly call expose
 (define f2poly
   (Λ ([X <: (× [a : Nat])])
      (λ ([x : X])

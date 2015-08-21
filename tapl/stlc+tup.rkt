@@ -14,7 +14,8 @@
 ;; - terms from ext-stlc.rkt
 ;; - tup and proj
 
-(define-basic-checked-stx ×)
+(define-type-constructor ×)
+;(define-basic-checked-stx ×)
 ;(define-type-constructor (× τ ...) #:declare τ type)
 
 (define-syntax (tup stx)

@@ -17,63 +17,21 @@
 ;; - terms from stlc+reco+var.rkt
 ;; - pack and open
 
-#;(begin-for-syntax
-  (define (type=? t1 t2)
-    (or (stlc:type=? t1 t2)
-        (sysf:type=? t1 t2)))
-  (current-type=? type=?)
-  (current-typecheck-relation type=?))
 
-
-#;(define-type-constructor (∃ [[X]] τ_body))
-(define-basic-checked-stx ∃ #:arity = 1 #:bvs = 1)
-; this is exactly the same as μ
-;(define-syntax ∃
-;  (syntax-parser
-;    [(_ (tv:id) τ_body)
-;     #:with ((tv-) τ_body- k) (infer/ctx+erase #'([tv : #%type]) #'τ_body)
-;     #:when (#%type? #'k)
-;     (mk-type #'(λ (tv-) τ_body-))]))
-;(begin-for-syntax
-;  #;(define (infer∃+erase e)
-;    (syntax-parse (infer+erase e) #:context e
-;      [(e- τ_e)
-;       #:with ((~literal #%plain-lambda) (tv) τ) #'τ_e
-;       #'(e- (tv τ))]))
-;  (define-syntax ~∃
-;    (pattern-expander
-;     (syntax-parser
-;       [(_ (tv:id) τ)
-;        #'((~literal #%plain-lambda) (tv) τ)])))
-;  (define-syntax ~∃*
-;    (pattern-expander
-;     (syntax-parser
-;       [(_ (tv:id) τ)
-;        #'(~or (~∃ (tv) τ)
-;               (~and any (~do
-;                          (type-error
-;                           #:src #'any
-;                           #:msg "Expected ∃ type, got: ~a" #'any))))]))))
+(define-type-constructor ∃ #:arity = 1 #:bvs = 1)
 
 (define-syntax (pack stx)
   (syntax-parse stx
     [(_ (τ:type e) as ∃τ:type)
      #:with (~∃* (τ_abstract) τ_body) #'∃τ.norm
-;     #:with (#%plain-lambda (τ_abstract:id) τ_body) #'∃τ.norm
      #:with [e- τ_e] (infer+erase #'e)
      #:when (typecheck? #'τ_e  (subst #'τ.norm #'τ_abstract #'τ_body))
-     (⊢ e- : ∃τ)]))
+     (⊢ e- : ∃τ.norm)]))
 
 (define-syntax (open stx)
   (syntax-parse stx #:datum-literals (<=)
     [(_ ([(tv:id x:id) <= e_packed]) e)
-;     #:with [e_packed- τ_packed] (infer+erase #'e_packed)
-;     #:when (displayln #'τ_packed)
-;     #:with (~∃ (τ_abstract) τ_body) #'τ_packed
      #:with [e_packed- ((τ_abstract) (τ_body))] (⇑ e_packed as ∃)
-;     #:with [e_packed- (τ_abstract τ_body)] (infer∃+erase #'e_packed)
-;     #:with [e_packed- τ_packed] (infer+erase #'e_packed)
-;     #:with (#%plain-lambda (τ_abstract:id) τ_body) #'τ_packed ; existential
      ;; The subst below appears to be a hack, but it's not really.
      ;; It's the (TaPL) type rule itself that is fast and loose.
      ;; Leveraging the macro system's management of binding reveals this.

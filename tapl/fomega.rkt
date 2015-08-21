@@ -1,17 +1,17 @@
 #lang racket/base
 (require "typecheck.rkt")
-(require (except-in "sysf.rkt" #%app λ Int #%datum → Λ inst ∀  + type-eval)
-         (prefix-in sysf: (only-in "sysf.rkt" type-eval))
-         (only-in "stlc+reco+var.rkt" same-types?))
-(provide (rename-out [app/tc #%app] [λ/tc λ] [datum/tc #%datum]))
+(require (except-in "sysf.rkt" #%app λ #%datum Λ inst ∀ type-eval type=?)
+         (rename-in (prefix-in sysf: (only-in "sysf.rkt" #%app λ type-eval ∀ ~∀ type=?))
+                    [sysf:~∀ ~sysf:∀])
+         (only-in "stlc+reco+var.rkt" String #%datum same-types?))
+(provide (rename-out [sysf:#%app #%app] [sysf:λ λ] #;[app/tc #%app] #;[λ/tc λ] #;[datum/tc #%datum]))
 #;(provide (except-out (all-from-out "sysf.rkt")
-                     sysf:Int sysf:→ sysf:∀
-                     sysf:#%app sysf:λ
-                     (for-syntax sysf:type-eval)))
-(provide (except-out (all-from-out "sysf.rkt") (for-syntax sysf:type-eval))
+                     sysf:∀ sysf:#%app sysf:λ
+                     (for-syntax sysf:type-eval sysf:type=?)))
+(provide (except-out (all-from-out "sysf.rkt") (for-syntax sysf:type-eval sysf:type=?))
          (all-from-out "stlc+reco+var.rkt"))
-(provide Int → ∀ inst Λ tyλ tyapp
-         (for-syntax type-eval))
+(provide ∀ inst Λ tyλ tyapp
+         (for-syntax type-eval type=?))
 
 ;; System F_omega
 ;; Type relation:
@@ -21,9 +21,11 @@
 ;; - terms from sysf.rkt
 
 (define-syntax-category kind)
+(begin-for-syntax
+  (current-type? (λ (t) (or (type? t) (kind? (typeof t))))))
 
-(provide define-type-alias)
-(define-syntax define-type-alias
+#;(provide define-type-alias)
+#;(define-syntax define-type-alias
   (syntax-parser
     [(_ alias:id τ)
      #:with (τ- k_τ) (infer+erase #'τ)
@@ -31,6 +33,18 @@
      #'(define-syntax alias (syntax-parser [x:id #'τ-]))]))
 
 (begin-for-syntax
+  (define (type=? t1 t2)
+    (printf "t1 = ~a\n" (syntax->datum t1))
+    (printf "t2 = ~a\n" (syntax->datum t2))
+    (and (syntax-parse (list t1 t2) #:datum-literals (:)
+          [((~∀ ([tv1 : k1] ...) tbody1)
+            (~∀ ([tv2 : k2] ...) tbody2))
+           #:when (displayln "here")
+           (types=? #'(k1 ...) #'(k2 ...))]
+           [_ #t])
+         (sysf:type=? t1 t2)))
+  (current-type=? type=?)
+  (current-typecheck-relation (current-type=?))
   ;; extend type-eval to handle tyapp
   ;; - requires manually handling all other forms
   (define (type-eval τ)
@@ -52,13 +66,12 @@
       [((~literal #%plain-app) arg ...)
        #:with (arg+ ...) (stx-map (current-type-eval) #'(arg ...))
        (syntax-track-origin #'(#%plain-app arg+ ...) τ #'#%plain-app)]
-      [(~or x:id ((~literal tyλ) . _)) ; dont eval under tyλ
+      [_ #;(~or x:id ((~literal tyλ) . _)) ; dont eval under tyλ
        (sysf:type-eval τ)]))
   (current-type-eval type-eval))
 
-(define-basic-checked-id-stx ★ : #%kind)
-(define-basic-checked-stx ⇒ : #%kind #:arity >= 1)
-;(define-type-constructor (⇒ k_in ... k_out))
+(define-base-kind ★)
+(define-kind-constructor ⇒ #:arity >= 1)
 
 ;; for now, handle kind checking in the types themselves
 ;; TODO: move kind checking to a common place (like #%app)?
@@ -66,15 +79,15 @@
 
 ;; TODO: need some kind of "promote" abstraction,
 ;; so I dont have to manually add kinds to all types
-(define-basic-checked-id-stx String : ★)
-(define-basic-checked-id-stx Int : ★)
+#;(define-basic-checked-id-stx String : ★)
+#;(define-basic-checked-id-stx Int : ★)
 ;(define-base-type Str)
 ;(provide String)
 ;(define-syntax String (syntax-parser [x:id (⊢ Str : ★)]))
 ;(define-syntax Int (syntax-parser [x:id (⊢ sysf:Int : ★)]))
 
 ;; → in Fω is not first-class, can't pass it around
-(define-basic-checked-stx → : ★ #:arity >= 1)
+#;(define-basic-checked-stx → : ★ #:arity >= 1)
 #;(define-syntax (→ stx)
   (syntax-parse stx
     [(_ τ ... τ_res)
@@ -83,19 +96,57 @@
      #:when (same-types? #'(k ... k_res))
      (⊢ (sysf:→ (#%plain-type τ-) ... (#%plain-type τ_res-)) : ★)]))
 
-(define-syntax (∀ stx)
+#;(define-syntax (∀ stx)
   (syntax-parse stx
     [(_ (b:kinded-binding ...) τ_body)
      #:with (tvs- τ_body- k_body) (infer/ctx+erase #'(b ...) #'τ_body)
      #:when (★? #'k_body)
      (⊢ (λ tvs- b.tag ... τ_body-) : ★)]))
+(define-syntax (∀ stx)
+  (syntax-parse stx
+    [(_ bvs:kind-ctx τ_body)
+;     #:with (tvs- τ_body- k_body) (infer/ctx+erase #'bvs #'τ_body)
+;     #:when (★? #'k_body)
+     #:when (displayln ((current-type-eval) #'(sysf:∀ (bvs.x ...) τ_body)))
+     (⊢ #,((current-type-eval) #'(sysf:∀ (bvs.x ...) τ_body)) : (⇒ bvs.kind ...))]))
+;    (⊢ (λ tvs- b.tag ... τ_body-) : ★)]))
+(begin-for-syntax
+  (define-syntax ~∀
+    (pattern-expander
+     (syntax-parser #:datum-literals (:)
+       [(_ ([tv:id : k] ...) τ)
+        #:when (displayln "pat expand")
+        #:with ∀τ (generate-temporary)
+        #'(~and ∀τ
+                (~parse (~sysf:∀ (tv ...) τ) #'∀τ)
+                (~parse (~⇒ k ...) (typeof #'∀τ)))]
+       [(_ . args)
+        #'(~and ∀τ
+                (~parse (~sysf:∀ (tv (... ...)) τ) #'∀τ)
+                (~parse (~⇒ k (... ...)) (typeof #'∀τ))
+                (~parse args #'(([tv k] (... ...)) τ)))])))
+  (define-syntax ~∀*
+    (pattern-expander
+     (syntax-parser #:datum-literals (<:)
+       [(_ . args)
+        #'(~or
+           (~∀ . args)
+           (~and any (~do
+                      (type-error
+                       #:src #'any
+                       #:msg "Expected ∀ type, got: ~a" #'any))))]))))
 
-(define-syntax (Λ stx)
+#;(define-syntax (Λ stx)
   (syntax-parse stx
     [(_ (b:kinded-binding ...) e)
      #:with ((tv- ...) e- τ_e) (infer/ctx+erase #'(b ...) #'e)
      (⊢ e- : (∀ ([tv- : b.tag] ...) τ_e))]))
-(define-syntax (inst stx)
+(define-syntax (Λ stx)
+  (syntax-parse stx
+    [(_ bvs:kind-ctx e)
+     #:with ((tv- ...) e- τ_e) (infer/ctx+erase #'bvs #'e)
+     (⊢ e- : (∀ ([tv- : bvs.kind] ...) τ_e))]))
+#;(define-syntax (inst stx)
   (syntax-parse stx
     [(_ e τ ...)
      #:with ([τ- k_τ] ...) (infers+erase #'(τ ...))
@@ -109,15 +160,47 @@
      #:with ((~literal #%plain-lambda) (tv ...) k_tv ... τ_body) #'∀τ
      #:when (typechecks? #'(k_τ ...) #'(k_tv ...))
      (⊢ e- : #,(substs #'(τ ...) #'(tv ...) #'τ_body))]))
+(define-syntax (inst stx)
+  (syntax-parse stx
+    [(_ e τ:type ...)
+     #:with (e- (([tv k] ...) τ_body)) (⇑ e as ∀)
+     #:with ([τ- k_τ] ...) (infers+erase #'(τ ...) #:expand (current-type-eval))
+     #:when (typechecks? (stx-map typeof #'(k_τ ...)) #'(k ...))
+     (⊢ e- : #,(substs #'(τ- ...) #'(tv ...) #'τ_body))]))
 
 ;; TODO: merge with regular λ and app?
 (define-syntax (tyλ stx)
+  (syntax-parse stx 
+    [(_ bvs:kind-ctx τ_body)
+     #:with (tvs- τ_body- k_body) (infer/ctx+erase #'bvs #'τ_body #:expand (current-type-eval))
+     (⊢ (λ tvs- τ_body-) : (⇒ bvs.kind ... k_body))]))
+#;(define-syntax (tyλ stx)
   (syntax-parse stx 
     [(_ (b:kinded-binding ...) τ_body)
      #:with (tvs- τ_body- k_body) (infer/ctx+erase #'(b ...) #'τ_body)
      (⊢ (λ tvs- τ_body-) : (⇒ b.tag ... k_body))]))
 
 (define-syntax (tyapp stx)
+  (syntax-parse stx
+    [(_ τ_fn τ_arg ...)
+     #:with [τ_fn- (k_in ... k_out)] (⇑ τ_fn as ⇒)
+     #:with ([τ_arg- k_arg] ...) (infers+erase #'(τ_arg ...) #:expand (current-type-eval))
+     #:fail-unless (typechecks? #'(k_arg ...) #'(k_in ...))
+                   (string-append
+                    (format "~a (~a:~a) Arguments to function ~a have wrong kinds(s), "
+                            (syntax-source stx) (syntax-line stx) (syntax-column stx)
+                            (syntax->datum #'τ_fn))
+                    "or wrong number of arguments:\nGiven:\n"
+                    (string-join
+                     (map (λ (e t) (format "  ~a : ~a" e t)) ; indent each line
+                          (syntax->datum #'(τ_arg ...))
+                          (stx-map type->str #'(k_arg ...)))
+                     "\n" #:after-last "\n")
+                    (format "Expected: ~a arguments with type(s): "
+                            (stx-length #'(k_in ...)))
+                    (string-join (stx-map type->str #'(k_in ...)) ", "))
+     (⊢ (#%app τ_fn- τ_arg- ...) : k_out)]))
+#;(define-syntax (tyapp stx)
   (syntax-parse stx
     [(_ τ_fn τ_arg ...)
      #:with [τ_fn- (~⇒* k_in ... k_out)] (infer+erase #'τ_fn)
@@ -176,9 +259,9 @@
 ;; must override #%app and λ and primops to use new →
 ;; TODO: parameterize →?
 
-(define-primop + : (→ Int Int Int) : ★)
+#;(define-primop + : (→ Int Int Int) : ★)
 
-(define-syntax (λ/tc stx)
+#;(define-syntax (λ/tc stx)
   (syntax-parse stx #:datum-literals (:)
     [(_ ([x : τ] ...) e)
      ;#:when (andmap ★? (stx-map (λ (t) (typeof (expand/df t))) #'(τ ...)))
@@ -187,7 +270,7 @@
      #:with (xs- e- τ_res) (infer/type-ctxt+erase #'([x : τ] ...) #'e)
      (⊢ (λ xs- e-) : (→ τ ... τ_res))]))
 
-(define-syntax (app/tc stx)
+#;(define-syntax (app/tc stx)
   (syntax-parse stx
     [(_ e_fn e_arg ...)
      #:with [e_fn- (~→* τ_in ... τ_out)] (infer+erase #'e_fn)
@@ -244,7 +327,7 @@
 ;     (⊢ (#%app e_fn- e_arg- ...) : τ_res)]))
 
 ;; must override #%datum to use new kinded-Int, etc
-(define-syntax (datum/tc stx)
+#;(define-syntax (datum/tc stx)
   (syntax-parse stx
     [(_ . n:integer) (⊢ (#%datum . n) : Int)]
     [(_ . s:str) (⊢ (#%datum . s) : String)]

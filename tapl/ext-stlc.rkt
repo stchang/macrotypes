@@ -129,10 +129,10 @@
 
 (define-syntax (letrec/tc stx)
   (syntax-parse stx
-    [(_ ([b:typed-binding e] ...) e_body)
+    [(_ ([b:type-bind e] ...) e_body)
      #:with ((x- ...) (e- ... e_body-) (τ ... τ_body))
             (infers/type-ctxt+erase #'(b ...) #'(e ... e_body))
-     #:fail-unless (typechecks? #'(b.τ ...) #'(τ ...))
+     #:fail-unless (typechecks? #'(b.type ...) #'(τ ...))
                    (string-append
                     "type check fail, args have wrong type:\n"
                     (string-join
@@ -141,7 +141,7 @@
                         (format
                          "~a has type ~a, expected ~a"
                          (syntax->datum e) (type->str τ) (type->str τ-expect)))
-                      #'(e ...) #'(τ ...) #'(b.τ ...))
+                      #'(e ...) #'(τ ...) #'(b.type ...))
                      "\n"))
      (⊢ (letrec ([x- e-] ...) e_body-) : τ_body)]))
 

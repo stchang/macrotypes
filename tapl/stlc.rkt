@@ -1,11 +1,11 @@
 #lang racket/base
 (require "typecheck.rkt")
 (provide (rename-out [λ/tc λ] [app/tc #%app]))
-(provide (for-syntax type=? current-type=? type-eval))
+(provide (for-syntax type=? types=? current-type=? type-eval))
 (provide #%module-begin #%top-interaction #%top require) ; from racket
  
 ;; Simply-Typed Lambda Calculus
-;; - no base type so cannot write any terms
+;; - no base type, so cannot write any terms
 ;; Types: multi-arg → (1+)
 ;; Terms:
 ;; - var
@@ -14,12 +14,11 @@
 
 (begin-for-syntax
   ;; type eval
-  ;; - for now, type-eval = full expansion = canonical type representation
+  ;; - type-eval = =full expansion == canonical type representation
   ;; - must expand because:
   ;;   - checks for unbound identifiers (ie, undefined types)
   ;;   - later, expanding enables reuse of same mechanisms for kind checking
-  ;;   - may require some caution when mixing expanded and unexpanded types to
-  ;;     create other types
+  ;;     and type application
   (define (type-eval τ)
     (or #;(expanded-type? τ) ; don't expand if already expanded
         (add-orig (expand/df τ) τ)))
@@ -29,9 +28,7 @@
   ;; type=? : Type Type -> Boolean
   ;; Indicates whether two types are equal
   ;; type equality == structurally free-identifier=?
-  ;; does not assume any sort of representation (eg expanded/unexpanded)
-  ;; - caller (see typechecks? in typecheck.rkt) is responsible to
-  ;;   convert if necessary
+  ;; assumes canonical (ie expanded) representation
   (define (type=? τ1 τ2)
 ;    (printf "(τ=) t1 = ~a\n" #;τ1 (syntax->datum τ1))
 ;    (printf "(τ=) t2 = ~a\n" #;τ2 (syntax->datum τ2))
@@ -47,19 +44,16 @@
   (define current-type=? (make-parameter type=?))
   (current-typecheck-relation type=?))
 
-;(define-syntax-category type)
+(define-syntax-category type)
 
-(define-basic-checked-stx → #:arity >= 1)
-
-#;(define-type-constructor (→ τ_in ... τ_out)
-  #:declare τ_in type
-  #:declare τ_out type)
+;(define-basic-checked-stx → : #%type #:arity >= 1)
+(define-type-constructor → #:arity >= 1)
 
 (define-syntax (λ/tc stx)
   (syntax-parse stx 
-    [(_ (b:typed-binding ...) e)
-     #:with (xs- e- τ_res) (infer/type-ctxt+erase #'(b ...) #'e)
-     (⊢ (λ xs- e-) : (→ b.τ ... τ_res))]))
+    [(_ bvs:type-ctx e)
+     #:with (xs- e- τ_res) (infer/ctx+erase #'bvs #'e)
+     (⊢ (λ xs- e-) : (→ bvs.type ... τ_res))]))
 
 (define-syntax (app/tc stx)
   (syntax-parse stx

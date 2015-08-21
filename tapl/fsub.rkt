@@ -1,17 +1,15 @@
 #lang racket/base
 (require "typecheck.rkt")
-(require ;(except-in "sysf.rkt" #%app λ + #%datum ∀ Λ inst type=?)
-         ;(prefix-in sysf: (only-in "sysf.rkt" #%app λ))
-         (except-in "stlc+reco+sub.rkt" #%app λ + type=? #;sub?)
-         (prefix-in stlc: (only-in "stlc+reco+sub.rkt" #%app λ #;type=? sub?))
-         (only-in "stlc+rec-iso.rkt" type=?)) ; type=? for binding forms
+(require (except-in "stlc+reco+sub.rkt" #%app λ + type=?)
+         (prefix-in stlc: (only-in "stlc+reco+sub.rkt" #%app λ sub?))
+         (only-in "sysf.rkt" ∀? type=?)
+         (prefix-in sysf: (only-in "sysf.rkt" ∀ #;type=?))
+         (rename-in (only-in "sysf.rkt" ~∀) [~∀ ~sysf:∀]))
 (provide (rename-out [stlc:#%app #%app] [stlc:λ λ]) (for-syntax sub?))
 (provide (except-out (all-from-out "stlc+reco+sub.rkt")
                      stlc:#%app stlc:λ (for-syntax stlc:sub?))
-         (all-from-out "stlc+rec-iso.rkt")
-         #;(except-out (all-from-out "stlc+reco+sub.rkt")
-                     (for-syntax #;stlc+reco+sub:type=? stlc+reco+sub:sub?)))
-(provide ∀ Λ inst)
+         (except-out (all-from-out "sysf.rkt") sysf:∀ (for-syntax #;sysf:type=? ~sysf:∀)))
+(provide ∀ Λ inst (for-syntax #;type=?))
  
 ;; System F<:
 ;; Types:
@@ -33,67 +31,54 @@
            (if sub (expose sub) t)]
           [else t]))
   (current-promote expose)
+  #;(define (type=? t1 t2)
+    (displayln (typeof t1))
+    (displayln (typeof t2))
+    (and (sysf:type=? t1 t2)
+         (sysf:type=? (typeof t1) (typeof t2))))
+  #;(current-type=? type=?)
   ; need this, to lift base-types; is there another way to do this?
   (define (sub? t1 t2)
-    (stlc:sub? (expose t1) (expose t2)))
+    (stlc:sub? ((current-promote) t1) t2))
   (current-sub? sub?)
-  ;; extend to handle new ∀
-  #;(define (type=? τ1 τ2)
-    (syntax-parse (list τ1 τ2)
-      [(((~literal #%plain-lambda) (x:id ...) k1 ... t1)
-        ((~literal #%plain-lambda) (y:id ...) k2 ... t2))
-       #:when (= (stx-length #'(x ...)) (stx-length #'(y ...)))
-       #:when (= (stx-length #'(x ...)) (stx-length #'(k1 ...)))
-       ((current-type=?) (substs #'(k1 ...) #'(x ...) #'t1)
-                         (substs #'(k2 ...) #'(y ...) #'t2))]
-      [_ (or (sysf:type=? τ1 τ2) (stlc+reco+sub:type=? τ1 τ2))]))
-  #;(current-type=? type=?)
   (current-typecheck-relation (current-sub?)))
+
+(define-type-constructor <: #:arity >= 0) ; quasi-kind, but must be type constructor because its arguments are types
+(begin-for-syntax
+  (current-type? (λ (t) (or (type? t) (<:? (typeof t))))))
 
 ;; Type annotations used in two places:
 ;; 1) typechecking the body of 
 ;; 2) instantiation of ∀
 ;; Problem: need type annotations, even in expanded form
-#;(define-syntax (∀ stx)
-  (syntax-parse stx #:datum-literals (<:)
-    [(_ ([X:id <: τ] ...) ~! body)
-     (syntax/loc stx (#%plain-lambda (X ...) τ ... body))]
-    #;[(_ x ...) #'(sysf:∀ x ...)]))
-(define ∀-internal void)
+;(define ∀-internal void)
 (define-syntax ∀
   (syntax-parser #:datum-literals (<:)
     [(_ ([tv:id <: τ:type] ...) τ_body)
-     #:with ((tv- ...) τ_body- k) (infer/ctx+erase #'([tv : #%type] ...) #'τ_body)
-     #:when (#%type? #'k)
-     (mk-type #'(λ (tv- ...) (∀-internal τ.norm ... τ_body-)))]))
+     ;#:with ((tv- ...) τ_body- k) (infer/ctx+erase #'([tv : #%type] ...) #'τ_body)
+     ;#:when (#%type? #'k)
+     ;(mk-type #'(λ (tv- ...) (∀-internal τ.norm ... τ_body-)))]))
+     ; eval first to overwrite the old #%type
+     (⊢ #,((current-type-eval) #'(sysf:∀ (tv ...) τ_body)) : (<: τ.norm ...))]))
 (begin-for-syntax
-  #;(define (infer∀+erase e)
-    (syntax-parse (infer+erase e) #:context e
-      [(e- τ_e)
-       #:with ((~literal #%plain-lambda) (tv ...) τ_sub ... τ_body) #'τ_e
-       #'(e- (([tv τ_sub] ...) τ_body))]))
-  (define (∀? t)
-    (syntax-parse t
-      [((~literal #%plain-lambda) tvs ((~literal #%plain-app) (~literal ∀-internal) . args))
-       #t]
-      [_ #f]))
   (define-syntax ~∀
     (pattern-expander
      (syntax-parser #:datum-literals (<:)
        [(_ ([tv:id <: τ_sub] ...) τ)
-        #'((~literal #%plain-lambda) (tv ...)
-           ((~literal #%plain-app) (~literal ∀-internal) τ_sub ... τ))]
+        #'(~and ∀τ
+                (~parse (~sysf:∀ (tv ...) τ) #'∀τ)
+                (~parse (~<: τ_sub ...) (typeof #'∀τ)))]
        [(_ . args)
-        #'(~and ((~literal #%plain-lambda) (tv (... ...))
-                 ((~literal #%plain-app) (~literal ∀-internal) τ_sub (... ...) τ))
+        #'(~and ∀τ
+                (~parse (~sysf:∀ (tv (... ...)) τ) #'∀τ)
+                (~parse (~<: τ_sub (... ...)) (typeof #'∀τ))
                 (~parse args #'(([tv τ_sub] (... ...)) τ)))])))
   (define-syntax ~∀*
     (pattern-expander
      (syntax-parser #:datum-literals (<:)
-       [(_ . args) ; (_ ([tv:id <: τ_sub] ...) τ)
+       [(_ . args)
         #'(~or
            (~∀ . args)
-           ;((~literal #%plain-lambda) (tv ...) τ_sub ... τ)
            (~and any (~do
                       (type-error
                        #:src #'any
@@ -106,21 +91,13 @@
      ;; "environment", ie, a syntax property with another tag: 'sub
      ;; The "expose" function looks for this tag to enforce the bound,
      ;; as in TaPL (fig 28-1)
-     #:with ((tv- ...) _ (e-) (τ)) (infer #'(e) #:tvctx #'([tv : #%type] ...)
-                                                #:octx #'([tv : τsub] ...) #:tag 'sub)
-     (⊢ e- : (∀ ([tv- <: τsub] ...) τ))]
-    #;[(_ x ...) #'(sysf:Λ x ...)]))
+     #:with ((tv- ...) _ (e-) (τ_e)) (infer #'(e) #:tvctx #'([tv : #%type] ...)
+                                                  #:octx  #'([tv : τsub] ...) #:tag 'sub)
+     (⊢ e- : (∀ ([tv- <: τsub] ...) τ_e))]))
 (define-syntax (inst stx)
   (syntax-parse stx
     [(_ e τ:type ...)
-     ;#:with (e- (([tv τ_sub] ...) τ_body)) (infer∀+erase #'e)
      #:with (e- (([tv τ_sub] ...) τ_body)) (⇑ e as ∀)
-;     #:with (e- ∀τ) (infer+erase #'e)
-;     #:with ((~literal #%plain-lambda) (tv:id ...) τ_sub ... τ_body) #'∀τ
      #:when (typechecks? #'(τ.norm ...) #'(τ_sub ...))
-     (⊢ e- : #,(substs #'(τ.norm ...) #'(tv ...) #'τ_body))]
-    #;[(_ e τ:type ...) ; need to ensure no types (ie bounds) in lam (ie expanded ∀) body
-     #:with (e- ∀τ) (infer+erase #'e)
-     #:with ((~literal #%plain-lambda) (tv:id ...) τ_body) #'∀τ
-     #'(sysf:inst e τ ...)]))
+     (⊢ e- : #,(substs #'(τ.norm ...) #'(tv ...) #'τ_body))]))
 

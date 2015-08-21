@@ -1,9 +1,10 @@
 #lang racket/base
 (require "typecheck.rkt")
-(extends "stlc.rkt" #:impl-uses (→))
-;(require "stlc.rkt")
-;(provide (all-from-out "stlc.rkt"))
-(provide (rename-out [datum/tc #%datum]))
+;(extends "stlc.rkt" #:impl-uses (→))
+(require (except-in "stlc.rkt" #%app)
+         (prefix-in stlc: (only-in "stlc.rkt" #%app)))
+(provide (except-out (all-from-out "stlc.rkt") stlc:#%app))
+(provide (rename-out [stlc:#%app #%app] [datum/tc #%datum]) define-primop)
  
 ;; Simply-Typed Lambda Calculus, plus numeric literals and primitives
 ;; Types:
@@ -16,7 +17,19 @@
 
 (define-base-type Int)
 
-;(define-base-type Int)
+(define-syntax define-primop
+  (syntax-parser #:datum-literals (:)
+    [(_ op:id : τ:type)
+     #:with op/tc (generate-temporary #'op)
+     #'(begin
+         (provide (rename-out [op/tc op]))
+         (define-syntax (op/tc stx)
+           (syntax-parse stx
+             [f:id (⊢ #,(syntax/loc stx op) : τ)] ; HO case
+             [(o . rst)
+              #:with app (datum->syntax #'o '#%app)
+              #:with opp (format-id #'o "~a" #'op)
+              (syntax/loc stx (app opp . rst))])))]))
 
 (define-primop + : (→ Int Int Int))
 

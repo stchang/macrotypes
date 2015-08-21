@@ -17,29 +17,10 @@
 ;; - terms from stlc+reco+var.rkt
 ;; - fld/unfld
 
-(define-basic-checked-stx μ #:arity = 1 #:bvs = 1)
-#;(define-type-constructor
-  (μ [[tv]] τ_body))
-#;(define-syntax μ
-  (syntax-parser
-    [(_ (tv:id) τ_body)
-     #:with ((tv-) τ_body- k) (infer/ctx+erase #'([tv : #%type]) #'τ_body)
-     #:when (#%type? #'k)
-     (mk-type #'(λ (tv-) τ_body-))]))
-#;(begin-for-syntax
-  (define-syntax ~μ*
-    (pattern-expander
-     (syntax-parser
-       [(_ (tv:id) τ)
-        #'(~or
-           ((~literal #%plain-lambda) (tv) τ)
-         (~and any (~do
-                    (type-error
-                     #:src #'any
-                     #:msg "Expected μ type, got: ~a" #'any))))]))))
+(define-type-constructor μ #:arity = 1 #:bvs = 1)
 
 (begin-for-syntax
-  ;; extend to handle μ
+  ;; extend to handle μ, ie lambdas
   (define (type=? τ1 τ2)
 ;    (printf "(τ=) t1 = ~a\n" #;τ1 (syntax->datum τ1))
 ;    (printf "(τ=) t2 = ~a\n" #;τ2 (syntax->datum τ2))
@@ -56,17 +37,15 @@
 
 (define-syntax (unfld stx)
   (syntax-parse stx
-    [(_ τ:ann e)
+    [(_ τ:type-ann e)
      #:with (~μ* (tv) τ_body) #'τ.norm
-;     #:with ((~literal #%plain-lambda) (tv:id) τ_body) #'τ.norm
      #:with [e- τ_e] (infer+erase #'e)
      #:when (typecheck? #'τ_e #'τ.norm)
      (⊢ e- : #,(subst #'τ.norm #'tv #'τ_body))]))
 (define-syntax (fld stx)
   (syntax-parse stx
-    [(_ τ:ann e)
+    [(_ τ:type-ann e)
      #:with (~μ* (tv) τ_body) #'τ.norm
-;     #:with ((~literal #%plain-type) ((~literal #%plain-lambda) (tv:id) τ_body)) #'τ.norm
      #:with [e- τ_e] (infer+erase #'e)
      #:when (typecheck? #'τ_e (subst #'τ.norm #'tv #'τ_body))
-     (⊢ e- : τ.τ)]))
+     (⊢ e- : τ.norm)]))

@@ -13,8 +13,7 @@
 ;; Terms:
 ;; - terms from stlc+cons.rkt
 
-;(define-type-constructor (Ref τ) #:declare τ type)
-(define-basic-checked-stx Ref #:arity = 1)
+(define-type-constructor Ref #:arity = 1)
 
 (define-syntax (ref stx)
   (syntax-parse stx
@@ -24,16 +23,12 @@
 (define-syntax (deref stx)
   (syntax-parse stx
     [(_ e)
-;     #:with (e- (~Ref* τ)) (infer+erase #'e) ; alternate pattern; worse err msg
-;     #:with (e- (τ)) (inferRef+erase #'e)
      #:with (e- (τ)) (⇑ e as Ref)
      (⊢ (unbox e-) : τ)]))
 (define-syntax (:= stx)
   (syntax-parse stx
     [(_ e_ref e)
-;     #:with (e_ref- (τ1)) (inferRef+erase #'e_ref)
      #:with (e_ref- (τ1)) (⇑ e_ref as Ref)
-;     #:with (e_ref- (~Ref* τ1)) (infer+erase #'e_ref) ; alt pattern; worse err msg
      #:with (e- τ2) (infer+erase #'e)
      #:when (typecheck? #'τ1 #'τ2)
      (⊢ (set-box! e_ref- e-) : Unit)]))

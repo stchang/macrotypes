@@ -7,8 +7,14 @@
                 #:with-msg "nil: requires type annotation")
 (check-type (cons 1 (nil {Int})) : (List Int))
 (typecheck-fail nil #:with-msg "nil: requires type annotation")
-(typecheck-fail (nil Int) #:with-msg "expected ann")
-(typecheck-fail (nil (Int)) #:with-msg "expected ann")
+(typecheck-fail
+ (nil Int)
+ #:with-msg
+ "Improperly formatted type annotation: Int; should have shape {τ}, where τ is a valid type.")
+(typecheck-fail
+ (nil (Int))
+ #:with-msg
+ "Improperly formatted type annotation: \\(Int); should have shape {τ}, where τ is a valid type.")
 (typecheck-fail
  (λ ([lst : (List Int Int)]) lst)
  #:with-msg
