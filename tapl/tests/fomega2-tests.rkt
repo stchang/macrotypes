@@ -9,7 +9,8 @@
 (typecheck-fail (→ 1))
 (check-type 1 : Int)
 
-(check-type (∀ ([t : ★]) (→ t t)) : ★)
+;(check-type (∀ ([t : ★]) (→ t t)) : ★)
+(check-type (∀ ([t : ★]) (→ t t)) : (∀★ ★))
 (check-type (→ (∀ ([t : ★]) (→ t t)) (→ Int Int)) : ★)
 
 (check-type (Λ ([X : ★]) (λ ([x : X]) x)) : (∀ ([X : ★]) (→ X X)))
@@ -44,8 +45,8 @@
              ((λ ([arg : ★]) (λ ([res : ★]) (→ arg res))) Int))
             : (→ (→ Int String) (→ Int String)))
 (typecheck-fail
- (inst (Λ ([X : ★]) (λ ([x : X]) x)) 1)
- #:with-msg "not a valid type: 1")
+ (inst (Λ ([X : ★]) (λ ([x : X]) x)) 1))
+ ;#:with-msg "not a valid type: 1")
 
 ;; applied f too early
 (typecheck-fail (inst
@@ -62,8 +63,8 @@
 
 ;; tapl examples, p441
 (typecheck-fail
- (define-type-alias tmp 1)
- #:with-msg "not a valid type: 1")
+ (define-type-alias tmp 1))
+ ;#:with-msg "not a valid type: 1")
 (define-type-alias Id (λ ([X : ★]) X))
 (check-type (λ ([f : (→ Int String)]) 1) : (→ (→ Int String) Int))
 (check-type (λ ([f : (→ Int String)]) 1) : (→ (→ Int (Id String)) Int))
@@ -79,7 +80,8 @@
 ;; tapl examples, p451
 (define-type-alias Pair (λ ([A : ★] [B : ★]) (∀ ([X : ★]) (→ (→ A B X) X))))
 
-(check-type Pair : (→ ★ ★ ★))
+;(check-type Pair : (→ ★ ★ ★))
+(check-type Pair : (→ ★ ★ (∀★ ★)))
 
 (check-type (Λ ([X : ★] [Y : ★]) (λ ([x : X][y : Y]) x)) : (∀ ([X : ★][Y : ★]) (→ X Y X)))
 ; parametric pair constructor
@@ -180,7 +182,7 @@
 ;; previous tests -------------------------------------------------------------
 (check-type 1 : Int)
 (check-not-type 1 : (→ Int Int))
-(typecheck-fail #f) ; unsupported literal
+;(typecheck-fail #f) ; unsupported literal
 (check-type (λ ([x : Int] [y : Int]) x) : (→ Int Int Int))
 (check-not-type (λ ([x : Int]) x) : Int)
 (check-type (λ ([x : Int]) x) : (→ Int Int))

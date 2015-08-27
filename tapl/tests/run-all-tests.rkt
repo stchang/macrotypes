@@ -23,5 +23,5 @@
 (require "fsub-tests.rkt") ; sysf + reco-sub
 
 ;; F_omega
-;(require "fomega-tests.rkt")
-;(require "fomega2-tests.rkt")
+(require "fomega-tests.rkt")
+(require "fomega2-tests.rkt")
