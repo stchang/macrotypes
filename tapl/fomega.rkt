@@ -22,10 +22,17 @@
 
 (define-syntax-category kind)
 (begin-for-syntax
-  (current-type? (λ (t) (or (type? t) (kind? (typeof t))))))
+  (current-kind? (λ (k) (or (#%type? k) (kind? k))))
+  ;; Try to keep "type?" remain backward compatible with its uses so far,
+  ;; eg in the definition of λ or previous type constuctors.
+  ;; (However, this is not completely possible, eg define-type-alias)
+  ;; So now "type?" no longer validates types, rather it's a subset.
+  ;; But we no longer need type? to validate types, instead we can use (kind? (typeof t))
+  (current-type? (λ (t) (or (type? t) (★? (typeof t)) (∀★? (typeof t)) #;(kind? (typeof t))))))
 
-#;(provide define-type-alias)
-#;(define-syntax define-type-alias
+; must override
+(provide define-type-alias)
+(define-syntax define-type-alias
   (syntax-parser
     [(_ alias:id τ)
      #:with (τ- k_τ) (infer+erase #'τ)
@@ -33,18 +40,6 @@
      #'(define-syntax alias (syntax-parser [x:id #'τ-]))]))
 
 (begin-for-syntax
-  (define (type=? t1 t2)
-    (printf "t1 = ~a\n" (syntax->datum t1))
-    (printf "t2 = ~a\n" (syntax->datum t2))
-    (and (syntax-parse (list t1 t2) #:datum-literals (:)
-          [((~∀ ([tv1 : k1] ...) tbody1)
-            (~∀ ([tv2 : k2] ...) tbody2))
-           #:when (displayln "here")
-           (types=? #'(k1 ...) #'(k2 ...))]
-           [_ #t])
-         (sysf:type=? t1 t2)))
-  (current-type=? type=?)
-  (current-typecheck-relation (current-type=?))
   ;; extend type-eval to handle tyapp
   ;; - requires manually handling all other forms
   (define (type-eval τ)
@@ -72,6 +67,7 @@
 
 (define-base-kind ★)
 (define-kind-constructor ⇒ #:arity >= 1)
+(define-kind-constructor ∀★ #:arity >= 0)
 
 ;; for now, handle kind checking in the types themselves
 ;; TODO: move kind checking to a common place (like #%app)?
@@ -102,28 +98,29 @@
      #:with (tvs- τ_body- k_body) (infer/ctx+erase #'(b ...) #'τ_body)
      #:when (★? #'k_body)
      (⊢ (λ tvs- b.tag ... τ_body-) : ★)]))
+
 (define-syntax (∀ stx)
   (syntax-parse stx
     [(_ bvs:kind-ctx τ_body)
-;     #:with (tvs- τ_body- k_body) (infer/ctx+erase #'bvs #'τ_body)
-;     #:when (★? #'k_body)
-     #:when (displayln ((current-type-eval) #'(sysf:∀ (bvs.x ...) τ_body)))
-     (⊢ #,((current-type-eval) #'(sysf:∀ (bvs.x ...) τ_body)) : (⇒ bvs.kind ...))]))
+     ;; cant re-use the expansion in sysf:∀ because it will give the bvs kind #%type
+     #:with (tvs- τ_body- k_body) (infer/ctx+erase #'bvs #'τ_body #:expand (current-type-eval))
+     ; expand so kind gets overwritten
+     (⊢ #,((current-type-eval) #'(sysf:∀ tvs- τ_body-)) : (∀★ bvs.kind ...))]))
 ;    (⊢ (λ tvs- b.tag ... τ_body-) : ★)]))
 (begin-for-syntax
   (define-syntax ~∀
     (pattern-expander
      (syntax-parser #:datum-literals (:)
        [(_ ([tv:id : k] ...) τ)
-        #:when (displayln "pat expand")
         #:with ∀τ (generate-temporary)
         #'(~and ∀τ
                 (~parse (~sysf:∀ (tv ...) τ) #'∀τ)
-                (~parse (~⇒ k ...) (typeof #'∀τ)))]
+                (~parse (~∀★ k ...) (typeof #'∀τ)))]
        [(_ . args)
+        #:with ∀τ (generate-temporary)
         #'(~and ∀τ
                 (~parse (~sysf:∀ (tv (... ...)) τ) #'∀τ)
-                (~parse (~⇒ k (... ...)) (typeof #'∀τ))
+                (~parse (~∀★ k (... ...)) (typeof #'∀τ))
                 (~parse args #'(([tv k] (... ...)) τ)))])))
   (define-syntax ~∀*
     (pattern-expander
@@ -134,7 +131,20 @@
            (~and any (~do
                       (type-error
                        #:src #'any
-                       #:msg "Expected ∀ type, got: ~a" #'any))))]))))
+                       #:msg "Expected ∀ type, got: ~a" #'any))))])))
+   (define (type=? t1 t2)
+    ;(printf "t1 = ~a\n" (syntax->datum t1))
+    ;(printf "t2 = ~a\n" (syntax->datum t2))
+     (or (and (★? t1) (#%type? t2))
+         (and (#%type? t1) (★? t2))
+         (and (syntax-parse (list t1 t2) #:datum-literals (:)
+                [((~∀ ([tv1 : k1]) tbody1)
+                  (~∀ ([tv2 : k2]) tbody2))
+                 (type=? #'k1 #'k2)]
+                [_ #t])
+              (sysf:type=? t1 t2))))
+  (current-type=? type=?)
+  (current-typecheck-relation (current-type=?)))
 
 #;(define-syntax (Λ stx)
   (syntax-parse stx
@@ -144,7 +154,7 @@
 (define-syntax (Λ stx)
   (syntax-parse stx
     [(_ bvs:kind-ctx e)
-     #:with ((tv- ...) e- τ_e) (infer/ctx+erase #'bvs #'e)
+     #:with ((tv- ...) e- τ_e) (infer/ctx+erase #'bvs #'e #:expand (current-type-eval))
      (⊢ e- : (∀ ([tv- : bvs.kind] ...) τ_e))]))
 #;(define-syntax (inst stx)
   (syntax-parse stx
@@ -162,10 +172,13 @@
      (⊢ e- : #,(substs #'(τ ...) #'(tv ...) #'τ_body))]))
 (define-syntax (inst stx)
   (syntax-parse stx
-    [(_ e τ:type ...)
+    [(_ e τ ...)
      #:with (e- (([tv k] ...) τ_body)) (⇑ e as ∀)
      #:with ([τ- k_τ] ...) (infers+erase #'(τ ...) #:expand (current-type-eval))
-     #:when (typechecks? (stx-map typeof #'(k_τ ...)) #'(k ...))
+     #:when (stx-andmap (λ (t k) (or ((current-kind?) k)
+                                     (type-error #:src t #:msg "not a valid type: ~a" t)))
+                        #'(τ ...) #'(k_τ ...))
+     #:when (typechecks? #'(k_τ ...) #'(k ...))
      (⊢ e- : #,(substs #'(τ- ...) #'(tv ...) #'τ_body))]))
 
 ;; TODO: merge with regular λ and app?
@@ -173,6 +186,7 @@
   (syntax-parse stx 
     [(_ bvs:kind-ctx τ_body)
      #:with (tvs- τ_body- k_body) (infer/ctx+erase #'bvs #'τ_body #:expand (current-type-eval))
+     #:when ((current-kind?) #'k_body)
      (⊢ (λ tvs- τ_body-) : (⇒ bvs.kind ... k_body))]))
 #;(define-syntax (tyλ stx)
   (syntax-parse stx 

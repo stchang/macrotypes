@@ -11,7 +11,7 @@
  (for-syntax (all-defined-out)) (all-defined-out)
  (for-syntax
   (all-from-out racket syntax/parse racket/syntax syntax/stx "stx-utils.rkt"))
- (for-meta 2 (all-from-out racket/base syntax/parse)))
+ (for-meta 2 (all-from-out racket/base syntax/parse racket/syntax)))
 
 ;; type checking functions/forms
 
@@ -122,12 +122,12 @@
                      #'(τ_e (... ...)))
             #'res])]))
   ;; infers the type and erases types in an expression
-  (define (infer+erase e)
-    (define e+ (expand/df e))
+  (define (infer+erase e #:expand [expand-fn expand/df])
+    (define e+ (expand-fn e))
     (list e+ (typeof e+)))
   ;; infers the types and erases types in multiple expressions
-  (define (infers+erase es)
-    (stx-map infer+erase es))
+  (define (infers+erase es #:expand [expand-fn expand/df])
+    (stx-map (λ (e) (infer+erase e #:expand expand-fn)) es))
 
   ;; This is the main "infer" function. All others are defined in terms of this.
   ;; It should be named infer+erase but leaving it for now for backward compat.
@@ -137,7 +137,7 @@
   ;; the types before typechecking, which is acceptable
   (define (infer es #:ctx [ctx null] #:tvctx [tvctx null]
                  #:octx [octx tvctx] #:tag [tag 'unused]
-                 #:expand [expand expand/df])
+                 #:expand [expand-fn expand/df])
     (syntax-parse ctx #:datum-literals (:)
       [([x : τ] ...) ; dont expand yet bc τ may have references to tvs
        #:with ([tv : k] ...) tvctx
@@ -158,16 +158,18 @@
           ((~literal #%plain-lambda) xs+
            ((~literal let-values) () ((~literal let-values) ()
             ((~literal #%expression) e+) ... (~literal void))))))))
-       (expand
+       (expand-fn
         #`(λ (tv ...)
             (let-syntax ([tv (make-rename-transformer (assign-type (assign-type #'tv #'k) #'ok #:tag '#,tag))] ...)
               (λ (x ...)
                 (let-syntax ([x (make-rename-transformer (assign-type #'x #'τ))] ...)
                   (#%expression e) ... void)))))
-       ;#:when (stx-map displayln #'(e+ ...))
-           ;   #:when (displayln (stx-map typeof #'(e+ ...)))
+;       #:when (stx-map displayln #'(e+ ...))
+;       #:when (displayln (stx-map typeof #'(e+ ...)))
        (list #'tvs+ #'xs+ #'(e+ ...)
-             (stx-map syntax-local-introduce (stx-map typeof #'(e+ ...))))]
+             (stx-map ; check is when trying to combine #%type and kinds
+              (λ (t) (or (false? t) (syntax-local-introduce t)))
+              (stx-map typeof #'(e+ ...))))]
       [([x τ] ...) (infer es #:ctx #'([x : τ] ...) #:tvctx tvctx)]))
 
   ;; fns derived from infer ---------------------------------------------------
@@ -176,11 +178,11 @@
   ;; shorter names
   ; ctx = type env for bound vars in term e, etc
   ; can also use for bound tyvars in type e
-  (define (infer/ctx+erase ctx e)
-    (syntax-parse (infer (list e) #:ctx ctx)
+  (define (infer/ctx+erase ctx e #:expand [expand-fn expand/df])
+    (syntax-parse (infer (list e) #:ctx ctx #:expand expand-fn)
       [(_ xs (e+) (τ)) (list #'xs #'e+ #'τ)]))
-  (define (infers/ctx+erase ctx es #:expand [expand expand/df])
-    (stx-cdr (infer es #:ctx ctx #:expand expand)))
+  (define (infers/ctx+erase ctx es #:expand [expand-fn expand/df])
+    (stx-cdr (infer es #:ctx ctx #:expand expand-fn)))
   ; tyctx = kind env for bound type vars in term e
   (define (infer/tyctx+erase ctx e)
     (syntax-parse (infer (list e) #:tvctx ctx)
@@ -313,54 +315,54 @@
 #;(define #%type void)
 #;(define-for-syntax (mk-type t) (assign-type t #'#%type))
 
-#;(define-syntax (define-base-type stx)
-  (syntax-parse stx
-    [(_ τ:id)
-     #:with τ? (format-id #'τ "~a?" #'τ)
-     #:with τ-internal (generate-temporary #'τ)
-     #:with inferτ+erase (format-id #'τ "infer~a+erase" #'τ)
-     #:with τ-cls (generate-temporary #'τ)
-     #:with τ-expander (format-id #'τ "~~~a" #'τ)
-     #'(begin
-         (provide τ (for-syntax τ? inferτ+erase τ-expander))
-         (define τ-internal
-           (λ () (raise (exn:fail:type:runtime
-                         (format "~a: Cannot use type at run time" 'τ)
-                         (current-continuation-marks)))))
-         (define-syntax (τ stx)
-           (syntax-parse stx
-             [x:id (add-orig #'(#%type (τ-internal)) #'τ)]))
-         (begin-for-syntax
-           ; expanded form of τ
-           (define-syntax-class τ-cls
-             (pattern ((~literal #%plain-type) ((~literal #%plain-app) ty))))
-           (define (τ? t)
-             (syntax-parse ((current-type-eval) t)
-               [expanded-type
-                #:declare expanded-type τ-cls
-                (typecheck? #'expanded-type.ty #'τ-internal)]))
-           ; base type pattern expanders should be identifier macros but
-           ; parsing them is ambiguous, so handle and pass through other args
-           (define-syntax τ-expander
-             (pattern-expander
-              (syntax-parser
-                [ty:id #'((~literal #%plain-type)
-                          ((~literal #%plain-app)
-                           (~literal τ-internal)))]
-                [(_ . rst)
-                 #'(((~literal #%plain-type)
-                     ((~literal #%plain-app)
-                      (~literal τ-internal))) . rst)])))
-           (define (inferτ+erase e)
-             (syntax-parse (infer+erase e) #:context e
-               [(e- expanded-type)
-                #:declare expanded-type τ-cls
-                #:fail-unless (typecheck? #'expanded-type.ty #'τ-internal)
-                              (format
-                               "~a (~a:~a): Expected type of expression ~v to be ~a, got: ~a"
-                               (syntax-source e) (syntax-line e) (syntax-column e)
-                               (syntax->datum e) (type->str #'τ) (type->str #'expanded-type))
-                #'e-]))))]))
+;#;(define-syntax (define-base-type stx)
+;  (syntax-parse stx
+;    [(_ τ:id)
+;     #:with τ? (format-id #'τ "~a?" #'τ)
+;     #:with τ-internal (generate-temporary #'τ)
+;     #:with inferτ+erase (format-id #'τ "infer~a+erase" #'τ)
+;     #:with τ-cls (generate-temporary #'τ)
+;     #:with τ-expander (format-id #'τ "~~~a" #'τ)
+;     #'(begin
+;         (provide τ (for-syntax τ? inferτ+erase τ-expander))
+;         (define τ-internal
+;           (λ () (raise (exn:fail:type:runtime
+;                         (format "~a: Cannot use type at run time" 'τ)
+;                         (current-continuation-marks)))))
+;         (define-syntax (τ stx)
+;           (syntax-parse stx
+;             [x:id (add-orig #'(#%type (τ-internal)) #'τ)]))
+;         (begin-for-syntax
+;           ; expanded form of τ
+;           (define-syntax-class τ-cls
+;             (pattern ((~literal #%plain-type) ((~literal #%plain-app) ty))))
+;           (define (τ? t)
+;             (syntax-parse ((current-type-eval) t)
+;               [expanded-type
+;                #:declare expanded-type τ-cls
+;                (typecheck? #'expanded-type.ty #'τ-internal)]))
+;           ; base type pattern expanders should be identifier macros but
+;           ; parsing them is ambiguous, so handle and pass through other args
+;           (define-syntax τ-expander
+;             (pattern-expander
+;              (syntax-parser
+;                [ty:id #'((~literal #%plain-type)
+;                          ((~literal #%plain-app)
+;                           (~literal τ-internal)))]
+;                [(_ . rst)
+;                 #'(((~literal #%plain-type)
+;                     ((~literal #%plain-app)
+;                      (~literal τ-internal))) . rst)])))
+;           (define (inferτ+erase e)
+;             (syntax-parse (infer+erase e) #:context e
+;               [(e- expanded-type)
+;                #:declare expanded-type τ-cls
+;                #:fail-unless (typecheck? #'expanded-type.ty #'τ-internal)
+;                              (format
+;                               "~a (~a:~a): Expected type of expression ~v to be ~a, got: ~a"
+;                               (syntax-source e) (syntax-line e) (syntax-column e)
+;                               (syntax->datum e) (type->str #'τ) (type->str #'expanded-type))
+;                #'e-]))))]))
 
 (define-syntax define-basic-checked-id-stx
   (syntax-parser #:datum-literals (:)
@@ -373,7 +375,7 @@
      #'(begin
          (provide τ (for-syntax τ? τ-expander))
          (begin-for-syntax
-           (define (τ? t) (typecheck? t #'τ-internal))
+           (define (τ? t) (and (identifier? t) (free-identifier=? t #'τ-internal)))
            (define (inferτ+erase e)
              (syntax-parse (infer+erase e) #:context e
                [(e- e_τ)
@@ -430,10 +432,9 @@
                          #,(if (attribute has-bvs?)
                                #'(~parse pat #'(bvs rst))
                                #'(~parse pat #'rst)))]
-                [(_ (~optional (~and (~fail #:unless #,(attribute has-bvs?))
-                                  (bv (... ...)))
-                            #:defaults ([(bv 1) null])) . pat)
-                 #'((~literal #%plain-lambda) (bv (... ...))
+                [(_ (~optional (~and (~fail #:unless #,(attribute has-bvs?)) bvs-pat)
+                               #:defaults ([bvs-pat #'()])) . pat)
+                 #'((~literal #%plain-lambda) bvs-pat
                     ((~literal #%plain-app) (~literal τ-internal) . pat))])))
            (define-syntax τ-expander*
              (pattern-expander
@@ -453,7 +454,8 @@
              (and (stx-pair? t)
                   (syntax-parse t
                     [((~literal #%plain-lambda) bvs ((~literal #%plain-app) tycon . _))
-                     (typecheck? #'tycon #'τ-internal)]))))
+                     (typecheck? #'tycon #'τ-internal)]
+                    [_ #f]))))
 ;           #;(define (τ-get t)
 ;             (syntax-parse t
 ;               [(τ-expander . pat) #'pat]))
@@ -918,7 +920,7 @@
                   #%tag define-base-name define-name-cons)
          (define #%tag void)
          (begin-for-syntax
-           (define (#%tag? t) (typecheck? t #'#%tag))
+           (define (#%tag? t) (and (identifier? t) (free-identifier=? t #'#%tag)))
            (define (is-name? t) (#%tag? (typeof t)))
            (define current-is-name? (make-parameter is-name?))
            (define (mk-name t) (assign-type t #'#%tag))
