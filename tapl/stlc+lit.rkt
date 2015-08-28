@@ -4,7 +4,8 @@
 (require (except-in "stlc.rkt" #%app)
          (prefix-in stlc: (only-in "stlc.rkt" #%app)))
 (provide (except-out (all-from-out "stlc.rkt") stlc:#%app))
-(provide (rename-out [stlc:#%app #%app] [datum/tc #%datum]) define-primop)
+(provide (rename-out [stlc:#%app #%app] [datum/tc #%datum])
+         define-primop)
  
 ;; Simply-Typed Lambda Calculus, plus numeric literals and primitives
 ;; Types:
@@ -14,6 +15,8 @@
 ;; - terms from stlc.rkt
 ;; - numeric literals
 ;; - prim +
+;; Typechecking forms:
+;; - define-primop
 
 (define-base-type Int)
 

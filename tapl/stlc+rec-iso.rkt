@@ -1,13 +1,13 @@
 #lang racket/base
 (require "typecheck.rkt")
-(require (prefix-in stlc: (only-in "stlc+reco+var.rkt" #%app λ type=?))
-         (except-in "stlc+reco+var.rkt" #%app λ type=? × tup proj)
-         (only-in "stlc+tup.rkt" × tup proj))
+(require (prefix-in stlc: (only-in "stlc+reco+var.rkt" #%app λ))
+         (except-in "stlc+reco+var.rkt" #%app λ × tup proj)
+         (only-in "stlc+tup.rkt" × tup proj)) ; want tuples, not records
 (provide (rename-out [stlc:#%app #%app] [stlc:λ λ]))
 (provide (except-out (all-from-out "stlc+reco+var.rkt")
-                     stlc:#%app stlc:λ (for-syntax stlc:type=?))
+                     stlc:#%app stlc:λ)
          (all-from-out "stlc+tup.rkt"))
-(provide μ fld unfld (for-syntax type=?))
+(provide μ fld unfld)
 
 ;; stlc + (iso) recursive types
 ;; Types:
@@ -20,6 +20,7 @@
 (define-type-constructor μ #:arity = 1 #:bvs = 1)
 
 (begin-for-syntax
+  (define stlc:type=? (current-type=?))
   ;; extend to handle μ, ie lambdas
   (define (type=? τ1 τ2)
 ;    (printf "(τ=) t1 = ~a\n" #;τ1 (syntax->datum τ1))

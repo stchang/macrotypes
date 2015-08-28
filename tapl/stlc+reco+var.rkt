@@ -3,7 +3,7 @@
 (require (only-in racket/bool symbol=?))
 (require (prefix-in stlc: (only-in "stlc+tup.rkt" #%app begin let × ×?))
          (except-in "stlc+tup.rkt" #%app begin tup proj let ×)
-         (rename-in (only-in "stlc+tup.rkt" ~×)  [~× ~stlc:×]))
+         (rename-in (only-in "stlc+tup.rkt" ~×) [~× ~stlc:×]))
 (provide (rename-out [stlc:#%app #%app] [stlc:let let] [stlc:begin begin]
                      [define/tc define]))
 (provide (except-out (all-from-out "stlc+tup.rkt")
@@ -14,19 +14,19 @@
 
 
 ;; Simply-Typed Lambda Calculus, plus records and variants
-;; Type relations:
-;; - type=? extended to strings
-;; define-type-alias (also provided to programmer)
 ;; Types:
 ;; - types from stlc+tup.rkt
-;; - extend tuple type × to include records
+;; - redefine tuple type × to records
 ;; - sum type constructor ∨
 ;; Terms:
 ;; - terms from stlc+tup.rkt
-;; - extend tup to include records
+;; - redefine tup to records
 ;; - sums (var)
 ;; TopLevel:
 ;; - define (values only)
+;; - define-type-alias
+;; Typechecking forms
+;; - same-types?
 
 (begin-for-syntax
   (define (same-types? τs)
@@ -38,7 +38,6 @@
 (define-syntax define-type-alias
   (syntax-parser
     [(_ alias:id τ:type)
-     ; must eval, otherwise undefined types will be allowed
      #'(define-syntax alias (syntax-parser [x:id #'τ.norm]))]))
 
 ; re-define tuples as records
@@ -92,7 +91,8 @@
     [any
      (type-error #:src #'any
                  #:msg (string-append
-                        "Improper usage of type constructor ∨: ~a, expected (∨ [label:id : τ:type] ...+)")
+                        "Improper usage of type constructor ∨: ~a,"
+                        "expected (∨ [label:id : τ:type] ...+)")
                  #'any)]))
 (begin-for-syntax
   (define ∨? ∨/internal?)
@@ -133,7 +133,7 @@
      #:fail-unless (= (stx-length #'(l ...)) (stx-length #'(l_x ...))) "wrong number of case clauses"
      #:fail-unless (typechecks? #'(l ...) #'(l_x ...)) "case clauses not exhaustive"
      #:with (((x-) e_l- τ_el) ...)
-            (stx-map (λ (bs e) (infer/type-ctxt+erase bs e)) #'(([x : τ_x]) ...) #'(e_l ...))
+            (stx-map (λ (bs e) (infer/ctx+erase bs e)) #'(([x : τ_x]) ...) #'(e_l ...))
      #:fail-unless (same-types? #'(τ_el ...)) "branches have different types"
      (⊢ (let ([l_e (car e-)])
           (cond [(symbol=? l_e 'l) (let ([x- (cadr e-)]) e_l-)] ...))

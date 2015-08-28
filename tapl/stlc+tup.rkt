@@ -14,9 +14,7 @@
 ;; - terms from ext-stlc.rkt
 ;; - tup and proj
 
-(define-type-constructor ×)
-;(define-basic-checked-stx ×)
-;(define-type-constructor (× τ ...) #:declare τ type)
+(define-type-constructor ×) ; default arity >=0
 
 (define-syntax (tup stx)
   (syntax-parse stx
@@ -26,7 +24,6 @@
 (define-syntax (proj stx)
   (syntax-parse stx
     [(_ e_tup n:nat)
-;     #:with [e_tup- τs_tup] (infer×+erase #'e_tup)
      #:with [e_tup- τs_tup] (⇑ e_tup as ×)
      #:fail-unless (< (syntax-e #'n) (stx-length #'τs_tup)) "index too large"
      (⊢ (list-ref e_tup- n) : #,(stx-list-ref #'τs_tup (syntax-e #'n)))]))

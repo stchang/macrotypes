@@ -1,11 +1,10 @@
 #lang racket/base
 (require "typecheck.rkt")
-(require (except-in "stlc+reco+var.rkt" #%app λ let type=?)
+(require (except-in "stlc+reco+var.rkt" #%app λ let)
          (prefix-in stlc: (only-in "stlc+reco+var.rkt" #%app λ let))
-         (only-in "stlc+rec-iso.rkt" type=?))
+         (only-in "stlc+rec-iso.rkt")) ; to get current-type=?
 (provide (rename-out [stlc:#%app #%app] [stlc:λ λ] [stlc:let let]))
-(provide (except-out (all-from-out "stlc+reco+var.rkt") stlc:#%app stlc:λ stlc:let)
-         (all-from-out "stlc+rec-iso.rkt"))
+(provide (except-out (all-from-out "stlc+reco+var.rkt") stlc:#%app stlc:λ stlc:let))
 (provide ∃ pack open)
 
 ;; existential types
@@ -76,5 +75,7 @@
      ;; Γ ⊢ let {X_2,x}=t_1 in t_2 : T_2
      ;;
      #:with [_ (x-) (e-) (τ_e)]
-            (infer #'(e) #:tvctx #'([tv : #%type]) #:ctx #`([x : #,(subst #'tv #'τ_abstract #'τ_body)]))
+            (infer #'(e)
+                   #:tvctx #'([tv : #%type])
+                   #:ctx   #`([x : #,(subst #'tv #'τ_abstract #'τ_body)]))
      (⊢ (let ([x- e_packed-]) e-) : τ_e)]))

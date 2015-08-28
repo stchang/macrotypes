@@ -47,37 +47,24 @@
 (define-syntax (and/tc stx)
   (syntax-parse stx
     [(_ e1 e2)
-;     #:with e1- (inferBool+erase #'e1)
-;     #:with e2- (inferBool+erase #'e2)
      #:with e1- (⇑ e1 as Bool)
      #:with e2- (⇑ e2 as Bool)
-;     #:with (e1- τ1) (infer+erase #'e1)
-;     #:fail-unless (Bool? #'τ1) (format "given non-Bool arg: ~a\n" (syntax->datum #'e1))
-;     #:with (e2- τ2) (infer+erase #'e2)
-;     #:fail-unless (Bool? #'τ2) (format "given non-Bool arg: ~a\n" (syntax->datum #'e2))
      (⊢ (and e1- e2-) : Bool)]))
   
 (define-syntax (or/tc stx)
   (syntax-parse stx
     [(_ e1 e2)
-;     #:with e1- (inferBool+erase #'e1)
-;     #:with e2- (inferBool+erase #'e2)
      #:with e1- (⇑ e1 as Bool)
      #:with e2- (⇑ e2 as Bool)
-;     #:with (e1- τ1) (infer+erase #'e1)
-;     #:fail-unless (Bool? #'τ1) (format "given non-Bool arg: ~a\n" (syntax->datum #'e1))
-;     #:with (e2- τ2) (infer+erase #'e2)
-;     #:fail-unless (Bool? #'τ2) (format "given non-Bool arg: ~a\n" (syntax->datum #'e2))
      (⊢ (or e1- e2-) : Bool)]))
 
 (define-syntax (if/tc stx)
   (syntax-parse stx
     [(_ e_tst e1 e2)
      #:with e_tst- (⇑ e_tst as Bool)
-;     #:with (e_tst- τ_tst) (infer+erase #'e_tst)
-;     #:fail-unless (Bool? #'τ_tst) (format "given non-Bool test: ~a\n" (syntax->datum #'e_tst))
      #:with (e1- τ1) (infer+erase #'e1)
      #:with (e2- τ2) (infer+erase #'e2)
+     ; double check because typing relation may not be reflexive
      #:fail-unless (or (typecheck? #'τ1 #'τ2)
                        (typecheck? #'τ2 #'τ1))
                    (format "branches must have the same type: given ~a and ~a"
@@ -90,18 +77,7 @@
 (define-syntax (begin/tc stx)
   (syntax-parse stx
     [(_ e_unit ... e)
-     ;#:with (e_unit- ...) (stx-map inferUnit+erase #'(e_unit ...))
      #:with (e_unit- ...) (⇑s (e_unit ...) as Unit)
-;     #:with ([e_unit- τ_unit] ...) (infers+erase #'(e_unit ...))
-;     #:fail-unless (stx-andmap Unit? #'(τ_unit ...))
-;                   (string-append
-;                    "all begin expressions except the last one should have type Unit\n"
-;                    (string-join
-;                     (stx-map
-;                      (λ (e τ) (format "~a : ~a" (syntax->datum e) (syntax->datum τ)))
-;                      #'(e_unit ...) #'(τ_unit ...))
-;                     "\n")
-;                    "\n")
      #:with (e- τ) (infer+erase #'e)
      (⊢ (begin e_unit- ... e-) : τ)]))
 
@@ -118,7 +94,7 @@
   (syntax-parse stx
     [(_ ([x e] ...) e_body)
      #:with ((e- τ) ...) (infers+erase #'(e ...))
-     #:with ((x- ...) e_body- τ_body) (infer/type-ctxt+erase #'([x τ] ...) #'e_body)
+     #:with ((x- ...) e_body- τ_body) (infer/ctx+erase #'([x τ] ...) #'e_body)
      (⊢ (let ([x- e-] ...) e_body-) : τ_body)]))
 
 (define-syntax (let*/tc stx)
@@ -131,7 +107,7 @@
   (syntax-parse stx
     [(_ ([b:type-bind e] ...) e_body)
      #:with ((x- ...) (e- ... e_body-) (τ ... τ_body))
-            (infers/type-ctxt+erase #'(b ...) #'(e ... e_body))
+            (infers/ctx+erase #'(b ...) #'(e ... e_body))
      #:fail-unless (typechecks? #'(b.type ...) #'(τ ...))
                    (string-append
                     "type check fail, args have wrong type:\n"

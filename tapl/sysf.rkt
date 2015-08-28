@@ -1,13 +1,11 @@
 #lang racket/base
 (require "typecheck.rkt")
-(require (except-in "stlc+lit.rkt" #%app λ type=?)
+(require (except-in "stlc+lit.rkt" #%app λ)
          (prefix-in stlc: (only-in "stlc+lit.rkt" #%app λ))
-         (only-in "stlc+rec-iso.rkt" type=?))
+         (only-in "stlc+rec-iso.rkt")) ; want type=? from here
 (provide (rename-out [stlc:#%app #%app] [stlc:λ λ]))
-(provide (except-out (all-from-out "stlc+lit.rkt") stlc:#%app stlc:λ)
-         (all-from-out "stlc+rec-iso.rkt")) ; type=?
-(provide ∀ Λ inst)
-
+(provide (except-out (all-from-out "stlc+lit.rkt") stlc:#%app stlc:λ))
+(provide Λ inst)
  
 ;; System F
 ;; Type relation:

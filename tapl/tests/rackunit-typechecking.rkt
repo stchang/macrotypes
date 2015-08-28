@@ -7,7 +7,8 @@
     [(_ e : τ ⇒ v) #'(check-type-and-result e : τ ⇒ v)]
     [(_ e : τ-expected)
      #:with τ (typeof (expand/df #'e))
-     #:fail-unless (typecheck? #'τ ((current-type-eval) #'τ-expected))
+     #:fail-unless
+     (typecheck? #'τ ((current-type-eval) #'τ-expected))
      (format
       "Expression ~a [loc ~a:~a] has type ~a, expected ~a"
       (syntax->datum #'e) (syntax-line #'e) (syntax-column #'e)
@@ -18,7 +19,8 @@
   (syntax-parse stx #:datum-literals (:)
     [(_ e : not-τ)
      #:with τ (typeof (expand/df #'e))
-     #:fail-when (typecheck? #'τ ((current-type-eval) #'not-τ))
+     #:fail-when
+     (typecheck? #'τ ((current-type-eval) #'not-τ))
      (format
       "(~a:~a) Expression ~a should not have type ~a"
       (syntax-line stx) (syntax-column stx)
