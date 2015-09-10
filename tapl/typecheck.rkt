@@ -93,10 +93,13 @@
              "~a (~a:~a): Expected expression ~s to have ~a type, got: ~a"
              (syntax-source #'e) (syntax-line #'e) (syntax-column #'e)
              (syntax->datum #'e) 'tycon (type->str #'τ_e))
-            (if (stx-pair? #'τ_e)
+            #;(if (stx-pair? #'τ_e)
                 (syntax-parse #'τ_e
                  [(τ-expander . args) #'(e- args)])
-                #'e-)])]))
+                #'e-)
+            (syntax-parse #'τ_e
+              [(τ-expander . args) #'(e- args)]
+              [_ #'e-])])]))
   (define-syntax (⇑s stx)
     (syntax-parse stx #:datum-literals (as)
       [(_ es as tycon)
@@ -117,10 +120,13 @@
             ;#:with args (τ-get #'τ_e)
             #:with res
             (stx-map (λ (e t)
-                       (if (stx-pair? t)
+                       #;(if (stx-pair? t)
                            (syntax-parse t
                              [(τ-expander . args) #`(#,e #'args)])
-                           e))
+                           e)
+                       (syntax-parse t
+                         [(τ-expander . args) #`(#,e #'args)]
+                         [_ e]))
                      #'(e- (... ...))
                      #'(τ_e (... ...)))
             #'res])]))
@@ -170,7 +176,12 @@
                                (assign-type #'tv #'k)
                                #'ok #:tag '#,tag))] ...)
               (λ (x ...)
-                (let-syntax ([x (make-rename-transformer
+                (let-syntax ([x (syntax-parser [_:id (assign-type #'x #'τ)]
+                                               [(o . rst) ; handle if x used in fn position
+                                                #:with app (datum->syntax #'o '#%app)
+                                                #`(app #,(assign-type #'x #'τ) . rst)]
+                                               #;[(_ . rst) #`(#,(assign-type #'x #'τ) . rst)])
+                                #;(make-rename-transformer
                                  (assign-type #'x #'τ))] ...)
                   (#%expression e) ... void)))))
        (list #'tvs+ #'xs+ #'(e+ ...)
@@ -270,7 +281,9 @@
      #'(begin
          (provide τ (for-syntax τ? τ-expander))
          (begin-for-syntax
-           (define (τ? t) (and (identifier? t) (free-identifier=? t #'τ-internal)))
+           (define (τ? t) ;(and (identifier? t) (free-identifier=? t #'τ-internal)))
+             (syntax-parse t
+               [((~literal #%plain-app) (~literal τ-internal)) #t][_ #f]))
            (define (inferτ+erase e)
              (syntax-parse (infer+erase e) #:context e
                [(e- e_τ)
@@ -283,16 +296,18 @@
            (define-syntax τ-expander
              (pattern-expander
               (syntax-parser
-                [ty:id #'(~literal τ-internal)]
-                [(_ . rst)
-                 #'((~literal τ-internal) . rst)]))))
+                ;[ty:id #'(~literal τ-internal)]
+                [ty:id #'((~literal #%plain-app) (~literal τ-internal))]
+                ;[(_ . rst) #'((~literal τ-internal) . rst)]))))
+                [(_ . rst) #'(((~literal #%plain-app) (~literal τ-internal)) . rst)]))))
          (define τ-internal
            (λ () (raise (exn:fail:type:runtime
                          (format "~a: Cannot use type at run time" 'τ)
                          (current-continuation-marks)))))
          (define-syntax τ
            (syntax-parser
-             [(~var _ id) (add-orig (assign-type #'τ-internal #'kind) #'τ)])))]))
+             ;[(~var _ id) (add-orig (assign-type #'τ-internal #'kind) #'τ)])))]))
+             [(~var _ id) (add-orig (assign-type #'(τ-internal) #'kind) #'τ)])))]))
 
 ; I use identifiers "τ" and "kind" but this form is not restricted to them.
 ; E.g., τ can be #'★ and kind can be #'#%kind (★'s type)
@@ -317,14 +332,16 @@
              (pattern-expander
               (syntax-parser
                 [(_ . pat:id)
-                 #'(~and ((~literal #%plain-lambda) bvs
+                 #'(~and #;((~literal #%plain-lambda) bvs
                           ((~literal #%plain-app) (~literal τ-internal) . rst))
+                         ((~literal #%plain-app) (~literal τ-internal) ((~literal #%plain-lambda) bvs (~literal void) . rst))
                          #,(if (attribute has-bvs?)
                                #'(~parse pat #'(bvs rst))
                                #'(~parse pat #'rst)))]
                 [(_ (~optional (~and (~fail #:unless #,(attribute has-bvs?)) bvs-pat)
                                #:defaults ([bvs-pat #'()])) . pat)
-                 #'((~literal #%plain-lambda) bvs-pat
+                 #'((~literal #%plain-app) (~literal τ-internal) ((~literal #%plain-lambda) bvs-pat (~literal void) . pat))
+                 #;((~literal #%plain-lambda) bvs-pat
                     ((~literal #%plain-app) (~literal τ-internal) . pat))])))
            (define-syntax τ-expander*
              (pattern-expander
@@ -342,8 +359,10 @@
            (define (τ? t)
              (and (stx-pair? t)
                   (syntax-parse t
-                    [((~literal #%plain-lambda) bvs ((~literal #%plain-app) (~literal τ-internal) . _))
-                     #t #;(typecheck? #'tycon #'τ-internal)]
+                    #;[((~literal #%plain-lambda) bvs ((~literal #%plain-app) (~literal τ-internal) . _))
+                     #t]
+                    [((~literal #%plain-app) (~literal τ-internal) . _)
+                     #t]
                     [_ #f]))))
          (define τ-internal
            (λ _ (raise (exn:fail:type:runtime
@@ -364,7 +383,8 @@
                      (infers/ctx+erase #'([bv : #%kind] (... ...)) #'args
                                        #:expand (current-type-eval))
                #:with (~! (~var _ kind) (... ...)) #'τs-
-              (assign-type #'(λ bvs- (τ-internal . τs-)) #'#%kind)]
+              ;(assign-type #'(λ bvs- (τ-internal . τs-)) #'#%kind)
+               (assign-type #'(τ-internal (λ bvs- void . τs-)) #'#%kind)]
              ;; else fail with err msg
              [_
               (type-error #:src stx

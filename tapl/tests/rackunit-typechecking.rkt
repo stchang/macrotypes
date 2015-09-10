@@ -22,9 +22,9 @@
      #:fail-when
      (typecheck? #'τ ((current-type-eval) #'not-τ))
      (format
-      "(~a:~a) Expression ~a should not have type ~a"
+      "(~a:~a) Expression ~a has type ~a; should not typecheck with ~a"
       (syntax-line stx) (syntax-column stx)
-      (syntax->datum #'e) (type->str #'τ))
+      (syntax->datum #'e) (type->str #'τ) (type->str #'not-τ))
      #'(void)]))
 
 (define-syntax (typecheck-fail stx)

@@ -39,7 +39,15 @@
   ;; type=? : Type Type -> Boolean
   ;; Two types are equivalent when structurally free-identifier=?
   ;; - assumes canonical (ie expanded) representation
-  (define (type=? τ1 τ2)
+  (define (type=? t1 t2)
+    ;(printf "(τ=) t1 = ~a\n" #;τ1 (syntax->datum t1))
+    ;(printf "(τ=) t2 = ~a\n" #;τ2 (syntax->datum t2))
+    (or (and (identifier? t1) (identifier? t2) (free-identifier=? t1 t2))
+        (and (stx-null? t1) (stx-null? t2))
+        (and (stx-pair? t1) (stx-pair? t2)
+             (with-syntax ([(ta ...) t1][(tb ...) t2])
+               (types=? #'(ta ...) #'(tb ...)) #;(types=? t1 t2)))))
+  #;(define (type=? τ1 τ2)
 ;    (printf "(τ=) t1 = ~a\n" #;τ1 (syntax->datum τ1))
 ;    (printf "(τ=) t2 = ~a\n" #;τ2 (syntax->datum τ2))
     (syntax-parse (list τ1 τ2)
