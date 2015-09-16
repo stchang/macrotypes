@@ -11,7 +11,8 @@
                      [begin/tc begin]
                      [let/tc let] [let*/tc let*] [letrec/tc letrec])
                      ann)
-(provide (except-out (all-from-out "stlc+lit.rkt") stlc:#%app stlc:#%datum))
+(provide (except-out (all-from-out "stlc+lit.rkt") stlc:#%app stlc:#%datum)
+         (for-syntax current-join))
  
 ;; Simply-Typed Lambda Calculus, plus extensions (TAPL ch11)
 ;; Types:
@@ -58,18 +59,20 @@
      #:with e2- (⇑ e2 as Bool)
      (⊢ (or e1- e2-) : Bool)]))
 
+(begin-for-syntax 
+  (define current-join (make-parameter (λ (x y) x))))
 (define-syntax (if/tc stx)
   (syntax-parse stx
     [(_ e_tst e1 e2)
      #:with e_tst- (⇑ e_tst as Bool)
      #:with (e1- τ1) (infer+erase #'e1)
      #:with (e2- τ2) (infer+erase #'e2)
-     ; double check because typing relation may not be reflexive
-     #:fail-unless (or (typecheck? #'τ1 #'τ2)
-                       (typecheck? #'τ2 #'τ1))
-                   (format "branches must have the same type: given ~a and ~a"
+     #:with τ-out ((current-join) #'τ1 #'τ2)
+     #:fail-unless (and (typecheck? #'τ1 #'τ-out)
+                        (typecheck? #'τ2 #'τ-out))
+                   (format "branches have incompatible types: ~a and ~a"
                            (type->str #'τ1) (type->str #'τ2))
-     (⊢ (if e_tst- e1- e2-) : τ1)]))
+     (⊢ (if e_tst- e1- e2-) : τ-out)]))
 
 (define-base-type Unit)
 (define-primop void : (→ Unit))

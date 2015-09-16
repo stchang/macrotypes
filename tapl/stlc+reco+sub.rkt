@@ -52,4 +52,11 @@
          #'([l τl] ...))]
        [_ #f])))
   (current-sub? sub?)
-  (current-typecheck-relation (current-sub?)))
+  (current-typecheck-relation (current-sub?))
+
+  (define (join t1 t2)
+    (cond
+      [((current-sub?) t1 t2) t2]
+      [((current-sub?) t2 t1) t1]
+      [else #'Top]))
+  (current-join join))

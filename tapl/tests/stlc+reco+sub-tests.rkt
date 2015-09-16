@@ -39,6 +39,13 @@
 ;; this should work! but needs bounded quantification, see fsub.rkt
 (typecheck-fail (proj ((λ ([x : (× [a : Int])]) x) (tup [a = 0][b = #t])) b))
 
+; conditional
+(check-not-type (λ ([x : Int]) (if #t 1 -1)) : (→ Int Nat))
+(check-type (λ ([x : Int]) (if #t 1 -1)) : (→ Int Int))
+(check-not-type (λ ([x : Int]) (if #t -1 1)) : (→ Int Nat))
+(check-type (λ ([x : Int]) (if #t -1 1)) : (→ Int Int))
+(check-type (λ ([x : Bool]) (if x "1" 1)) : (→ Bool Top))
+
 ;; previous record tests ------------------------------------------------------
 ;; records (ie labeled tuples)
 (check-type "Stephen" : String)

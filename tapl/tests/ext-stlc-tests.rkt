@@ -121,7 +121,7 @@
 (typecheck-fail
  (if #t 1 "2")
  #:with-msg 
- "branches must have the same type: given Int and String")
+ "branches have incompatible types: Int and String")
 
 ;; tests from stlc+lit-tests.rkt --------------------------
 ; most should pass, some failing may now pass due to added types/forms
