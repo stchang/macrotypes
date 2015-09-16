@@ -1,12 +1,11 @@
 #lang racket/base
 (require "typecheck.rkt")
-(require (prefix-in stlc: (only-in "stlc+reco+var.rkt" #%app λ))
-         (except-in "stlc+reco+var.rkt" #%app λ × tup proj)
-         (only-in "stlc+tup.rkt" × tup proj)) ; want tuples, not records
+(require (except-in "stlc+tup.rkt" #%app λ) ; import tuples, not records
+         (prefix-in stlc: (only-in "stlc+tup.rkt" #%app λ))
+         (only-in "stlc+reco+var.rkt" ∨ var case define-type-alias define)) ; and variants
 (provide (rename-out [stlc:#%app #%app] [stlc:λ λ]))
-(provide (except-out (all-from-out "stlc+reco+var.rkt")
-                     stlc:#%app stlc:λ)
-         (all-from-out "stlc+tup.rkt"))
+(provide (except-out (all-from-out "stlc+tup.rkt") stlc:#%app stlc:λ)
+         (all-from-out "stlc+reco+var.rkt"))
 (provide μ fld unfld)
 
 ;; stlc + (iso) recursive types
