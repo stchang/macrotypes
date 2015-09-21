@@ -29,13 +29,8 @@
          #;(define-syntax op/tc (make-rename-transformer (assign-type #'op #'τ)))
          ; rename transformer doesnt seem to expand at the right time
          ; - op still has no type in #%app
-         (define-syntax (op/tc stx)
-           (syntax-parse stx
-             [f:id (⊢ #,(syntax/loc stx op) : τ)] ; HO case
-             [(o . rst)
-              #:with app (datum->syntax #'o '#%app)
-              #:with opp (format-id #'o "~a" #'op)
-              (syntax/loc stx (app opp . rst))])))]))
+         (define-syntax op/tc
+           (make-variable-like-transformer (assign-type #'op #'τ))))]))
 
 (define-primop + : (→ Int Int Int))
 
