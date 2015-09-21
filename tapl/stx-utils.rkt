@@ -48,3 +48,18 @@
 (define (stx-append stx1 stx2)
   (append (if (syntax? stx1) (syntax->list stx1) stx1)
           (if (syntax? stx2) (syntax->list stx2) stx2)))
+
+;; based on make-variable-like-transformer from syntax/transformer,
+;; but using (#%app id ...) instead of ((#%expression id) ...)
+(define (make-variable-like-transformer ref-stx)
+  (unless (syntax? ref-stx)
+    (raise-type-error 'make-variable-like-transformer "syntax?" ref-stx))
+  (lambda (stx)
+    (syntax-case stx ()
+      [id
+       (identifier? #'id)
+       ref-stx]
+      [(id . args)
+       (let ([stx* (list* '#%app #'id (cdr (syntax-e stx)))])
+         (datum->syntax stx stx* stx))])))
+
