@@ -1,5 +1,4 @@
-#lang racket/base
-(require "typecheck.rkt")
+#lang s-exp "typecheck.rkt"
 ;; prefix-in an identifier if:
 ;; - it will be extended, eg #%datum
 ;; - want to use racket's version in implemetation (this) file, eg #%app

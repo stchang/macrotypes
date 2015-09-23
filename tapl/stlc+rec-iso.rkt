@@ -1,5 +1,4 @@
-#lang racket/base
-(require "typecheck.rkt")
+#lang s-exp "typecheck.rkt"
 (require (except-in "stlc+tup.rkt" #%app λ) ; import tuples, not records
          (prefix-in stlc: (only-in "stlc+tup.rkt" #%app λ))
          (only-in "stlc+reco+var.rkt" ∨ var case define-type-alias define)) ; and variants

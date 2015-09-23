@@ -1,5 +1,4 @@
-#lang racket/base
-(require "typecheck.rkt")
+#lang s-exp "typecheck.rkt"
 (require (except-in "stlc+reco+var.rkt" #%app λ let)
          (prefix-in stlc: (only-in "stlc+reco+var.rkt" #%app λ let))
          (only-in "stlc+rec-iso.rkt")) ; to get current-type=?

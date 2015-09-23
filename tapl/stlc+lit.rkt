@@ -1,5 +1,4 @@
-#lang racket/base
-(require "typecheck.rkt")
+#lang s-exp "typecheck.rkt"
 ;(extends "stlc.rkt" #:impl-uses (→))
 (require (except-in "stlc.rkt" #%app)
          (prefix-in stlc: (only-in "stlc.rkt" #%app)))

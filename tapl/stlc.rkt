@@ -1,5 +1,4 @@
-#lang racket/base
-(require "typecheck.rkt")
+#lang s-exp "typecheck.rkt"
 (provide (rename-out [λ/tc λ] [app/tc #%app]))
 (provide (for-syntax current-type=? types=?))
 (provide #%module-begin #%top-interaction #%top require) ; useful racket forms

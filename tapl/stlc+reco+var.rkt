@@ -1,5 +1,4 @@
-#lang racket/base
-(require "typecheck.rkt")
+#lang s-exp "typecheck.rkt"
 (require (only-in racket/bool symbol=?))
 (require (prefix-in stlc: (only-in "stlc+tup.rkt" #%app begin let × ×?))
          (except-in "stlc+tup.rkt" #%app begin tup proj let ×)
@@ -39,6 +38,15 @@
   (syntax-parser
     [(_ alias:id τ:type)
      #'(define-syntax alias (syntax-parser [x:id #'τ.norm]))]))
+
+(define-syntax (define/tc stx)
+  (syntax-parse stx
+    [(_ x:id e)
+     #:with (e- τ) (infer+erase #'e)
+     #:with y (generate-temporary)
+     #'(begin
+         (define-syntax x (make-rename-transformer (⊢ y : τ)))
+         (define y e-))]))
 
 ; re-define tuples as records
 ; dont use define-type-constructor because I want the : literal syntax
@@ -138,12 +146,3 @@
      (⊢ (let ([l_e (car e-)])
           (cond [(symbol=? l_e 'l) (let ([x- (cadr e-)]) e_l-)] ...))
         : #,(stx-car #'(τ_el ...)))]))
-
-(define-syntax (define/tc stx)
-  (syntax-parse stx
-    [(_ x:id e)
-     #:with (e- τ) (infer+erase #'e)
-     #:with y (generate-temporary)
-     #'(begin
-         (define-syntax x (make-rename-transformer (⊢ y : τ)))
-         (define y e-))]))

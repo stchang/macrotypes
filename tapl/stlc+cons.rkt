@@ -1,5 +1,4 @@
-#lang racket/base
-(require "typecheck.rkt")
+#lang s-exp "typecheck.rkt"
 (require (prefix-in stlc: (only-in "stlc+reco+var.rkt" #%app))
          (except-in "stlc+reco+var.rkt" #%app))
 (provide (rename-out [stlc:#%app #%app] [cons/tc cons]))

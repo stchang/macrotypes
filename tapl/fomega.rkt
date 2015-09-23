@@ -1,5 +1,4 @@
-#lang racket/base
-(require "typecheck.rkt")
+#lang s-exp "typecheck.rkt"
 (require (except-in "sysf.rkt" #%app λ #%datum Λ inst ∀)
          (rename-in (prefix-in sysf: (only-in "sysf.rkt" #%app λ ∀ ~∀))
                     [sysf:~∀ ~sysf:∀])

@@ -7,7 +7,8 @@
   (for-meta 2 racket/base syntax/parse racket/syntax syntax/stx "stx-utils.rkt")
   (for-meta 3 racket/base syntax/parse racket/syntax)
   racket/provide)
-(provide 
+(provide
+ (all-from-out racket/base)
  (for-syntax (all-defined-out)) (all-defined-out)
  (for-syntax
   (all-from-out racket syntax/parse racket/syntax syntax/stx "stx-utils.rkt"))

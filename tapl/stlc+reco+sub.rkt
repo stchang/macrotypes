@@ -1,5 +1,4 @@
-#lang racket/base
-(require "typecheck.rkt")
+#lang s-exp "typecheck.rkt"
 ;;use type=? and eval-type from stlc+reco+var.rkt, not stlc+sub.rkt
 ;; but extend sub? from stlc+sub.rkt
 (require (except-in "stlc+sub.rkt" #%app #%datum)
