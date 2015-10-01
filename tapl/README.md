@@ -9,11 +9,12 @@ A file extends its immediate parent file.
          - stlc+reco+var.rkt
            - stlc+cons.rkt
              - stlc+box.rkt
-           - stlc+rec-iso.rkt
-           - exist.rkt
+           - exist.rkt (and type=? from stlc+rec-iso)
+         - stlc+rec-iso.rkt (and variants from stlc+reco+var)
      - stlc+sub.rkt
        - stlc+reco+sub.rkt (also pull in tup from stlc+reco+var.rkt)
      - sysf.rkt
-       - fsub.rkt
+       - fsub.rkt (also stlc+reco+sub)
        - fomega.rkt
+         - fomega3.rkt
        - fomega2.rkt

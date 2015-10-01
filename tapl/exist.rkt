@@ -1,35 +1,29 @@
 #lang s-exp "typecheck.rkt"
-(require (except-in "stlc+reco+var.rkt" #%app λ let)
-         (prefix-in stlc: (only-in "stlc+reco+var.rkt" #%app λ let))
-         (only-in "stlc+rec-iso.rkt")) ; to get current-type=?
-(provide (rename-out [stlc:#%app #%app] [stlc:λ λ] [stlc:let let]))
-(provide (except-out (all-from-out "stlc+reco+var.rkt") stlc:#%app stlc:λ stlc:let))
-(provide ∃ pack open)
+(extends "stlc+reco+var.rkt")
+(reuse #:from "stlc+rec-iso.rkt") ; want type=?, but only need to load current-type=?
 
 ;; existential types
-;; combine type=? from sysf (for lam, ie ∃) and stlc+reco+var (for strings)
 ;; Types:
 ;; - types from stlc+reco+var.rkt
 ;; - ∃
 ;; Terms:
 ;; - terms from stlc+reco+var.rkt
 ;; - pack and open
+;; Other: type=? from stlc+rec-iso.rkt
 
 
 (define-type-constructor ∃ #:arity = 1 #:bvs = 1)
 
-(define-syntax (pack stx)
-  (syntax-parse stx
-    [(_ (τ:type e) as ∃τ:type)
-     #:with (~∃* (τ_abstract) τ_body) #'∃τ.norm
-     #:with [e- τ_e] (infer+erase #'e)
-     #:when (typecheck? #'τ_e  (subst #'τ.norm #'τ_abstract #'τ_body))
-     (⊢ e- : ∃τ.norm)]))
+(define-typed-syntax pack
+  [(_ (τ:type e) as ∃τ:type)
+   #:with (~∃* (τ_abstract) τ_body) #'∃τ.norm
+   #:with [e- τ_e] (infer+erase #'e)
+   #:when (typecheck? #'τ_e  (subst #'τ.norm #'τ_abstract #'τ_body))
+   (⊢ e- : ∃τ.norm)])
 
-(define-syntax (open stx)
-  (syntax-parse stx #:datum-literals (<=)
-    [(_ ([(tv:id x:id) <= e_packed]) e)
-     #:with [e_packed- ((τ_abstract) (τ_body))] (⇑ e_packed as ∃)
+(define-typed-syntax open #:datum-literals (<=)
+  [(_ ([(tv:id x:id) <= e_packed]) e)
+   #:with [e_packed- ((τ_abstract) (τ_body))] (⇑ e_packed as ∃)
      ;; The subst below appears to be a hack, but it's not really.
      ;; It's the (TaPL) type rule itself that is fast and loose.
      ;; Leveraging the macro system's management of binding reveals this.
@@ -73,8 +67,8 @@
      ;; ------------------------------
      ;; Γ ⊢ let {X_2,x}=t_1 in t_2 : T_2
      ;;
-     #:with [_ (x-) (e-) (τ_e)]
-            (infer #'(e)
-                   #:tvctx #'([tv : #%type])
-                   #:ctx   #`([x : #,(subst #'tv #'τ_abstract #'τ_body)]))
-     (⊢ (let ([x- e_packed-]) e-) : τ_e)]))
+   #:with [_ (x-) (e-) (τ_e)]
+          (infer #'(e)
+                 #:tvctx #'([tv : #%type])
+                 #:ctx   #`([x : #,(subst #'tv #'τ_abstract #'τ_body)]))
+   (⊢ (let ([x- e_packed-]) e-) : τ_e)])

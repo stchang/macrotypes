@@ -1,14 +1,15 @@
 #lang racket/base
 (require
-  (for-syntax (except-in racket extends)
-              syntax/parse racket/syntax syntax/stx
+  (for-syntax (except-in racket extends) (only-in srfi/13 string-prefix?)
+              syntax/parse racket/syntax syntax/stx racket/stxparam
               "stx-utils.rkt"
               syntax/parse/debug)
   (for-meta 2 racket/base syntax/parse racket/syntax syntax/stx "stx-utils.rkt")
   (for-meta 3 racket/base syntax/parse racket/syntax)
-  racket/provide)
+  racket/bool racket/provide racket/require)
 (provide
- (all-from-out racket/base)
+ symbol=?
+ (except-out (all-from-out racket/base) #%module-begin)
  (for-syntax (all-defined-out)) (all-defined-out)
  (for-syntax
   (all-from-out racket syntax/parse racket/syntax syntax/stx "stx-utils.rkt"))
@@ -27,9 +28,35 @@
 ;;   aliasing, is just free-identifier=?
 ;; - type constructors are prefix
 
+;; redefine #%module-begin to add some provides
+(provide (rename-out [mb #%module-begin]))
+(define-syntax (mb stx)
+  (syntax-parse stx
+    [(_ . stuff)
+     #'(#%module-begin
+        (provide #%module-begin #%top-interaction #%top require) ; useful racket forms
+        . stuff)]))
+
 (struct exn:fail:type:runtime exn:fail:user ())
 
-;; require macro
+(define-for-syntax (drop-file-ext filename)
+  (car (string-split filename ".")))
+
+(begin-for-syntax
+  (define-syntax-parameter stx (syntax-rules ())))
+
+(define-syntax (define-typed-syntax stx)
+  (syntax-parse stx
+    [(_ name:id #:export-as out-name:id stx-parse-clause ...)
+     #'(begin
+         (provide (rename-out [name out-name]))
+         (define-syntax (name syntx)
+           (syntax-parameterize ([stx (syntax-id-rules () [_ syntx])])
+             (syntax-parse syntx stx-parse-clause ...))))]
+    [(_ name:id stx-parse-clause ...)
+     #`(define-typed-syntax #,(generate-temporary) #:export-as name
+         stx-parse-clause ...)]))
+
 ;; need options for
 ;; - pass through
 ;;   - use (generated) prefix to avoid conflicts
@@ -41,19 +68,55 @@
 (define-syntax extends
   (syntax-parser
     [(_ base-lang
-        (~optional (~seq #:impl-uses (x ...)) #:defaults ([(x 1) null])))
-     #:with pre (generate-temporary)
+        (~optional (~seq #:except (~and x:id (~not _:keyword)) ...) #:defaults ([(x 1) null]))
+        (~optional (~seq #:rename [old new] ...) #:defaults ([(old 1) null][(new 1) null]))
+        (~optional (~seq #:prefix p ...) #:defaults ([(p 1) null])))
+     #:with pre (or (let ([dat (syntax-e #'base-lang)])
+                      (and (string? dat)
+                           (string->symbol (drop-file-ext dat))))
+                    #'base-lang)                    
      #:with pre: (format-id #'pre "~a:" #'pre)
-     #'(begin
-         (require (prefix-in pre: base-lang))
-         (require (only-in base-lang x ...))
+     #:with internal-pre (generate-temporary)
+     #:with non-excluded-imports #'(except-in base-lang p ... x ... old ...)
+     #:with conflicted? #'(λ (n) (member (string->symbol n) '(#%app λ #%datum begin let let* letrec if define)))
+     #:with not-conflicted? #'(λ (n) (and (not (conflicted? n)) n))
+     #`(begin
+         (require (prefix-in pre: (only-in base-lang p ... x ...))) ; prefixed
+         (require (rename-in (only-in base-lang old ...) [old new] ...))
+         (require (filtered-in not-conflicted? non-excluded-imports))
+         (require (filtered-in ; conflicted names, with (internal) prefix
+                   (let ([conflicted-pre (symbol->string (syntax->datum #'internal-pre))])
+                     (λ (name) (and (conflicted? name)
+                                    (string-append conflicted-pre name))))
+                   non-excluded-imports))
          (provide (filtered-out
-                   (let ([pre-pat (regexp (format "^~a" (syntax->datum #'pre:)))])
+                   (let* ([pre-str #,(string-append (drop-file-ext (syntax-e #'base-lang)) ":")]
+                          [int-pre-str #,(symbol->string (syntax->datum #'internal-pre))]
+                          [pre-str-len (string-length pre-str)]
+                          [int-pre-str-len (string-length int-pre-str)]
+                          [drop-pre (λ (s) (substring s pre-str-len))]
+                          [drop-int-pre (λ (s) (substring s int-pre-str-len))]
+                          [excluded (map symbol->string (syntax->datum #'(x ... new ...)))])
                      (λ (name)
-                       (and (regexp-match? pre-pat name)
-                            (regexp-replace pre-pat name ""))))
+                       (define out-name
+                         (or (and (string-prefix? pre-str name)
+                                  (drop-pre name))
+                             (and (string-prefix? int-pre-str name)
+                                  (drop-int-pre name))
+                             name))
+                       (and (not (member out-name excluded)) out-name)))
+                   (all-from-out base-lang))
+                  ))]))
+(define-syntax reuse
+  (syntax-parser
+    [(_ (~or x:id [old:id new:id]) ... #:from base-lang)
+     #`(begin
+         (require (rename-in (only-in base-lang x ... old ...) [old new] ...))
+         (provide (filtered-out
+                   (let ([excluded (map (compose symbol->string syntax->datum) (syntax->list #'(new ...)))])
+                     (λ (n) (and (not (member n excluded)) n)))
                    (all-from-out base-lang))))]))
-                 
+
 ;; type assignment
 (begin-for-syntax
   ;; Type assignment macro for nicer syntax
@@ -411,7 +474,7 @@
      #:with define-name-cons (format-id #'name "define-~a-constructor" #'name)
      #:with name-ann (format-id #'name "~a-ann" #'name)
      #'(begin
-         (provide (for-syntax current-is-name? is-name? #%tag? mk-name name name-bind name-ann)
+         (provide (for-syntax current-is-name? is-name? #%tag? mk-name name name-bind name-ann name-ctx)
                   #%tag define-base-name define-name-cons)
          (define #%tag void)
          (begin-for-syntax

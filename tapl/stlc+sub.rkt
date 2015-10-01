@@ -1,8 +1,5 @@
 #lang s-exp "typecheck.rkt"
-(require (except-in "stlc+lit.rkt" #%datum + #%app)
-         (prefix-in stlc: (only-in "stlc+lit.rkt" #%app #%datum)))
-(provide (rename-out [stlc:#%app #%app] [datum/tc #%datum]))
-(provide (except-out (all-from-out "stlc+lit.rkt") stlc:#%app stlc:#%datum))
+(extends "stlc+lit.rkt" #:except #%datum +)
 (provide (for-syntax subs? current-sub?))
 
 ;; Simply-Typed Lambda Calculus, plus subtyping
@@ -16,7 +13,9 @@
 ;;   - Int <: Num
 ;;   - →
 ;; Terms:
-;; - terms from stlc+lit.rkt, except redefined: app, datum, +
+;; - terms from stlc+lit.rkt, except redefined: datum and +
+;; - also *
+;; Other: sub? current-sub?
 
 (define-base-type Top)
 (define-base-type Num)
@@ -25,12 +24,11 @@
 (define-primop + : (→ Num Num Num))
 (define-primop * : (→ Num Num Num))
 
-(define-syntax (datum/tc stx)
-  (syntax-parse stx
-    [(_ . n:nat) (⊢ (#%datum . n) : Nat)]
-    [(_ . n:integer) (⊢ (#%datum . n) : Int)]
-    [(_ . n:number) (⊢ (#%datum . n) : Num)]
-    [(_ . x) #'(stlc:#%datum . x)]))
+(define-typed-syntax #%datum
+  [(_ . n:nat) (⊢ (#%datum . n) : Nat)]
+  [(_ . n:integer) (⊢ (#%datum . n) : Int)]
+  [(_ . n:number) (⊢ (#%datum . n) : Num)]
+  [(_ . x) #'(stlc+lit:#%datum . x)])
 
 (begin-for-syntax
   (define (sub? t1 t2)

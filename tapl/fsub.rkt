@@ -1,21 +1,15 @@
 #lang s-exp "typecheck.rkt"
-(require (except-in "stlc+reco+sub.rkt" #%app λ +)
-         (prefix-in stlc: (only-in "stlc+reco+sub.rkt" #%app λ))
-         (only-in "sysf.rkt" ∀?)
-         (prefix-in sysf: (only-in "sysf.rkt" ∀))
-         (rename-in (only-in "sysf.rkt" ~∀) [~∀ ~sysf:∀]))
-(provide (rename-out [stlc:#%app #%app] [stlc:λ λ]))
-(provide (except-out (all-from-out "stlc+reco+sub.rkt") stlc:#%app stlc:λ)
-         (except-out (all-from-out "sysf.rkt") sysf:∀ (for-syntax ~sysf:∀)))
-(provide ∀ Λ inst)
+(extends "stlc+reco+sub.rkt" #:except +)
+(reuse ∀? [∀ sysf:∀] [~∀ ~sysf:∀] #:from "sysf.rkt")
  
 ;; System F<:
 ;; Types:
-;; - types from sysf.rkt
+;; - types from sysf.rkt and stlc+reco+sub
 ;; - extend ∀ with bounds
 ;; Terms:
-;; - terms from sysf.rkt
+;; - terms from sysf.rkt and stlc+reco+sub
 ;; - extend Λ and inst
+;; - redefine + with Nat
 ;; Other
 ;; - current-promote, expose
 ;; - extend current-sub? to call current-promote
@@ -50,11 +44,10 @@
 ;; 2) instantiation of ∀
 ;; Problem: need type annotations, even in expanded form
 ;; Solution: store type annotations in a (quasi) kind <:
-(define-syntax ∀
-  (syntax-parser #:datum-literals (<:)
-    [(_ ([tv:id <: τ:type] ...) τ_body)
-     ; eval first to overwrite the old #%type
-     (⊢ #,((current-type-eval) #'(sysf:∀ (tv ...) τ_body)) : (<: τ.norm ...))]))
+(define-typed-syntax ∀ #:export-as ∀ #:datum-literals (<:)
+  [(_ ([tv:id <: τ:type] ...) τ_body)
+   ; eval first to overwrite the old #%type
+   (⊢ #,((current-type-eval) #'(sysf:∀ (tv ...) τ_body)) : (<: τ.norm ...))])
 (begin-for-syntax
   (define-syntax ~∀
     (pattern-expander
@@ -79,20 +72,18 @@
                        #:src #'any
                        #:msg "Expected ∀ type, got: ~a" #'any))))]))))
 
-(define-syntax (Λ stx)
-  (syntax-parse stx #:datum-literals (<:)
-    [(_ ([tv:id <: τsub:type] ...) e)
-     ;; NOTE: store the subtyping relation of tv and τsub in another
-     ;; "environment", ie, a syntax property with another tag: 'sub
-     ;; The "expose" function looks for this tag to enforce the bound,
-     ;; as in TaPL (fig 28-1)
-     #:with ((tv- ...) _ (e-) (τ_e)) (infer #'(e) #:tvctx #'([tv : #%type] ...)
-                                                  #:octx  #'([tv : τsub] ...) #:tag 'sub)
-     (⊢ e- : (∀ ([tv- <: τsub] ...) τ_e))]))
-(define-syntax (inst stx)
-  (syntax-parse stx
-    [(_ e τ:type ...)
-     #:with (e- (([tv τ_sub] ...) τ_body)) (⇑ e as ∀)
-     #:when (typechecks? #'(τ.norm ...) #'(τ_sub ...))
-     (⊢ e- : #,(substs #'(τ.norm ...) #'(tv ...) #'τ_body))]))
+(define-typed-syntax Λ #:datum-literals (<:)
+  [(_ ([tv:id <: τsub:type] ...) e)
+   ;; NOTE: store the subtyping relation of tv and τsub in another
+   ;; "environment", ie, a syntax property with another tag: 'sub
+   ;; The "expose" function looks for this tag to enforce the bound,
+   ;; as in TaPL (fig 28-1)
+   #:with ((tv- ...) _ (e-) (τ_e)) (infer #'(e) #:tvctx #'([tv : #%type] ...)
+                                                #:octx  #'([tv : τsub] ...) #:tag 'sub)
+   (⊢ e- : (∀ ([tv- <: τsub] ...) τ_e))])
+(define-typed-syntax inst
+  [(_ e τ:type ...)
+   #:with (e- (([tv τ_sub] ...) τ_body)) (⇑ e as ∀)
+   #:when (typechecks? #'(τ.norm ...) #'(τ_sub ...))
+   (⊢ e- : #,(substs #'(τ.norm ...) #'(tv ...) #'τ_body))])
 

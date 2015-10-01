@@ -1,7 +1,5 @@
 #lang s-exp "typecheck.rkt"
-(provide (rename-out [λ/tc λ] [app/tc #%app]))
 (provide (for-syntax current-type=? types=?))
-(provide #%module-begin #%top-interaction #%top require) ; useful racket forms
  
 ;; Simply-Typed Lambda Calculus
 ;; - no base types; can't write any terms
@@ -66,29 +64,27 @@
 
 (define-type-constructor → #:arity >= 1)
 
-(define-syntax (λ/tc stx)
-  (syntax-parse stx 
-    [(_ bvs:type-ctx e)
-     #:with (xs- e- τ_res) (infer/ctx+erase #'bvs #'e)
-     (⊢ (λ xs- e-) : (→ bvs.type ... τ_res))]))
+(define-typed-syntax λ
+  [(_ bvs:type-ctx e)
+   #:with (xs- e- τ_res) (infer/ctx+erase #'bvs #'e)
+   (⊢ (λ xs- e-) : (→ bvs.type ... τ_res))])
 
-(define-syntax (app/tc stx)
-  (syntax-parse stx
-    [(_ e_fn e_arg ...)
-     #:with [e_fn- (τ_in ... τ_out)] (⇑ e_fn as →)
-     #:with ([e_arg- τ_arg] ...) (infers+erase #'(e_arg ...))
-     #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
-                   (string-append
-                    (format "~a (~a:~a) Arguments to function ~a have wrong type(s), "
-                            (syntax-source stx) (syntax-line stx) (syntax-column stx)
-                            (syntax->datum #'e_fn))
-                    "or wrong number of arguments:\nGiven:\n"
-                    (string-join
-                     (map (λ (e t) (format "  ~a : ~a" e t)) ; indent each line
-                          (syntax->datum #'(e_arg ...))
-                          (stx-map type->str #'(τ_arg ...)))
-                     "\n" #:after-last "\n")
-                    (format "Expected: ~a arguments with type(s): "
-                            (stx-length #'(τ_in ...)))
-                    (string-join (stx-map type->str #'(τ_in ...)) ", "))
-     (⊢ (#%app e_fn- e_arg- ...) : τ_out)]))
+(define-typed-syntax #%app
+  [(_ e_fn e_arg ...)
+   #:with [e_fn- (τ_in ... τ_out)] (⇑ e_fn as →)
+   #:with ([e_arg- τ_arg] ...) (infers+erase #'(e_arg ...))
+   #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
+                 (string-append
+                  (format "~a (~a:~a) Arguments to function ~a have wrong type(s), "
+                          (syntax-source stx) (syntax-line stx) (syntax-column stx)
+                          (syntax->datum #'e_fn))
+                  "or wrong number of arguments:\nGiven:\n"
+                  (string-join
+                   (map (λ (e t) (format "  ~a : ~a" e t)) ; indent each line
+                        (syntax->datum #'(e_arg ...))
+                        (stx-map type->str #'(τ_arg ...)))
+                   "\n" #:after-last "\n")
+                  (format "Expected: ~a arguments with type(s): "
+                          (stx-length #'(τ_in ...)))
+                  (string-join (stx-map type->str #'(τ_in ...)) ", "))
+  (⊢ (#%app e_fn- e_arg- ...) : τ_out)])

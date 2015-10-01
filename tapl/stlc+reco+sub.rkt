@@ -1,14 +1,8 @@
 #lang s-exp "typecheck.rkt"
+(extends "stlc+sub.rkt" #:except #%app #%datum)
+(extends "stlc+reco+var.rkt" #:except #%datum +)
 ;;use type=? and eval-type from stlc+reco+var.rkt, not stlc+sub.rkt
 ;; but extend sub? from stlc+sub.rkt
-(require (except-in "stlc+sub.rkt" #%app #%datum)
-         (prefix-in stlc+sub: (only-in "stlc+sub.rkt" #%app #%datum))
-         (except-in "stlc+reco+var.rkt" #%app #%datum +)
-         (prefix-in stlc+reco+var: (only-in "stlc+reco+var.rkt" #%datum)))
-(provide (rename-out [stlc+sub:#%app #%app]
-                     [datum/tc #%datum]))
-(provide (except-out (all-from-out "stlc+sub.rkt") stlc+sub:#%app stlc+sub:#%datum)
-         (except-out (all-from-out "stlc+reco+var.rkt") stlc+reco+var:#%datum))
 
 ;; Simply-Typed Lambda Calculus, plus subtyping, plus records
 ;; Types:
@@ -16,12 +10,12 @@
 ;; Type relations:
 ;; - sub? extended to records
 ;; Terms:
-;; - terms from stlc+sub.rkt, can leave record form as is
+;; - terms from stlc+sub.rkt
+;; - records and variants from stlc+reco+var
 
-(define-syntax (datum/tc stx)
-  (syntax-parse stx
-    [(_ . n:number) #'(stlc+sub:#%datum . n)]
-    [(_ . x) #'(stlc+reco+var:#%datum . x)]))
+(define-typed-syntax #%datum
+  [(_ . n:number) #'(stlc+sub:#%datum . n)]
+  [(_ . x) #'(stlc+reco+var:#%datum . x)])
 
 (begin-for-syntax
   (define old-sub? (current-sub?))

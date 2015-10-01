@@ -1,10 +1,6 @@
 #lang s-exp "typecheck.rkt"
-;(extends "stlc.rkt" #:impl-uses (→))
-(require (except-in "stlc.rkt" #%app)
-         (prefix-in stlc: (only-in "stlc.rkt" #%app)))
-(provide (except-out (all-from-out "stlc.rkt") stlc:#%app))
-(provide (rename-out [stlc:#%app #%app] [datum/tc #%datum])
-         define-primop)
+(extends "stlc.rkt")
+(provide define-primop)
  
 ;; Simply-Typed Lambda Calculus, plus numeric literals and primitives
 ;; Types:
@@ -33,9 +29,8 @@
 
 (define-primop + : (→ Int Int Int))
 
-(define-syntax (datum/tc stx)
-  (syntax-parse stx
-    [(_ . n:integer) (⊢ (#%datum . n) : Int)]
-    [(_ . x)
-     #:when (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)
-     #'(#%datum . x)]))
+(define-typed-syntax #%datum
+  [(_ . n:integer) (⊢ (#%datum . n) : Int)]
+  [(_ . x)
+   #:when (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)
+   #'(#%datum . x)])
