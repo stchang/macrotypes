@@ -29,8 +29,20 @@
        #:when (types=? #'(k1 ...) #'(k2 ...))
        #:when (= (stx-length #'(x ...)) (stx-length #'(y ...)))
        #:with (z ...) (generate-temporaries #'(x ...))
-       ((current-type=?) (substs #'(z ...) #'(x ...) #'t1)
-                         (substs #'(z ...) #'(y ...) #'t2))]
+       ;; alternative #1: install wrappers that checks for x and y and return true
+       #;(define old-type=? (current-type=?))
+       #;(define (new-type=? ty1 ty2)
+         (or (and (identifier? ty1) (identifier? ty2)
+                  (stx-ormap (λ (x y)
+                               (and (bound-identifier=? ty1 x) (bound-identifier=? ty2 y)))
+                             #'(x ...) #'(y ...)))
+             (old-type=? ty1 ty2)))
+       #;(parameterize ([current-type=? new-type=?]) ((current-type=?) #'t1 #'t2))
+       ;; alternative #2: subst fresh identifier for both x and y
+       #;((current-type=?) (substs #'(z ...) #'(x ...) #'t1)
+                           (substs #'(z ...) #'(y ...) #'t2))
+       ;; alternative #3: subst y for x in t1
+       ((current-type=?) (substs #'(y ...) #'(x ...) #'t1) #'t2)]
       [_ (stlc:type=? τ1 τ2)]))
   (current-type=? type=?)
   (current-typecheck-relation type=?))

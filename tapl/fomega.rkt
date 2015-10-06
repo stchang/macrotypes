@@ -21,7 +21,10 @@
   ;; (However, this is not completely possible, eg define-type-alias)
   ;; So now "type?" no longer validates types, rather it's a subset.
   ;; But we no longer need type? to validate types, instead we can use (kind? (typeof t))
-  (current-type? (λ (t) (or (type? t) (★? (typeof t)) (∀★? (typeof t)) #;(kind? (typeof t))))))
+  (current-type? (λ (t)
+                   (define k (typeof t))
+                   #;(or (type? t) (★? (typeof t)) (∀★? (typeof t)))
+                   (and ((current-kind?) k) (not (⇒? k))))))
 
 ; must override, to handle kinds
 (provide define-type-alias)
@@ -106,7 +109,7 @@
 (define-typed-syntax Λ
   [(_ bvs:kind-ctx e)
    #:with ((tv- ...) e- τ_e)
-          (infer/ctx+erase #'bvs #'e #:expand (current-type-eval))
+          (infer/ctx+erase #'bvs #'e); #:expand (current-type-eval))
    (⊢ e- : (∀ ([tv- : bvs.kind] ...) τ_e))])
 
 (define-typed-syntax inst

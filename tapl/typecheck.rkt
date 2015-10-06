@@ -473,6 +473,9 @@
      #:with define-base-name (format-id #'name "define-base-~a" #'name)
      #:with define-name-cons (format-id #'name "define-~a-constructor" #'name)
      #:with name-ann (format-id #'name "~a-ann" #'name)
+     #:with name=? (format-id #'name "~a=?" #'name)
+     #:with names=? (format-id #'names "~a=?" #'names)
+     #:with current-name=? (format-id #'name=? "current-~a" #'name=?)
      #'(begin
          (provide (for-syntax current-is-name? is-name? #%tag? mk-name name name-bind name-ann name-ctx)
                   #%tag define-base-name define-name-cons)
@@ -521,7 +524,19 @@
                         "Improperly formatted ~a annotation: ~a; should have shape {τ}, "
                         "where τ is a valid ~a.")
                        'name (type->str #'any) 'name))
-                      #:attr norm #f)))
+                      #:attr norm #f))
+           (define (name=? t1 t2)
+             ;(printf "(τ=) t1 = ~a\n" #;τ1 (syntax->datum t1))
+             ;(printf "(τ=) t2 = ~a\n" #;τ2 (syntax->datum t2))
+             (or (and (identifier? t1) (identifier? t2) (free-identifier=? t1 t2))
+                 (and (stx-null? t1) (stx-null? t2))
+                 (and (stx-pair? t1) (stx-pair? t2)
+                      (names=? t1 t2))))
+           (define current-name=? (make-parameter name=?))
+           (current-typecheck-relation name=?)
+           (define (names=? τs1 τs2)
+             (and (stx-length=? τs1 τs2)
+                  (stx-andmap (current-name=?) τs1 τs2))))
          (define-syntax define-base-name
            (syntax-parser
              [(_ (~var x id)) #'(define-basic-checked-id-stx x : #%tag)]))
