@@ -23,11 +23,20 @@
 ;    (printf "(τ=) t1 = ~a\n" #;τ1 (syntax->datum τ1))
 ;    (printf "(τ=) t2 = ~a\n" #;τ2 (syntax->datum τ2))
     (syntax-parse (list τ1 τ2)
-      [(((~literal #%plain-app) tycon1 ((~literal #%plain-lambda) (x:id ...) k1 ... t1))
+      ;; alternative #4: use old type=? for everything except lambda
+      [(((~literal #%plain-lambda) (x:id ...) t1 ...)
+        ((~literal #%plain-lambda) (y:id ...) t2 ...))
+       (and (stx-length=? #'(x ...) #'(y ...))
+            (stx-length=? #'(t1 ...) #'(t2 ...))
+            (stx-andmap
+             (λ (t1 t2)
+               ((current-type=?) (substs #'(y ...) #'(x ...) t1) t2))
+             #'(t1 ...) #'(t2 ...)))]
+      #;[(((~literal #%plain-app) tycon1 ((~literal #%plain-lambda) (x:id ...) k1 ... t1))
         ((~literal #%plain-app) tycon2 ((~literal #%plain-lambda) (y:id ...) k2 ... t2)))
        #:when ((current-type=?) #'tycon1 #'tycon2)
        #:when (types=? #'(k1 ...) #'(k2 ...))
-       #:when (= (stx-length #'(x ...)) (stx-length #'(y ...)))
+       #:when (stx-length=? #'(x ...) #'(y ...))
        #:with (z ...) (generate-temporaries #'(x ...))
        ;; alternative #1: install wrappers that checks for x and y and return true
        #;(define old-type=? (current-type=?))
