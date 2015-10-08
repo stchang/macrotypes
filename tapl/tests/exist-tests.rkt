@@ -76,6 +76,14 @@
             (∃ (Counter) (× [new : Counter]
                             [get : (→ Counter Int)]
                             [inc : (→ Counter Counter)])))
+(typecheck-fail
+ (open ([(Counter counter) <= counterADT])
+       (+ (proj counter new) 1))
+ #:with-msg "Arguments to function \\+ have wrong type")
+(typecheck-fail
+ (open ([(Counter counter) <= counterADT])
+       ((λ ([x : Int]) x) (proj counter new)))
+ #:with-msg "Arguments to function.+have wrong type")
 (check-type
  (open ([(Counter counter) <= counterADT])
        ((proj counter get) ((proj counter inc) (proj counter new))))
