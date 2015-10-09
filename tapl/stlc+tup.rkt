@@ -9,7 +9,7 @@
 ;; - terms from ext-stlc.rkt
 ;; - tup and proj
 
-(define-type-constructor ×) ; default arity >=0
+(define-type-constructor × #:arity >= 0)
 
 (define-typed-syntax tup
   [(_ e ...)

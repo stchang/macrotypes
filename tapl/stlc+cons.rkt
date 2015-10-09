@@ -10,7 +10,7 @@
 
 ;; TODO: enable HO use of list primitives
 
-(define-type-constructor List #:arity = 1)
+(define-type-constructor List)
 
 (define-typed-syntax nil
   [(_ ~! τi:type-ann) (⊢ null : (List τi.norm))]

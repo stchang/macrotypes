@@ -12,7 +12,7 @@
 ;; - terms from stlc+lit.rkt
 ;; - Λ and inst
 
-(define-type-constructor ∀ #:arity = 1 #:bvs >= 0)
+(define-type-constructor ∀ #:bvs >= 0)
 
 (define-typed-syntax Λ
   [(_ (tv:id ...) e)

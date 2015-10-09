@@ -1,6 +1,6 @@
 #lang s-exp "typecheck.rkt"
 (extends "sysf.rkt" #:except #%datum ∀ Λ inst)
-(reuse String #%datum same-types? #:from "stlc+reco+var.rkt")
+(reuse String #%datum #:from "stlc+reco+var.rkt")
 (reuse current-kind? ∀★ ∀★? ★ ★? kind? ∀ Λ inst define-type-alias #:from "fomega.rkt")
 
 ; same as fomega2.rkt --- λ and #%app works as both regular and type versions,

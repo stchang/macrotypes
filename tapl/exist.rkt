@@ -12,7 +12,7 @@
 ;; Other: type=? from stlc+rec-iso.rkt
 
 
-(define-type-constructor ∃ #:arity = 1 #:bvs = 1)
+(define-type-constructor ∃ #:bvs = 1)
 
 (define-typed-syntax pack
   [(_ (τ:type e) as ∃τ:type)

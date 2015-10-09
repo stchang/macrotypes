@@ -14,7 +14,7 @@
 ;; Other:
 ;; - extend type=? to handle lambdas
 
-(define-type-constructor μ #:arity = 1 #:bvs = 1)
+(define-type-constructor μ #:bvs = 1)
 
 (begin-for-syntax
   (define stlc:type=? (current-type=?))

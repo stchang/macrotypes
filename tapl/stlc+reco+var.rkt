@@ -1,7 +1,7 @@
 #lang s-exp "typecheck.rkt"
 (extends "stlc+tup.rkt" #:except × ×? tup proj
                         #:rename [~× ~stlc:×])
-(provide × ∨ (for-syntax same-types? ~× ~×* ~∨ ~∨*))
+(provide × ∨ (for-syntax ~× ~×* ~∨ ~∨*))
 
 
 ;; Simply-Typed Lambda Calculus, plus records and variants
@@ -16,20 +16,12 @@
 ;; TopLevel:
 ;; - define (values only)
 ;; - define-type-alias
-;; Typechecking forms
-;; - same-types?
-
-(begin-for-syntax
-  (define (same-types? τs)
-    (define τs-lst (syntax->list τs))
-    (or (null? τs-lst)
-        (andmap (λ (τ) ((current-type=?) (car τs-lst) τ)) (cdr τs-lst)))))
 
 (provide define-type-alias)
 (define-syntax define-type-alias
   (syntax-parser
     [(_ alias:id τ:type)
-     #'(define-syntax alias (syntax-parser [x:id #'τ.norm]))]))
+     #'(define-syntax alias (make-variable-like-transformer #'τ.norm) #;(syntax-parser [x:id #'τ.norm]))]))
 
 (define-typed-syntax define
   [(_ x:id e)
@@ -76,7 +68,7 @@
    #:with (_ τ_match) (stx-assoc #'l #'([l_τ τ] ...))
    (⊢ (cadr (assoc 'l e_rec-)) : τ_match)])
 
-(define-type-constructor ∨/internal)
+(define-type-constructor ∨/internal #:arity >= 0)
 
 ;; variants
 (define-syntax ∨

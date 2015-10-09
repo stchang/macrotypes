@@ -1,3 +1,13 @@
+2015-10-09
+TODO: variant case should call current-join?
+
+2015-10-09
+Can I get rid of current-type-eval?
+- would have to put "normalize" call in type=?
+- and call normalize in current-promote (before pattern matching)
+
+Thus, it's probably better to keep type-eval
+
 2015-08-16:
 TODO:
 - generalize binding forms

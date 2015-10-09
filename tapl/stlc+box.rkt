@@ -9,7 +9,7 @@
 ;; - terms from stlc+cons.rkt
 ;; - ref deref :=
 
-(define-type-constructor Ref #:arity = 1)
+(define-type-constructor Ref)
 
 (define-typed-syntax ref
   [(_ e)

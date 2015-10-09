@@ -1,6 +1,6 @@
 #lang s-exp "typecheck.rkt"
 (extends "sysf.rkt" #:except #%datum ∀ Λ inst #:rename [~∀ ~sysf:∀])
-(reuse String #%datum same-types? #:from "stlc+reco+var.rkt")
+(reuse String #%datum #:from "stlc+reco+var.rkt")
 
 ; same as fomega.rkt except here λ and #%app works as both type and terms
 ; - uses definition from stlc, but tweaks type? and kind? predicates
@@ -118,4 +118,4 @@
                                    (type-error #:src t #:msg "not a valid type: ~a" t)))
                       #'(τ ...) #'(k_τ ...))
    #:when (typechecks? #'(k_τ ...) #'(k ...))
-   (⊢ e- : #,((current-type-eval) (substs #'(τ- ...) #'(tv ...) #'τ_body)))])
+   (⊢ e- : #,(substs #'(τ- ...) #'(tv ...) #'τ_body))])

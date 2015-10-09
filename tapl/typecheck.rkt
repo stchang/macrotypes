@@ -339,6 +339,7 @@
 (define-syntax define-basic-checked-id-stx
   (syntax-parser #:datum-literals (:)
     [(_ τ:id : kind)
+     #:with #%tag (format-id #'kind "#%~a" #'kind)
      #:with τ? (mk-? #'τ)
      #:with τ-internal (generate-temporary #'τ)
      #:with τ-expander (format-id #'τ "~~~a" #'τ)
@@ -366,12 +367,12 @@
                 [(_ . rst) #'(((~literal #%plain-app) (~literal τ-internal)) . rst)]))))
          (define τ-internal
            (λ () (raise (exn:fail:type:runtime
-                         (format "~a: Cannot use type at run time" 'τ)
+                         (format "~a: Cannot use ~a at run time" 'τ 'kind)
                          (current-continuation-marks)))))
          (define-syntax τ
            (syntax-parser
              ;[(~var _ id) (add-orig (assign-type #'τ-internal #'kind) #'τ)])))]))
-             [(~var _ id) (add-orig (assign-type #'(τ-internal) #'kind) #'τ)])))]))
+             [(~var _ id) (add-orig (assign-type #'(τ-internal) #'#%tag) #'τ)])))]))
 
 ; I use identifiers "τ" and "kind" but this form is not restricted to them.
 ; E.g., τ can be #'★ and kind can be #'#%kind (★'s type)
@@ -380,33 +381,42 @@
     [(_ τ:id : kind
         (~optional
          (~seq #:arity op n:exact-nonnegative-integer)
-         #:defaults ([op #'>=] [n #'0]))
+         #:defaults ([op #'=] [n #'1]))
         (~optional
-         (~seq #:bvs (~and has-bvs? bvs-op) bvs-n:exact-nonnegative-integer)
-         #:defaults ([bvs-op #'>=][bvs-n #'0])))
+         (~seq #:bvs (~and (~parse has-bvs? #'#t) bvs-op) bvs-n:exact-nonnegative-integer)
+         #:defaults ([bvs-op #'=][bvs-n #'0]))
+        (~optional (~seq #:arr (~and (~parse has-annotations? #'#t) tycon))
+         #:defaults ([tycon #'void])))
      #:with #%kind (format-id #'kind "#%~a" #'kind)
      #:with τ-internal (generate-temporary #'τ)
      #:with τ? (mk-? #'τ)
      #:with τ-expander (format-id #'τ "~~~a" #'τ)
      #:with τ-expander* (format-id #'τ-expander "~a*" #'τ-expander)
      #`(begin
-         (provide τ (for-syntax τ-expander τ-expander* τ? #;inferτ+erase))
+         (provide τ (for-syntax τ-expander τ-expander* τ?))
          (begin-for-syntax
            (define-syntax τ-expander
              (pattern-expander
               (syntax-parser
                 [(_ . pat:id)
-                 #'(~and #;((~literal #%plain-lambda) bvs
-                          ((~literal #%plain-app) (~literal τ-internal) . rst))
-                         ((~literal #%plain-app) (~literal τ-internal) ((~literal #%plain-lambda) bvs (~literal void) . rst))
+                 #:with expanded-τ (generate-temporary)
+                 #:with tycon-expander (format-id #'tycon "~~~a" #'tycon)
+                 #'(~and expanded-τ
+                         (~parse
+                          ((~literal #%plain-app) (~literal τ-internal)
+                           ((~literal #%plain-lambda) (~and bvs (tv (... (... ...)))) (~literal void) . rst))
+                          #'expanded-τ)
                          #,(if (attribute has-bvs?)
-                               #'(~parse pat #'(bvs rst))
+                               (if (attribute has-annotations?)
+                                   #'(~and (~parse (tycon-expander k (... (... ...))) (typeof #'expanded-τ))
+                                           (~parse pat #'(([tv k] (... (... ...))) rst)))
+                                   #'(~parse pat #'(bvs rst)))
                                #'(~parse pat #'rst)))]
+                ;; TODO: fix this to handle has-annotations?
                 [(_ (~optional (~and (~fail #:unless #,(attribute has-bvs?)) bvs-pat)
                                #:defaults ([bvs-pat #'()])) . pat)
-                 #'((~literal #%plain-app) (~literal τ-internal) ((~literal #%plain-lambda) bvs-pat (~literal void) . pat))
-                 #;((~literal #%plain-lambda) bvs-pat
-                    ((~literal #%plain-app) (~literal τ-internal) . pat))])))
+                 #'((~literal #%plain-app) (~literal τ-internal)
+                    ((~literal #%plain-lambda) bvs-pat (~literal void) . pat))])))
            (define-syntax τ-expander*
              (pattern-expander
               (syntax-parser
@@ -430,25 +440,34 @@
                     [_ #f]))))
          (define τ-internal
            (λ _ (raise (exn:fail:type:runtime
-                        (format "~a: Cannot use type at run time" 'τ)
+                        (format "~a: Cannot use ~a at run time" 'τ 'kind)
                         (current-continuation-marks)))))
          ;; ; this is the actual constructor
          (define-syntax (τ stx)
            (syntax-parse stx
              [(_ (~optional (~and (~fail #:unless #,(attribute has-bvs?))
-                                  (bv (... ...)))
+                                  (~or (bv:id (... ...))
+                                       (~and (~fail #:unless #,(attribute has-annotations?))
+                                             bvs+ann)))
                             #:defaults ([(bv 1) null])) . args)
-              #:with bvs #'(bv (... ...))
+              #:with bvs (if #,(attribute has-annotations?)
+                             #'bvs+ann
+                             #'([bv : #%kind] (... ...)))
+              ;#:declare bvs ctx ; can't assume kind-ctx is defined
               #:fail-unless (bvs-op (stx-length #'bvs) bvs-n)
                             (format "wrong number of type vars, expected ~a ~a" 'bvs-op 'bvs-n)
               #:fail-unless (op (stx-length #'args) n)
                             (format "wrong number of arguments, expected ~a ~a" 'op 'n)
               #:with (bvs- τs- _)
-                     (infers/ctx+erase #'([bv : #%kind] (... ...)) #'args
+                     (infers/ctx+erase #'bvs #'args ;#'([bv : #%kind] (... ...)) #'args
                                        #:expand (current-type-eval))
                #:with (~! (~var _ kind) (... ...)) #'τs-
-              ;(assign-type #'(λ bvs- (τ-internal . τs-)) #'#%kind)
-               (assign-type #'(τ-internal (λ bvs- void . τs-)) #'#%kind)]
+               #:with ([tv (~datum :) k_arg] (... ...)) #'bvs
+               #:with (k_arg+ (... ...)) (stx-map (current-type-eval) #'(k_arg (... ...)))
+               #:with k_result (if #,(attribute has-annotations?)
+                                   #'(tycon k_arg+ (... ...))
+                                   #'#%kind)
+               (assign-type #'(τ-internal (λ bvs- void . τs-)) #'k_result)]
              ;; else fail with err msg
              [_
               (type-error #:src stx
@@ -476,8 +495,9 @@
      #:with name=? (format-id #'name "~a=?" #'name)
      #:with names=? (format-id #'names "~a=?" #'names)
      #:with current-name=? (format-id #'name=? "current-~a" #'name=?)
+     #:with same-names? (format-id #'name "same-~as?" #'name)
      #'(begin
-         (provide (for-syntax current-is-name? is-name? #%tag? mk-name name name-bind name-ann name-ctx)
+         (provide (for-syntax current-is-name? is-name? #%tag? mk-name name name-bind name-ann name-ctx same-names?)
                   #%tag define-base-name define-name-cons)
          (define #%tag void)
          (begin-for-syntax
@@ -536,10 +556,14 @@
            (current-typecheck-relation name=?)
            (define (names=? τs1 τs2)
              (and (stx-length=? τs1 τs2)
-                  (stx-andmap (current-name=?) τs1 τs2))))
+                  (stx-andmap (current-name=?) τs1 τs2)))
+           (define (same-names? τs)
+             (define τs-lst (syntax->list τs))
+             (or (null? τs-lst)
+                 (andmap (λ (τ) ((current-name=?) (car τs-lst) τ)) (cdr τs-lst)))))
          (define-syntax define-base-name
            (syntax-parser
-             [(_ (~var x id)) #'(define-basic-checked-id-stx x : #%tag)]))
+             [(_ (~var x id)) #'(define-basic-checked-id-stx x : name)]))
          (define-syntax define-name-cons
            (syntax-parser
              [(_ (~var x id) . rst)  #'(define-basic-checked-stx x : name . rst)])))]))
