@@ -21,15 +21,13 @@
  #:with-msg "Improper usage of type constructor ∪")
 (typecheck-fail
  (λ ([x : (∪ ∪)]) x)
- #:with-msg "Improper usage of type constructor ∪: ∪, expected >= 1 arguments")
+ #:with-msg "not a valid type")
 (typecheck-fail
  (λ ([x : (1 ∪)]) x)
- ;; TODO Weird message for this one.
- #:with-msg "Expected expression 1 to have → type")
+ #:with-msg "not a valid type")
 (typecheck-fail
  (λ ([x : (Int ∪)]) x)
- ;; TODO a little weird of a message
- #:with-msg "expected identifier")
+ #:with-msg "not a valid type")
 (typecheck-fail
  (λ ([x : (→ ∪ ∪)]) x)
  #:with-msg "Improper usage of type constructor ∪: ∪, expected >= 1 arguments")

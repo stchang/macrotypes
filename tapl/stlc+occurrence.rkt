@@ -21,9 +21,23 @@
   [(_ . x) #'(stlc+sub:#%datum . x)])
 
 (define-type-constructor ∪ #:arity >= 1)
+;; TODO disallow recursive ∪
+(begin-for-syntax
+  (define τ-eval (current-type-eval))
+  (define (∪-eval τ)
+    (syntax-parse τ #:datum-literals (∪)
+     [(_ ∪ τ* ...)
+      ;; Assumes that each τ is non-∪
+      (define τ*+ (for/list ([τ (in-syntax #'(τ* ...))]) (τ-eval τ)))
+      ;; TODO just make a set
+      #`#,(cons '∪ 
+           (remove-duplicates 
+            (sort τ*+ symbol<? #:key syntax->datum)
+            (current-type=?)))]
+     [_
+      (τ-eval τ)]))
+  (current-type-eval ∪-eval))
 
-;; - define normal form for U, sorted
-;; - TEST create U types
 ;; - subtype U with simple, U with contained
 ;; - TEST subtyping, with 'values' and with 'functions'
 ;; - add filters
