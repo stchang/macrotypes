@@ -1,5 +1,5 @@
 #lang s-exp "typecheck.rkt"
-(extends "sysf.rkt" #:except #%datum ∀ Λ inst #:rename [~∀ ~sysf:∀])
+(extends "sysf.rkt" #:except #%datum ∀ Λ inst);#:rename [~∀ ~sysf:∀])
 (reuse String #%datum #:from "stlc+reco+var.rkt")
 
 ; same as fomega.rkt except here λ and #%app works as both type and terms
@@ -34,64 +34,37 @@
 (define-syntax define-type-alias
   (syntax-parser
     [(_ alias:id τ)
-     #:with (τ- k_τ) (infer+erase #'τ #:expand (current-type-eval))
+     #:with (τ- k_τ) (infer+erase #'τ)
      #'(define-syntax alias (syntax-parser [x:id #'τ-][(_ . rst) #'(τ- . rst)]))]))
-
-(begin-for-syntax
-  (define sysf:type-eval (current-type-eval))
-  ;; extend type-eval to handle tyapp
-  ;; - requires manually handling all other forms
-  (define (type-eval τ)
-    (beta (sysf:type-eval τ)))
-  (define (beta τ)
-    (syntax-parse τ
-      [((~literal #%plain-app) τ_fn τ_arg ...)
-       #:with ((~literal #%plain-lambda) (tv ...) τ_body) #'τ_fn
-       ((current-type-eval) (substs #'(τ_arg ...) #'(tv ...) #'τ_body))]
-      [((~literal #%plain-lambda) (x ...) τ_body ...)
-       #:with (τ_body+ ...) (stx-map beta #'(τ_body ...))
-       (syntax-track-origin #'(#%plain-lambda (x ...) τ_body+ ...) τ #'#%plain-lambda)]
-      [((~literal #%plain-app) arg ...)
-       #:with (arg+ ...) (stx-map beta #'(arg ...))
-       (syntax-track-origin #'(#%plain-app arg+ ...) τ #'#%plain-app)]
-      [_ τ]))
-  (current-type-eval type-eval))
 
 (define-base-kind ★)
 (define-kind-constructor ∀★ #:arity >= 0)
+(define-type-constructor ∀ #:bvs >= 0 #:arr ∀★)
 
-(define-typed-syntax ∀ #:export-as ∀
-  [(_ bvs:kind-ctx τ_body)
-   ;; cant re-use the expansion in sysf:∀ because it will give the bvs kind #%type
-   #:with (tvs- τ_body- k_body) (infer/ctx+erase #'bvs #'τ_body #:expand (current-type-eval))
-   ; expand so kind gets overwritten
-   (⊢ #,((current-type-eval) #'(sysf:∀ tvs- τ_body-)) : (∀★ bvs.kind ...))])
+;; alternative: normalize before type=?
+; but then also need to normalize in current-promote
 (begin-for-syntax
-  (define-syntax ~∀
-    (pattern-expander
-     (syntax-parser #:datum-literals (:)
-       [(_ ([tv:id : k] ...) τ)
-        #:with ∀τ (generate-temporary)
-        #'(~and ∀τ
-                (~parse (~sysf:∀ (tv ...) τ) #'∀τ)
-                (~parse (~∀★ k ...) (typeof #'∀τ)))]
-       [(_ . args)
-        #:with ∀τ (generate-temporary)
-        #'(~and ∀τ
-                (~parse (~sysf:∀ (tv (... ...)) τ) #'∀τ)
-                (~parse (~∀★ k (... ...)) (typeof #'∀τ))
-                (~parse args #'(([tv k] (... ...)) τ)))])))
-  (define-syntax ~∀*
-    (pattern-expander
-     (syntax-parser #:datum-literals (<:)
-       [(_ . args)
-        #'(~or
-           (~∀ . args)
-           (~and any (~do
-                      (type-error
-                       #:src #'any
-                       #:msg "Expected ∀ type, got: ~a" #'any))))])))
-  (define sysf:type=? (current-type=?))
+  (define (normalize τ)
+    (syntax-parse τ
+      [x:id #'x]
+      [((~literal #%plain-app) ((~literal #%plain-lambda) (tv ...) τ_body) τ_arg ...)
+       (normalize (substs #'(τ_arg ...) #'(tv ...) #'τ_body))]
+      [((~literal #%plain-lambda) (x ...) . bodys)
+       #:with bodys_norm (stx-map normalize #'bodys)
+       (syntax-track-origin #'(#%plain-lambda (x ...) . bodys_norm) τ #'plain-lambda)]
+      [((~literal #%plain-app) x:id . args)
+       #:with args_norm (stx-map normalize #'args)
+       (syntax-track-origin #'(#%plain-app x . args_norm) τ #'#%plain-app)]
+      [((~literal #%plain-app) . args)
+       #:with args_norm (stx-map normalize #'args)
+       (syntax-track-origin (normalize #'(#%plain-app . args_norm)) τ #'#%plain-app)]
+      [_ τ]))
+  
+  (define old-eval (current-type-eval))
+  (define (type-eval τ) (normalize (old-eval τ)))
+  (current-type-eval type-eval)
+  
+  (define old-type=? (current-type=?))
   (define (type=? t1 t2)
     (or (and (★? t1) (#%type? t2))
         (and (#%type? t1) (★? t2))
@@ -100,20 +73,20 @@
                  (~∀ ([tv2 : k2]) tbody2))
                 ((current-type=?) #'k1 #'k2)]
                [_ #t])
-             (sysf:type=? t1 t2))))
+             (old-type=? t1 t2))))
   (current-type=? type=?)
   (current-typecheck-relation (current-type=?)))
 
 (define-typed-syntax Λ
   [(_ bvs:kind-ctx e)
    #:with ((tv- ...) e- τ_e)
-          (infer/ctx+erase #'bvs #'e #:expand (current-type-eval))
+          (infer/ctx+erase #'bvs #'e)
    (⊢ e- : (∀ ([tv- : bvs.kind] ...) τ_e))])
 
 (define-typed-syntax inst
   [(_ e τ ...)
-   #:with (e- (([tv k] ...) τ_body)) (⇑ e as ∀)
-   #:with ([τ- k_τ] ...) (infers+erase #'(τ ...) #:expand (current-type-eval))
+   #:with (e- (([tv k] ...) (τ_body))) (⇑ e as ∀)
+   #:with ([τ- k_τ] ...) (infers+erase #'(τ ...))
    #:when (stx-andmap (λ (t k) (or ((current-kind?) k)
                                    (type-error #:src t #:msg "not a valid type: ~a" t)))
                       #'(τ ...) #'(k_τ ...))

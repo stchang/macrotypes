@@ -197,12 +197,12 @@
 
   ;; basic infer function with no context:
   ;; infers the type and erases types in an expression
-  (define (infer+erase e #:expand [expand-fn expand/df])
-    (define e+ (expand-fn e))
+  (define (infer+erase e)
+    (define e+ (expand/df e))
     (list e+ (typeof e+)))
   ;; infers the types and erases types in multiple expressions
-  (define (infers+erase es #:expand [expand-fn expand/df])
-    (stx-map (λ (e) (infer+erase e #:expand expand-fn)) es))
+  (define (infers+erase es)
+    (stx-map infer+erase es))
 
   ;; This is the main "infer" function. All others are defined in terms of this.
   ;; It should be named infer+erase but leaving it for now for backward compat.
@@ -211,8 +211,7 @@
   ;; octx + tag = some other context (and an associated tag)
   ;; eg bounded quantification in Fsub
   (define (infer es #:ctx [ctx null] #:tvctx [tvctx null]
-                 #:octx [octx tvctx] #:tag [tag 'unused]
-                 #:expand [expand-fn expand/df])
+                 #:octx [octx tvctx] #:tag [tag 'unused])
     (syntax-parse ctx #:datum-literals (:)
       [([x : τ] ...) ; dont expand yet bc τ may have references to tvs
        #:with ([tv : k] ...) tvctx
@@ -233,7 +232,7 @@
           ((~literal #%plain-lambda) xs+
            ((~literal let-values) () ((~literal let-values) ()
             ((~literal #%expression) e+) ... (~literal void))))))))
-       (expand-fn
+       (expand/df
         #`(λ (tv ...)
             (let-syntax ([tv (make-rename-transformer
                               (assign-type
@@ -260,11 +259,11 @@
   ;; shorter names
   ; ctx = type env for bound vars in term e, etc
   ; can also use for bound tyvars in type e
-  (define (infer/ctx+erase ctx e #:expand [expand-fn expand/df])
-    (syntax-parse (infer (list e) #:ctx ctx #:expand expand-fn)
+  (define (infer/ctx+erase ctx e)
+    (syntax-parse (infer (list e) #:ctx ctx)
       [(_ xs (e+) (τ)) (list #'xs #'e+ #'τ)]))
-  (define (infers/ctx+erase ctx es #:expand [expand-fn expand/df])
-    (stx-cdr (infer es #:ctx ctx #:expand expand-fn)))
+  (define (infers/ctx+erase ctx es)
+    (stx-cdr (infer es #:ctx ctx)))
   ; tyctx = kind env for bound type vars in term e
   (define (infer/tyctx+erase ctx e)
     (syntax-parse (infer (list e) #:tvctx ctx)
@@ -459,13 +458,13 @@
               #:fail-unless (op (stx-length #'args) n)
                             (format "wrong number of arguments, expected ~a ~a" 'op 'n)
               #:with (bvs- τs- _)
-                     (infers/ctx+erase #'bvs #'args ;#'([bv : #%kind] (... ...)) #'args
-                                       #:expand (current-type-eval))
+                     (infers/ctx+erase #'bvs #'args) ;#'([bv : #%kind] (... ...)) #'args
+;                                       #:expand (current-type-eval))
                #:with (~! (~var _ kind) (... ...)) #'τs-
                #:with ([tv (~datum :) k_arg] (... ...)) #'bvs
-               #:with (k_arg+ (... ...)) (stx-map (current-type-eval) #'(k_arg (... ...)))
+;               #:with (k_arg+ (... ...)) (stx-map (current-type-eval) #'(k_arg (... ...)))
                #:with k_result (if #,(attribute has-annotations?)
-                                   #'(tycon k_arg+ (... ...))
+                                   #'(tycon k_arg (... ...))
                                    #'#%kind)
                (assign-type #'(τ-internal (λ bvs- void . τs-)) #'k_result)]
              ;; else fail with err msg

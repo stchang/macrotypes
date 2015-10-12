@@ -31,7 +31,7 @@
 (define-syntax define-type-alias
   (syntax-parser
     [(_ alias:id τ)
-     #:with (τ- k_τ) (infer+erase #'τ #:expand (current-type-eval))
+     #:with (τ- k_τ) (infer+erase #'τ)
      #:fail-unless ((current-kind?) #'k_τ) (format "not a valid type: ~a\n" (type->str #'τ))
      #'(define-syntax alias (syntax-parser [x:id #'τ-][(_ . rst) #'(τ- . rst)]))]))
 
@@ -81,14 +81,13 @@
 (define-typed-syntax Λ
   [(_ bvs:kind-ctx e)
    #:with ((tv- ...) e- τ_e)
-          (infer/ctx+erase #'bvs #'e #:expand (current-type-eval))
+          (infer/ctx+erase #'bvs #'e)
    (⊢ e- : (∀ ([tv- : bvs.kind] ...) τ_e))])
 
 (define-typed-syntax inst
   [(_ e τ ...)
    #:with (e- (([tv k] ...) (τ_body))) (⇑ e as ∀)
-   #:with ([τ- k_τ] ...)
-          (infers+erase #'(τ ...) #:expand (current-type-eval))
+   #:with ([τ- k_τ] ...) (infers+erase #'(τ ...))
    #:when (stx-andmap
            (λ (t k) (or ((current-kind?) k)
                         (type-error #:src t #:msg "not a valid type: ~a" t)))
@@ -100,15 +99,14 @@
 ;; - see fomega2.rkt
 (define-typed-syntax tyλ
   [(_ bvs:kind-ctx τ_body)
-   #:with (tvs- τ_body- k_body)
-          (infer/ctx+erase #'bvs #'τ_body #:expand (current-type-eval))
+   #:with (tvs- τ_body- k_body) (infer/ctx+erase #'bvs #'τ_body)
    #:when ((current-kind?) #'k_body)
    (⊢ (λ tvs- τ_body-) : (⇒ bvs.kind ... k_body))])
 
 (define-typed-syntax tyapp #:export-as tyapp
   [(_ τ_fn τ_arg ...)
    #:with [τ_fn- (k_in ... k_out)] (⇑ τ_fn as ⇒)
-   #:with ([τ_arg- k_arg] ...) (infers+erase #'(τ_arg ...) #:expand (current-type-eval))
+   #:with ([τ_arg- k_arg] ...) (infers+erase #'(τ_arg ...))
    #:fail-unless (typechecks? #'(k_arg ...) #'(k_in ...))
                  (string-append
                   (format "~a (~a:~a) Arguments to function ~a have wrong kinds(s), "
