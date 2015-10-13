@@ -59,6 +59,8 @@
 ;; ---- basics
 (check-type 1 : (∪ Int))
 (check-type 1 : (∪ (∪ Int)))
+(check-type (λ ([x : Int]) x)
+            : (→ Bot Top))
 
 (check-not-type 1 : (∪ Boolean))
 
@@ -93,6 +95,19 @@
 (check-not-type (λ ([x : (∪ Int Str)]) x)
             : (→ Top (∪ Num Str)))
 
+;; --- ALL
+(check-type (λ ([x : (∪ Boolean Int Str)]) x)
+            : (→ (∪ Boolean Int Str) Top))
+(check-type (λ ([x : (∪ Nat Int Num)]) x)
+            : (→ (∪ Nat Int Num) Num))
+(check-type (λ ([x : (∪ Nat Int Num)]) x)
+            : (→ Nat Num))
+
+;; --- misc
+;; Because Int<:(U Int ...)
+(check-type (λ ([x : (∪ Int Nat)]) #t)
+                  : (→ Int Boolean))
+
 ;; -----------------------------------------------------------------------------
 ;; --- Basic Filters (applying functions)
 
@@ -117,30 +132,30 @@
   : Boolean ⇒ #f)
 
 ;; --- successor
-;; (check-type
-;;  (λ ([x : (∪ Int Boolean)])
-;;     (test (Int ? x)
-;;           (+ 1 x)
-;;           (if x 1 0)))
-;;  : Int)
-;; (check-type-and-result
-;;  ((λ ([x : (∪ Int Boolean)])
-;;     (test (Int ? x)
-;;           (+ 1 x)
-;;           (if x 1 0))) #f)
-;;  : Int ⇒ 0)
-;; (check-type-and-result
-;;  ((λ ([x : (∪ Int Boolean)])
-;;     (test (Int ? x)
-;;           (+ 1 x)
-;;           (if x 1 0))) #t)
-;;  : Int ⇒ 1)
-;; (check-type-and-result
-;;  ((λ ([x : (∪ Int Boolean)])
-;;     (test (Int ? x)
-;;           (+ 1 x)
-;;           (if x 1 0))) 9000)
-;;  : Int ⇒ 9001)
+(check-type
+ (λ ([x : (∪ Int Boolean)])
+    (test (Int ? x)
+          (+ 1 x)
+          0))
+ : (→ (∪ Int Boolean) (∪ Num Nat)))
+(check-type-and-result
+ ((λ ([x : (∪ Int Boolean)])
+    (test (Int ? x)
+          (+ 1 x)
+          0)) #f)
+ : Num ⇒ 0)
+(check-type-and-result
+ ((λ ([x : (∪ Int Boolean)])
+    (test (Int ? x)
+          (+ 1 x)
+          1)) #t)
+ : Num ⇒ 1)
+(check-type-and-result
+ ((λ ([x : (∪ Int Boolean)])
+    (test (Int ? x)
+          (+ 1 x)
+          0)) 9000)
+ : Num ⇒ 9001)
 
 ;; ;; --- Do-nothing filter
 (check-type
@@ -149,40 +164,48 @@
  : (→ Int Boolean))
 (check-type
  (λ ([x : Int])
-    (test (Boolean ? x) 1 0))
- : (→ Int Int))
+    (test (Boolean ? x) 0 x))
+ : (→ Int (∪ Nat Int)))
 
 ;; --- Filter a subtype
-;; (check-type
-;;  (λ ([x : (∪ Nat Boolean)])
-;;     (test (Int ? x)
-;;           x
-;;           x))
-;;  : (→ (∪ Nat Bool) (∪ Int (∪ Nat Bool))))
+(check-type
+ (λ ([x : (∪ Nat Boolean)])
+    (test (Int ? x)
+          x
+          x))
+ : (→ (∪ Nat Boolean) (∪ Int (∪ Nat Boolean))))
 
-;; (check-type
-;;  (λ ([x : (∪ Int Bool)])
-;;     (test (Nat ? x)
-;;           (+ 2 x)
-;;           x))
-;;  : (→ (∪ Bool Int) (∪ Int Bool)))
+(check-type
+ (λ ([x : (∪ Int Boolean)])
+    (test (Nat ? x)
+          x
+          x))
+ : (→ (∪ Boolean Int) (∪ Int Nat Boolean)))
 
-;; (check-type-and-result
-;;  ((λ ([x : (∪ Int Bool)])
-;;      (test (Num ? x)
-;;            #f
-;;            x)) #t)
-;;  : (→ (∪ Int Bool) Bool)
-;;  ⇒ #t)
+;; --- Filter a supertype
+(check-type
+ (λ ([x : (∪ Int Boolean)])
+    (test (Num ? x)
+          1
+          x))
+ : (→ (∪ Boolean Int) (∪ Nat Boolean)))
 
-;; ;; Should filter all the impossible types 
-;; (check-type-and-result
-;;  ((λ ([x : (∪ Nat Int Num Bool)])
-;;      (test (Num ? x)
-;;            #f
-;;            x)) #t)
-;;  : (→ (∪ Nat Int Num Bool) Bool)
-;;  ⇒ #t)
+(check-type-and-result
+ ((λ ([x : (∪ Int Boolean)])
+     (test (Num ? x)
+           #f
+           x)) #t)
+ : Boolean
+ ⇒ #t)
+
+;; Should filter all the impossible types 
+(check-type-and-result
+ ((λ ([x : (∪ Nat Int Num Boolean)])
+     (test (Num ? x)
+           #f
+           x)) #t)
+ : Boolean
+ ⇒ #t)
 
 ;; ----------------------------------------------------------------------------- 
 ;; --- misc subtyping + filters (regression tests)
@@ -217,16 +240,45 @@
  #:with-msg "not a valid type")
 
 ;; -----------------------------------------------------------------------------
-;; --- TODO Subtypes should not be collapsed
-;; (Not sure how to test this, because type=? is subtyping and these ARE subtypes)
-;; (check-not-type (λ ([x : (∪ Int Nat)]) #t)
-;;                   : (→ Nat Boolean))
-;; (check-not-type (λ ([x : (∪ Int Nat)]) #t)
-;;                 : (→ Int Boolean))
+;; --- Subtypes should not be collapsed
+
+(check-not-type (λ ([x : (∪ Int Nat)]) #t)
+                : (→ Num Boolean))
+(check-type ((λ ([x : (∪ Int Nat Boolean)])
+                (test (Int ? x)
+                      2
+                      (test (Nat ? x)
+                            1
+                            0)))
+             #t)
+            : Nat ⇒ 0)
+(check-type ((λ ([x : (∪ Int Nat)])
+                (test (Nat ? x)
+                      1
+                      (test (Int ? x)
+                            2
+                            0)))
+             1)
+            : Nat ⇒ 1)
+(check-type ((λ ([x : (∪ Int Nat)])
+                (test (Int ? x)
+                      2
+                      (test (Nat ? x)
+                            1
+                            0)))
+             -10)
+            : Nat ⇒ 2)
                
-;; ;; -----------------------------------------------------------------------------
-;; ;; --- Filter values (should do nothing)
+;; -----------------------------------------------------------------------------
+;; --- TODO Filter values (should do nothing)
 
 ;; (check-type
 ;;  (test (Int ? 1) #t #f)
 ;;  : Boolean)
+
+;; -----------------------------------------------------------------------------
+;; --- TODO Filter functions
+
+;; -----------------------------------------------------------------------------
+;; --- TODO Latent filters (on data structures)
+
