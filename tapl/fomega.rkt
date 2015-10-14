@@ -69,19 +69,16 @@
   (define (type=? t1 t2)
     (or (and (★? t1) (#%type? t2))
         (and (#%type? t1) (★? t2))
-        (and (syntax-parse (list t1 t2) #:datum-literals (:)
-               [((~∀ ([tv1 : k1]) tbody1)
-                 (~∀ ([tv2 : k2]) tbody2))
-                ((current-type=?) #'k1 #'k2)]
-               [_ #t])
-             (old-type=? t1 t2))))
+        (let ([k1 (typeof t1)][k2 (typeof t2)])
+          (and (or (and (not k1) (not k2))
+                   (and k1 k2 ((current-type=?) k1 k2)))
+               (old-type=? t1 t2)))))
   (current-type=? type=?)
   (current-typecheck-relation (current-type=?)))
 
 (define-typed-syntax Λ
   [(_ bvs:kind-ctx e)
-   #:with ((tv- ...) e- τ_e)
-          (infer/ctx+erase #'bvs #'e)
+   #:with ((tv- ...) e- τ_e) (infer/ctx+erase #'bvs #'e)
    (⊢ e- : (∀ ([tv- : bvs.kind] ...) τ_e))])
 
 (define-typed-syntax inst
@@ -100,10 +97,11 @@
 (define-typed-syntax tyλ
   [(_ bvs:kind-ctx τ_body)
    #:with (tvs- τ_body- k_body) (infer/ctx+erase #'bvs #'τ_body)
-   #:when ((current-kind?) #'k_body)
+   #:fail-unless ((current-kind?) #'k_body)
+                 (format "not a valid kind: ~a\n" (type->str #'k_body))
    (⊢ (λ tvs- τ_body-) : (⇒ bvs.kind ... k_body))])
 
-(define-typed-syntax tyapp #:export-as tyapp
+(define-typed-syntax tyapp
   [(_ τ_fn τ_arg ...)
    #:with [τ_fn- (k_in ... k_out)] (⇑ τ_fn as ⇒)
    #:with ([τ_arg- k_arg] ...) (infers+erase #'(τ_arg ...))

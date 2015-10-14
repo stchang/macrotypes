@@ -9,6 +9,12 @@
 (typecheck-fail (→ 1))
 (check-type 1 : Int)
 
+(typecheck-fail (tyλ ([x : ★]) 1) #:with-msg "not a valid kind: Int")
+
+(check-type (Λ ([X : ★]) (λ ([x : X]) x)) : (∀ ([X : ★]) (→ X X)))
+(check-not-type (Λ ([X : ★]) (λ ([x : X]) x)) :
+                (∀ ([X : (∀★ ★)]) (→ X X)))
+
 ;(check-type (∀ ([t : ★]) (→ t t)) : ★)
 (check-type (∀ ([t : ★]) (→ t t)) : (∀★ ★))
 (check-type (→ (∀ ([t : ★]) (→ t t)) (→ Int Int)) : ★)

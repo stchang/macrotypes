@@ -7,6 +7,16 @@
 (check-type (pack (Bool #t) as (∃ (X) X)) : (∃ (X) X))
 (typecheck-fail (pack (Int #t) as (∃ (X) X)))
 
+(check-type (pack (Int (pack (Int 0) as (∃ (X) X))) as (∃ (Y) (∃ (X) X)))
+            : (∃ (Y) (∃ (X) X)))
+(check-type (pack (Int +) as (∃ (X) (→ X Int Int))) : (∃ (X) (→ X Int Int)))
+(check-type (pack (Int (pack (Int +) as (∃ (X) (→ X Int Int))))
+                  as (∃ (Y) (∃ (X) (→ X Y Int))))
+            : (∃ (Y) (∃ (X) (→ X Y Int))))
+(check-not-type (pack (Int (pack (Int +) as (∃ (X) (→ X Int Int))))
+                      as (∃ (Y) (∃ (X) (→ X Y Int))))
+                : (∃ (X) (∃ (X) (→ X X Int))))
+
 ; cant typecheck bc X has local scope, and no X elimination form
 ;(check-type (open ([(X x) <= (pack (Int 0) as (∃ (X) X))]) x) : X) 
 

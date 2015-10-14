@@ -136,7 +136,9 @@
   
   ;; typeof : Syntax -> Type or #f
   ;; Retrieves type of given stx, or #f if input has not been assigned a type.
-  (define (typeof stx #:tag [tag 'type]) (syntax-property stx tag))
+  (define (typeof stx #:tag [tag 'type])
+    (define ty (syntax-property stx tag))
+    (if (cons? ty) (car ty) ty))
 
   ;; - infers type of e
   ;; - checks that type of e matches the specified type
@@ -457,9 +459,7 @@
                             (format "wrong number of type vars, expected ~a ~a" 'bvs-op 'bvs-n)
               #:fail-unless (op (stx-length #'args) n)
                             (format "wrong number of arguments, expected ~a ~a" 'op 'n)
-              #:with (bvs- τs- _)
-                     (infers/ctx+erase #'bvs #'args) ;#'([bv : #%kind] (... ...)) #'args
-;                                       #:expand (current-type-eval))
+              #:with (bvs- τs- _) (infers/ctx+erase #'bvs #'args)
                #:with (~! (~var _ kind) (... ...)) #'τs-
                #:with ([tv (~datum :) k_arg] (... ...)) #'bvs
 ;               #:with (k_arg+ (... ...)) (stx-map (current-type-eval) #'(k_arg (... ...)))
@@ -572,7 +572,7 @@
   ; subst τ for y in e, if (bound-id=? x y)
   (define (subst τ x e)
     (syntax-parse e
-      [y:id #:when (bound-identifier=? e x) τ]
+      [y:id #:when (bound-identifier=? e x) (syntax-track-origin τ #'y #'y)]
       [(esub ...)
        #:with (esub_subst ...) (stx-map (λ (e1) (subst τ x e1)) #'(esub ...))
        (syntax-track-origin #'(esub_subst ...) e x)]

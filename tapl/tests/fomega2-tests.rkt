@@ -9,6 +9,9 @@
 (typecheck-fail (→ 1))
 (check-type 1 : Int)
 
+;; this should error but it doesnt
+#;(λ ([x : ★]) 1)
+
 ;(check-type (∀ ([t : ★]) (→ t t)) : ★)
 (check-type (∀ ([t : ★]) (→ t t)) : (∀★ ★))
 (check-type (→ (∀ ([t : ★]) (→ t t)) (→ Int Int)) : ★)
