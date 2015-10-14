@@ -14,6 +14,10 @@
 
 (define-syntax-category kind)
 
+; want #%type to be equiv to★
+; => edit current-kind? so existing #%type annotations (with no #%kind tag)
+;    are treated as kinds
+; <= define ★ as rename-transformer expanding to #%type
 (begin-for-syntax
   (current-kind? (λ (k) (or (#%type? k) (kind? k))))
   ;; Try to keep "type?" backward compatible with its uses so far,
@@ -35,8 +39,9 @@
      #:fail-unless ((current-kind?) #'k_τ) (format "not a valid type: ~a\n" (type->str #'τ))
      #'(define-syntax alias (syntax-parser [x:id #'τ-][(_ . rst) #'(τ- . rst)]))]))
 
-
-(define-base-kind ★)
+(provide ★ (for-syntax ★?))
+(define-for-syntax ★? #%type?)
+(define-syntax ★ (make-rename-transformer #'#%type))
 (define-kind-constructor ⇒ #:arity >= 1)
 (define-kind-constructor ∀★ #:arity >= 0)
 
@@ -66,13 +71,12 @@
   (current-type-eval type-eval)
   
   (define old-type=? (current-type=?))
+  ; ty=? == syntax eq and syntax prop eq
   (define (type=? t1 t2)
-    (or (and (★? t1) (#%type? t2))
-        (and (#%type? t1) (★? t2))
-        (let ([k1 (typeof t1)][k2 (typeof t2)])
-          (and (or (and (not k1) (not k2))
-                   (and k1 k2 ((current-type=?) k1 k2)))
-               (old-type=? t1 t2)))))
+    (let ([k1 (typeof t1)][k2 (typeof t2)])
+      (and (or (and (not k1) (not k2))
+               (and k1 k2 ((current-type=?) k1 k2)))
+           (old-type=? t1 t2))))
   (current-type=? type=?)
   (current-typecheck-relation (current-type=?)))
 
@@ -98,7 +102,7 @@
   [(_ bvs:kind-ctx τ_body)
    #:with (tvs- τ_body- k_body) (infer/ctx+erase #'bvs #'τ_body)
    #:fail-unless ((current-kind?) #'k_body)
-                 (format "not a valid kind: ~a\n" (type->str #'k_body))
+                 (format "not a valid type: ~a\n" (type->str #'τ_body))
    (⊢ (λ tvs- τ_body-) : (⇒ bvs.kind ... k_body))])
 
 (define-typed-syntax tyapp
