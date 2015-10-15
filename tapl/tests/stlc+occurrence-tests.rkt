@@ -272,8 +272,8 @@
 ;; -----------------------------------------------------------------------------
 ;; --- Functions in union
 
-(check-type (λ ([x : (∪ Int (∪ Nat) (∪ (→ Int Int)) (→ (→ (→ Int Int)) Int))]) #t)
-            : (→ (∪ Int Nat (→ Int Int) (→ (→ (→ Int Int)) Int)) Boolean))
+(check-type (λ ([x : (∪ Int (∪ Nat) (∪ (→ Int Str Int)) (→ (→ (→ Int Int)) Int))]) #t)
+            : (→ (∪ Int Nat (→ Int Str Int) (→ (→ (→ Int Int)) Int)) Boolean))
 
 (check-type (λ ([x : (∪ Int (→ Int Int))]) #t)
             : (→ Int Boolean))
@@ -324,8 +324,8 @@
 
 ;; --- disallow same-arity functions
 (typecheck-fail
- (λ ([x : (∪ (→ Int Int) (→ Str Str))]) (x 1))
- #:with-msg "boooo")
+ (λ ([x : (∪ (→ Int Int) (→ Str Str))]) 1)
+ #:with-msg "Cannot discriminate")
 
 ;; -----------------------------------------------------------------------------
 ;; --- TODO Filter values (should do nothing)
