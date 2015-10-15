@@ -41,7 +41,9 @@
         (Top? τ2)))
   (define current-sub? (make-parameter sub?))
   (current-typecheck-relation sub?)
-  (define (subs? τs1 τs2) (stx-andmap (current-sub?) τs1 τs2))
+  (define (subs? τs1 τs2)
+    (and (stx-length=? τs1 τs2)
+         (stx-andmap (current-sub?) τs1 τs2)))
   
   (define-syntax (define-sub-relation stx)
     (syntax-parse stx #:datum-literals (<: =>)
