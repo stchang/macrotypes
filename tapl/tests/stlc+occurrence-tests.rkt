@@ -328,11 +328,64 @@
  #:with-msg "Cannot discriminate")
 
 ;; -----------------------------------------------------------------------------
-;; --- TODO Filter values (should do nothing)
+;; --- Filter with unions
+
+(check-type
+ (λ ([x : (∪ Int Str)])
+  (test ((∪ Int Str) ? x)
+        x
+        "nope"))
+ : (→ (∪ Int Str) (∪ Int Str)))
+
+(check-type
+ (λ ([x : (∪ Int Str Boolean)])
+    (test ((∪ Int Str) ? x)
+          x
+          "Nope"))
+ : (→ (∪ Int Str Boolean) (∪ Int Str)))
+
+(check-type
+ (λ ([x : (∪ Int Str Boolean)])
+    (test ((∪ Int Str) ? x)
+          (test (Str ? x)
+                "yes"
+                "int")
+          "bool"))
+ : (→ (∪ Int Str Boolean) Str))
+
+(check-type-and-result
+ ((λ ([x : (∪ Str Boolean)])
+     (test ((∪ Int Nat Num) ? x)
+           x
+           (+ 1 2))) "hi")
+ : Num ⇒ 3)
+
+(check-type-and-result
+  ((λ ([x : (∪ Str Int Boolean)])
+      (test ((∪ Int Str) ? x)
+            x
+            "error")) 1)
+  : (∪ Str Int) ⇒ 1)
+
+(check-type-and-result
+  ((λ ([x : (∪ Str Int Boolean)])
+      (test ((∪ Int Str) ? x)
+            x
+            "error")) "hi")
+  : (∪ Int Str) ⇒ "hi")
+
+;; -----------------------------------------------------------------------------
+;; --- TODO CPS filters
+
+;; -----------------------------------------------------------------------------
+;; --- TODO Filter on values (should do nothing)
 
 ;; (check-type
 ;;  (test (Int ? 1) #t #f)
 ;;  : Boolean)
+
+;; -----------------------------------------------------------------------------
+;; --- TODO Values as filters (check equality)
 
 ;; -----------------------------------------------------------------------------
 ;; --- TODO Latent filters (on data structures)

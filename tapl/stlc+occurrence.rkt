@@ -187,6 +187,7 @@
 ;; Makes it easy to add a new filter & avoids duplicating this map
 
 (begin-for-syntax
+ (define current-Π (make-parameter (lambda (x) (error 'Π))))
  (define (simple-Π τ)
    (syntax-parse (τ-eval τ)
     [~Boolean
@@ -202,9 +203,13 @@
     [(~→ τ* ... τ)
      (define k (stx-length #'(τ* ...)))
      #`(lambda (f) (and (procedure? f) (procedure-arity-includes? f #,k #f)))]
+    [(~∪ τ* ...)
+     (define filter* (for/list ([τ (in-syntax #'(τ* ...))])
+                       ((current-Π) τ)))
+     #`(lambda (v) (for/or ([f (in-list (list #,@filter*))]) (f v)))]
     [_
      (error 'Π "Cannot make filter for type ~a\n" (syntax->datum τ))]))
- (define current-Π (make-parameter simple-Π)))
+  (current-Π simple-Π))
 
 ;; (test (τ ? x) e1 e2)
 ;; TODO:
@@ -227,10 +232,4 @@
           ((lambda x1 e1+) x-stx)
           ((lambda x2 e2+) x-stx))
       : (∪ τ1 τ2))])
-
-;; - TEST function filters (delayed filters?)
-;; - disallow (U (-> ...) (-> ...))
-;; - TEST latent filters -- listof BLAH
-
-;; - integrate with sysf
 
