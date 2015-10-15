@@ -48,7 +48,7 @@
     (if (null? τ*)
         #'Bot
         (τ-eval #`(∪ #,@τ*))))
-    
+
   (define (∖ τ1 τ2)
     (cond
      [(∪? τ1)
@@ -70,8 +70,19 @@
   (define τ-eval (current-type-eval))
 
   (define (τ->symbol τ)
-    ;; TODO recurse for function types
-    (cadr (syntax->datum τ)))
+    (syntax-parse τ
+     [(_ κ)
+      (syntax->datum #'κ)]
+     [(_ κ (_ () _ τ* ...))
+      (define κ-str (symbol->string (syntax->datum #'κ)))
+      (define τ-str*
+        (map (compose1 symbol->string τ->symbol) (syntax->list #'(τ* ...))))
+      (string->symbol
+       (string-append
+        (apply string-append "(" κ-str τ-str*)
+        ")"))]
+     [_
+      (error 'τ->symbol (~a (syntax->datum τ)))]))
 
   (define (∪-eval τ-stx)
     (syntax-parse (τ-eval τ-stx)
@@ -149,7 +160,7 @@
           (andmap (lambda (τ) (sub? τ τ2)) (∪->list τ1))]
          ['(#f #f)
           (sub? τ1 τ2)])))
-     
+
  (current-sub? ∪-sub?)
  (current-typecheck-relation (current-sub?))
 )
@@ -172,6 +183,9 @@
      #'number?]
     [~Nat
      #'(lambda (n) (and (integer? n) (not (negative? n))))]
+    [(~→ τ* ... τ)
+     (define k (stx-length #'(τ* ...)))
+     #`(lambda (f) (and (procedure? f) (procedure-arity-includes? f #,k #f)))]
     [_
      (error 'Π "Cannot make filter for type ~a\n" (syntax->datum τ))]))
  (define current-Π (make-parameter simple-Π)))

@@ -270,14 +270,69 @@
             : Nat ⇒ 2)
                
 ;; -----------------------------------------------------------------------------
+;; --- Functions in union
+
+(check-type (λ ([x : (∪ Int (∪ Nat) (∪ (→ Int Int)) (→ (→ (→ Int Int)) Int))]) #t)
+            : (→ (∪ Int Nat (→ Int Int) (→ (→ (→ Int Int)) Int)) Boolean))
+
+(check-type (λ ([x : (∪ Int (→ Int Int))]) #t)
+            : (→ Int Boolean))
+
+;; --- filter functions
+(check-type
+ (λ ([x : (∪ Int (→ Int Int))])
+    (test ((→ Int Int) ? x)
+          (x 0)
+          x))
+ : (→ (∪ Int (→ Int Int)) Int))
+
+(check-type
+ (λ ([x : (∪ (→ Int Int Int) (→ Int Int))])
+    (test ((→ Int Int) ? x)
+          (x 0)
+    (test (Int ? x)
+          x
+          (x 1 0))))
+ : (→ (∪ (→ Int Int Int) (→ Int Int)) Int))
+
+(check-type-and-result
+ ((λ ([x : (∪ (→ Int Int Int) (→ Int Int) Int)])
+    (test ((→ Int Int) ? x)
+          (x 0)
+    (test (Int ? x)
+          x
+          (x 1 0)))) 1)
+ : Int ⇒ 1)
+
+(check-type-and-result
+ ((λ ([x : (∪ (→ Int Int Int) (→ Int Int) Int)])
+    (test ((→ Int Int) ? x)
+          (x 0)
+    (test (Int ? x)
+          x
+          (x 1 0)))) (λ ([y : Int]) 5))
+ : Int ⇒ 5)
+
+(check-type-and-result
+ ((λ ([x : (∪ (→ Int Int Int) (→ Int Int) Int)])
+    (test ((→ Int Int) ? x)
+          (x 0)
+    (test (Int ? x)
+          x
+          (x 1 0)))) (λ ([y : Int] [z : Int]) z))
+ : Int ⇒ 0)
+
+;; --- disallow same-arity functions
+(typecheck-fail
+ (λ ([x : (∪ (→ Int Int) (→ Str Str))]) (x 1))
+ #:with-msg "boooo")
+
+;; -----------------------------------------------------------------------------
 ;; --- TODO Filter values (should do nothing)
 
 ;; (check-type
 ;;  (test (Int ? 1) #t #f)
 ;;  : Boolean)
-
-;; -----------------------------------------------------------------------------
-;; --- TODO Filter functions
 
 ;; -----------------------------------------------------------------------------
 ;; --- TODO Latent filters (on data structures)
