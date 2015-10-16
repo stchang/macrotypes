@@ -375,6 +375,125 @@
   : (∪ Int Str) ⇒ "hi")
 
 ;; -----------------------------------------------------------------------------
+;; --- Subtyping products
+
+(check-type (tup 1) : (× Nat))
+(check-type (tup 1) : (× Int))
+(check-type (tup 1) : (× Num))
+(check-type (tup 1) : (× Top))
+(check-type (tup 1) : Top)
+
+(check-not-type (tup 1) : Boolean)
+(check-not-type (tup 1) : Str)
+(check-not-type (tup 1) : (× Str))
+(check-not-type (tup 1) : (× Int Str))
+(check-not-type (tup 1) : Bot)
+
+(check-type (tup 1 2 3) : (× Int Nat Num))
+(check-type (tup 1 2 3) : (× Num Nat Num))
+(check-type (tup 1 2 3) : (× Top Top Num))
+(check-type (tup 1 "2" 3) : (× Int Top Int))
+
+(check-not-type (tup 1 2 3) : (× Nat Nat Str))
+
+;; -----------------------------------------------------------------------------
+;; --- Latent filters (on products)
+
+(check-type
+ (λ ([v : (× (∪ Int Str) Int)])
+    (test (Int ? (proj v 0))
+          (+ (proj v 0) (proj v 1))
+          0))
+ : (→ (× (∪ Int Str) Int) Num))
+
+(check-type-and-result
+ ((λ ([v : (× (∪ Int Str) Int)])
+    (test (Int ? (proj v 0))
+          (+ (proj v 0) (proj v 1))
+          0))
+  (tup ((λ ([x : (∪ Int Str)]) x) -2) -3))
+ : Num ⇒ -5)
+
+(check-type-and-result
+ ((λ ([v : (× (∪ Int Str) Int)])
+    (test (Int ? (proj v 0))
+          (+ (proj v 0) (proj v 1))
+          0))
+  (tup "hi" -3))
+ : Num ⇒ 0)
+
+;; --- Use a product as filter
+
+(check-type
+ (λ ([x : (∪ Int (× Int Int Int))])
+    (test (Int ? x)
+          (+ 1 x)
+          (+ (proj x 0) (+ (proj x 1) (proj x 2)))))
+ : (→ (∪ (× Int Int Int) Int) Num))
+
+(check-type-and-result
+ ((λ ([x : (∪ Int (× Int Int Int))])
+     (test (Int ? x)
+           (+ 1 x)
+           (+ (proj x 0) (+ (proj x 1) (proj x 2)))))
+  0)
+ : Num ⇒ 1)
+
+(check-type-and-result
+ ((λ ([x : (∪ Int (× Int Int Int))])
+     (test (Int ? x)
+           (+ 1 x)
+           (+ (proj x 0) (+ (proj x 1) (proj x 2)))))
+  (tup 2 2 2))
+ : Num ⇒ 6)
+
+(check-type-and-result
+ ((λ ([x : (∪ Int (× Str Nat) (× Int Int Int))])
+     (test (Int ? x)
+           (+ 1 x)
+     (test ((× Int Int Int) ? x)
+           (+ (proj x 0) (+ (proj x 1) (proj x 2)))
+           (proj x 1))))
+  (tup 2 2 2))
+ : Num ⇒ 6)
+
+(check-type-and-result
+ ((λ ([x : (∪ Int (× Str Nat) (× Int Int Int))])
+     (test (Int ? x)
+           (+ 1 x)
+     (test ((× Int Int Int) ? x)
+           (+ (proj x 0) (+ (proj x 1) (proj x 2)))
+           (proj x 1))))
+  (tup "yolo" 33))
+ : Num ⇒ 33)
+
+;; -- All together now
+
+(check-type-and-result
+ ((λ ([x : (∪ Int (× Boolean Boolean) (× Int (∪ Str Int)))])
+     (test (Int ? x)
+           "just an int"
+     (test ((× Boolean Boolean) ? x)
+           "pair of bools"
+           (test (Str ? (proj x 1))
+                 (proj x 1)
+                 "pair of ints"))))
+  (tup 33 "success"))
+ : Str ⇒ "success")
+
+(check-type-and-result
+ ((λ ([x : (∪ Int (× Int Int) (× Int (∪ Str Int)))])
+     (test (Int ? x)
+           "just an int"
+     (test ((× Int Int) ? x)
+           "pair of ints"
+           (test (Str ? (proj x 1))
+                 (proj x 1)
+                 "another pair of ints"))))
+  (tup 33 "success"))
+ : Str ⇒ "success")
+
+;; -----------------------------------------------------------------------------
 ;; --- TODO CPS filters
 
 ;; -----------------------------------------------------------------------------
@@ -386,7 +505,4 @@
 
 ;; -----------------------------------------------------------------------------
 ;; --- TODO Values as filters (check equality)
-
-;; -----------------------------------------------------------------------------
-;; --- TODO Latent filters (on data structures)
 
