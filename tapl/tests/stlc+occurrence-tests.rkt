@@ -494,6 +494,60 @@
  : Str ⇒ "success")
 
 ;; -----------------------------------------------------------------------------
+;; --- Filter lists
+
+(check-type
+ (λ ([x : (List (∪ Int Str))])
+    (test ((List Str) ? x)
+          x
+          #f))
+ : (→ (List (∪ Int Str)) (∪ Boolean (List Str))))
+
+;; -- -subtyping lists
+(check-type
+ (cons 1 (nil {Nat}))
+ : (List Int))
+
+(check-type
+ ((λ ([filter/3 : (→ (List (∪ Int Str)) (List Int))]
+      [add*/3 : (→ Num (List Num) (List Num))]
+      [xs : (×  (∪ Int Str) (∪ Int Str) (∪ Int Str))])
+     (add*/3 5 (filter/3 (cons (proj xs 0)
+                               (cons (proj xs 1)
+                                     (cons (proj xs 2)
+                                           (nil {(∪ Str Int)})))))))
+  ;; filter (okay this is a little tricky for recursion)
+  (λ ([xs : (List (∪ Int Str))])
+     ((λ ([v1 : (∪ Int Str)]
+          [v2 : (∪ Int Str)]
+          [v3 : (∪ Int Str)])
+         (test (Int ? v1)
+               (cons v1 (test (Int ? v2)
+                              (cons v2 (test (Int ? v3)
+                                             (cons v3 (nil {Int}))
+                                             (nil {Int})))
+                              (test (Int ? v3)
+                                    (cons v3 (nil {Int}))
+                                    (nil {Int}))))
+               (test (Int ? v2)
+                     (cons v2 (test (Int ? v3)
+                                    (cons v3 (nil {Int}))
+                                    (nil {Int})))
+                     (test (Int ? v3)
+                           (cons v3 (nil {Int}))
+                           (nil {Int})))))
+      (head xs) (head (tail xs)) (head (tail (tail xs)))))
+  ;; add3
+  (λ ([n : Num] [xs : (List Num)])
+     (cons (+ n (head xs))
+      (cons (+ n (head (tail xs)))
+       (cons (+ n (head (tail (tail xs))))
+        (nil {Num})))))
+  ;; xs (3-tuple)
+  (tup 1 "foo" 3))
+ : (List Num))
+
+;; -----------------------------------------------------------------------------
 ;; --- TODO CPS filters
 
 ;; -----------------------------------------------------------------------------
