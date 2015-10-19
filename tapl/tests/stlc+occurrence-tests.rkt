@@ -207,6 +207,15 @@
  : Boolean
  ⇒ #t)
 
+;; Can refine non-union types
+(check-type-and-result
+ ((λ ([x : Top])
+    (test (Str ? x)
+          x
+          "nope"))
+  "yes")
+ : Str ⇒ "yes")
+
 ;; ----------------------------------------------------------------------------- 
 ;; --- misc subtyping + filters (regression tests)
 (check-type
@@ -546,6 +555,53 @@
   ;; xs (3-tuple)
   (tup 1 "foo" 3))
  : (List Num))
+
+;; -----------------------------------------------------------------------------
+;; --- ICFP'10 examples
+
+;; -- Exaple 1 (x can have any type)
+(check-type
+ (λ ([x : Top])
+    (test (Num ? x)
+       (+ 1 x)
+       0))
+ : (→ Top Num))
+
+;; -- Example 2
+(check-type
+ (λ ([x : (∪ Str Num)]
+     [str-length : (→ Str Num)])
+    (test (Num ? x)
+          (+ 1 x)
+          (str-length x)))
+ : (→ (∪ Str Num) (→ Str Num) Num))
+
+;; -- TODO Example 3 (requires IF)
+;; (check-type
+;;  (λ ([member : (→ Num (List Num) Boolean)])
+;;     (λ ([x : Num] [l : (List Num)])
+;;        (if (member x l)
+;;            <compute with x>
+;;            <fail>)))
+;;  : <compute-result>
+
+;; -- Example 4
+(check-type
+ (λ ([x : (∪ Num Str Top)] [f : (→ (∪ Num Str) Num)])
+    (test ((∪ Num Str) ? x)
+          (f x)
+          0))
+ : (→ (∪ Num Str Top) (→ (∪ Num Str) Num) Num))
+
+;; Exmample 10 (we don't allow non-homogenous lists, so need to select head before filtering)
+(check-type
+ (λ ([p : (List (∪ Nat Str))])
+    ((λ ([x : (∪ Nat Str)])
+       (test (Num ? x)
+             (+ 1 x)
+             7))
+    (head p)))
+ : (→ (List (∪ Nat Str)) Num))
 
 ;; -----------------------------------------------------------------------------
 ;; --- TODO CPS filters
