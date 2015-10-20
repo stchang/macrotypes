@@ -60,13 +60,18 @@ In the following rules, we identify $\Sigma$ with its set of keys.
 These keys are the carrier set for the algebra of types at which we can instantiate the $\psi$ type.
 %% TODO explain the carrier a little better
 
+At runtime, all values of $\psi$ type are dictionaries that perform type dispatch.
+Applying a $\psi$-value triggers a series of predicate checks on its argument; if successful, this leads to a function application.
+
 \begin{mathpar}
   \inferrule*[left=O-Sig]{
     \alpha\ \mbox{free in}\ \tau
     \\\\
     \mbox{(for now, $\tau = \alpha \rightarrow \tau'$)}
+    \\\\
+    \Sigma = \emptyset
   }{
-    \vdash \ksig\ \alpha\ \tau : \kpsi{\alpha}{\emptyset}{\tau}
+    \vdash \ksig\ \alpha\ \tau : \kpsi{\alpha}{\Sigma}{\tau} \Rightarrow \Sigma
   }
 
   \inferrule*[left=O-Inst]{
@@ -77,14 +82,16 @@ These keys are the carrier set for the algebra of types at which we can instanti
     \vdash e : \tau'[\alpha/\tau]
   }{
     \vdash \kinst\ x\ \tau\ e : \kpsi{\alpha}{(\Sigma \cup \{\tau\})}{\tau'}
+    \Rightarrow (\mathsf{set!}\ \Sigma\ ???)
   }
 
   \inferrule*[left=O-App]{
     \vdash e : \tau
     \\
-    \vdash (\kres\ x\ \tau)~e : \tau''
+    \vdash (\kres\ x\ \tau)~e : \tau'' \Rightarrow v
   }{
     \vdash x~e : \tau''
+    \Rightarrow v
   }
 
   \inferrule*[left=O-Res]{
@@ -92,13 +99,14 @@ These keys are the carrier set for the algebra of types at which we can instanti
     \\
     (\tau, e) \in \Sigma
     \\
-    \vdash e : \tau \rightarrow \tau''
+    \vdash e : \tau \rightarrow \tau'' \Rightarrow v
   }{
     \vdash \kres\ x\ \tau : \tau \rightarrow \tau'
+    \Rightarrow v
   }
 
 \end{mathpar}
-Maybe, $\kres$ should be a metafunction.
+We could also do $\kres$ as a metafunction, but this was language users can specify exactly how to resolve their overloaded functions.
 
 
 \subsection*{Next Steps}
