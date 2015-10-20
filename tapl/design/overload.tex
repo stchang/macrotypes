@@ -108,6 +108,23 @@ Applying a $\psi$-value triggers a series of predicate checks on its argument; i
 \end{mathpar}
 We could also do $\kres$ as a metafunction, but this was language users can specify exactly how to resolve their overloaded functions.
 
+\subsection*{Problem!}
+Oh wow, I didn't think about $\lambda$ being a problem.
+We have types-depending-on-values, but I didn't see any issue because we know everything about these values statically.
+Not quite!
+$$(\lambda\,(x : \kpsi{\alpha}{\Sigma}{\tau})\,.\,(x~1))~(\kinst~(\ksig~(\alpha)~\tau)~\tau'~e)$$
+What's the type of $x$ inside the body?
+We know from ``$\Sigma$'' what keys it has, but the overloading-resolver is OUTSIDE the $\lambda$.
+
+Ideas to fix:
+\begin{itemize}
+\item Give up. Only do run-time instance resolution. HAH.
+\item Give up. Fall back to parameter-style or global-table-style. HM.
+\item Do some best-effort static analysis to push the type outside the lambda inside it.
+  This could be combined with type inference on the $\lambda$ signature\textemdash we really don't care the exact type of $x$ (i.e. its entire carrier), only that it can be applied to integers.
+\end{itemize}
+
+
 
 \subsection*{Next Steps}
 \begin{itemize}
@@ -120,5 +137,6 @@ We could also do $\kres$ as a metafunction, but this was language users can spec
 \item Allow bound polymorphism over signatures with at least some instances
 \item Work out interactions with $<:$ and $\forall$
 \end{itemize}
+
 
 \end{document}
