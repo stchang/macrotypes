@@ -1,0 +1,116 @@
+\documentclass{article}
+\input{def}
+\begin{document}
+
+\section*{Parametric Overloading}
+
+\subsection*{Definition}
+\begin{itemize}
+\item Identifiers may be parametrically overloaded.
+\item Overloaded identifiers have no implementation and a type containing holes.
+\item Implementations may be \emph{later} associated with the identifier by filling the type holes.
+\item On use, the identifier infers from its context which instance to use.
+  Instances are keyed by type: the type filling the hole.
+\end{itemize}
+
+Goal: provide a clean implementation.
+
+\subsection*{Old Ideas}
+\subsubsection*{Global Table}
+\begin{itemize}
+\item Keep a global mapping $\Sigma$ from identifiers to types to implementations.
+\item Query and extend this map during typechecking.
+\end{itemize}
+
+Problem: global state like this is anti-modular.
+Unclear how to extend to a multi-module or sub-module world.
+There's only a global scope.
+
+\subsubsection*{Dynamic Binding \& Parameters}
+\begin{itemize}
+\item Each overloaded identifier represented as a new \emph{parameter}
+\item The parameter is a lookup procedure; using the ID should trigger a type-directed lookup.
+  Somehow.
+\item New instances extend the lookup procedure in the parameter.
+\end{itemize}
+
+Parameters are a nice mix of lexical scope and imperatives.
+Also they are reasonable to share across modules.
+
+The lookup is a little troublesome, but the compile-time elaboration should be able to call the parameter with the right type arguments.
+
+
+\newpage
+\subsection*{Current Idea: first class overloadables}
+We'll represent overloadable signatures with a new type constructor, $\psi$, which makes the updating explicit.
+
+The $\psi$ types have the form
+$$\kpsi{\alpha}{\Sigma}{\tau}$$
+where:
+\begin{itemize}
+\item $\alpha$ is a type variable
+\item $\Sigma$ is a partial map from types to expressions.
+  It is a lookup table: given a concrete type $\tau'$ to swap for the variable $\alpha$, the map $\Sigma$ returns an expression with type $\tau[\alpha/\tau']$.
+\item $\tau$ is a type where $\alpha$ is definitely free
+\end{itemize}
+
+For now, we constrain $\tau$ to be a function $\alpha \rightarrow \tau'$ for some base type $\tau'$.
+
+In the following rules, we identify $\Sigma$ with its set of keys.
+These keys are the carrier set for the algebra of types at which we can instantiate the $\psi$ type.
+%% TODO explain the carrier a little better
+
+\begin{mathpar}
+  \inferrule*[left=O-Sig]{
+    \alpha\ \mbox{free in}\ \tau
+    \\\\
+    \mbox{(for now, $\tau = \alpha \rightarrow \tau'$)}
+  }{
+    \vdash \ksig\ \alpha\ \tau : \kpsi{\alpha}{\emptyset}{\tau}
+  }
+
+  \inferrule*[left=O-Inst]{
+    \vdash x : \kpsi{\alpha}{\Sigma}{\tau'}
+    \\\\
+    \tau \not\in \Sigma
+    \\\\
+    \vdash e : \tau'[\alpha/\tau]
+  }{
+    \vdash \kinst\ x\ \tau\ e : \kpsi{\alpha}{(\Sigma \cup \{\tau\})}{\tau'}
+  }
+
+  \inferrule*[left=O-App]{
+    \vdash e : \tau
+    \\
+    \vdash (\kres\ x\ \tau)~e : \tau''
+  }{
+    \vdash x~e : \tau''
+  }
+
+  \inferrule*[left=O-Res]{
+    \vdash x : \kpsi{\alpha}{\Sigma}{(\alpha \rightarrow \tau'')}
+    \\
+    (\tau, e) \in \Sigma
+    \\
+    \vdash e : \tau \rightarrow \tau''
+  }{
+    \vdash \kres\ x\ \tau : \tau \rightarrow \tau'
+  }
+
+\end{mathpar}
+Maybe, $\kres$ should be a metafunction.
+
+
+\subsection*{Next Steps}
+\begin{itemize}
+\item Implement with simple types
+\item Implement with recursive types like nested products and lists
+\item Combine with occurrence typing
+\item Extend to multiple variables, $(\alpha^* \ldots)$
+\item Extend to overloaded codomains
+\item Extend to other overloadables, not just functions
+\item Allow bound polymorphism over signatures with at least some instances
+\item Work out interactions with $<:$ and $\forall$
+\end{itemize}
+
+\end{document}
