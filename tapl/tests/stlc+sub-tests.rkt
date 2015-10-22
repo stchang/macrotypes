@@ -57,3 +57,7 @@
 (typecheck-fail (λ ([x : (→ Int Int)]) (+ x x))) ; x should be Int
 (typecheck-fail ((λ ([x : Int] [y : Int]) y) 1)) ; wrong number of args
 (check-type ((λ ([x : Int]) (+ x x)) 10) : Num ⇒ 20)
+
+(check-not-type (λ ([x : Int]) x) : Int)
+(check-not-type (λ ([x : Int] [y : Int]) x) : (→ Int Int))
+(check-not-type (λ ([x : Int]) x) : (→ Int Int Int Int))
