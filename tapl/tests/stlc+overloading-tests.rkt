@@ -1,4 +1,4 @@
-#lang s-exp "../stlc+overloading-param.rkt"
+#lang s-exp "../stlc+overloading.rkt"
 (require "rackunit-typechecking.rkt")
 
 ;; -----------------------------------------------------------------------------
@@ -104,7 +104,7 @@
  (λ ([x : (→ Int Int)])
    (instance (x Int)
              0))
- #:with-msg "Not an overloaded identifier")
+ #:with-msg "Identifier 'x' is not overloaded")
 
 ;; -- explicit resolve
 

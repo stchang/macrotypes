@@ -1,15 +1,9 @@
 #lang s-exp "typecheck.rkt"
 (reuse List cons nil #:from "stlc+cons.rkt")
-(reuse #:from "stlc+rec-iso.rkt") ; load current-type=?
-(extends "stlc+sub.rkt" #:except #%datum #:rename [#%app stlc:#%app])
+(reuse #:from "stlc+rec-iso.rkt") ; to load current-type=?
+(extends "stlc+sub.rkt" #:except #%datum)
 
-;; Apparently cannot propogate type information across statements.
-;; Until the first-class ones work, let's do the big dumb parameter
-
-;; So here's what going to happen
-;; - current-Σ will be a map from identifiers to resolvers
-;; - resolvers will map overloaded signatures and types to concrete instances
-;; - extending a resolver (via instance) will add a new (τ, e) pair to a mutable list
+;; Revision of overloading, using identifier macros instead of overriding #%app
 
 ;; =============================================================================
 
@@ -30,7 +24,8 @@
    name ;; Symbol
    dom* ;; (Box (Listof (Pairof Type Expr)))
    cod  ;; Type
- ) #:transparent
+ ) #:constructor-name make-ℜ
+   #:transparent
    #:property prop:procedure
    (lambda (self τ-or-e #:exact? [exact? #f])
      (define r
@@ -49,10 +44,10 @@
    (set-box! dom* (cons (cons τ e) (unbox dom*))))
 
  (define (ℜ-init name τ-cod)
-   (ℜ name (box '()) τ-cod))
+   (make-ℜ name (box '()) τ-cod))
 
- (define (ℜ->type ℜ)
-   ((current-type-eval) #`(→ #,(assign-type #''α #'#%type) #,(ℜ-cod ℜ))))
+ (define (ℜ->type ℜ #:subst [τ-dom (assign-type #''α #'#%type)])
+   ((current-type-eval) #`(→ #,τ-dom #,(ℜ-cod ℜ))))
 
  (define (ℜ-find ℜ τ #:=? =?)
    (define (τ=? τ2)
@@ -74,72 +69,75 @@
 
  (define (ℜ-unbound? ℜ τ)
    (not (ℜ-resolve-syntax ℜ τ #:exact? #t)))
- 
+
+ (define (syntax->ℜ id)
+   ;; Don't care about the type
+   (define stx+τ (infer+erase id))
+   ;; Boy, I wish I had a monad
+   (define (fail)
+     (error 'resolve (format "Identifier '~a' is not overloaded" (syntax->datum id))))
+   (unless (pair? stx+τ) (fail))
+   (define stx (car stx+τ))
+   (unless (syntax? stx) (fail))
+   (define ℜ-stx (syntax->datum (car stx+τ)))
+   (unless (and (list? ℜ-stx)
+                (not (null? ℜ-stx))
+                (not (null? (cdr ℜ-stx))))
+     (fail))
+   (define ℜ (cadr ℜ-stx))
+   (unless (ℜ? ℜ) (fail))
+   ℜ)
+
+ (define-syntax-rule (error-template sym id τ reason)
+   (error sym (format "Failure for '~a' at type '~a'. ~a"
+                      (syntax->datum id)
+                      (syntax->datum τ)
+                      reason)))
+
+ (define-syntax-rule (instance-error id τ reason)
+   (error-template 'instance id τ reason))
+
+ (define-syntax-rule (resolve-error id τ reason)
+   (error-template 'resolve id τ reason))
 )
 
 ;; =============================================================================
 ;; === Overloaded signature environment
 
-(begin-for-syntax
- (define current-Σ (make-parameter (lambda (id) #f)))
-)
-
 (define-typed-syntax signature
   [(_ (name:id α:id) τ)
    #:with ((α+) (~→ τ_α:id τ-cod) _) (infer/tyctx+erase #'([α : #%type]) #'τ)
-   (let ([ℜ-old ((current-Σ) #'name)])
-     (when ℜ-old
-       (error 'signature (format "Identifier '~a' already bound to a type ~a"
-                                 (syntax->datum #'name) (syntax->datum (ℜ->type ℜ-old))))))
    (define ℜ (ℜ-init #'name #'τ-cod))
-   (current-Σ 
-    (let ([old-Σ (current-Σ)])
-      (lambda (id)
-        (if (free-identifier=? id #'name)
-            ℜ
-            (old-Σ id)))))
-   (⊢ (define name #,ℜ)
+   (⊢ (define-syntax name
+        (syntax-parser
+         [_:id
+          #'(quote #,ℜ)] ;; Is there a way to transmit ℜ directly?
+         [(n e)
+          #:with [e+ τ+] (infer+erase #'e)
+          #:with n+ (#,ℜ #'τ+)
+          (⊢ (#%app n+ e+)
+             : τ-cod)]
+         [(_ e* (... ...))
+          #'(raise-arity-error (syntax->datum name) 1 e* (... ...))]))
       : Bot)]
   [(_ e* ...)
    (error 'signature (format "Expected (signature (NAME VAR) (→ VAR τ)), got ~a" (xerox #'(e* ...))))])
 
-(define-for-syntax (resolve/internal id τ #:exact? [exact? #f])
-  (define ℜ ((current-Σ) id))
-  (unless ℜ (error 'resolve (format "Identifier '~a' is not overloaded" (syntax->datum id))))
-  (ℜ τ #:exact? exact?))
-
 (define-typed-syntax resolve/tc #:export-as resolve
   [(_ name:id τ)
-   #:with [name+ τ_fn+] (infer+erase #'name)
    #:with τ+ ((current-type-eval) #'τ)
-   (resolve/internal #'name+ #'τ+ #:exact? #t)])
-
-(define-typed-syntax app/tc #:export-as #%app
-  [(_ e_fn:id e_arg)
-   #:with [e_fn+ τ_fn+] (infer+erase #'e_fn)
-   #:when ((current-Σ) #'e_fn+)
-   #:with [e_arg+ τ_arg+] (infer+erase #'e_arg)
-   (unless (syntax-e #'τ_arg+)
-     (error '#%app "(does this ever happen?) No type for expression ~a\n" (syntax->datum #'e_arg)))
-   (define fn (resolve/internal #'e_fn+ #'τ_arg+))
-   #`(app/tc #,fn e_arg+)]
-  [(_ e* ...)
-   #'(stlc:#%app e* ...)])
-
-(begin-for-syntax
-(define-syntax-rule (instance-error id τ r)
-  (error 'instance (format "Cannot make instance for '~a' at type '~a'. ~a"
-                           (syntax->datum id) (syntax->datum τ) r)))
-)
+   ;; Extract a resolver from the syntax object
+   (define ℜ (syntax->ℜ #'name))
+   ;; Apply the resolver to the argument type. woo-wee!
+   (⊢ #,(ℜ #'τ+ #:exact? #t) : #,(ℜ->type ℜ #:subst #'τ+))])
 
 (define-typed-syntax instance
   [(_ (name:id τ-stx) e)
    #:with τ ((current-type-eval) #'τ-stx)
    #:with [e+ τ+] (infer+erase #'e)
-   (define ℜ ((current-Σ) #'name))
-   (unless ℜ (instance-error #'name #'τ "Not an overloaded identifier."))
+   (define ℜ (syntax->ℜ #'name))
    (unless (ℜ-unbound? ℜ #'τ) (instance-error #'name #'τ "Overlaps with existing instance."))
-   (define does-this-id-matter?
+   (define _unify ;; Should be a helper function
      (syntax-parse #`(τ+ #,(ℜ->type ℜ))
       [((~→ τ_dom1 τ_cod1)
         (~→ _      τ_cod2))
@@ -157,8 +155,8 @@
        (instance-error #'name #'τ (format "May only overload single-argument functions. (Got ~a and ~a)"
                                           (syntax->datum #'a) (syntax->datum #'b))
                                           )]))
-   (ℜ-add! ℜ #'τ #'e+)
    ;; Should we use syntax instead of e+ ?
+   (ℜ-add! ℜ #'τ #'e+)
    (⊢ (void) : Bot)]
   [_
    (error 'instance "Expected (instance (id τ) e).")])
