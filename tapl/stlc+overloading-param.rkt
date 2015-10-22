@@ -1,7 +1,7 @@
 #lang s-exp "typecheck.rkt"
 (reuse List cons nil #:from "stlc+cons.rkt")
-(extends "stlc+sub.rkt" #:except #%datum #:rename [#%app stlc:#%app])
 (reuse #:from "stlc+rec-iso.rkt") ; load current-type=?
+(extends "stlc+sub.rkt" #:except #%datum #:rename [#%app stlc:#%app])
 
 ;; Apparently cannot propogate type information across statements.
 ;; Until the first-class ones work, let's do the big dumb parameter
@@ -32,11 +32,11 @@
    cod  ;; Type
  ) #:transparent
    #:property prop:procedure
-   (lambda (self τ-or-e)
+   (lambda (self τ-or-e #:exact? [exact? #f])
      (define r
        (if (syntax? τ-or-e) ;; Can I ask "type?"
-           (ℜ-resolve-syntax self τ-or-e)
-           (ℜ-resolve-value  self τ-or-e)))
+           (ℜ-resolve-syntax self τ-or-e #:exact? exact?)
+           (ℜ-resolve-value  self τ-or-e #:exact? exact?)))
      (or r
          (error 'ℜ (format "Resolution for '~a' failed at type ~a"
                            (syntax->datum (ℜ-name self))
@@ -54,23 +54,26 @@
  (define (ℜ->type ℜ)
    ((current-type-eval) #`(→ #,(assign-type #''α #'#%type) #,(ℜ-cod ℜ))))
 
- (define (ℜ-find ℜ τ)
-   (define τ=?
-     (let ([type=? (current-type=?)])
-       (lambda (τ2)
-         (type=? τ τ2))))
+ (define (ℜ-find ℜ τ #:=? =?)
+   (define (τ=? τ2)
+     (=? τ τ2))
    (assf τ=? (unbox (ℜ-dom* ℜ))))
 
- (define (ℜ-resolve-syntax ℜ τ)
-   (define result (ℜ-find ℜ τ))
+ (define (ℜ-resolve-syntax ℜ τ #:exact? [exact? #f])
+   ;; First try exact matches, then fall back to subtyping (unless 'exact?' is set).
+   ;; When subtyping, the __order instances were declared__ resolves ties.
+   (define result
+     (or (ℜ-find ℜ τ #:=? (current-type=?))
+         (and (not exact?)
+              (ℜ-find ℜ τ #:=? (current-typecheck-relation)))))
    (and (pair? result)
         (cdr result)))
 
- (define (ℜ-resolve-value ℜ e)
+ (define (ℜ-resolve-value ℜ e #:exact? [exact? #f])
    (error 'ℜ (format "Runtime resolution not implemented. Anyway your value was ~a" e)))
 
  (define (ℜ-unbound? ℜ τ)
-   (not (ℜ-find ℜ τ)))
+   (not (ℜ-resolve-syntax ℜ τ #:exact? #t)))
  
 )
 
@@ -100,27 +103,26 @@
   [(_ e* ...)
    (error 'signature (format "Expected (signature (NAME VAR) (→ VAR τ)), got ~a" (xerox #'(e* ...))))])
 
-;; TODO make this available to users
-(define-for-syntax (resolve stx)
-  (syntax-parse stx
-   [(name:id τ)
-    #:with [name+ τ_fn+] (infer+erase #'name)
-    #:with τ+ ((current-type-eval) #'τ)
-    (define ℜ ((current-Σ) #'name+))
-    (unless ℜ
-      (error 'resolve (format "Identifier '~a' is not overloaded" (syntax->datum #'name+))))
-    (ℜ #'τ)]))
+(define-for-syntax (resolve/internal id τ #:exact? [exact? #f])
+  (define ℜ ((current-Σ) id))
+  (unless ℜ (error 'resolve (format "Identifier '~a' is not overloaded" (syntax->datum id))))
+  (ℜ τ #:exact? exact?))
 
-(define-typed-syntax #%app
+(define-typed-syntax resolve/tc #:export-as resolve
+  [(_ name:id τ)
+   #:with [name+ τ_fn+] (infer+erase #'name)
+   #:with τ+ ((current-type-eval) #'τ)
+   (resolve/internal #'name+ #'τ+ #:exact? #t)])
+
+(define-typed-syntax app/tc #:export-as #%app
   [(_ e_fn:id e_arg)
    #:with [e_fn+ τ_fn+] (infer+erase #'e_fn)
-   ;; Beware 3D syntax
    #:when ((current-Σ) #'e_fn+)
    #:with [e_arg+ τ_arg+] (infer+erase #'e_arg)
    (unless (syntax-e #'τ_arg+)
-     (error '#%app "No type for expression ~a\n" (syntax->datum #'e_arg)))
-   (define fn (resolve #'(e_fn+ τ_arg+)))
-   #`(#%app #,fn e_arg+)]
+     (error '#%app "(does this ever happen?) No type for expression ~a\n" (syntax->datum #'e_arg)))
+   (define fn (resolve/internal #'e_fn+ #'τ_arg+))
+   #`(app/tc #,fn e_arg+)]
   [(_ e* ...)
    #'(stlc:#%app e* ...)])
 
@@ -155,7 +157,8 @@
        (instance-error #'name #'τ (format "May only overload single-argument functions. (Got ~a and ~a)"
                                           (syntax->datum #'a) (syntax->datum #'b))
                                           )]))
-   (ℜ-add! ℜ #'τ #'e+) ;; Should we use syntax instead of e+ ?
+   (ℜ-add! ℜ #'τ #'e+)
+   ;; Should we use syntax instead of e+ ?
    (⊢ (void) : Bot)]
   [_
    (error 'instance "Expected (instance (id τ) e).")])

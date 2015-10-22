@@ -31,23 +31,51 @@
 
 ;; -- can later add cases to an overloaded name
 (instance (to-string Nat)
-  (λ ([x : Nat]) "num"))
+  (λ ([x : Nat]) "nat"))
 
 (instance (to-string Str)
   (λ ([x : Str]) "string"))
 
-;; TODO can't use check-type for some reason. Literal #f is not allowed... missing type?
-;; (check-type-and-result
+(check-type-and-result
  (to-string 3)
- ;; : Str ⇒ "num")
+ : Str ⇒ "nat")
 
-;; (check-type-and-result
- ;; (to-string (+ 2 2))
- ;; : Str ⇒ "num")
+(typecheck-fail
+ (to-string (+ 0 0))
+ #:with-msg "Resolution for 'to-string' failed")
 
-;; (check-type-and-result
+(instance (to-string Num)
+  (λ ([x : Num]) "num"))
+
+(check-type-and-result
+ (to-string (+ 2 2))
+ : Str ⇒ "num")
+
+(check-type-and-result
+ (to-string -1)
+ : Str ⇒ "num")
+
+(check-type-and-result
  (to-string "hi")
-;;  : Str ⇒ "string")
+ : Str ⇒ "string")
+
+;; -- use 'resolve' to get exact matches
+
+(check-type-and-result
+ ((resolve to-string Nat) 1)
+ : Str ⇒ "nat")
+
+(check-type-and-result
+ ((resolve to-string Num) 1)
+ : Str ⇒ "num")
+
+(typecheck-fail
+ (resolve to-string Int)
+ #:with-msg "Resolution for 'to-string' failed")
+
+(typecheck-fail
+ ((resolve to-string Num) "hello")
+ #:with-msg "have wrong type")
 
 ;; -- instances are type-checked. They must match
 (typecheck-fail
@@ -77,10 +105,6 @@
    (instance (x Int)
              0))
  #:with-msg "Not an overloaded identifier")
-           
-;; -- subtypes do not overlap
-(instance (to-string Int)
-          (λ ([x : Int]) "int"))
 
 ;; -- explicit resolve
 
@@ -88,9 +112,9 @@
 (instance (to-string (List Nat))
           (λ ([x : (List Nat)]) "listnat"))
 
-;; (check-type-and-result
-(to-string (cons 1 (cons 2 (nil {Nat}))))
-;;  : Str ⇒ "listnat")
+(check-type-and-result
+ (to-string (cons 1 (cons 2 (nil {Nat}))))
+ : Str ⇒ "listnat")
 
 ;; -- higher-order use
 
