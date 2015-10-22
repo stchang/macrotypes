@@ -1,7 +1,7 @@
 #lang s-exp "typecheck.rkt"
 (extends "stlc+sub.rkt" #:except #%datum)
-;(extends "stlc+tup.rkt" #:except + #%datum and)
-(extends "stlc+cons.rkt" #:except + #%datum and)
+(extends "stlc+cons.rkt" #:except + #%datum and tup × proj ~×)
+(reuse tup × proj ~× #:from "stlc+tup.rkt")
 
 ;; Calculus for occurrence typing.
 ;; - Types can be simple, or sets of simple types
