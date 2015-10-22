@@ -21,6 +21,12 @@
 (check-type (λ ([x : Int]) x) : (→ Nat Int)) ; contravariant input
 (check-not-type (λ ([x : Int]) x) : (→ Num Int))
 
+(check-type ((λ ([f : (→ Int Int)]) (f -1)) add1) : Int ⇒ 0)
+(check-type ((λ ([f : (→ Nat Int)]) (f 1)) add1) : Int ⇒ 2)
+(typecheck-fail ((λ ([f : (→ Num Int)]) (f 1.1)) add1))
+(check-type ((λ ([f : (→ Nat Num)]) (f 1)) add1) : Num ⇒ 2)
+(typecheck-fail ((λ ([f : (→ Num Num)]) (f 1.1)) add1))
+
 (check-type + : (→ Num Num Num))
 (check-type + : (→ Int Num Num))
 (check-type + : (→ Int Int Num))

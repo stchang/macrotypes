@@ -1,5 +1,6 @@
 #lang s-exp "typecheck.rkt"
 (extends "stlc+lit.rkt" #:except #%datum +)
+(reuse add1 #:from "ext-stlc.rkt")
 (provide (for-syntax subs? current-sub?))
 
 ;; Simply-Typed Lambda Calculus, plus subtyping
