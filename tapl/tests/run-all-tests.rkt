@@ -26,3 +26,6 @@
 (require "fomega-tests.rkt")
 (require "fomega2-tests.rkt")
 (require "fomega3-tests.rkt")
+
+(require "stlc+occurrence-tests.rkt")
+(require "stlc+overloading-tests.rkt")
