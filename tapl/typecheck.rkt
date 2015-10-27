@@ -1,6 +1,6 @@
 #lang racket/base
 (require
-  (for-syntax (except-in racket extends) (only-in srfi/13 string-prefix?)
+  (for-syntax (except-in racket extends)
               syntax/parse racket/syntax syntax/stx racket/stxparam
               "stx-utils.rkt"
               syntax/parse/debug)
@@ -99,9 +99,9 @@
                           [excluded (map symbol->string (syntax->datum #'(x ... new ...)))])
                      (λ (name)
                        (define out-name
-                         (or (and (string-prefix? pre-str name)
+                         (or (and (string-prefix? name pre-str)
                                   (drop-pre name))
-                             (and (string-prefix? int-pre-str name)
+                             (and (string-prefix? name int-pre-str)
                                   (drop-int-pre name))
                              name))
                        (and (not (member out-name excluded)) out-name)))
