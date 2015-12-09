@@ -14,11 +14,14 @@
 
 (define-typed-syntax nil
   [(_ ~! τi:type-ann) (⊢ null : (List τi.norm))]
+  ; minimal type inference
+  [ni:id #:with τ (syntax-property #'ni 'type) #:when (syntax-e #'τ) (⊢ null : (List τ))] 
   [_:id #:fail-when #t (error 'nil "requires type annotation") #'(void)])
 (define-typed-syntax cons
   [(_ e1 e2)
-   #:with (e1- τ1) (infer+erase #'e1)
-   #:with (e2- (τ2)) (⇑ e2 as List)
+   #:with [e1- τ1] (infer+erase #'e1)
+   #:with e2+ (syntax-property #'e2 'type #'τ1)
+   #:with (e2- (τ2)) (⇑ e2+ as List)
    #:when (typecheck? #'τ1 #'τ2)
    (⊢ (cons e1- e2-) : (List τ1))])
 (define-typed-syntax isnil

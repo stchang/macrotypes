@@ -3,8 +3,9 @@
 
 (typecheck-fail (cons 1 2)
                 #:with-msg "Expected type with pattern: \\(List τ)")
-(typecheck-fail (cons 1 nil)
-                #:with-msg "nil: requires type annotation")
+;(typecheck-fail (cons 1 nil)
+;                #:with-msg "nil: requires type annotation")
+(check-type (cons 1 nil) : (List Int))
 (check-type (cons 1 (nil {Int})) : (List Int))
 (typecheck-fail nil #:with-msg "nil: requires type annotation")
 (typecheck-fail
