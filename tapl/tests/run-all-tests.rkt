@@ -1,5 +1,8 @@
 #lang racket
 
+;; type inference
+(require "infer-tests.rkt")
+
 ;; stlc and extensions
 (require "stlc-tests.rkt")
 (require "stlc+lit-tests.rkt")

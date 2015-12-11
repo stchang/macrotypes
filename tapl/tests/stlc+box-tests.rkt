@@ -34,7 +34,8 @@
 
 ;; previous tests: ------------------------------------------------------------
 (typecheck-fail (cons 1 2))
-(typecheck-fail (cons 1 nil))
+;(typecheck-fail (cons 1 nil)) ; works now
+(check-type (cons 1 nil) : (List Int))
 (check-type (cons 1 (nil {Int})) : (List Int))
 (typecheck-fail nil)
 (typecheck-fail (nil Int))
