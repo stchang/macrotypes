@@ -44,6 +44,8 @@
 
 (define {X} (g3 [lst : (List X)] → X) (hd lst))
 (check-type g3 : (→ {X} (List X) X))
+(check-type g3 : (→ {A} (List A) A))
+(check-not-type g3 : (→ {A B} (List A) B))
 (typecheck-fail (g3) #:with-msg "Expected.+arguments with type.+List") ; TODO: more precise err msg
 (check-type (g3 (nil {Int})) : Int) ; runtime fail
 (check-type (g3 (nil {Bool})) : Bool) ; runtime fail
@@ -73,6 +75,12 @@
       nil ; test expected-type propagation of if and define
       ; recursive call should instantiate to "concrete" X and Y types
       (cons (f (hd lst)) (map f (tl lst)))))
+
+(check-type map : (→ {X Y} (→ X Y) (List X) (List Y)))
+(check-type map : (→ {Y X} (→ Y X) (List Y) (List X)))
+(check-type map : (→ {A B} (→ A B) (List A) (List B)))
+(check-not-type map : (→ {X Y} (→ X X) (List X) (List X)))
+(check-not-type map : (→ {X} (→ X X) (List X) (List X)))
 
 ; nil without annotation tests fn-first, left-to-right arg inference (2nd #%app case)
 (check-type (map add1 nil) : (List Int) ⇒ (nil {Int}))
@@ -169,6 +177,7 @@
           nil
           (hd solns)))))
 
+(check-type nqueens : (→ Int (List Queen)))
 (check-type (nqueens 1) : (List Queen) ⇒ (list (list 1 1)))
 (check-type (nqueens 2) : (List Queen) ⇒ (nil {Queen}))
 (check-type (nqueens 3) : (List Queen) ⇒ (nil {Queen}))
