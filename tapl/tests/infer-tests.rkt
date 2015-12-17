@@ -25,6 +25,110 @@
 (define {X} (g [x : X] → X) x)
 (check-type g : (→ {X} X X))
 
+; (inferred) polymorpic instantiation
+(check-type (g 1) : Int ⇒ 1)
+(check-type (g #f) : Bool ⇒ #f) ; different instantiation
+(check-type (g add1) : (→ Int Int))
+(check-type (g +) : (→ Int Int Int))
+
+; function polymorphic in list element
+(define {X} (g2 [lst : (List X)] → (List X)) lst)
+(check-type g2 : (→ {X} (List X) (List X)))
+(typecheck-fail (g2 1) #:with-msg "Expected.+arguments with type.+List") ; TODO: more precise err msg
+(check-type (g2 (nil {Int})) : (List Int) ⇒ (nil {Int}))
+(check-type (g2 (nil {Bool})) : (List Bool) ⇒ (nil {Bool}))
+(check-type (g2 (nil {(List Int)})) : (List (List Int)) ⇒ (nil {(List Int)}))
+(check-type (g2 (nil {(→ Int Int)})) : (List (→ Int Int)) ⇒ (nil {(List (→ Int Int))}))
+(check-type (g2 (cons 1 nil)) : (List Int) ⇒ (cons 1 nil))
+(check-type (g2 (cons "1" nil)) : (List String) ⇒ (cons "1" nil))
+
+(define {X} (g3 [lst : (List X)] → X) (hd lst))
+(check-type g3 : (→ {X} (List X) X))
+(typecheck-fail (g3) #:with-msg "Expected.+arguments with type.+List") ; TODO: more precise err msg
+(check-type (g3 (nil {Int})) : Int) ; runtime fail
+(check-type (g3 (nil {Bool})) : Bool) ; runtime fail
+(check-type (g3 (cons 1 nil)) : Int ⇒ 1)
+(check-type (g3 (cons "1" nil)) : String ⇒ "1")
+
+; recursive fn
+(define (recf [x : Int] → Int) (recf x))
+(check-type recf : (→ Int Int))
+
+(define (countdown [x : Int] → Int)
+  (if (zero? x)
+      0
+      (countdown (sub1 x))))
+(check-type (countdown 0) : Int ⇒ 0)
+(check-type (countdown 10) : Int ⇒ 0)
+(typecheck-fail (countdown "10") #:with-msg "Arguments.+have wrong type")
+
+; list abbrv
+(check-type (list 1 2 3) : (List Int))
+(typecheck-fail (list 1 "3")
+ #:with-msg "cons expression.+with type Int to list.+with type \\(List String\\)")
+
+
+(define {X Y} (map [f : (→ X Y)] [lst : (List X)] → (List Y))
+  (if (nil? lst)
+      nil ; test expected-type propagation of if and define
+      ; recursive call should instantiate to "concrete" X and Y types
+      (cons (f (hd lst)) (map f (tl lst)))))
+
+; nil without annotation tests fn-first, left-to-right arg inference (2nd #%app case)
+(check-type (map add1 nil) : (List Int) ⇒ (nil {Int}))
+(check-type (map add1 (list)) : (List Int) ⇒ (nil {Int}))
+(check-type (map add1 (list 1 2 3)) : (List Int) ⇒ (list 2 3 4))
+(typecheck-fail (map add1 (list "1")) #:with-msg "Arguments.+have wrong type")
+(check-type (map (λ ([x : Int]) (+ x 2)) (list 1 2 3)) : (List Int) ⇒ (list 3 4 5))
+; doesnt work yet
+;(map (λ (x) (+ x 2)) (list 1 2 3))
+
+(define {X} (filter [p? : (→ X Bool)] [lst : (List X)] → (List X))
+  (if (nil? lst)
+      nil
+      (if (p? (hd lst))
+          (cons (hd lst) (filter p? (tl lst)))
+          (filter p? (tl lst)))))
+(define {X} (filter/let [p? : (→ X Bool)] [lst : (List X)] → (List X))
+  (if (nil? lst)
+      nil
+      (let ([x (hd lst)] [filtered-rst (filter p? (tl lst))])
+        (if (p? x) (cons x filtered-rst) filtered-rst))))
+
+(check-type (filter zero? nil) : (List Int) ⇒ (nil {Int}))
+(check-type (filter zero? (list 1 2 3)) : (List Int) ⇒ (nil {Int}))
+(check-type (filter zero? (list 0 1 2)) : (List Int) ⇒ (list 0))
+(check-type (filter (λ ([x : Int]) (not (zero? x))) (list 0 1 2)) : (List Int) ⇒ (list 1 2))
+
+(define {X Y} (foldr [f : (→ X Y Y)] [base : Y] [lst : (List X)] → Y)
+  (if (nil? lst)
+      base
+      (f (hd lst) (foldr f base (tl lst)))))
+(define {X Y} (foldl [f : (→ X Y Y)] [acc : Y] [lst : (List X)] → Y)
+  (if (nil? lst)
+      acc
+      (foldr f (f (hd lst) acc) (tl lst))))
+
+(define {X} (all? [p? : (→ X Bool)] [lst : (List X)] → Bool)
+  (if (nil? lst)
+      #t
+      (and (p? (hd lst)) (all? p? (tl lst)))))
+  
+; nqueens
+(define-type-alias Queen (× Int Int))
+(define (q-x [q : Queen] → Int) (proj q 0))
+(define (q-y [q : Queen] → Int) (proj q 1))
+
+(define (safe? [q1 : Queen] [q2 : Queen] → Bool)
+  (let ([x1 (q-x q1)][y1 (q-y q1)]
+        [x2 (q-x q2)][y2 (q-y q2)])
+    (not (or (= x1 x2) (= y1 y2) (= (abs (- x1 x2)) (abs (- y1 y2)))))))
+(define (safe/list? [qs : (List Queen)] → Bool)
+  (if (nil? qs)
+      #t
+      (let ([q1 (hd qs)])
+        (all? (λ ([q2 : Queen]) (safe? q1 q2)) (tl qs)))))
+
 ; --------------------------------------------------
 ; all ext-stlc tests should still pass (copied below):
 ;; tests for stlc extensions
@@ -55,7 +159,7 @@
 (typecheck-fail (begin) #:with-msg "expected more terms")
 (typecheck-fail
  (begin 1 2 3)
- #:with-msg "Expected expression 1 to have Unit type, got: Int")
+ #:with-msg "Expected expression \"1\" to have Unit type, got: Int")
 
 (check-type (begin (void) 1) : Int ⇒ 1)
 (check-type ((λ ([x : Int]) (begin (void) x)) 1) : Int)
@@ -186,7 +290,7 @@
  "Arguments to function \\+ have wrong type.+Given:.+(→ Int Int).+Expected: 2 arguments with type.+Int\\, Int")
 (typecheck-fail
  ((λ ([x : Int] [y : Int]) y) 1)
- #:with-msg "Arguments to function.+have.+wrong number of arguments")
+ #:with-msg "Wrong number of arguments")
 
 (check-type ((λ ([x : Int]) (+ x x)) 10) : Int ⇒ 20)
 

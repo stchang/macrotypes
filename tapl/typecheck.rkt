@@ -52,7 +52,7 @@
          (provide (rename-out [name out-name]))
          (define-syntax (name syntx)
            (syntax-parameterize ([stx (syntax-id-rules () [_ syntx])])
-             (syntax-parse syntx stx-parse-clause ...))))]
+             (syntax-parse syntx #:context #'out-name stx-parse-clause ...))))]
     [(_ name:id stx-parse-clause ...)
      #`(define-typed-syntax #,(generate-temporary) #:export-as name
          stx-parse-clause ...)]))
@@ -117,6 +117,9 @@
                      (λ (n) (and (not (member n excluded)) n)))
                    (all-from-out base-lang))))]))
 
+(define-syntax add-expected
+  (syntax-parser [(_ e τ) (syntax-property #'e 'expected-type #'τ)]))
+
 ;; type assignment
 (begin-for-syntax
   ;; Type assignment macro for nicer syntax
@@ -133,6 +136,11 @@
   ;;   which didnt get marked bc they were syntax properties
   (define (assign-type e τ #:tag [tag 'type])
     (syntax-property e tag (syntax-local-introduce ((current-type-eval) τ))))
+
+  (define (add-expected-type e τ)
+    (syntax-property e 'expected-type τ)) ; dont type-eval?, ie expand?
+  (define (get-expected-type e)
+    (syntax-property e 'expected-type))
   
   ;; typeof : Syntax -> Type or #f
   ;; Retrieves type of given stx, or #f if input has not been assigned a type.
@@ -179,7 +187,7 @@
                     (λ (e t)
                       (or (τ? t)
                           (type-error #:src e
-                                      #:msg "Expected expression ~a to have ~a type, got: ~a"
+                                      #:msg "Expected expression ~s to have ~a type, got: ~a"
                                       e (quote-syntax tycon) t)))
                     #'es
                     #'(τ_e (... ...)))
@@ -300,6 +308,7 @@
     (local-expand e 'expression null))
 
   (struct exn:fail:type:check exn:fail:user ())
+  (struct exn:fail:type:infer exn:fail:user ())
 
   ;; type-error #:src Syntax #:msg String Syntax ...
   ;; usage:

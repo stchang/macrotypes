@@ -39,18 +39,23 @@
    (⊢ (and e1- e2-) : Bool)])
   
 (define-typed-syntax or
-  [(_ e1 e2)
-   #:with e1- (⇑ e1 as Bool)
-   #:with e2- (⇑ e2 as Bool)
-   (⊢ (or e1- e2-) : Bool)])
+  [(_ e ...)
+   #:with (e- ...) (⇑s (e ...) as Bool)
+;   #:with e1- (⇑ e1 as Bool)
+;   #:with e2- (⇑ e2 as Bool)
+;   (⊢ (or e1- e2-) : Bool)])
+   (⊢ (or e- ...) : Bool)])
 
 (begin-for-syntax 
   (define current-join (make-parameter (λ (x y) x))))
 (define-typed-syntax if
-  [(_ e_tst e1 e2)
+  [(~and ifstx (_ e_tst e1 e2))
+   #:with τ-expected (get-expected-type #'ifstx)
    #:with e_tst- (⇑ e_tst as Bool)
-   #:with (e1- τ1) (infer+erase #'e1)
-   #:with (e2- τ2) (infer+erase #'e2)
+   #:with e1_ann #'(add-expected e1 τ-expected)
+   #:with e2_ann #'(add-expected e2 τ-expected)
+   #:with (e1- τ1) (infer+erase #'e1_ann)
+   #:with (e2- τ2) (infer+erase #'e2_ann)
    #:with τ-out ((current-join) #'τ1 #'τ2)
    #:fail-unless (and (typecheck? #'τ1 #'τ-out)
                       (typecheck? #'τ2 #'τ-out))

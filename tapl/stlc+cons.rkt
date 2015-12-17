@@ -12,17 +12,29 @@
 
 (define-type-constructor List)
 
-(define-typed-syntax nil
-  [(_ ~! τi:type-ann) (⊢ null : (List τi.norm))]
+(define-typed-syntax nil/tc #:export-as nil
+  [(~and ni (_ ~! τi:type-ann))
+   (⊢ null : (List τi.norm))]
   ; minimal type inference
-  [ni:id #:with τ (syntax-property #'ni 'type) #:when (syntax-e #'τ) (⊢ null : (List τ))] 
-  [_:id #:fail-when #t (error 'nil "requires type annotation") #'(void)])
-(define-typed-syntax cons
+  [ni:id #:with expected-τ (get-expected-type #'ni)
+         #:when (syntax-e #'expected-τ) ; 'expected-type property exists (ie, not false)
+         #:with (~List τ) (local-expand #'expected-τ 'expression null) ; canonicalize
+         (⊢ null : (List τ))]
+  [_:id #:fail-when #t
+        (raise (exn:fail:type:infer
+                (format "~a (~a:~a): nil requires type annotation"
+                        (syntax-source stx) (syntax-line stx) (syntax-column stx))
+                (current-continuation-marks)))
+        #'(void)])
+(define-typed-syntax cons/tc #:export-as cons
   [(_ e1 e2)
    #:with [e1- τ1] (infer+erase #'e1)
-   #:with e2+ (syntax-property #'e2 'type #'τ1)
-   #:with (e2- (τ2)) (⇑ e2+ as List)
-   #:when (typecheck? #'τ1 #'τ2)
+;   #:with e2ann (add-expected-type #'e2 #'(List τ1))
+   #:with (e2- (τ2)) (⇑ (add-expected e2 (List τ1)) as List)
+   #:fail-unless (typecheck? #'τ1 #'τ2)
+                 (format "trying to cons expression ~a with type ~a to list ~a with type ~a\n"
+                         (syntax->datum #'e1) (type->str #'τ1)
+                         (syntax->datum #'e2) (type->str #'(List τ2)))
    (⊢ (cons e1- e2-) : (List τ1))])
 (define-typed-syntax isnil
   [(_ e)
@@ -37,3 +49,6 @@
    #:with (e- τ-lst) (infer+erase #'e)
    #:when (List? #'τ-lst)
    (⊢ (cdr e-) : τ-lst)])
+(define-typed-syntax list/tc #:export-as list
+  [(_) #'nil/tc]
+  [(_ x . rst) #'(cons/tc x (list/tc . rst))])

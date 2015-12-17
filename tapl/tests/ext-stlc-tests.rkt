@@ -29,7 +29,7 @@
 (typecheck-fail (begin) #:with-msg "expected more terms")
 (typecheck-fail
  (begin 1 2 3)
- #:with-msg "Expected expression 1 to have Unit type, got: Int")
+ #:with-msg "Expected expression \"1\" to have Unit type, got: Int")
 
 (check-type (begin (void) 1) : Int ⇒ 1)
 (check-type ((λ ([x : Int]) (begin (void) x)) 1) : Int)

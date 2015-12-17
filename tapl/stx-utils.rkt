@@ -11,7 +11,7 @@
   (apply ormap f (map syntax->list stx-lsts)))
 
 (define (stx-flatten stxs)
-  (apply append (stx-map syntax->list stxs)))
+  (apply append (stx-map (λ (stx) (if (syntax? stx) (syntax->list stx) stx)) stxs)))
 
 (define (curly-parens? stx)
   (define paren-prop (syntax-property stx 'paren-shape))
@@ -48,6 +48,8 @@
 (define (stx-append stx1 stx2)
   (append (if (syntax? stx1) (syntax->list stx1) stx1)
           (if (syntax? stx2) (syntax->list stx2) stx2)))
+(define (stx-appendmap f stx)
+  (stx-flatten (stx-map f stx)))
 
 ;; based on make-variable-like-transformer from syntax/transformer,
 ;; but using (#%app id ...) instead of ((#%expression id) ...)
