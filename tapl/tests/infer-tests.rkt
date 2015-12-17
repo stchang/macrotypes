@@ -113,11 +113,31 @@
   (if (nil? lst)
       #t
       (and (p? (hd lst)) (all? p? (tl lst)))))
-  
+
+(define {X} (tails [lst : (List X)] → (List (List X)))
+  (if (nil? lst)
+      (list nil)
+      (cons lst (tails (tl lst)))))
+
+; creates backwards list
+(define {X} (build-list [n : Int] [f : (→ Int X)] → (List X))
+  (if (zero? (sub1 n))
+      (list (f 0))
+      (cons (f (sub1 n)) (build-list (sub1 n) f))))
+(check-type (build-list 1 add1) : (List Int) ⇒ (list 1))
+(check-type (build-list 3 add1) : (List Int) ⇒ (list 3 2 1))
+(check-type (build-list 5 sub1) : (List Int) ⇒ (list 3 2 1 0 -1))
+
+(define {X} (append [lst1 : (List X)] [lst2 : (List X)] → (List X))
+  (if (nil? lst1)
+      lst2
+      (cons (hd lst1) (append (tl lst1) lst2))))
+       
 ; nqueens
 (define-type-alias Queen (× Int Int))
 (define (q-x [q : Queen] → Int) (proj q 0))
 (define (q-y [q : Queen] → Int) (proj q 1))
+(define (Q [x : Int] [y : Int] → Queen) (tup x y))
 
 (define (safe? [q1 : Queen] [q2 : Queen] → Bool)
   (let ([x1 (q-x q1)][y1 (q-y q1)]
@@ -128,6 +148,32 @@
       #t
       (let ([q1 (hd qs)])
         (all? (λ ([q2 : Queen]) (safe? q1 q2)) (tl qs)))))
+(define (valid? [lst : (List Queen)] → Bool)
+  (all? safe/list? (tails lst)))
+
+(define (nqueens [n : Int] → (List Queen))
+  (let* ([process-row
+          (λ ([r : Int] [all-possible-so-far : (List (List Queen))])
+            (foldr
+             (λ ([qs : (List Queen)] [new-qss : (List (List Queen))])
+               (append
+                (map
+                 (λ ([c : Int]) (cons (Q r c) qs))
+                 (build-list n add1))
+                new-qss))
+             nil
+             all-possible-so-far))]
+         [all-possible (foldl process-row (list nil) (build-list n add1))])
+    (let ([solns (filter valid? all-possible)])
+      (if (nil? solns)
+          nil
+          (hd solns)))))
+
+(check-type (nqueens 1) : (List Queen) ⇒ (list (list 1 1)))
+(check-type (nqueens 2) : (List Queen) ⇒ (nil {Queen}))
+(check-type (nqueens 3) : (List Queen) ⇒ (nil {Queen}))
+(check-type (nqueens 4) : (List Queen) ⇒ (list (Q 3 1) (Q 2 4) (Q 1 2) (Q 4 3)))
+(check-type (nqueens 5) : (List Queen) ⇒ (list (Q 4 2) (Q 3 4) (Q 2 1) (Q 1 3) (Q 5 5)))
 
 ; --------------------------------------------------
 ; all ext-stlc tests should still pass (copied below):

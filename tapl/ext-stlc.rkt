@@ -82,14 +82,22 @@
    (⊢ e- : ascribed-τ)])
 
 (define-typed-syntax let/tc #:export-as let
-  [(_ ([x e] ...) e_body)
+  [(~and l (_ ([x e] ...) e_body))
+   #:with τ-expected (get-expected-type #'l)
    #:with ((e- τ) ...) (infers+erase #'(e ...))
-   #:with ((x- ...) e_body- τ_body) (infer/ctx+erase #'([x τ] ...) #'e_body)
+   #:with ((x- ...) e_body- τ_body) (infer/ctx+erase #'([x τ] ...) #'(add-expected e_body τ-expected))
    (⊢ (let ([x- e-] ...) e_body-) : τ_body)])
 
+; dont need to manually transfer expected type
+; result template automatically propagates properties
+; - only need to transfer expected type when local expanding an expression
+;   - see let/tc
 (define-typed-syntax let*/tc #:export-as let*
-  [(_ () e_body) #'e_body]
-  [(_ ([x e] [x_rst e_rst] ...) e_body)
+  [(~and l (_ () e_body))
+   #:with τ-expected (get-expected-type #'l)
+   #'e_body]
+  [(~and l (_ ([x e] [x_rst e_rst] ...) e_body))
+   #:with τ-expected (get-expected-type #'l)
    #'(let/tc ([x e]) (let*/tc ([x_rst e_rst] ...) e_body))])
 
 (define-typed-syntax letrec

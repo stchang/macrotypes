@@ -51,4 +51,10 @@
    (⊢ (cdr e-) : τ-lst)])
 (define-typed-syntax list/tc #:export-as list
   [(_) #'nil/tc]
-  [(_ x . rst) #'(cons/tc x (list/tc . rst))])
+  [(~and lst (_ x . rst)) ; has expected type
+   #:with expected-τ (get-expected-type #'lst)
+   #:when (syntax-e #'expected-τ)
+   #:with (~List τ) (local-expand #'expected-τ 'expression null)
+   #'(cons/tc (add-expected x τ) (list/tc . rst))]
+  [(_ x . rst) ; no expected type
+   #'(cons/tc x (list/tc . rst))])
