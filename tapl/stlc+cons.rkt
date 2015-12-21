@@ -35,7 +35,10 @@
                  (format "trying to cons expression ~a with type ~a to list ~a with type ~a\n"
                          (syntax->datum #'e1) (type->str #'τ1)
                          (syntax->datum #'e2) (type->str #'(List τ2)))
-   (⊢ (cons e1- e2-) : (List τ1))])
+   ;; propagate up inferred types of variables
+   #:with env (stx-flatten (filter (λ (x) x) (stx-map get-env #'(e1- e2-))))
+   #:with result-cons (add-env #'(cons e1- e2-) #'env)
+   (⊢ result-cons : (List τ1))])
 (define-typed-syntax isnil
   [(_ e)
    #:with (e- _) (⇑ e as List)

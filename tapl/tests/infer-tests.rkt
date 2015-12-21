@@ -1,13 +1,15 @@
 #lang s-exp "../infer.rkt"
 (require "rackunit-typechecking.rkt")
 
-(typecheck-fail (λ (x) x) #:with-msg "add annotations")
+(typecheck-fail (λ (x) x) #:with-msg "could not infer type of x; add annotation\\(s\\)")
 
 ; should bidirectional checking work for this case?
 ; I think no, since TR doesnt handle it either
-(typecheck-fail (λ (x) (+ x 1)) #:with-msg "add annotations")
+;(typecheck-fail (λ (x) (+ x 1)) #:with-msg "add annotations")
+; 2015-12-18: can infer this type now
+(check-type (λ (x) (+ x 1)) : (→ Int Int))
 ; can't check this case either
-(typecheck-fail ((λ (f) (f 10)) (λ (x) x)) #:with-msg "add annotations")
+(typecheck-fail ((λ (f) (f 10)) (λ (x) x)) #:with-msg "add annotation\\(s\\)")
 
 ; stlc+lit tests with app, but infer types (no annotations)
 (check-type ((λ (x) x) 1) : Int ⇒ 1)
@@ -89,7 +91,8 @@
 (typecheck-fail (map add1 (list "1")) #:with-msg "Arguments.+have wrong type")
 (check-type (map (λ ([x : Int]) (+ x 2)) (list 1 2 3)) : (List Int) ⇒ (list 3 4 5))
 ; doesnt work yet
-;(map (λ (x) (+ x 2)) (list 1 2 3))
+;; 2015-12-18: dont need annotations on lambdas with concrete type
+(check-type (map (λ (x) (+ x 2)) (list 1 2 3)) : (List Int) ⇒ (list 3 4 5))
 
 (define {X} (filter [p? : (→ X Bool)] [lst : (List X)] → (List X))
   (if (nil? lst)
@@ -107,6 +110,8 @@
 (check-type (filter zero? (list 1 2 3)) : (List Int) ⇒ (nil {Int}))
 (check-type (filter zero? (list 0 1 2)) : (List Int) ⇒ (list 0))
 (check-type (filter (λ ([x : Int]) (not (zero? x))) (list 0 1 2)) : (List Int) ⇒ (list 1 2))
+;; 2015-12-18: dont need annotations on lambdas with concrete type
+(check-type (filter (λ (x) (not (zero? x))) (list 0 1 2)) : (List Int) ⇒ (list 1 2))
 
 (define {X Y} (foldr [f : (→ X Y Y)] [base : Y] [lst : (List X)] → Y)
   (if (nil? lst)
@@ -161,12 +166,16 @@
 
 (define (nqueens [n : Int] → (List Queen))
   (let* ([process-row
-          (λ ([r : Int] [all-possible-so-far : (List (List Queen))])
+          (λ ;([r : Int] [all-possible-so-far : (List (List Queen))])
+              (r all-possible-so-far)
             (foldr
-             (λ ([qs : (List Queen)] [new-qss : (List (List Queen))])
+             ;; 2015-12-18: dont need annotations on lambdas with concrete type
+             (λ ;([qs : (List Queen)] [new-qss : (List (List Queen))])
+                 (qs new-qss)
                (append
                 (map
-                 (λ ([c : Int]) (cons (Q r c) qs))
+                 ;; 2015-12-18: dont need annotations on lambdas with concrete type
+                 (λ (c) (cons (Q r c) qs))
                  (build-list n add1))
                 new-qss))
              nil

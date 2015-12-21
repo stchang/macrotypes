@@ -54,7 +54,7 @@
            (syntax-parameterize ([stx (syntax-id-rules () [_ syntx])])
              (syntax-parse syntx #:context #'out-name stx-parse-clause ...))))]
     [(_ name:id stx-parse-clause ...)
-     #`(define-typed-syntax #,(generate-temporary) #:export-as name
+     #`(define-typed-syntax #,(generate-temporary #'name) #:export-as name
          stx-parse-clause ...)]))
 
 ;; need options for
@@ -118,7 +118,11 @@
                    (all-from-out base-lang))))]))
 
 (define-syntax add-expected
-  (syntax-parser [(_ e τ) (syntax-property #'e 'expected-type #'τ)]))
+  (syntax-parser
+    [(_ e τ)
+;     #:when (printf "adding expected type ~a to expression ~a\n"
+;                    (syntax->datum #'τ) (syntax->datum #'e))
+     (syntax-property #'e 'expected-type #'τ)]))
 
 ;; type assignment
 (begin-for-syntax
@@ -141,6 +145,8 @@
     (syntax-property e 'expected-type τ)) ; dont type-eval?, ie expand?
   (define (get-expected-type e)
     (syntax-property e 'expected-type))
+  (define (add-env e env) (syntax-property e 'env env))
+  (define (get-env e) (syntax-property e 'env))
   
   ;; typeof : Syntax -> Type or #f
   ;; Retrieves type of given stx, or #f if input has not been assigned a type.
@@ -249,17 +255,45 @@
                                (assign-type #'tv #'k)
                                #'ok #:tag '#,tag))] ...)
               (λ (x ...)
-                (let-syntax ([x (syntax-parser [_:id (assign-type #'x #'τ)]
+                (let-syntax ([x (syntax-parser [i:id
+;                                                #:when (or (not (and (identifier? #'τ) (free-identifier=? #'x #'τ)))
+;                                                           (printf "~a has type = itself\n" #'i))
+;                                                #:when (or (not (get-expected-type #'i))
+;                                                           (printf "expected type of ~a: ~a\n"
+;                                                                   #'i (and (get-expected-type #'i)
+;                                                                                            (syntax->datum (get-expected-type #'i)))))
+;                                                #:when (or (not (get-expected-type #'i))
+;                                                           (printf "assigned type of ~a: ~a\n"
+;                                                                   (syntax->datum #'i) (syntax->datum #'τ)))
+                                                (if (and (identifier? #'τ) (free-identifier=? #'x #'τ))
+                                                    (if (get-expected-type #'i)
+                                                        (add-env (assign-type #'x (get-expected-type #'i)) #`((x #,(get-expected-type #'i))))
+                                                        (raise (exn:fail:type:infer
+                                                                (format "~a (~a:~a): could not infer type of ~a; add annotation(s)"
+                                                                        (syntax-source #'x) (syntax-line #'x) (syntax-column #'x)
+                                                                        (syntax->datum #'x))
+                                                                (current-continuation-marks))))
+                                                    (assign-type #'x #'τ))]
                                                [(o . rst) ; handle if x used in fn position
+                                                #:fail-when (and (identifier? #'τ) (free-identifier=? #'x #'τ))
+                                                (raise (exn:fail:type:infer
+                                                                (format "~a (~a:~a): could not infer type of function ~a; add annotation(s)"
+                                                                        (syntax-source #'o) (syntax-line #'o) (syntax-column #'o)
+                                                                        (syntax->datum #'o))
+                                                                (current-continuation-marks)))
                                                 #:with app (datum->syntax #'o '#%app)
                                                 #`(app #,(assign-type #'x #'τ) . rst)]
                                                #;[(_ . rst) #`(#,(assign-type #'x #'τ) . rst)])
-                                #;(make-rename-transformer
-                                 (assign-type #'x #'τ))] ...)
+                                #;(make-rename-transformer (assign-type #'x #'τ))] ...)
                   (#%expression e) ... void)))))
        (list #'tvs+ #'xs+ #'(e+ ...)
              (stx-map ; need this check when combining #%type and kinds
-              (λ (t) (or (false? t) (syntax-local-introduce t)))
+              (λ (t) (or (false? t)
+                         ; TODO: why does this happen?
+                         ; happens when propagating 'env up in λ
+                         #;(and (pair? t)
+                              (syntax-local-introduce (car t)))
+                         (syntax-local-introduce t)))
               (stx-map typeof #'(e+ ...))))]
       [([x τ] ...) (infer es #:ctx #'([x : τ] ...) #:tvctx tvctx)]))
 
@@ -578,10 +612,23 @@
 
 ; substitution
 (begin-for-syntax
+  (define (merge-type-tags stx)
+    (define t (syntax-property stx 'type))
+    (or (and (pair? t)
+             (identifier? (car t)) (identifier? (cdr t))
+             (free-identifier=? (car t) (cdr t))
+             (syntax-property stx 'type (car t)))
+        stx))
   ; subst τ for y in e, if (bound-id=? x y)
   (define (subst τ x e)
     (syntax-parse e
-      [y:id #:when (bound-identifier=? e x) (syntax-track-origin τ #'y #'y)]
+      [y:id #:when (bound-identifier=? e x)
+;            #:when
+;            (displayln (syntax-property (syntax-track-origin τ #'y #'y) 'type))
+;            #:when (displayln (syntax-property (syntax-property (syntax-track-origin τ #'y #'y) 'type #'#%type) 'type))
+            ; use syntax-track-origin to transfer 'orig
+            ; but may transfer multiple #%type tags, so merge
+            (merge-type-tags (syntax-track-origin τ #'y #'y))]
       [(esub ...)
        #:with (esub_subst ...) (stx-map (λ (e1) (subst τ x e1)) #'(esub ...))
        (syntax-track-origin #'(esub_subst ...) e x)]
