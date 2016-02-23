@@ -2,8 +2,8 @@
 (require
   (for-syntax (except-in racket extends)
               syntax/parse racket/syntax syntax/stx racket/stxparam
-              "stx-utils.rkt"
-              syntax/parse/debug)
+              syntax/parse/debug
+              "stx-utils.rkt")
   (for-meta 2 racket/base syntax/parse racket/syntax syntax/stx "stx-utils.rkt")
   (for-meta 3 racket/base syntax/parse racket/syntax)
   racket/bool racket/provide racket/require)
@@ -12,7 +12,8 @@
  (except-out (all-from-out racket/base) #%module-begin)
  (for-syntax (all-defined-out)) (all-defined-out)
  (for-syntax
-  (all-from-out racket syntax/parse racket/syntax syntax/stx "stx-utils.rkt"))
+  (all-from-out racket syntax/parse racket/syntax syntax/stx
+                "stx-utils.rkt"))
  (for-meta 2 (all-from-out racket/base syntax/parse racket/syntax)))
 
 ;; type checking functions/forms
@@ -154,6 +155,8 @@
     (define ty (syntax-property stx tag))
     (if (cons? ty) (car ty) ty))
 
+  (define type-pat "[A-Za-z]+")
+  
   ;; - infers type of e
   ;; - checks that type of e matches the specified type
   ;; - erases types in e
@@ -165,14 +168,34 @@
        #:with τ? (mk-? #'tycon)
        #:with τ-get (format-id #'tycon "~a-get" #'tycon)
        #:with τ-expander (format-id #'tycon "~~~a" #'tycon)
-       #'(syntax-parse (infer+erase #'e) #:context #'e
+       #'(syntax-parse
+             ;; when type error, prefer outer err msg
+             (with-handlers ([exn:fail?
+                              (λ (ex)
+                                (define matched-ty
+                                  (regexp-match
+                                   (pregexp
+                                    (string-append "got\\:\\s(" type-pat ")"))
+                                   (exn-message ex)))
+                                (unless matched-ty
+                                  (raise ex (current-continuation-marks)))
+                                (define t-in-msg
+                                  (datum->syntax #'here
+                                    (string->symbol
+                                     (cadr matched-ty))))
+                                  (list #'e t-in-msg))])
+               (infer+erase #'e))
+           #:context #'e
            [(e- τ_e_)
             #:with τ_e ((current-promote) #'τ_e_)
             #:fail-unless (τ? #'τ_e)
             (format
              "~a (~a:~a): Expected expression ~s to have ~a type, got: ~a"
              (syntax-source #'e) (syntax-line #'e) (syntax-column #'e)
-             (syntax->datum #'e) 'tycon (type->str #'τ_e))
+             (syntax-parse #'e-
+               ['x (syntax-e #'x)]
+               [_ (syntax->datum #'e-)])
+             'tycon (type->str #'τ_e))
             #;(if (stx-pair? #'τ_e)
                 (syntax-parse #'τ_e
                  [(τ-expander . args) #'(e- args)])
@@ -193,8 +216,11 @@
                     (λ (e t)
                       (or (τ? t)
                           (type-error #:src e
-                                      #:msg "Expected expression ~s to have ~a type, got: ~a"
-                                      e (quote-syntax tycon) t)))
+                                      #:msg
+                                      (string-append
+                                       (format "Expected expression ~s" (syntax->datum e))
+                                       " to have ~a type, got: ~a")
+                                      (quote-syntax tycon) t)))
                     #'es
                     #'(τ_e (... ...)))
             ;#:with args (τ-get #'τ_e)
@@ -430,7 +456,10 @@
          (~seq #:bvs (~and (~parse has-bvs? #'#t) bvs-op) bvs-n:exact-nonnegative-integer)
          #:defaults ([bvs-op #'=][bvs-n #'0]))
         (~optional (~seq #:arr (~and (~parse has-annotations? #'#t) tycon))
-         #:defaults ([tycon #'void])))
+         #:defaults ([tycon #'void]))
+        (~optional (~seq #:other-prop other-key other-bvs other-val)
+                   #:defaults ([other-key #'#f]))
+        )
      #:with #%kind (format-id #'kind "#%~a" #'kind)
      #:with τ-internal (generate-temporary #'τ)
      #:with τ? (mk-? #'τ)
@@ -509,7 +538,11 @@
                #:with k_result (if #,(attribute has-annotations?)
                                    #'(tycon k_arg (... ...))
                                    #'#%kind)
-               (assign-type #'(τ-internal (λ bvs- void . τs-)) #'k_result)]
+               #:with result
+                (assign-type (syntax/loc stx (τ-internal (λ bvs- void . τs-))) #'k_result)
+                #,(if (syntax-e #'other-key)
+                    #`(syntax-property #'result 'other-key (substs #'args #,#'other-bvs #,#'other-val))
+                    #'#'result)]
              ;; else fail with err msg
              [_
               (type-error #:src stx
@@ -612,6 +645,12 @@
 
 ; substitution
 (begin-for-syntax
+  (define-syntax ~Any ; matches any tycon
+    (pattern-expander
+     (syntax-parser
+       [(_ x ...)
+        #'((~literal #%plain-app) _
+            ((~literal #%plain-lambda) bvs (~literal void) x ...))])))
   (define (merge-type-tags stx)
     (define t (syntax-property stx 'type))
     (or (and (pair? t)

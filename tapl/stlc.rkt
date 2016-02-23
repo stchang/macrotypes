@@ -80,7 +80,7 @@
                  (string-append
                   (format "~a (~a:~a) Arguments to function ~a have wrong type(s), "
                           (syntax-source stx) (syntax-line stx) (syntax-column stx)
-                          (syntax->datum #'e_fn))
+                          (syntax->datum #'e_fn-))
                   "or wrong number of arguments:\nGiven:\n"
                   (string-join
                    (map (λ (e t) (format "  ~a : ~a" e t)) ; indent each line

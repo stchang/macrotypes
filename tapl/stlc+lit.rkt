@@ -21,6 +21,9 @@
      #:with op/tc (generate-temporary #'op)
      #'(begin
          (provide (rename-out [op/tc op]))
+         (define-primop op/tc op : τ))]
+    [(_ op/tc op : τ)
+     #'(begin
          #;(define-syntax op/tc (make-rename-transformer (assign-type #'op #'τ)))
          ; rename transformer doesnt seem to expand at the right time
          ; - op still has no type in #%app

@@ -21,4 +21,9 @@
 (define-typed-syntax inst
   [(_ e τ:type ...)
    #:with (e- (tvs (τ_body))) (⇑ e as ∀)
-   (⊢ e- : #,(substs #'(τ.norm ...) #'tvs #'τ_body))])
+   ;#:with [e- (~and t (~∀ tvs τ_body))] (infer+erase #'e)
+   ;#:with (_ Xs τ_orig) (get-orig #'t) ; doesnt work with implicit lifted→
+   ;#:with new-orig (substs #'(τ ...) #'Xs #'τ_orig)
+   ;(⊢ e- : #,(add-orig (substs #'(τ.norm ...) #'tvs #'τ_body) #'new-orig))]
+   (⊢ e- : #,(substs #'(τ.norm ...) #'tvs #'τ_body))]
+  [(_ e) #'e])

@@ -1,8 +1,66 @@
-#lang s-exp "../ext-stlc.rkt"
+#lang s-exp "../mlish.rkt"
 (require "rackunit-typechecking.rkt")
 
-;; tests for stlc extensions
-;; new literals and base types
+(define-type (IntList)
+  INil
+  (ConsI Int (IntList)))
+
+(check-type INil : (IntList))
+(check-type (ConsI 1 INil) : (IntList))
+(check-type
+ (match INil with
+   [INil -> 1]
+   [ConsI x xs -> 2]) : Int ⇒ 1)
+(check-type
+ (match (ConsI 1 INil) with
+   [INil -> 1]
+   [ConsI x xs -> 2]) : Int ⇒ 2)
+(typecheck-fail (match 1 with [INil -> 1]))
+
+(define-type (List X)
+  (Nil)
+  (Cons X (List X)))
+(check-type (Nil {Int}) : (List Int))
+(check-type (Cons 1 (Nil {Int})) : (List Int))
+(check-type (Cons 1 (Cons 2 (Nil {Int}))) : (List Int))
+
+(define-type (Tree X)
+  (Leaf X)
+  (Node (Tree X) (Tree X)))
+(check-type (Leaf 10) : (Tree Int))
+(check-type (Node (Leaf 10) (Leaf 11)) : (Tree Int))
+
+(typecheck-fail (Cons 1 (Nil {Bool}))
+                #:with-msg "wrong type\\(s\\)")
+(check-type
+ (match (Nil {Int}) with
+   [Cons x xs -> 2]
+   [Nil -> 1])
+ : Int ⇒ 1)
+
+(check-type
+ (match (Nil {Int}) with
+   [Nil -> 1]
+   [Cons x xs -> 2])
+ : Int ⇒ 1)
+
+(check-type
+ (match (Cons 1 (Nil {Int})) with
+   [Nil -> 3]
+   [Cons y ys -> (+ y 4)])
+ : Int ⇒ 5)
+            
+(check-type
+ (match (Cons 1 (Nil {Int})) with
+   [Cons y ys -> (+ y 5)]
+   [Nil -> 3])
+ : Int ⇒ 6)
+            
+
+; ext-stlc tests --------------------------------------------------
+
+; tests for stlc extensions
+; new literals and base types
 (check-type "one" : String) ; literal now supported
 (check-type #f : Bool) ; literal now supported
 

@@ -1,3 +1,13 @@
+2016-02-19
+Implementing algebraic data types
+- macro cannot define type-alias and constructor functions that produce
+  variant values
+  - not only because adts should be an abstraction (ie not type alias)
+  - constructor output will have variant type and not the type defined
+- macro should basically expand to list implementation in stlc+cons.rkt
+ - where to store the names of the variants (as stx prop?)
+
+
 2015-10-09
 TODO: variant case should call current-join?
 
