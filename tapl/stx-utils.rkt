@@ -27,7 +27,7 @@
 (define (stx-assoc v stx) ; v = id
   (assoc v (map syntax->list (syntax->list stx)) free-identifier=?))
 
-(define (stx-length stx) (length (syntax->list stx)))
+(define (stx-length stx) (length (if (syntax? stx) (syntax->list stx) stx)))
 (define (stx-length=? stx1 stx2)
   (= (stx-length stx1) (stx-length stx2)))
 

@@ -648,8 +648,8 @@
   (define-syntax ~Any ; matches any tycon
     (pattern-expander
      (syntax-parser
-       [(_ x ...)
-        #'((~literal #%plain-app) _
+       [(_ tycons x ...)
+        #'((~literal #%plain-app) tycons
             ((~literal #%plain-lambda) bvs (~literal void) x ...))])))
   (define (merge-type-tags stx)
     (define t (syntax-property stx 'type))

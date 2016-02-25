@@ -1,12 +1,12 @@
 #lang s-exp "../mlish.rkt"
 (require "rackunit-typechecking.rkt")
 
-(define-type (IntList)
+(define-type IntList
   INil
-  (ConsI Int (IntList)))
+  (ConsI Int IntList))
 
-(check-type INil : (IntList))
-(check-type (ConsI 1 INil) : (IntList))
+(check-type INil : IntList)
+(check-type (ConsI 1 INil) : IntList)
 (check-type
  (match INil with
    [INil -> 1]
@@ -20,9 +20,19 @@
 (define-type (List X)
   (Nil)
   (Cons X (List X)))
+;; annotated
 (check-type (Nil {Int}) : (List Int))
+(check-type (Cons {Int} 1 (Nil {Int})) : (List Int))
+(check-type (Cons {Int} 1 (Cons 2 (Nil {Int}))) : (List Int))
+;; partial annotations
 (check-type (Cons 1 (Nil {Int})) : (List Int))
 (check-type (Cons 1 (Cons 2 (Nil {Int}))) : (List Int))
+(check-type (Cons {Int} 1 Nil) : (List Int))
+(check-type (Cons {Int} 1 (Cons 2 Nil)) : (List Int))
+(check-type (Cons 1 (Cons {Int} 2 Nil)) : (List Int))
+; no annotations
+(check-type (Cons 1 Nil) : (List Int))
+(check-type (Cons 1 (Cons 2 Nil)) : (List Int))
 
 (define-type (Tree X)
   (Leaf X)
@@ -30,8 +40,16 @@
 (check-type (Leaf 10) : (Tree Int))
 (check-type (Node (Leaf 10) (Leaf 11)) : (Tree Int))
 
+(typecheck-fail Nil #:with-msg "add annotations")
 (typecheck-fail (Cons 1 (Nil {Bool}))
                 #:with-msg "wrong type\\(s\\)")
+(typecheck-fail (Cons {Bool} 1 (Nil {Int}))
+                #:with-msg "wrong type\\(s\\)")
+(typecheck-fail (Cons {Bool} 1 Nil)
+                #:with-msg "wrong type\\(s\\)")
+
+(typecheck-fail (match Nil with [Cons x xs -> 2] [Nil -> 1])
+                #:with-msg "add annotations")
 (check-type
  (match (Nil {Int}) with
    [Cons x xs -> 2]
@@ -45,13 +63,13 @@
  : Int ⇒ 1)
 
 (check-type
- (match (Cons 1 (Nil {Int})) with
+ (match (Cons 1 Nil) with
    [Nil -> 3]
    [Cons y ys -> (+ y 4)])
  : Int ⇒ 5)
             
 (check-type
- (match (Cons 1 (Nil {Int})) with
+ (match (Cons 1 Nil) with
    [Cons y ys -> (+ y 5)]
    [Nil -> 3])
  : Int ⇒ 6)
