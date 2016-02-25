@@ -3,9 +3,9 @@
 
 (extends "ext-stlc.rkt" #:except #%app λ → + - void = zero? sub1 add1 not let
           #:rename [~→ ~ext-stlc:→])
-(require (only-in "sysf.rkt" inst ~∀ ∀ Λ))
+(reuse inst ~∀ ∀ ∀? Λ #:from "sysf.rkt")
 (require (only-in "stlc+rec-iso.rkt" case fld unfld μ × ∨ var tup define-type-alias)
-         (prefix-in stlc+rec-iso: (only-in "stlc+rec-iso.rkt" define)))
+         #;(prefix-in stlc+rec-iso: (only-in "stlc+rec-iso.rkt" define)))
 ;(reuse cons [head hd] [tail tl] nil [isnil nil?] List ~List list #:from "stlc+cons.rkt")
 ;(reuse tup × proj #:from "stlc+tup.rkt")
 ;(reuse define-type-alias #:from "stlc+reco+var.rkt")
@@ -27,7 +27,7 @@
       ; should only be monomorphic?
       [((~∀ () (~ext-stlc:→ τ1 ...)) (~∀ () (~ext-stlc:→ τ2 ...)))
        (compute-constraints #'((τ1 τ2) ...))]
-      [_ #:when (displayln τ1-τ2) #'()]))
+      [_ #:when #t #;(printf "shouldnt get here. could not unify: ~a\n" τ1-τ2) #'()]))
   (define (compute-constraints τs)
     ;(printf "constraints: ~a\n" (syntax->datum τs))
     (stx-appendmap compute-constraint τs))
@@ -47,6 +47,44 @@
       [(_ . rst) (lookup x #'rst)]
       [() false])))
 
+(define-typed-syntax define
+  [(_ x:id e)
+   #:with (e- τ) (infer+erase #'e)
+   #:with y (generate-temporary)
+   #'(begin
+       (define-syntax x (make-rename-transformer (⊢ y : τ)))
+       (define y e-))]
+  ; explicit "forall"
+  #;[(_ (~and Xs {X:id ...}) (f:id [x:id (~datum :) τ] ... (~datum →) τ_out) e)
+   #:when (brace? #'Xs)
+   #:with g (generate-temporary #'f)
+   #:with e_ann #'(add-expected e τ_out)
+   #'(begin
+       (define-syntax f (make-rename-transformer (⊢ g : (∀ (X ...) (ext-stlc:→ τ ... τ_out)))))
+       (define g (Λ (X ...) (ext-stlc:λ ([x : τ] ...) e_ann))))]
+  [(_ (f:id [x:id (~datum :) τ] ... (~datum →) τ_out) e)
+   #:when (displayln #'f)
+   #:with Ys
+          (let L ([Xs #'()]) ; compute unbound ids; treat as tyvars
+            (with-handlers
+                ([exn:fail:syntax:unbound?
+                  (λ (e)
+                    (define X (stx-car (exn:fail:syntax-exprs e)))
+                    ; X is tainted, so need to launder it
+                    (define Y (datum->syntax #'f (syntax->datum X)))
+                    (L (cons Y Xs)))])
+              ((current-type-eval) #`(∀ #,Xs (ext-stlc:→ τ ... τ_out)))
+              Xs))
+   #:when (displayln #'Ys)
+   #:with g (generate-temporary #'f)
+   #:with e_ann #'(add-expected e τ_out)
+   #`(begin
+      (define-syntax f
+        (make-rename-transformer (⊢ g : (∀ Ys (ext-stlc:→ τ ... τ_out)))))
+      (define g
+        (Λ Ys (ext-stlc:λ ([x : τ] ...) e_ann))))])
+;
+;; internal form used to expand many types at once under the same context
 (define-type-constructor Tmp #:arity >= 0 #:bvs >= 0) ; need a >= 0 arity
 
 (define-syntax (define-type stx)
@@ -135,7 +173,8 @@
               (⊢ (StructName e_arg- ...) : τ_out)]
              [(C . args) #:when (stx-null? #'(X ...)) #'(C {} . args)] ; no tyvars, no annotations
              [(C . args) ; no type annotations, must infer instantiation
-              ;; infer instantiation types from args left-to-right, short-circuit if done early
+              ;; infer instantiation types from args left-to-right,
+              ;; short-circuit if done early, and use result to help infer remaining args
               #:with (~Tmp Ys . τs+) ((current-type-eval) #'(Tmp (X ...) τ ...))
               (let loop ([a (stx-car #'args)] [a-rst (stx-cdr #'args)]
                          [τ+ (stx-car #'τs+)] [τ+rst (stx-cdr #'τs+)]
@@ -173,10 +212,28 @@
      #:with (acc ...) (syntax-property #'τ_e 'accessors)
      (⊢ (let ([x_out (acc e-)] ...) e_out) : τ_out)]))
 
-(define-syntax lifted→ ; wrap → with ∀
+#;(define-syntax lifted→ ; wrap → with ∀
   (syntax-parser
     [(_ . rst) #'(∀ () (ext-stlc:→ . rst))]))
+(define-syntax lifted→ ; wrapping →
+  (syntax-parser
+    #;[(_ (~and Xs {X:id ...}) . rst)
+     #:when (brace? #'Xs)
+     #:when (with-handlers ([exn:fail:syntax:unbound? (λ (e) (displayln (exn:fail:syntax-exprs e)))])
+              ((current-type-eval) #'(ext-stlc:→ . rst)))
+     #'(∀ (X ...) (ext-stlc:→ . rst))]
+    [(_ . rst)
+     (let L ([Xs #'()]) ; compute unbound ids; treat as tyvars
+       (with-handlers ([exn:fail:syntax:unbound?
+                        (λ (e)
+                          (define X (stx-car (exn:fail:syntax-exprs e)))
+                          ; X is tainted, so need to launder it
+                          (define Y (datum->syntax #'rst (syntax->datum X)))
+                          (L (cons Y Xs)))])
+         ((current-type-eval) #`(∀ #,Xs (ext-stlc:→ . rst)))))]))
+     ;#'(∀ () (ext-stlc:→ . rst))
 
+; redefine these to use lifted→
 (define-primop + : (lifted→ Int Int Int))
 (define-primop - : (lifted→ Int Int Int))
 (define-primop void : (lifted→ Unit))
@@ -188,14 +245,62 @@
 (define-primop abs : (lifted→ Int Int))
 
 
-; all λs have type (∀ (X ...) (→ τ_in ... τ_out))
+; all λs have type (∀ (X ...) (→ τ_in ... τ_out)), even monomorphic fns
 (define-typed-syntax liftedλ #:export-as λ #:datum-literals (:)
   [(_ . rst)
    #'(Λ () (ext-stlc:λ . rst))])
 
-(define-typed-syntax new-app #:export-as #%app
+
+#;(define-typed-syntax new-app #:export-as #%app
   [(_ τs f . args)
    #:when (brace? #'τs)
    #'(ext-stlc:#%app (inst f . τs) . args)]
   [(_ f . args)
    #'(ext-stlc:#%app (inst f) . args)])
+
+(define-typed-syntax #%app
+  [(_ e_fn e_arg ...) ; infer args first
+   #:with ([e_arg- τ_arg] ...) (infers+erase #'(e_arg ...))
+   ;#:with [e_fn- ((X ...) ((~ext-stlc:→ τ_inX ... τ_outX)))] (⇑ e_fn as ∀)
+   ;#:with [e_fn- (~∀ (X ...) (~ext-stlc:→ τ_inX ... τ_outX))] (infer+erase #'e_fn)
+   ;; infer type step-by-step to produce better err msg
+   #:with [e_fn- τ_fn] (infer+erase #'e_fn)
+   #:fail-unless (and (∀? #'τ_fn) (syntax-parse #'τ_fn [(~∀ _ (~ext-stlc:→ . args)) #t][_ #f]))
+                 (format "Expected expression ~a to have → type, got: ~a"
+                         (syntax->datum #'e_fn) (type->str #'τ_fn))
+   #:with (~∀ (X ...) (~ext-stlc:→ τ_inX ... τ_outX)) #'τ_fn
+   #:fail-unless (stx-length=? #'(τ_inX ...) #'(e_arg ...)) ; check arity
+                 (string-append
+                  (format "~a (~a:~a) Wrong number of arguments given to function ~a.\n"
+                          (syntax-source stx) (syntax-line stx) (syntax-column stx)
+                          (syntax->datum #'e_fn))
+                  (format "Expected: ~a arguments with types: "
+                          (stx-length #'(τ_inX ...)))
+                  (string-join (stx-map type->str #'(τ_inX ...)) ", " #:after-last "\n")
+                  "Given:\n"
+                  (string-join
+                   (map (λ (e t) (format "  ~a : ~a" e t)) ; indent each line
+                        (syntax->datum #'(e_arg ...))
+                        (stx-map type->str #'(τ_arg ...)))
+                   "\n"))
+   #:with cs (compute-constraints #'((τ_inX τ_arg) ...))
+   #:with (τ_solved ...) (filter (λ (x) x) (stx-map (λ (y) (lookup y #'cs)) #'(X ...)))
+   #:fail-unless (stx-length=? #'(X ...) #'(τ_solved ...))
+                 (format "could not instantiate polymorphic fn ~a" (syntax->datum #'e_fn))
+   #:with (τ_in ... τ_out) (stx-map (λ (t) (substs #'(τ_solved ...) #'(X ...) t)) #'(τ_inX ... τ_outX))
+   ; some code duplication
+   #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
+                 (string-append
+                  (format "~a (~a:~a) Arguments to function ~a have wrong type(s).\n"
+                          (syntax-source stx) (syntax-line stx) (syntax-column stx)
+                          (syntax->datum #'e_fn))
+                  "Given:\n"
+                  (string-join
+                   (map (λ (e t) (format "  ~a : ~a" e t)) ; indent each line
+                        (syntax->datum #'(e_arg ...))
+                        (stx-map type->str #'(τ_arg ...)))
+                   "\n" #:after-last "\n")
+                  (format "Expected: ~a arguments with type(s): "
+                          (stx-length #'(τ_in ...)))
+                  (string-join (stx-map type->str #'(τ_in ...)) ", "))
+   (⊢ (#%app e_fn- e_arg- ...) : τ_out)])

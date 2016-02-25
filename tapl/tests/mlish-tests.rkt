@@ -1,6 +1,64 @@
 #lang s-exp "../mlish.rkt"
 (require "rackunit-typechecking.rkt")
 
+(define (recf [x : Int] → Int) (recf x))
+
+;; tests more or less copied from infer-tests.rkt ------------------------------
+;; top-level defines
+(define (f [x : Int] → Int) x)
+(check-type f : (→ Int Int))
+(check-type (f 1) : Int ⇒ 1)
+(typecheck-fail (f (λ ([x : Int]) x)))
+
+(define (g [x : X] → X) x)
+(check-type g : (→ X X))
+
+; (inferred) polymorpic instantiation
+(check-type (g 1) : Int ⇒ 1)
+(check-type (g #f) : Bool ⇒ #f) ; different instantiation
+(check-type (g add1) : (→ Int Int))
+(check-type (g +) : (→ Int Int Int))
+
+; function polymorphic in list element
+(define-type (List X)
+  (Nil)
+  (Cons X (List X)))
+
+(define (g2 [lst : (List X)] → (List X)) lst)
+(check-type g2 : (→ (List X) (List X)))
+(typecheck-fail (g2 1) #:with-msg "Expected.+arguments with type.+(List X)")
+;(check-type (g2 (Nil {Int})) : (List Int) ⇒ (Nil {Int}))
+;(check-type (g2 (Nil {Bool})) : (List Bool) ⇒ (Nil {Bool}))
+;(check-type (g2 (Nil {(List Int)})) : (List (List Int)) ⇒ (Nil {(List Int)}))
+;(check-type (g2 (Nil {(→ Int Int)})) : (List (→ Int Int)) ⇒ (Nil {(List (→ Int Int))}))
+;(check-type (g2 (Cons 1 Nil)) : (List Int) ⇒ (Cons 1 Nil))
+;(check-type (g2 (Cons "1" Nil)) : (List String) ⇒ (Cons "1" Nil))
+
+;(define (g3 [lst : (List X)] → X) (hd lst)) ; cant type this fn (what to put for nil case)
+;(check-type g3 : (→ {X} (List X) X))
+;(check-type g3 : (→ {A} (List A) A))
+;(check-not-type g3 : (→ {A B} (List A) B))
+;(typecheck-fail (g3) #:with-msg "Expected.+arguments with type.+List") ; TODO: more precise err msg
+;(check-type (g3 (nil {Int})) : Int) ; runtime fail
+;(check-type (g3 (nil {Bool})) : Bool) ; runtime fail
+;(check-type (g3 (cons 1 nil)) : Int ⇒ 1)
+;(check-type (g3 (cons "1" nil)) : String ⇒ "1")
+
+; recursive fn
+;(define (recf [x : Int] → Int) (recf x))
+;(check-type recf : (→ Int Int))
+;
+;(define (countdown [x : Int] → Int)
+;  (if (zero? x)
+;      0
+;      (countdown (sub1 x))))
+;(check-type (countdown 0) : Int ⇒ 0)
+;(check-type (countdown 10) : Int ⇒ 0)
+;(typecheck-fail (countdown "10") #:with-msg "Arguments.+have wrong type")
+
+;; end infer.rkt tests --------------------------------------------------
+
+;; algebraic data types
 (define-type IntList
   INil
   (ConsI Int IntList))
@@ -17,9 +75,6 @@
    [ConsI x xs -> 2]) : Int ⇒ 2)
 (typecheck-fail (match 1 with [INil -> 1]))
 
-(define-type (List X)
-  (Nil)
-  (Cons X (List X)))
 ;; annotated
 (check-type (Nil {Int}) : (List Int))
 (check-type (Cons {Int} 1 (Nil {Int})) : (List Int))
@@ -236,7 +291,7 @@
  "Arguments to function \\+ have wrong type.+Given:.+(→ Int Int).+Expected: 2 arguments with type.+Int\\, Int")
 (typecheck-fail
  ((λ ([x : Int] [y : Int]) y) 1)
- #:with-msg "Arguments to function.+have.+wrong number of arguments")
+ #:with-msg "Wrong number of arguments given to function")
 
 (check-type ((λ ([x : Int]) (+ x x)) 10) : Int ⇒ 20)
 
