@@ -63,7 +63,6 @@
        (define-syntax f (make-rename-transformer (⊢ g : (∀ (X ...) (ext-stlc:→ τ ... τ_out)))))
        (define g (Λ (X ...) (ext-stlc:λ ([x : τ] ...) e_ann))))]
   [(_ (f:id [x:id (~datum :) τ] ... (~datum →) τ_out) e)
-   #:when (displayln #'f)
    #:with Ys
           (let L ([Xs #'()]) ; compute unbound ids; treat as tyvars
             (with-handlers
@@ -75,12 +74,14 @@
                     (L (cons Y Xs)))])
               ((current-type-eval) #`(∀ #,Xs (ext-stlc:→ τ ... τ_out)))
               Xs))
-   #:when (displayln #'Ys)
-   #:with g (generate-temporary #'f)
+   #:with g (add-orig (generate-temporary #'f) #'f)
    #:with e_ann #'(add-expected e τ_out)
+   #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
    #`(begin
       (define-syntax f
-        (make-rename-transformer (⊢ g : (∀ Ys (ext-stlc:→ τ ... τ_out)))))
+        (make-rename-transformer
+         ;(⊢ g : (∀ Ys (ext-stlc:→ τ ... τ_out)))))
+         (⊢ g : (∀ Ys (ext-stlc:→ τ+orig ...)))))
       (define g
         (Λ Ys (ext-stlc:λ ([x : τ] ...) e_ann))))])
 ;
@@ -92,7 +93,7 @@
     [(_ Name:id . rst)
      #:with Name2 (generate-temporary #'Name)
      #`(begin
-         (define-type (Name2) . #,(subst #'(Name2) #'Name #'rst))
+         (define-type (Name2) . #,(subst (add-orig #'(Name2) #'Name) #'Name #'rst))
          (define-type-alias Name (Name2)))]
     [(_ (Name:id X:id ...)
         ;; constructors must have the form (Cons τ ...)
@@ -153,19 +154,9 @@
                       #'(e_arg ...) #'(τ_in.norm (... ...)))
               #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in.norm (... ...)))
                             ;; need to duplicate #%app err msg here, to attach additional props
-                            (string-append
-                             (format "~a (~a:~a) Arguments to constructor ~a have wrong type(s), "
-                                     (syntax-source stx) (syntax-line stx) (syntax-column stx)
-                                     'Cons)
-                             "or wrong number of arguments:\nGiven:\n"
-                             (string-join
-                              (map (λ (e t) (format "  ~a : ~a" e t)) ; indent each line
-                                   (syntax->datum #'(e_arg ...))
-                                   (stx-map type->str #'(τ_arg ...)))
-                              "\n" #:after-last "\n")
-                             (format "Expected: ~a arguments with type(s): "
-                                     (stx-length #'(τ_in (... ...))))
-                             (string-join (stx-map type->str #'(τ_in (... ...))) ", "))
+                           (mk-app-err-msg stx
+                            #:expected #'(τ_in.norm (... ...)) #:given #'(τ_arg ...)
+                            #:name (format "constructor ~a" 'Cons))
               #:with τ_out (syntax-property
                             (syntax-property #'(Name τ_X (... ...)) 'constructor #'Cons)
                             'accessors
@@ -270,37 +261,15 @@
                          (syntax->datum #'e_fn) (type->str #'τ_fn))
    #:with (~∀ (X ...) (~ext-stlc:→ τ_inX ... τ_outX)) #'τ_fn
    #:fail-unless (stx-length=? #'(τ_inX ...) #'(e_arg ...)) ; check arity
-                 (string-append
-                  (format "~a (~a:~a) Wrong number of arguments given to function ~a.\n"
-                          (syntax-source stx) (syntax-line stx) (syntax-column stx)
-                          (syntax->datum #'e_fn))
-                  (format "Expected: ~a arguments with types: "
-                          (stx-length #'(τ_inX ...)))
-                  (string-join (stx-map type->str #'(τ_inX ...)) ", " #:after-last "\n")
-                  "Given:\n"
-                  (string-join
-                   (map (λ (e t) (format "  ~a : ~a" e t)) ; indent each line
-                        (syntax->datum #'(e_arg ...))
-                        (stx-map type->str #'(τ_arg ...)))
-                   "\n"))
+                 (mk-app-err-msg stx #:expected #'(τ_inX ...) #:given #'(τ_arg ...)
+                  #:note "Wrong number of arguments.")
    #:with cs (compute-constraints #'((τ_inX τ_arg) ...))
    #:with (τ_solved ...) (filter (λ (x) x) (stx-map (λ (y) (lookup y #'cs)) #'(X ...)))
    #:fail-unless (stx-length=? #'(X ...) #'(τ_solved ...))
-                 (format "could not instantiate polymorphic fn ~a" (syntax->datum #'e_fn))
+                 (mk-app-err-msg stx #:expected #'(τ_inX ...) #:given #'(τ_arg ...)
+                  #:note "Could not infer instantiation of polymorphic function.")
    #:with (τ_in ... τ_out) (stx-map (λ (t) (substs #'(τ_solved ...) #'(X ...) t)) #'(τ_inX ... τ_outX))
    ; some code duplication
    #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
-                 (string-append
-                  (format "~a (~a:~a) Arguments to function ~a have wrong type(s).\n"
-                          (syntax-source stx) (syntax-line stx) (syntax-column stx)
-                          (syntax->datum #'e_fn))
-                  "Given:\n"
-                  (string-join
-                   (map (λ (e t) (format "  ~a : ~a" e t)) ; indent each line
-                        (syntax->datum #'(e_arg ...))
-                        (stx-map type->str #'(τ_arg ...)))
-                   "\n" #:after-last "\n")
-                  (format "Expected: ~a arguments with type(s): "
-                          (stx-length #'(τ_in ...)))
-                  (string-join (stx-map type->str #'(τ_in ...)) ", "))
+                 (mk-app-err-msg stx #:given #'(τ_arg ...) #:expected #'(τ_in ...))
    (⊢ (#%app e_fn- e_arg- ...) : τ_out)])

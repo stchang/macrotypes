@@ -1,5 +1,6 @@
 #lang s-exp "typecheck.rkt"
 (provide (for-syntax current-type=? types=?))
+(provide (for-syntax mk-app-err-msg))
  
 ;; Simply-Typed Lambda Calculus
 ;; - no base types; can't write any terms
@@ -72,22 +73,34 @@
    #:with (xs- e- τ_res) (infer/ctx+erase #'bvs #'e)
    (⊢ (λ xs- e-) : (→ bvs.type ... τ_res))])
 
+(define-for-syntax (mk-app-err-msg stx #:expected [expected-τs #'()]
+                                       #:given [given-τs #'()]
+                                       #:note [note ""]
+                                       #:name [name #f])
+  (syntax-parse stx
+    [(_ e_fn e_arg ...)
+     (define fn-name
+       (if name name
+           (format "function ~a"
+                   (syntax->datum (or (get-orig #'e_fn) #'e_fn)))))
+     (string-append
+      (format "~a (~a:~a):\nType error applying "
+              (syntax-source stx) (syntax-line stx) (syntax-column stx))
+      fn-name ". " note "\n"
+      (format "  Expected: ~a argument(s) with type(s): " (stx-length expected-τs))
+      (string-join (stx-map type->str expected-τs) ", " #:after-last "\n")
+      "  Given:\n"
+      (string-join
+       (map (λ (e t) (format "    ~a : ~a" e t)) ; indent each line
+            (syntax->datum #'(e_arg ...))
+            (stx-map type->str given-τs))
+       "\n")
+      "\n")]))
+
 (define-typed-syntax #%app
   [(_ e_fn e_arg ...)
    #:with [e_fn- (τ_in ... τ_out)] (⇑ e_fn as →)
    #:with ([e_arg- τ_arg] ...) (infers+erase #'(e_arg ...))
    #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
-                 (string-append
-                  (format "~a (~a:~a) Arguments to function ~a have wrong type(s), "
-                          (syntax-source stx) (syntax-line stx) (syntax-column stx)
-                          (syntax->datum #'e_fn-))
-                  "or wrong number of arguments:\nGiven:\n"
-                  (string-join
-                   (map (λ (e t) (format "  ~a : ~a" e t)) ; indent each line
-                        (syntax->datum #'(e_arg ...))
-                        (stx-map type->str #'(τ_arg ...)))
-                   "\n" #:after-last "\n")
-                  (format "Expected: ~a arguments with type(s): "
-                          (stx-length #'(τ_in ...)))
-                  (string-join (stx-map type->str #'(τ_in ...)) ", "))
+                 (mk-app-err-msg stx #:expected #'(τ_in ...) #:given #'(τ_arg ...))
   (⊢ (#%app e_fn- e_arg- ...) : τ_out)])

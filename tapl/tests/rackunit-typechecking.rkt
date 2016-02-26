@@ -29,7 +29,7 @@
 
 (define-syntax (typecheck-fail stx)
   (syntax-parse stx #:datum-literals (:)
-    [(_ e (~optional (~seq #:with-msg msg-pat:str) #:defaults ([msg-pat ""])))
+    [(_ e (~optional (~seq #:with-msg msg-pat) #:defaults ([msg-pat ""])))
      #:when (check-exn
              (λ (ex) (or (exn:fail? ex) (exn:test:check? ex)))
              (λ ()

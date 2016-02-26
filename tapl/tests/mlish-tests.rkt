@@ -6,6 +6,7 @@
 ;; tests more or less copied from infer-tests.rkt ------------------------------
 ;; top-level defines
 (define (f [x : Int] → Int) x)
+(typecheck-fail (f 1 2) #:with-msg "Wrong number of arguments")
 (check-type f : (→ Int Int))
 (check-type (f 1) : Int ⇒ 1)
 (typecheck-fail (f (λ ([x : Int]) x)))
@@ -26,7 +27,12 @@
 
 (define (g2 [lst : (List X)] → (List X)) lst)
 (check-type g2 : (→ (List X) (List X)))
-(typecheck-fail (g2 1) #:with-msg "Expected.+arguments with type.+(List X)")
+(typecheck-fail (g2 1)
+ #:with-msg
+ (string-append
+  "Could not infer instantiation of polymorphic function.*"
+  "Expected.+argument\\(s\\) with type\\(s\\).+\\(List X\\)"))
+
 ;(check-type (g2 (Nil {Int})) : (List Int) ⇒ (Nil {Int}))
 ;(check-type (g2 (Nil {Bool})) : (List Bool) ⇒ (Nil {Bool}))
 ;(check-type (g2 (Nil {(List Int)})) : (List (List Int)) ⇒ (Nil {(List Int)}))
@@ -75,6 +81,9 @@
    [ConsI x xs -> 2]) : Int ⇒ 2)
 (typecheck-fail (match 1 with [INil -> 1]))
 
+(typecheck-fail (ConsI #f INil)
+ #:with-msg "Type error applying constructor ConsI.*Expected.*Int, IntList")
+
 ;; annotated
 (check-type (Nil {Int}) : (List Int))
 (check-type (Cons {Int} 1 (Nil {Int})) : (List Int))
@@ -97,11 +106,11 @@
 
 (typecheck-fail Nil #:with-msg "add annotations")
 (typecheck-fail (Cons 1 (Nil {Bool}))
-                #:with-msg "wrong type\\(s\\)")
+ #:with-msg "Type error applying constructor Cons.*Expected.*argument.*with type.*Int, \\(List Int\\)")
 (typecheck-fail (Cons {Bool} 1 (Nil {Int}))
-                #:with-msg "wrong type\\(s\\)")
+ #:with-msg "Type error applying constructor Cons.*Expected.*argument.*with type.*Bool, \\(List Bool\\)")
 (typecheck-fail (Cons {Bool} 1 Nil)
-                #:with-msg "wrong type\\(s\\)")
+ #:with-msg "Type error applying constructor Cons.*Expected.*argument.*with type.*Bool, \\(List Bool\\)")
 
 (typecheck-fail (match Nil with [Cons x xs -> 2] [Nil -> 1])
                 #:with-msg "add annotations")
@@ -146,11 +155,11 @@
 (typecheck-fail
  ((λ ([x : Unit]) x) 2)
  #:with-msg
- "Arguments to function.+have wrong type.+Given:.+Int.+Expected:.+Unit")
+ "Type error applying function.*Expected.*argument.*with type.* Unit.*Given.*Int")
 (typecheck-fail
  ((λ ([x : Unit]) x) void)
   #:with-msg
- "Arguments to function.+have wrong type.+Given:.+(→ Unit).+Expected:.+Unit")
+ "Type error applying function.*Expected.*argument.*with type.* Unit.*Given.*\\(→ Unit\\)")
 
 (check-type ((λ ([x : Unit]) x) (void)) : Unit)
 
