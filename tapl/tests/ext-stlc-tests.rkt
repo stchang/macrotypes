@@ -14,12 +14,10 @@
 
 (typecheck-fail
  ((λ ([x : Unit]) x) 2)
- #:with-msg
- "Arguments to function.+have wrong type.+Given:.+Int.+Expected:.+Unit")
+ #:with-msg (expected "Unit" #:given "Int"))
 (typecheck-fail
  ((λ ([x : Unit]) x) void)
-  #:with-msg
- "Arguments to function.+have wrong type.+Given:.+(→ Unit).+Expected:.+Unit")
+  #:with-msg (expected "Unit" #:given "(→ Unit)"))
 
 (check-type ((λ ([x : Unit]) x) (void)) : Unit)
 
@@ -54,16 +52,14 @@
 (check-type (let ([x 10] [y 20]) ((λ ([z : Int] [a : Int]) (+ a z)) x y)) : Int ⇒ 30)
 (typecheck-fail
  (let ([x #f]) (+ x 1))
- #:with-msg
- "Arguments to function \\+.+have wrong type.+Given:.+Bool.+Int.+Expected:.+Int.+Int")
+ #:with-msg (expected "Int, Int" #:given "Bool, Int"))
 (typecheck-fail (let ([x 10] [y (+ x 1)]) (+ x y))
                 #:with-msg "x: unbound identifier")
 
 (check-type (let* ([x 10] [y (+ x 1)]) (+ x y)) : Int ⇒ 21)
 (typecheck-fail
  (let* ([x #t] [y (+ x 1)]) 1)
-  #:with-msg
- "Arguments to function \\+.+have wrong type.+Given:.+Bool.+Int.+Expected:.+Int.+Int")
+  #:with-msg (expected "Int, Int" #:given "Bool, Int"))
 
 ; letrec
 (typecheck-fail
@@ -137,8 +133,7 @@
 
 (typecheck-fail
  ((λ ([x : Bool]) x) 1)
- #:with-msg
- "Arguments to function.+have wrong type.+Given:.+Int.+Expected:.+Bool")
+ #:with-msg (expected "Bool" #:given "Int"))
 ;(typecheck-fail (λ ([x : Bool]) x)) ; Bool is now valid type
 (typecheck-fail
  (λ ([f : Int]) (f 1 2))
@@ -152,15 +147,14 @@
 
 (typecheck-fail
  (+ 1 (λ ([x : Int]) x))
- #:with-msg
- "Arguments to function \\+ have wrong type.+Given:\n  1 : Int.+(→ Int Int).+Expected: 2 arguments with type.+Int\\, Int")
+ #:with-msg (expected "Int, Int" #:given "Int, (→ Int Int)"))
 (typecheck-fail
  (λ ([x : (→ Int Int)]) (+ x x))
-  #:with-msg
- "Arguments to function \\+ have wrong type.+Given:.+(→ Int Int).+Expected: 2 arguments with type.+Int\\, Int")
+  #:with-msg (expected "Int, Int" #:given "(→ Int Int), (→ Int Int)"))
 (typecheck-fail
  ((λ ([x : Int] [y : Int]) y) 1)
- #:with-msg "Arguments to function.+have.+wrong number of arguments")
+ #:with-msg (expected "Int, Int" #:given "Int"
+                      #:note "Wrong number of arguments"))
 
 (check-type ((λ ([x : Int]) (+ x x)) 10) : Int ⇒ 20)
 

@@ -89,11 +89,11 @@
 (typecheck-fail
  (open ([(Counter counter) <= counterADT])
        (+ (proj counter new) 1))
- #:with-msg "Arguments to function \\+ have wrong type")
+ #:with-msg (expected "Int, Int" #:given "Counter, Int"))
 (typecheck-fail
  (open ([(Counter counter) <= counterADT])
        ((λ ([x : Int]) x) (proj counter new)))
- #:with-msg "Arguments to function.+have wrong type")
+ #:with-msg (expected "Int" #:given "Counter"))
 (check-type
  (open ([(Counter counter) <= counterADT])
        ((proj counter get) ((proj counter inc) (proj counter new))))

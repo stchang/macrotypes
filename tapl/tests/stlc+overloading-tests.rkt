@@ -75,7 +75,7 @@
 
 (typecheck-fail
  ((resolve to-string Num) "hello")
- #:with-msg "have wrong type")
+ #:with-msg (expected "Num" #:given "Str"))
 
 ;; -- instances are type-checked. They must match
 (typecheck-fail

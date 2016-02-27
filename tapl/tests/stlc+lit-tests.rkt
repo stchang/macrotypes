@@ -41,15 +41,14 @@
 
 (typecheck-fail
  (+ 1 (λ ([x : Int]) x))
- #:with-msg
- "Arguments to function \\+ have wrong type.+Given:\n  1 : Int.+(→ Int Int).+Expected: 2 arguments with type.+Int\\, Int")
+ #:with-msg (expected "Int, Int" #:given "Int, (→ Int Int)"))
 (typecheck-fail
  (λ ([x : (→ Int Int)]) (+ x x))
-  #:with-msg
- "Arguments to function \\+ have wrong type.+Given:.+(→ Int Int).+Expected: 2 arguments with type.+Int\\, Int")
+  #:with-msg (expected "Int, Int" #:given "(→ Int Int), (→ Int Int)"))
 (typecheck-fail
  ((λ ([x : Int] [y : Int]) y) 1)
- #:with-msg "Arguments to function.+have.+wrong number of arguments")
+ #:with-msg (expected "Int, Int" #:given "Int"
+                      #:note "Wrong number of arguments"))
 
 (check-type ((λ ([x : Int]) (+ x x)) 10) : Int ⇒ 20)
 
