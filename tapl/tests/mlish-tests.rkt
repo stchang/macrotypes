@@ -27,11 +27,10 @@
 
 (define (g2 [lst : (List X)] → (List X)) lst)
 (check-type g2 : (→ (List X) (List X)))
-(typecheck-fail (g2 1)
- #:with-msg
- (string-append
-  "Could not infer instantiation of polymorphic function.*"
-  "Expected.+argument\\(s\\) with type\\(s\\).+\\(List X\\)"))
+(typecheck-fail (g2 1) 
+  #:with-msg 
+  (expected "(List X)" #:given "Int"
+   #:note  "Could not infer instantiation of polymorphic function"))
 
 ;(check-type (g2 (Nil {Int})) : (List Int) ⇒ (Nil {Int}))
 ;(check-type (g2 (Nil {Bool})) : (List Bool) ⇒ (Nil {Bool}))
@@ -82,7 +81,9 @@
 (typecheck-fail (match 1 with [INil -> 1]))
 
 (typecheck-fail (ConsI #f INil)
- #:with-msg "Type error applying constructor ConsI.*Expected.*Int, IntList")
+ #:with-msg 
+ (expected "Int, IntList" #:given "Bool, IntList"
+  #:note "Type error applying constructor ConsI"))
 
 ;; annotated
 (check-type (Nil {Int}) : (List Int))
@@ -106,11 +107,17 @@
 
 (typecheck-fail Nil #:with-msg "add annotations")
 (typecheck-fail (Cons 1 (Nil {Bool}))
- #:with-msg "Type error applying constructor Cons.*Expected.*argument.*with type.*Int, \\(List Int\\)")
+ #:with-msg 
+ (expected "Int, (List Int)" #:given "Int, (List Bool)"
+  #:note "Type error applying constructor Cons"))
 (typecheck-fail (Cons {Bool} 1 (Nil {Int}))
- #:with-msg "Type error applying constructor Cons.*Expected.*argument.*with type.*Bool, \\(List Bool\\)")
+ #:with-msg 
+ (expected "Bool, (List Bool)" #:given "Int, (List Int)"
+  #:note "Type error applying constructor Cons"))
 (typecheck-fail (Cons {Bool} 1 Nil)
- #:with-msg "Type error applying constructor Cons.*Expected.*argument.*with type.*Bool, \\(List Bool\\)")
+ #:with-msg 
+ (expected "Bool, (List Bool)" #:given "Int, (List Bool)"
+  #:note "Type error applying constructor Cons"))
 
 (typecheck-fail (match Nil with [Cons x xs -> 2] [Nil -> 1])
                 #:with-msg "add annotations")
@@ -154,12 +161,12 @@
 
 (typecheck-fail
  ((λ ([x : Unit]) x) 2)
- #:with-msg
- "Type error applying function.*Expected.*argument.*with type.* Unit.*Given.*Int")
+ #:with-msg 
+ (expected "Unit" #:given "Int" #:note "Type error applying function"))
 (typecheck-fail
  ((λ ([x : Unit]) x) void)
   #:with-msg
- "Type error applying function.*Expected.*argument.*with type.* Unit.*Given.*\\(→ Unit\\)")
+ (expected "Unit" #:given "(→ Unit)" #:note "Type error applying function"))
 
 (check-type ((λ ([x : Unit]) x) (void)) : Unit)
 
@@ -194,16 +201,14 @@
 (check-type (let ([x 10] [y 20]) ((λ ([z : Int] [a : Int]) (+ a z)) x y)) : Int ⇒ 30)
 (typecheck-fail
  (let ([x #f]) (+ x 1))
- #:with-msg
- "Arguments to function \\+.+have wrong type.+Given:.+Bool.+Int.+Expected:.+Int.+Int")
+ #:with-msg (expected "Int, Int" #:given "Bool, Int"))
 (typecheck-fail (let ([x 10] [y (+ x 1)]) (+ x y))
                 #:with-msg "x: unbound identifier")
 
 (check-type (let* ([x 10] [y (+ x 1)]) (+ x y)) : Int ⇒ 21)
 (typecheck-fail
  (let* ([x #t] [y (+ x 1)]) 1)
-  #:with-msg
- "Arguments to function \\+.+have wrong type.+Given:.+Bool.+Int.+Expected:.+Int.+Int")
+  #:with-msg (expected "Int, Int" #:given "Bool, Int"))
 
 ; letrec
 (typecheck-fail
@@ -277,8 +282,7 @@
 
 (typecheck-fail
  ((λ ([x : Bool]) x) 1)
- #:with-msg
- "Arguments to function.+have wrong type.+Given:.+Int.+Expected:.+Bool")
+ #:with-msg (expected "Bool" #:given "Int"))
 ;(typecheck-fail (λ ([x : Bool]) x)) ; Bool is now valid type
 (typecheck-fail
  (λ ([f : Int]) (f 1 2))
@@ -292,15 +296,14 @@
 
 (typecheck-fail
  (+ 1 (λ ([x : Int]) x))
- #:with-msg
- "Arguments to function \\+ have wrong type.+Given:\n  1 : Int.+(→ Int Int).+Expected: 2 arguments with type.+Int\\, Int")
+ #:with-msg (expected "Int, Int" #:given "Int, (→ Int Int)"))
 (typecheck-fail
  (λ ([x : (→ Int Int)]) (+ x x))
-  #:with-msg
- "Arguments to function \\+ have wrong type.+Given:.+(→ Int Int).+Expected: 2 arguments with type.+Int\\, Int")
+  #:with-msg (expected "Int, Int" #:given "(→ Int Int), (→ Int Int)"))
 (typecheck-fail
  ((λ ([x : Int] [y : Int]) y) 1)
- #:with-msg "Wrong number of arguments given to function")
+ #:with-msg (expected "Int, Int" #:given "Int" 
+                      #:note "Wrong number of arguments"))
 
 (check-type ((λ ([x : Int]) (+ x x)) 10) : Int ⇒ 20)
 

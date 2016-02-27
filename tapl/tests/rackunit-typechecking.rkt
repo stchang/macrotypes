@@ -2,6 +2,17 @@
 (require (for-syntax rackunit) rackunit "../typecheck.rkt")
 (provide (all-defined-out))
 
+(begin-for-syntax
+  (define (add-esc s) (string-append "\\" s))
+  (define escs (map add-esc '("(" ")")))
+  (define (add-escs str)
+    (foldl (lambda (c s) (regexp-replace c s (add-esc c))) str escs))
+  (define (expected tys #:given [givens ""] #:note [note ""])
+    (string-append  
+     note ".*Expected.+argument\\(s\\) with type\\(s\\).+" 
+     (add-escs tys) ".*Given:.*" 
+     (string-join (map add-escs (string-split givens ", ")) ".*"))))
+
 (define-syntax (check-type stx)
   (syntax-parse stx #:datum-literals (: ⇒)
     [(_ e : τ ⇒ v) #'(check-type-and-result e : τ ⇒ v)]
@@ -29,7 +40,9 @@
 
 (define-syntax (typecheck-fail stx)
   (syntax-parse stx #:datum-literals (:)
-    [(_ e (~optional (~seq #:with-msg msg-pat) #:defaults ([msg-pat ""])))
+    [(_ e (~optional (~seq #:with-msg msg-pat) #:defaults ([msg-pat #'""])))
+     #:with msg:str 
+            (eval-syntax (datum->syntax #'here (syntax->datum #'msg-pat)))
      #:when (check-exn
              (λ (ex) (or (exn:fail? ex) (exn:test:check? ex)))
              (λ ()
@@ -37,12 +50,12 @@
                    ; check err msg matches
                    ([exn:fail?
                      (λ (ex)
-                       (unless (regexp-match? (syntax-e #'msg-pat) (exn-message ex))
+                       (unless (regexp-match? (syntax-e #'msg) (exn-message ex))
                          (printf
                           (string-append
                            "ERROR-MSG ERROR: wrong err msg produced by expression ~v:\n"
                            "EXPECTED:\nmsg matching pattern ~v,\nGOT:\n~v\n")
-                          (syntax->datum #'e) (syntax-e #'msg-pat) (exn-message ex)))
+                          (syntax->datum #'e) (syntax-e #'msg) (exn-message ex)))
                        (raise ex))])
                  (expand/df #'e)))
              (format

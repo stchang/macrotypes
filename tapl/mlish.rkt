@@ -10,7 +10,7 @@
 ;(reuse tup × proj #:from "stlc+tup.rkt")
 ;(reuse define-type-alias #:from "stlc+reco+var.rkt")
 ;(provide hd tl nil?)
-(provide (rename-out [lifted→ →]))
+(provide  →)
 (provide define-type match)
 (provide (rename-out [ext-stlc:let let]))
 
@@ -91,10 +91,11 @@
 (define-syntax (define-type stx)
   (syntax-parse stx
     [(_ Name:id . rst)
-     #:with Name2 (generate-temporary #'Name)
+     #:with NewName (generate-temporary #'Name)
+     #:with Name2 (add-orig #'(NewName) #'Name)
      #`(begin
-         (define-type (Name2) . #,(subst (add-orig #'(Name2) #'Name) #'Name #'rst))
-         (define-type-alias Name (Name2)))]
+         (define-type Name2 . #,(subst #'Name2 #'Name #'rst))
+         (define-type-alias Name Name2))]
     [(_ (Name:id X:id ...)
         ;; constructors must have the form (Cons τ ...)
         ;; but the first ~or clause accepts 0-arg constructors as ids
@@ -206,7 +207,7 @@
 #;(define-syntax lifted→ ; wrap → with ∀
   (syntax-parser
     [(_ . rst) #'(∀ () (ext-stlc:→ . rst))]))
-(define-syntax lifted→ ; wrapping →
+(define-syntax → ; wrapping →
   (syntax-parser
     #;[(_ (~and Xs {X:id ...}) . rst)
      #:when (brace? #'Xs)
@@ -222,18 +223,17 @@
                           (define Y (datum->syntax #'rst (syntax->datum X)))
                           (L (cons Y Xs)))])
          ((current-type-eval) #`(∀ #,Xs (ext-stlc:→ . rst)))))]))
-     ;#'(∀ () (ext-stlc:→ . rst))
 
-; redefine these to use lifted→
-(define-primop + : (lifted→ Int Int Int))
-(define-primop - : (lifted→ Int Int Int))
-(define-primop void : (lifted→ Unit))
-(define-primop = : (lifted→ Int Int Bool))
-(define-primop zero? : (lifted→ Int Bool))
-(define-primop sub1 : (lifted→ Int Int))
-(define-primop add1 : (lifted→ Int Int))
-(define-primop not : (lifted→ Bool Bool))
-(define-primop abs : (lifted→ Int Int))
+; redefine these to use lifted →
+(define-primop + : (→ Int Int Int))
+(define-primop - : (→ Int Int Int))
+(define-primop void : (→ Unit))
+(define-primop = : (→ Int Int Bool))
+(define-primop zero? : (→ Int Bool))
+(define-primop sub1 : (→ Int Int))
+(define-primop add1 : (→ Int Int))
+(define-primop not : (→ Bool Bool))
+(define-primop abs : (→ Int Int))
 
 
 ; all λs have type (∀ (X ...) (→ τ_in ... τ_out)), even monomorphic fns
