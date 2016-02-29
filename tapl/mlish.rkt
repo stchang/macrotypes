@@ -164,7 +164,6 @@
               #:fail-unless (syntax-e #'τ-expected)
                             (type-error #:src stx #:msg "cannot infer type of ~a; add annotations" #'C)
               #:with (NameExpander τ-expected-arg (... ...)) #'τ-expected
-;              #:when [e- τ_e] (infer+erase #'(C))
               #'(C {τ-expected-arg (... ...)})]
              [_:id
               #:when (and (not (stx-null? #'(X ...)))
@@ -192,15 +191,10 @@
                         (infer+erase (syntax-property e 'expected-type τ_e)))
                       #'(e_arg ...) #'(τ_in.norm (... ...)))
               #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in.norm (... ...)))
-                            ;; need to duplicate #%app err msg here, to attach additional props
                            (mk-app-err-msg #'(C e_arg ...)
                             #:expected #'(τ_in.norm (... ...)) #:given #'(τ_arg ...)
                             #:name (format "constructor ~a" 'Cons))
-              #:with τ_out (syntax-property
-                            (syntax-property #'(Name τ_X (... ...)) 'constructor #'Cons)
-                            'accessors
-                            #'(acc ...))
-              (⊢ (StructName e_arg- ...) : τ_out)]
+              (⊢ (StructName e_arg- ...) : (Name τ_X (... ...)))]
              [(C . args) #:when (stx-null? #'(X ...)) #'(C {} . args)] ; no tyvars, no annotations
              [(C . args) ; no type annotations, must infer instantiation
               ;; infer instantiation types from args left-to-right,
@@ -240,12 +234,6 @@
      #:with info (syntax-property #'τ_e 'variants)
      #:with (~and cons-info ((Cons Cons2 [fld (~datum :) τ] ...) ...))
             (stx-map (lambda (C) (stx-assoc C #'info)) #'(Clause ...))
-;     #:fail-unless (stx-length=? #'(Clause ...) #'(Cons ...)) "wrong number of case clauses"
-     ;; #:fail-unless #;(free-id-set=? (immutable-free-id-set (syntax->list #'(Clause ...)))
-     ;;                              (immutable-free-id-set (syntax->list #'(Cons ...))))
-     ;;               ;; (id-set-size=? #'(Clause ...) #'(Cons ...))
-     ;;               "wrong number of case clauses"
-;     #:fail-unless (typechecks? #'(Clause ...) #'(Cons ...)) "case clauses not exhaustive"
      #:fail-unless (id-set=? #'(Clause ...) #'(Cons ...)) "case clauses not exhaustive"
      #:with ((acc ...) ...) (stx-map 
                              (lambda (C fs) 
@@ -263,9 +251,6 @@
                         (Bool? (stx-car #'(τ_guard ...))))
                    "guard expression(s) must have type bool"
      #:fail-unless (same-types? #'(τ_ec ...)) "branches have different types"
-     ;; #:with C (syntax-property #'τ_e 'constructor) ; check if variant is known statically
-     ;; #:with (acc ...) (syntax-property #'τ_e 'accessors)
-     ;; #:with (_ (x_out ...) e_out τ_out) (stx-assoc #'C #'((Clause (x- ...) e_c- τ_ec) ...))
      #:with τ_out (stx-car #'(τ_ec ...))
      #:with z (generate-temporary) ; dont duplicate eval of test expr
      (⊢ (let ([z e-])
