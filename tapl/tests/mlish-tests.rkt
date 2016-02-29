@@ -1,8 +1,6 @@
 #lang s-exp "../mlish.rkt"
 (require "rackunit-typechecking.rkt")
 
-(define (recf [x : Int] → Int) (recf x))
-
 ;; tests more or less copied from infer-tests.rkt ------------------------------
 ;; top-level defines
 (define (f [x : Int] → Int) x)
@@ -32,12 +30,13 @@
   (expected "(List X)" #:given "Int"
    #:note  "Could not infer instantiation of polymorphic function"))
 
-;(check-type (g2 (Nil {Int})) : (List Int) ⇒ (Nil {Int}))
-;(check-type (g2 (Nil {Bool})) : (List Bool) ⇒ (Nil {Bool}))
-;(check-type (g2 (Nil {(List Int)})) : (List (List Int)) ⇒ (Nil {(List Int)}))
-;(check-type (g2 (Nil {(→ Int Int)})) : (List (→ Int Int)) ⇒ (Nil {(List (→ Int Int))}))
-;(check-type (g2 (Cons 1 Nil)) : (List Int) ⇒ (Cons 1 Nil))
-;(check-type (g2 (Cons "1" Nil)) : (List String) ⇒ (Cons "1" Nil))
+;; todo? allow polymorphic nil?
+(check-type (g2 (Nil {Int})) : (List Int) ⇒ (Nil {Int}))
+(check-type (g2 (Nil {Bool})) : (List Bool) ⇒ (Nil {Bool}))
+(check-type (g2 (Nil {(List Int)})) : (List (List Int)) ⇒ (Nil {(List Int)}))
+(check-type (g2 (Nil {(→ Int Int)})) : (List (→ Int Int)) ⇒ (Nil {(List (→ Int Int))}))
+(check-type (g2 (Cons 1 Nil)) : (List Int) ⇒ (Cons 1 Nil))
+(check-type (g2 (Cons "1" Nil)) : (List String) ⇒ (Cons "1" Nil))
 
 ;(define (g3 [lst : (List X)] → X) (hd lst)) ; cant type this fn (what to put for nil case)
 ;(check-type g3 : (→ {X} (List X) X))
@@ -49,17 +48,27 @@
 ;(check-type (g3 (cons 1 nil)) : Int ⇒ 1)
 ;(check-type (g3 (cons "1" nil)) : String ⇒ "1")
 
-; recursive fn
-;(define (recf [x : Int] → Int) (recf x))
-;(check-type recf : (→ Int Int))
-;
-;(define (countdown [x : Int] → Int)
-;  (if (zero? x)
-;      0
-;      (countdown (sub1 x))))
-;(check-type (countdown 0) : Int ⇒ 0)
-;(check-type (countdown 10) : Int ⇒ 0)
-;(typecheck-fail (countdown "10") #:with-msg "Arguments.+have wrong type")
+;; recursive fn
+(define (recf [x : Int] → Int) (recf x))
+(check-type recf : (→ Int Int))
+
+(define (countdown [x : Int] → Int)
+  (if (zero? x)
+      0
+      (countdown (sub1 x))))
+(check-type (countdown 0) : Int ⇒ 0)
+(check-type (countdown 10) : Int ⇒ 0)
+(typecheck-fail (countdown "10") #:with-msg (expected "Int" #:given "String"))
+
+;; list fns ----------
+
+
+; map: tests whether match and define properly propagate 'expected-type
+(define (map [f : (→ X Y)] [lst : (List X)] → (List Y))
+  (match lst with
+   [Nil -> Nil]
+   [Cons x xs -> (Cons (f x) (map f xs))]))
+
 
 ;; end infer.rkt tests --------------------------------------------------
 
@@ -271,7 +280,7 @@
 ;; tests from stlc+lit-tests.rkt --------------------------
 ; most should pass, some failing may now pass due to added types/forms
 (check-type 1 : Int)
-;(check-not-type 1 : (Int → Int))
+(check-not-type 1 : (→ Int Int))
 ;(typecheck-fail "one") ; literal now supported
 ;(typecheck-fail #f) ; literal now supported
 (check-type (λ ([x : Int] [y : Int]) x) : (→ Int Int Int))

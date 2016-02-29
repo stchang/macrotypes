@@ -124,6 +124,9 @@
 ;     #:when (printf "adding expected type ~a to expression ~a\n"
 ;                    (syntax->datum #'τ) (syntax->datum #'e))
      (syntax-property #'e 'expected-type #'τ)]))
+(define-for-syntax (add-expected-ty e ty)
+  (or (and (syntax-e ty) (syntax-property e 'expected-type ((current-type-eval) ty)))
+      e))
 
 ;; type assignment
 (begin-for-syntax

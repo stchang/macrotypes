@@ -113,11 +113,11 @@
      #`(begin
          (define-type-constructor Name
            #:arity = #,(stx-length #'(X ...))
-           #:other-prop variants #'(X ...) #'((Cons τ ...) ...))
+           #:other-prop variants #'(X ...) #'((Cons StructName [fld : τ] ...) ...))
          (struct StructName (fld ...) #:reflection-name 'Cons #:transparent) ...
          (define-syntax (Cons stx)
            (syntax-parse stx
-             ; no args and not poly morphic
+             ; no args and not polymorphic
              [C:id #:when (and (stx-null? #'(X ...)) (stx-null? #'(τ ...))) #'(C)]
              ; no args but polymorphic, check inferred type
              [C:id
@@ -191,18 +191,27 @@
   (syntax-parse stx #:datum-literals (with ->)
     [(_ e with . clauses)
      #:fail-when (null? (syntax->list #'clauses)) "no clauses"
-     #:with ([Clause:id x ... -> e_c] ...) (stx-sort #'clauses symbol<?)
+     #:with ([Clause:id x ... -> e_c_un] ...) (stx-sort #'clauses symbol<?) ; un = unannotated with expected ty
      #:with [e- τ_e] (infer+erase #'e)
-     #:with ((Cons τ ...) ...) (stx-sort (syntax-property #'τ_e 'variants) symbol<?)
+     #:with ((Cons Cons2 [fld (~datum :) τ] ...) ...) (stx-sort (syntax-property #'τ_e 'variants) symbol<?)
      #:fail-unless (= (stx-length #'(Clause ...)) (stx-length #'(Cons ...))) "wrong number of case clauses"
      #:fail-unless (typechecks? #'(Clause ...) #'(Cons ...)) "case clauses not exhaustive"
+     #:with ((acc ...) ...) (stx-map 
+                             (lambda (C fs) 
+                               (stx-map (lambda (f) (format-id C "~a-~a" C f)) fs)) 
+                             #'(Cons2 ...) 
+                             #'((fld ...) ...))
+     #:with (Cons? ...) (stx-map (lambda (C) (format-id C "~a?" C)) #'(Cons2 ...))
+     #:with t_expect (syntax-property stx 'expected-type) ; propagate inferred type
+     #:with (e_c ...) (stx-map (lambda (ec) (add-expected-ty ec #'t_expect)) #'(e_c_un ...))
      #:with (((x- ...) e_c- τ_ec) ...)
             (stx-map (λ (bs e) (infer/ctx+erase bs e)) #'(([x : τ] ...) ...) #'(e_c ...))
      #:fail-unless (same-types? #'(τ_ec ...)) "branches have different types"
-     #:with C (syntax-property #'τ_e 'constructor)
-     #:with (_ (x_out ...) e_out τ_out) (stx-assoc #'C #'((Clause (x- ...) e_c- τ_ec) ...))
-     #:with (acc ...) (syntax-property #'τ_e 'accessors)
-     (⊢ (let ([x_out (acc e-)] ...) e_out) : τ_out)]))
+     ;; #:with C (syntax-property #'τ_e 'constructor) ; check if variant is known statically
+     ;; #:with (acc ...) (syntax-property #'τ_e 'accessors)
+     ;; #:with (_ (x_out ...) e_out τ_out) (stx-assoc #'C #'((Clause (x- ...) e_c- τ_ec) ...))
+     #:with τ_out (stx-car #'(τ_ec ...))
+     (⊢ (cond [(Cons? e-) (let ([x- (acc e-)] ...) e_c-)] ...) : τ_out)]))
 
 #;(define-syntax lifted→ ; wrap → with ∀
   (syntax-parser
