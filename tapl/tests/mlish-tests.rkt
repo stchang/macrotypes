@@ -92,12 +92,25 @@
    [Cons x xs -> (if (p? x) 
                      (Cons x (filter p? xs)) 
                      (filter p? xs))]))
+(define (filter/guard [p? : (→ X Bool)] [lst : (List X)] → (List X))
+  (match lst with
+   [Nil -> Nil]
+   [Cons x xs #:when (p? x) -> (Cons x (filter p? xs))]
+   [Cons x xs -> (filter p? xs)]))
 (check-type (filter zero? Nil) : (List Int) ⇒ (Nil {Int}))
 (check-type (filter zero? (Cons 1 (Cons 2 (Cons 3 Nil)))) 
   : (List Int) ⇒ (Nil {Int}))
 (check-type (filter zero? (Cons 0 (Cons 1 (Cons 2 Nil)))) 
   : (List Int) ⇒ (Cons 0 Nil))
 (check-type (filter (λ ([x : Int]) (not (zero? x))) (Cons 0 (Cons 1 (Cons 2 Nil)))) 
+  : (List Int) ⇒ (Cons 1 (Cons 2 Nil)))
+(check-type (filter/guard zero? Nil) : (List Int) ⇒ (Nil {Int}))
+(check-type (filter/guard zero? (Cons 1 (Cons 2 (Cons 3 Nil)))) 
+  : (List Int) ⇒ (Nil {Int}))
+(check-type (filter/guard zero? (Cons 0 (Cons 1 (Cons 2 Nil)))) 
+  : (List Int) ⇒ (Cons 0 Nil))
+(check-type 
+  (filter/guard (λ ([x : Int]) (not (zero? x))) (Cons 0 (Cons 1 (Cons 2 Nil)))) 
   : (List Int) ⇒ (Cons 1 (Cons 2 Nil)))
 ; doesnt work yet: all lambdas need annotations
 ;(check-type (filter (λ (x) (not (zero? x))) (list 0 1 2)) : (List Int) ⇒ (list 1 2))

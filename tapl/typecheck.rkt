@@ -2,7 +2,7 @@
 (require
   (for-syntax (except-in racket extends)
               syntax/parse racket/syntax syntax/stx racket/stxparam
-              syntax/parse/debug
+              syntax/parse/debug syntax/id-set
               "stx-utils.rkt")
   (for-meta 2 racket/base syntax/parse racket/syntax syntax/stx "stx-utils.rkt")
   (for-meta 3 racket/base syntax/parse racket/syntax)
@@ -12,7 +12,7 @@
  (except-out (all-from-out racket/base) #%module-begin)
  (for-syntax (all-defined-out)) (all-defined-out)
  (for-syntax
-  (all-from-out racket syntax/parse racket/syntax syntax/stx
+  (all-from-out racket syntax/parse racket/syntax syntax/stx syntax/id-set
                 "stx-utils.rkt"))
  (for-meta 2 (all-from-out racket/base syntax/parse racket/syntax)))
 
@@ -157,6 +157,11 @@
   (define (typeof stx #:tag [tag 'type])
     (define ty (syntax-property stx tag))
     (if (cons? ty) (car ty) ty))
+  
+  ;; fns for working with id sets
+  (define (id-set=? ids1 ids2)
+    (free-id-set=? (immutable-free-id-set (syntax->list ids1))
+                   (immutable-free-id-set (syntax->list ids2))))
 
   (define type-pat "[A-Za-z]+")
   

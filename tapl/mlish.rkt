@@ -1,7 +1,7 @@
 #lang s-exp "typecheck.rkt"
 (require (for-syntax syntax/id-set))
 
-(extends "ext-stlc.rkt" #:except #%app λ → + - void = zero? sub1 add1 not let and
+(extends "ext-stlc.rkt" #:except #%app λ → + - void = zero? sub1 add1 not let and #%datum
           #:rename [~→ ~ext-stlc:→])
 (reuse inst ~∀ ∀ ∀? Λ #:from "sysf.rkt")
 (require (only-in "stlc+rec-iso.rkt" case fld unfld μ × ∨ var tup define-type-alias)
@@ -12,7 +12,7 @@
 ;(provide hd tl nil?)
 (provide  →)
 (provide define-type match)
-(provide (rename-out [ext-stlc:let let] [ext-stlc:and and]))
+(provide (rename-out [ext-stlc:let let] [ext-stlc:and and] [ext-stlc:#%datum #%datum]))
 
 ;; ML-like language
 ;; - top level recursive functions
@@ -231,15 +231,22 @@
   (syntax-parse stx #:datum-literals (with ->)
     [(_ e with . clauses)
      #:fail-when (null? (syntax->list #'clauses)) "no clauses"
-     #:with ([Clause:id x ... 
-             (~optional (~seq #:when e_guard) #:defaults ([e_guard #'#t]))
-             -> e_c_un] ...) ; un = unannotated with expected ty
-            (stx-sort #'clauses symbol<?)
      #:with [e- τ_e] (infer+erase #'e)
-     #:with z (generate-temporary)
-     #:with ((Cons Cons2 [fld (~datum :) τ] ...) ...) (stx-sort (syntax-property #'τ_e 'variants) symbol<?)
-     #:fail-unless (= (stx-length #'(Clause ...)) (stx-length #'(Cons ...))) "wrong number of case clauses"
-     #:fail-unless (typechecks? #'(Clause ...) #'(Cons ...)) "case clauses not exhaustive"
+     #:with ([Clause:id x:id ... 
+             (~optional (~seq #:when e_guard) #:defaults ([e_guard #'(ext-stlc:#%datum . #t)]))
+             -> e_c_un] ...) ; un = unannotated with expected ty
+            #'clauses ; clauses must stay in same order
+     ;; len #'clauses maybe > len #'info, due to guards
+     #:with info (syntax-property #'τ_e 'variants)
+     #:with (~and cons-info ((Cons Cons2 [fld (~datum :) τ] ...) ...))
+            (stx-map (lambda (C) (stx-assoc C #'info)) #'(Clause ...))
+;     #:fail-unless (stx-length=? #'(Clause ...) #'(Cons ...)) "wrong number of case clauses"
+     ;; #:fail-unless #;(free-id-set=? (immutable-free-id-set (syntax->list #'(Clause ...)))
+     ;;                              (immutable-free-id-set (syntax->list #'(Cons ...))))
+     ;;               ;; (id-set-size=? #'(Clause ...) #'(Cons ...))
+     ;;               "wrong number of case clauses"
+;     #:fail-unless (typechecks? #'(Clause ...) #'(Cons ...)) "case clauses not exhaustive"
+     #:fail-unless (id-set=? #'(Clause ...) #'(Cons ...)) "case clauses not exhaustive"
      #:with ((acc ...) ...) (stx-map 
                              (lambda (C fs) 
                                (stx-map (lambda (f) (format-id C "~a-~a" C f)) fs)) 
@@ -248,17 +255,23 @@
      #:with (Cons? ...) (stx-map (lambda (C) (format-id C "~a?" C)) #'(Cons2 ...))
      #:with t_expect (syntax-property stx 'expected-type) ; propagate inferred type
      #:with (e_c ...) (stx-map (lambda (ec) (add-expected-ty ec #'t_expect)) #'(e_c_un ...))
-     #:with (((x- ...) e_c- τ_ec) ...)
-            (stx-map (λ (bs e) (infer/ctx+erase bs e)) #'(([x : τ] ...) ...) #'(e_c ...))
+     #:with (((x- ...) (e_guard- e_c-) (τ_guard τ_ec)) ...)
+            (stx-map 
+              (λ (bs eg+ec) (infers/ctx+erase bs eg+ec)) 
+              #'(([x : τ] ...) ...) #'((e_guard e_c) ...))
+     #:fail-unless (and (same-types? #'(τ_guard ...))
+                        (Bool? (stx-car #'(τ_guard ...))))
+                   "guard expression(s) must have type bool"
      #:fail-unless (same-types? #'(τ_ec ...)) "branches have different types"
      ;; #:with C (syntax-property #'τ_e 'constructor) ; check if variant is known statically
      ;; #:with (acc ...) (syntax-property #'τ_e 'accessors)
      ;; #:with (_ (x_out ...) e_out τ_out) (stx-assoc #'C #'((Clause (x- ...) e_c- τ_ec) ...))
      #:with τ_out (stx-car #'(τ_ec ...))
+     #:with z (generate-temporary) ; dont duplicate eval of test expr
      (⊢ (let ([z e-])
           (cond 
            [(and (Cons? z) 
-                 (let ([x- (acc z)] ...) e_guard))
+                 (let ([x- (acc z)] ...) e_guard-))
             (let ([x- (acc z)] ...) e_c-)] ...))
           : τ_out)]))
 
@@ -319,8 +332,8 @@
                  (format "Expected expression ~a to have → type, got: ~a"
                          (syntax->datum #'e_fn) (type->str #'τ_fn))
    #:with (~∀ Xs (~ext-stlc:→ τ_inX ... τ_outX)) #'τ_fn
-   #:with (τ_solved ...) (solve #'Xs #'(τ_inX ...) (syntax/loc stx (e_fn e_arg ...)))
    ;; ) instantiate polymorphic fn type
+   #:with (τ_solved ...) (solve #'Xs #'(τ_inX ...) (syntax/loc stx (e_fn e_arg ...)))
    ;; #:with cs (compute-constraints #'((τ_inX τ_arg) ...))
    ;; #:with (τ_solved ...) (filter (λ (x) x) (stx-map (λ (y) (lookup y #'cs)) #'(X ...)))
    ;; #:fail-unless (stx-length=? #'(X ...) #'(τ_solved ...))
@@ -329,36 +342,14 @@
    #:with (τ_in ... τ_out) (stx-map 
                              (λ (t) (substs #'(τ_solved ...) #'Xs t)) 
                              #'(τ_inX ... τ_outX))
+   ;; ) arity check
    #:fail-unless (stx-length=? #'(τ_inX ...) #'(e_arg ...))
                  (mk-app-err-msg stx #:expected #'(τ_inX ...) 
 ;                                     #:given #'(τ_arg ...)
                   #:note "Wrong number of arguments.")
    ;; ) compute argument types; (possibly) double-expand args (for now)
    #:with ([e_arg- τ_arg] ...) (infers+erase (stx-map add-expected-ty #'(e_arg ...) #'(τ_in ...)))
-   ;; ) arity check
-   #:fail-unless (stx-length=? #'(τ_inX ...) #'(e_arg ...))
-                 (mk-app-err-msg stx #:expected #'(τ_inX ...) 
-                                     #:given #'(τ_arg ...)
-                  #:note "Wrong number of arguments.")
    ;; ) typecheck args
    #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
                  (mk-app-err-msg stx #:given #'(τ_arg ...) #:expected #'(τ_in ...))
    (⊢ (#%app e_fn- e_arg- ...) : τ_out)])
-
-   
-   ;; ;; infer instantiation types from args left-to-right,
-   ;;            ;; short-circuit if done early, and use result to help infer remaining args
-   ;;            #:with (~Tmp Ys . τs+) ((current-type-eval) #'(Tmp (X ...) τ ...))
-   ;;            (let loop ([a (stx-car #'args)] [a-rst (stx-cdr #'args)]
-   ;;                       [τ+ (stx-car #'τs+)] [τ+rst (stx-cdr #'τs+)]
-   ;;                       [old-cs #'()])
-   ;;              (define/with-syntax [a- τ_a] (infer+erase a))
-   ;;              (define cs (stx-append old-cs (compute-constraints (list (list τ+ #'τ_a)))))
-   ;;              (define maybe-solved (filter syntax-e (stx-map (λ (y) (lookup y cs)) #'Ys)))
-   ;;              (if (stx-length=? maybe-solved #'Ys)
-   ;;                  #`(C #,(syntax-property #`{#,@maybe-solved} 'paren-shape #\{) . args) ; loses 'paren-shape
-   ;;                  (if (or (stx-null? a-rst) (stx-null? τ+rst))
-   ;;                      (type-error #:src stx
-   ;;                                  #:msg "could not infer types for constructor ~a; add annotations" #'(C . args))
-   ;;                      (loop (stx-car a-rst) (stx-cdr a-rst) (stx-car τ+rst) (stx-cdr τ+rst) cs))))]))
-
