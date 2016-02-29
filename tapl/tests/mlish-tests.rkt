@@ -28,7 +28,7 @@
 (typecheck-fail (g2 1) 
   #:with-msg 
   (expected "(List X)" #:given "Int"
-   #:note  "Could not infer instantiation of polymorphic function"))
+   #:note "Could not infer instantiation of polymorphic function"))
 
 ;; todo? allow polymorphic nil?
 (check-type (g2 (Nil {Int})) : (List Int) ⇒ (Nil {Int}))
@@ -68,7 +68,39 @@
   (match lst with
    [Nil -> Nil]
    [Cons x xs -> (Cons (f x) (map f xs))]))
+(check-type map : (→ (→ X Y) (List X) (List Y)))
+(check-type map : (→ (→ Y X) (List Y) (List X)))
+(check-type map : (→ (→ A B) (List A) (List B)))
+(check-not-type map : (→ (→ A B) (List B) (List A)))
+(check-not-type map : (→ (→ X X) (List X) (List X))) ; only 1 bound tyvar
 
+; nil without annotation tests fn-first, left-to-right arg inference
+; does work yet, need to add left-to-right inference in #%app
+(check-type (map add1 Nil) : (List Int) ⇒ (Nil {Int}))
+(check-type (map add1 (Cons 1 (Cons 2 (Cons 3 Nil)))) 
+  : (List Int) ⇒ (Cons 2 (Cons 3 (Cons 4 Nil))))
+(typecheck-fail (map add1 (Cons "1" Nil)))
+  ;#:with-msg (expected "Int" #:given "String")) ; TODO: fix err msg
+(check-type (map (λ ([x : Int]) (+ x 2)) (Cons 1 (Cons 2 (Cons 3 Nil)))) 
+  : (List Int) ⇒ (Cons 3 (Cons 4 (Cons 5 Nil))))
+;; ; doesnt work yet: all lambdas need annotations
+;; (check-type (map (λ (x) (+ x 2)) (list 1 2 3)) : (List Int) ⇒ (list 3 4 5))
+
+(define (filter [p? : (→ X Bool)] [lst : (List X)] → (List X))
+  (match lst with
+   [Nil -> Nil]
+   [Cons x xs -> (if (p? x) 
+                     (Cons x (filter p? xs)) 
+                     (filter p? xs))]))
+(check-type (filter zero? Nil) : (List Int) ⇒ (Nil {Int}))
+(check-type (filter zero? (Cons 1 (Cons 2 (Cons 3 Nil)))) 
+  : (List Int) ⇒ (Nil {Int}))
+(check-type (filter zero? (Cons 0 (Cons 1 (Cons 2 Nil)))) 
+  : (List Int) ⇒ (Cons 0 Nil))
+(check-type (filter (λ ([x : Int]) (not (zero? x))) (Cons 0 (Cons 1 (Cons 2 Nil)))) 
+  : (List Int) ⇒ (Cons 1 (Cons 2 Nil)))
+; doesnt work yet: all lambdas need annotations
+;(check-type (filter (λ (x) (not (zero? x))) (list 0 1 2)) : (List Int) ⇒ (list 1 2))
 
 ;; end infer.rkt tests --------------------------------------------------
 
@@ -311,7 +343,7 @@
   #:with-msg (expected "Int, Int" #:given "(→ Int Int), (→ Int Int)"))
 (typecheck-fail
  ((λ ([x : Int] [y : Int]) y) 1)
- #:with-msg (expected "Int, Int" #:given "Int" 
+ #:with-msg (expected "Int, Int" #:given "1"
                       #:note "Wrong number of arguments"))
 
 (check-type ((λ ([x : Int]) (+ x x)) 10) : Int ⇒ 20)

@@ -78,7 +78,14 @@
                                        #:note [note ""]
                                        #:name [name #f])
   (syntax-parse stx
-    [(_ e_fn e_arg ...)
+    [(app . rst)
+     #:when (not (equal? '#%app (syntax->datum #'app)))
+     (mk-app-err-msg #'(#%app app . rst) 
+       #:expected expected-τs
+       #:given given-τs
+       #:note note
+       #:name name)]
+    [(app e_fn e_arg ...)
      (define fn-name
        (if name name
            (format "function ~a"
@@ -93,7 +100,9 @@
       (string-join
        (map (λ (e t) (format "    ~a : ~a" e t)) ; indent each line
             (syntax->datum #'(e_arg ...))
-            (stx-map type->str given-τs))
+            (if (stx-length=? #'(e_arg ...) given-τs)
+                (stx-map type->str given-τs)
+                (stx-map (lambda (e) "?") #'(e_arg ...))))
        "\n")
       "\n")]))
 
