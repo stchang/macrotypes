@@ -2,7 +2,7 @@
 (require
   (for-syntax (except-in racket extends)
               syntax/parse racket/syntax syntax/stx racket/stxparam
-              syntax/parse/debug syntax/id-set
+              syntax/parse/debug
               "stx-utils.rkt")
   (for-meta 2 racket/base syntax/parse racket/syntax syntax/stx "stx-utils.rkt")
   (for-meta 3 racket/base syntax/parse racket/syntax)
@@ -12,7 +12,7 @@
  (except-out (all-from-out racket/base) #%module-begin)
  (for-syntax (all-defined-out)) (all-defined-out)
  (for-syntax
-  (all-from-out racket syntax/parse racket/syntax syntax/stx syntax/id-set
+  (all-from-out racket syntax/parse racket/syntax syntax/stx
                 "stx-utils.rkt"))
  (for-meta 2 (all-from-out racket/base syntax/parse racket/syntax)))
 
@@ -158,11 +158,6 @@
     (define ty (syntax-property stx tag))
     (if (cons? ty) (car ty) ty))
   
-  ;; fns for working with id sets
-  (define (id-set=? ids1 ids2)
-    (free-id-set=? (immutable-free-id-set (syntax->list ids1))
-                   (immutable-free-id-set (syntax->list ids2))))
-
   (define type-pat "[A-Za-z]+")
   
   ;; - infers type of e
@@ -562,13 +557,9 @@
                       (if (stx-null? #'extra-bvs)
                           #'extra-info
                           (substs #'τs- #'extra-bvs #'extra-info))
-               ;; #:with extra-info-inst (substs #'args #,#'extra-bvs #,#'extra-info)
-               #:with result
-                (assign-type (syntax/loc stx (τ-internal (λ bvs- (#%expression extra-info-inst) . τs-))) #'k_result)
-                #'result]
-                ;; #,(if (syntax-e #'other-key)
-                ;;     #`(syntax-property #'result 'other-key (substs #'args #,#'other-bvs #,#'other-val))
-                ;;     #'#'result)]
+                (assign-type 
+                  (syntax/loc stx (τ-internal (λ bvs- (#%expression extra-info-inst) . τs-))) 
+                  #'k_result)]
              ;; else fail with err msg
              [_
               (type-error #:src stx

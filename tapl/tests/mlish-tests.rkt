@@ -25,6 +25,16 @@
   Nil
   (Cons X (List X)))
 
+(typecheck-fail 
+  (match (Cons 1 Nil) with
+   [Nil -> 1])
+  #:with-msg "match: clauses not exhaustive; missing: Cons")
+(typecheck-fail 
+  (match (Cons 1 Nil) with
+   [Cons x xs -> 1])
+  #:with-msg "match: clauses not exhaustive; missing: Nil")
+  
+
 (define (g2 [lst : (List Y)] → (List Y)) lst)
 (check-type g2 : (→ (List Y) (List Y)))
 (typecheck-fail (g2 1) 

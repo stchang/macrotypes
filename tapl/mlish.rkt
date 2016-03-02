@@ -163,26 +163,7 @@
      #`(begin
          (define-type-constructor Name
            #:arity = #,(stx-length #'(X ...))
-;           #:other-prop variants #'(X ...) #'((Cons StructName [fld : τ] ...) ...))
            #:extra-info (X ...) (λ (RecName) ('Cons Cons? [acc τ/rec] ...) ...))
-         ;; cant use define-type-constructor because I want expansion to contain all
-         ;; variant info (including possibly recursive references)
-         ;; (define-syntax (Name stx)
-         ;;   (syntax-parse stx
-         ;;     [(_ Y ...)
-         ;;      #'(InternalName Y ... (λ (RecName) ('Cons StructName [fld τ/rec] ...) ...))]))
-         ;; (begin-for-syntax
-         ;;   (define-syntax NameExpander
-         ;;     (pattern-expander
-         ;;       (syntax-parser
-         ;;        [(_ . pat)
-         ;;         #:with expanded-ty (generate-temporary)
-         ;;         #'(~and expanded-ty
-         ;;             (~parse 
-         ;;               ((literal #%plain-app) (~literal InternalName)
-         ;;                arg ...  ((~literal #%plain-lambda) _ variant-info))
-         ;;               #'expanded-ty)
-         ;;             (~parse pat #'(arg ...)))]))))
          (struct StructName (fld ...) #:reflection-name 'Cons #:transparent) ...
          (define-syntax (Cons stx)
            (syntax-parse stx
@@ -256,6 +237,7 @@
               #'(C {τ_solved (... ...)} . args)]))
          ...)]))
 
+(require racket/unsafe/ops)
 ;; match --------------------------------------------------
 (define-syntax (match stx)
   (syntax-parse stx #:datum-literals (with ->)
@@ -267,11 +249,21 @@
              -> e_c_un] ...) ; un = unannotated with expected ty
             #'clauses ; clauses must stay in same order
      ;; len #'clauses maybe > len #'info, due to guards
-;     #:with info (syntax-property #'τ_e 'variants)
      #:with ((~literal #%plain-lambda) (RecName) . info-body)
             (get-extra-info #'τ_e)
      #:with info-unfolded (subst #'τ_e #'RecName #'info-body)
-     #:with ((_ _ Cons? [_ acc τ] ...) ...)
+     #:with ((_ ((~literal quote) ConsAll) . _) ...) #'info-body
+     #:fail-unless (set=? (syntax->datum #'(Clause ...))
+                          (syntax->datum #'(ConsAll ...)))
+                   (string-append
+                     "clauses not exhaustive; missing: "
+                     (string-join      
+                         (map symbol->string
+                              (set-subtract 
+                                  (syntax->datum #'(ConsAll ...))
+                                (syntax->datum #'(Clause ...))))
+                       ", "))
+     #:with ((_ ((~literal quote) Cons) Cons? [_ acc τ] ...) ...)
             (map ; ok to compare symbols since clause names can't be rebound
              (lambda (Cl) 
                (stx-findf
@@ -280,13 +272,11 @@
                   (equal? Cl (syntax->datum #'C))])
                 #'info-unfolded))
              (syntax->datum #'(Clause ...)))
-;;     #:fail-unless (id-set=? #'(Clause ...) #'(Cons ...)) "case clauses not exhaustive"
      ;; #:with ((acc ...) ...) (stx-map 
-     ;;                         (lambda (C fs) 
-     ;;                           (stx-map (lambda (f) (format-id C "~a-~a" C f)) fs)) 
-     ;;                         #'(Cons2 ...) 
-     ;;                         #'((fld ...) ...))
-;;     #:with (Cons? ...) (stx-map (lambda (C) (format-id C "~a?" C)) #'(Cons2 ...))
+     ;;                         (lambda (accs)
+     ;;                          (for/list ([(a i) (in-indexed (syntax->list accs))])
+     ;;                            #`(lambda (s) (unsafe-struct*-ref s #,(datum->syntax #'here i)))))
+     ;;                         #'((acc-fn ...) ...))
      #:with t_expect (syntax-property stx 'expected-type) ; propagate inferred type
      #:with (e_c ...) (stx-map (lambda (ec) (add-expected-ty ec #'t_expect)) #'(e_c_un ...))
      #:with (((x- ...) (e_guard- e_c-) (τ_guard τ_ec)) ...)
@@ -308,9 +298,6 @@
             (let ([x- (acc z)] ...) e_c-)] ...))
           : τ_out)]))
 
-#;(define-syntax lifted→ ; wrap → with ∀
-  (syntax-parser
-    [(_ . rst) #'(∀ () (ext-stlc:→ . rst))]))
 (define-syntax → ; wrapping →
   (syntax-parser
     #;[(_ (~and Xs {X:id ...}) . rst)
