@@ -1,7 +1,13 @@
 #lang racket/base
 (require syntax/stx racket/list)
-(provide (all-defined-out))
+(require (prefix-in r: (only-in racket/base syntax->list)))
+(provide (except-out (all-defined-out) syntax->list))
 
+(define (syntax->list stx)
+  (if (syntax? stx)
+      (r:syntax->list stx)
+      stx))
+      
 (define (stx-cadr stx) (stx-car (stx-cdr stx)))
 (define (stx-caddr stx) (stx-cadr (stx-cdr stx)))
 
@@ -24,8 +30,10 @@
   (member (datum->syntax v) (map datum->syntax (syntax->list stx)) string=?))
 (define (str-stx-assoc v stx)
   (assoc v (map syntax->list (syntax->list stx)) stx-str=?))
-(define (stx-assoc v stx) ; v = id
-  (assoc v (map syntax->list (syntax->list stx)) free-identifier=?))
+(define (stx-assoc v stx [cmp free-identifier=?]) ; v = id
+  (assoc v (map syntax->list (syntax->list stx)) cmp))
+(define (stx-findf f stx)
+  (findf f (syntax->list stx)))
 
 (define (stx-length stx) (length (if (syntax? stx) (syntax->list stx) stx)))
 (define (stx-length=? stx1 stx2)

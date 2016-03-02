@@ -1,3 +1,19 @@
+2016-02-29
+Problem: storing variant info as properties
+- when instantiating polymorphic type, need to instantiate properties as well
+Alternate Solution: store variant syntactically in (expanded) type
+- benefit is instantiation "just works"
+- drawbacks:
+ - recursive types will expand infinitely
+ - quoting the variant stops infinite expansion but breaks the subst
+  - ie ids in the quote no longer correspond to the bound id
+ - can manually stop expansion but then types will no longer always be
+   fully expanded forms
+  - tried this a few times previously - can get VERY messy - avoid if possible
+- to make this alternate work, can manually fold/unfold recursive types
+ - cant use \mu from stlc+rec-iso bc each type is more than the mu
+   so folding/unfolding is a little different
+
 2016-02-19
 Implementing algebraic data types
 - macro cannot define type-alias and constructor functions that produce

@@ -81,7 +81,13 @@
                          #:note (format "Could not infer instantiation of polymorphic function ~a."
                                         (syntax->datum (stx-car stx)))))
                 (loop (stx-car args-rst) (stx-cdr args-rst) 
-                      (stx-car tys-rst) (stx-cdr tys-rst) cs))))])))
+                      (stx-car tys-rst) (stx-cdr tys-rst) cs))))]))
+  ;; instantiate polymorphic types
+  (define (inst-type ty-solved Xs ty)
+    (substs ty-solved Xs ty))
+  (define (inst-types ty-solved Xs tys)
+    (stx-map (lambda (t) (inst-type ty-solved Xs t)) tys))
+  )
 
 ;; define --------------------------------------------------
 (define-typed-syntax define
@@ -114,6 +120,7 @@
    #:with g (add-orig (generate-temporary #'f) #'f)
    #:with e_ann #'(add-expected e τ_out)
    #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
+   #:with (~∀ Xs (~ext-stlc:→ in ...)) ((current-type-eval) #'(∀ Ys (ext-stlc:→ τ+orig ...)))
    #`(begin
       (define-syntax f
         (make-rename-transformer
@@ -140,6 +147,7 @@
         ;; the ~and is required to bind the duplicate Cons ids (see Ryan's email)
         (~and (~or (~and IdCons:id (~parse (Cons τ ...) #'(IdCons)))
                    (Cons τ ...))) ...)
+     #:with RecName (generate-temporary #'Name)
      #:with NameExpander (format-id #'Name "~~~a" #'Name)
      #:with (StructName ...) (generate-temporaries #'(Cons ...))
      #:with ((e_arg ...) ...) (stx-map generate-temporaries #'((τ ...) ...))
@@ -148,10 +156,33 @@
      #:with ((fld ...) ...) (stx-map generate-temporaries #'((τ ...) ...))
      #:with ((acc ...) ...) (stx-map (λ (S fs) (stx-map (λ (f) (format-id S "~a-~a" S f)) fs))
                                      #'(StructName ...) #'((fld ...) ...))
+     #:with (Cons? ...) (stx-map mk-? #'(StructName ...))
+     #:with get-Name-info (format-id #'Name "get-~a-info" #'Name)
+     ;; types, but using RecName instead of Name
+     #:with ((τ/rec ...) ...) (subst-expr #'RecName #'(Name X ...) #'((τ ...) ...))
      #`(begin
          (define-type-constructor Name
            #:arity = #,(stx-length #'(X ...))
-           #:other-prop variants #'(X ...) #'((Cons StructName [fld : τ] ...) ...))
+;           #:other-prop variants #'(X ...) #'((Cons StructName [fld : τ] ...) ...))
+           #:extra-info (X ...) (λ (RecName) ('Cons Cons? [acc τ/rec] ...) ...))
+         ;; cant use define-type-constructor because I want expansion to contain all
+         ;; variant info (including possibly recursive references)
+         ;; (define-syntax (Name stx)
+         ;;   (syntax-parse stx
+         ;;     [(_ Y ...)
+         ;;      #'(InternalName Y ... (λ (RecName) ('Cons StructName [fld τ/rec] ...) ...))]))
+         ;; (begin-for-syntax
+         ;;   (define-syntax NameExpander
+         ;;     (pattern-expander
+         ;;       (syntax-parser
+         ;;        [(_ . pat)
+         ;;         #:with expanded-ty (generate-temporary)
+         ;;         #'(~and expanded-ty
+         ;;             (~parse 
+         ;;               ((literal #%plain-app) (~literal InternalName)
+         ;;                arg ...  ((~literal #%plain-lambda) _ variant-info))
+         ;;               #'expanded-ty)
+         ;;             (~parse pat #'(arg ...)))]))))
          (struct StructName (fld ...) #:reflection-name 'Cons #:transparent) ...
          (define-syntax (Cons stx)
            (syntax-parse stx
@@ -199,8 +230,13 @@
              [(C . args) ; no type annotations, must infer instantiation
               ;; infer instantiation types from args left-to-right,
               ;; short-circuit if done early, and use result to help infer remaining args
-              #:with (~Tmp Ys . τs+) ((current-type-eval) #'(Tmp (X ...) τ ...))
-              #:with (τ_solved (... ...)) (solve #'Ys #'τs+ stx)
+              #:with (~Tmp Ys . τs+) ((current-type-eval) #'(Tmp (X ...) (Name X ...) τ ...))
+              #:with ty-expected (get-expected-type stx) ; first attempt to instantiate using expected-ty
+              #:with dummy-e (if (syntax-e #'ty-expected) ; to use solve, need to attach expected-ty to expr
+                                 (assign-type #'"dummy" #'ty-expected)
+                                 (assign-type #'"dummy" #'Int)) ; Int is another dummy
+              #:with (new-app (... ...)) #'(C dummy-e . args)
+              #:with (τ_solved (... ...)) (solve #'Ys #'τs+ #'(new-app (... ...)))
 ;;               (let loop ([a (stx-car #'args)] [a-rst (stx-cdr #'args)]
 ;;                          [τ+ (stx-car #'τs+)] [τ+rst (stx-cdr #'τs+)]
 ;;                          [old-cs #'()])
@@ -231,16 +267,26 @@
              -> e_c_un] ...) ; un = unannotated with expected ty
             #'clauses ; clauses must stay in same order
      ;; len #'clauses maybe > len #'info, due to guards
-     #:with info (syntax-property #'τ_e 'variants)
-     #:with (~and cons-info ((Cons Cons2 [fld (~datum :) τ] ...) ...))
-            (stx-map (lambda (C) (stx-assoc C #'info)) #'(Clause ...))
-     #:fail-unless (id-set=? #'(Clause ...) #'(Cons ...)) "case clauses not exhaustive"
-     #:with ((acc ...) ...) (stx-map 
-                             (lambda (C fs) 
-                               (stx-map (lambda (f) (format-id C "~a-~a" C f)) fs)) 
-                             #'(Cons2 ...) 
-                             #'((fld ...) ...))
-     #:with (Cons? ...) (stx-map (lambda (C) (format-id C "~a?" C)) #'(Cons2 ...))
+;     #:with info (syntax-property #'τ_e 'variants)
+     #:with ((~literal #%plain-lambda) (RecName) . info-body)
+            (get-extra-info #'τ_e)
+     #:with info-unfolded (subst #'τ_e #'RecName #'info-body)
+     #:with ((_ _ Cons? [_ acc τ] ...) ...)
+            (map ; ok to compare symbols since clause names can't be rebound
+             (lambda (Cl) 
+               (stx-findf
+                (syntax-parser
+                 [((~literal #%plain-app) 'C . rst)
+                  (equal? Cl (syntax->datum #'C))])
+                #'info-unfolded))
+             (syntax->datum #'(Clause ...)))
+;;     #:fail-unless (id-set=? #'(Clause ...) #'(Cons ...)) "case clauses not exhaustive"
+     ;; #:with ((acc ...) ...) (stx-map 
+     ;;                         (lambda (C fs) 
+     ;;                           (stx-map (lambda (f) (format-id C "~a-~a" C f)) fs)) 
+     ;;                         #'(Cons2 ...) 
+     ;;                         #'((fld ...) ...))
+;;     #:with (Cons? ...) (stx-map (lambda (C) (format-id C "~a?" C)) #'(Cons2 ...))
      #:with t_expect (syntax-property stx 'expected-type) ; propagate inferred type
      #:with (e_c ...) (stx-map (lambda (ec) (add-expected-ty ec #'t_expect)) #'(e_c_un ...))
      #:with (((x- ...) (e_guard- e_c-) (τ_guard τ_ec)) ...)
@@ -250,7 +296,9 @@
      #:fail-unless (and (same-types? #'(τ_guard ...))
                         (Bool? (stx-car #'(τ_guard ...))))
                    "guard expression(s) must have type bool"
-     #:fail-unless (same-types? #'(τ_ec ...)) "branches have different types"
+     #:fail-unless (same-types? #'(τ_ec ...)) 
+                   (string-append "branches have different types, given: "
+                    (string-join (stx-map type->str #'(τ_ec ...)) ", "))
      #:with τ_out (stx-car #'(τ_ec ...))
      #:with z (generate-temporary) ; dont duplicate eval of test expr
      (⊢ (let ([z e-])
@@ -293,7 +341,9 @@
 
 
 ; all λs have type (∀ (X ...) (→ τ_in ... τ_out)), even monomorphic fns
-(define-typed-syntax liftedλ #:export-as λ #:datum-literals (:)
+(define-typed-syntax liftedλ #:export-as λ
+  [(_ (x:id ...) . body)
+   (type-error #:src stx #:msg "λ parameters must have type annotations")]
   [(_ . rst)
    #'(Λ () (ext-stlc:λ . rst))])
 
@@ -324,7 +374,8 @@
    ;; #:fail-unless (stx-length=? #'(X ...) #'(τ_solved ...))
    ;;               (mk-app-err-msg stx #:expected #'(τ_inX ...) #:given #'(τ_arg ...)
    ;;                #:note "Could not infer instantiation of polymorphic function.")
-   #:with (τ_in ... τ_out) (stx-map 
+   #:with (τ_in ... τ_out) (inst-types #'(τ_solved ...) #'Xs #'(τ_inX ... τ_outX))
+                              #;(stx-map 
                              (λ (t) (substs #'(τ_solved ...) #'Xs t)) 
                              #'(τ_inX ... τ_outX))
    ;; ) arity check

@@ -2,6 +2,8 @@
 (require "rackunit-typechecking.rkt")
 
 ;; tests more or less copied from infer-tests.rkt ------------------------------
+(typecheck-fail (λ (x) x) #:with-msg "parameters must have type annotations")
+
 ;; top-level defines
 (define (f [x : Int] → Int) x)
 (typecheck-fail (f 1 2) #:with-msg "Wrong number of arguments")
@@ -12,22 +14,22 @@
 (define (g [x : X] → X) x)
 (check-type g : (→ X X))
 
-; (inferred) polymorpic instantiation
+;; (inferred) polymorpic instantiation
 (check-type (g 1) : Int ⇒ 1)
 (check-type (g #f) : Bool ⇒ #f) ; different instantiation
 (check-type (g add1) : (→ Int Int))
 (check-type (g +) : (→ Int Int Int))
 
-; function polymorphic in list element
+;; function polymorphic in list element
 (define-type (List X)
-  (Nil)
+  Nil
   (Cons X (List X)))
 
-(define (g2 [lst : (List X)] → (List X)) lst)
-(check-type g2 : (→ (List X) (List X)))
+(define (g2 [lst : (List Y)] → (List Y)) lst)
+(check-type g2 : (→ (List Y) (List Y)))
 (typecheck-fail (g2 1) 
   #:with-msg 
-  (expected "(List X)" #:given "Int"
+  (expected "(List Y)" #:given "Int"
    #:note "Could not infer instantiation of polymorphic function"))
 
 ;; todo? allow polymorphic nil?
@@ -38,15 +40,16 @@
 (check-type (g2 (Cons 1 Nil)) : (List Int) ⇒ (Cons 1 Nil))
 (check-type (g2 (Cons "1" Nil)) : (List String) ⇒ (Cons "1" Nil))
 
-;(define (g3 [lst : (List X)] → X) (hd lst)) ; cant type this fn (what to put for nil case)
-;(check-type g3 : (→ {X} (List X) X))
-;(check-type g3 : (→ {A} (List A) A))
-;(check-not-type g3 : (→ {A B} (List A) B))
-;(typecheck-fail (g3) #:with-msg "Expected.+arguments with type.+List") ; TODO: more precise err msg
-;(check-type (g3 (nil {Int})) : Int) ; runtime fail
-;(check-type (g3 (nil {Bool})) : Bool) ; runtime fail
-;(check-type (g3 (cons 1 nil)) : Int ⇒ 1)
-;(check-type (g3 (cons "1" nil)) : String ⇒ "1")
+;; ;; mlish cant type this fn (ie, incomplete cases on variant --- what to put for Nil case?)
+;; ;(define (g3 [lst : (List X)] → X) (hd lst)) 
+;; ;(check-type g3 : (→ {X} (List X) X))
+;; ;(check-type g3 : (→ {A} (List A) A))
+;; ;(check-not-type g3 : (→ {A B} (List A) B))
+;; ;(typecheck-fail (g3) #:with-msg "Expected.+arguments with type.+List") ; TODO: more precise err msg
+;; ;(check-type (g3 (nil {Int})) : Int) ; runtime fail
+;; ;(check-type (g3 (nil {Bool})) : Bool) ; runtime fail
+;; ;(check-type (g3 (cons 1 nil)) : Int ⇒ 1)
+;; ;(check-type (g3 (cons "1" nil)) : String ⇒ "1")
 
 ;; recursive fn
 (define (recf [x : Int] → Int) (recf x))
@@ -62,7 +65,6 @@
 
 ;; list fns ----------
 
-
 ; map: tests whether match and define properly propagate 'expected-type
 (define (map [f : (→ X Y)] [lst : (List X)] → (List Y))
   (match lst with
@@ -74,13 +76,13 @@
 (check-not-type map : (→ (→ A B) (List B) (List A)))
 (check-not-type map : (→ (→ X X) (List X) (List X))) ; only 1 bound tyvar
 
-; nil without annotation tests fn-first, left-to-right arg inference
+; nil without annotation; tests fn-first, left-to-right arg inference
 ; does work yet, need to add left-to-right inference in #%app
 (check-type (map add1 Nil) : (List Int) ⇒ (Nil {Int}))
 (check-type (map add1 (Cons 1 (Cons 2 (Cons 3 Nil)))) 
   : (List Int) ⇒ (Cons 2 (Cons 3 (Cons 4 Nil))))
-(typecheck-fail (map add1 (Cons "1" Nil)))
-  ;#:with-msg (expected "Int" #:given "String")) ; TODO: fix err msg
+(typecheck-fail (map add1 (Cons "1" Nil))
+  #:with-msg (expected "Int, (List Int)" #:given "String, (List Int)"))
 (check-type (map (λ ([x : Int]) (+ x 2)) (Cons 1 (Cons 2 (Cons 3 Nil)))) 
   : (List Int) ⇒ (Cons 3 (Cons 4 (Cons 5 Nil))))
 ;; ; doesnt work yet: all lambdas need annotations
@@ -114,6 +116,85 @@
   : (List Int) ⇒ (Cons 1 (Cons 2 Nil)))
 ; doesnt work yet: all lambdas need annotations
 ;(check-type (filter (λ (x) (not (zero? x))) (list 0 1 2)) : (List Int) ⇒ (list 1 2))
+
+(define (foldr [f : (→ X Y Y)] [base : Y] [lst : (List X)] → Y)
+  (match lst with
+   [Nil -> base]
+   [Cons x xs -> (f x (foldr f base xs))]))
+(define (foldl [f : (→ X Y Y)] [acc : Y] [lst : (List X)] → Y)
+  (match lst with
+   [Nil -> acc]
+   [Cons x xs -> (foldr f (f x acc) xs)]))
+
+(define (all? [p? : (→ X Bool)] [lst : (List X)] → Bool)
+  (match lst with
+   [Nil -> #t]
+   [Cons x xs #:when (p? x) -> (all? p? xs)]
+   [Cons x xs -> #f]))
+
+(define (tails [lst : (List X)] → (List (List X)))
+  (match lst with
+   [Nil -> (Cons Nil Nil)]
+   [Cons x xs -> (Cons lst (tails xs))]))
+
+(define (build-list [n : Int] [f : (→ Int X)] → (List X))
+  (if (zero? (sub1 n))
+      (Cons (f 0) Nil)
+      (Cons (f (sub1 n)) (build-list (sub1 n) f))))
+(check-type (build-list 1 add1) : (List Int) ⇒ (Cons 1 Nil))
+(check-type (build-list 3 add1) : (List Int) ⇒ (Cons 3 (Cons 2 (Cons 1 Nil))))
+(check-type (build-list 5 sub1) 
+  : (List Int) ⇒ (Cons 3 (Cons 2 (Cons 1 (Cons 0 (Cons -1 Nil))))))
+
+(define (append [lst1 : (List X)] [lst2 : (List X)] → (List X))
+  (match lst1 with
+   [Nil -> lst2]
+   [Cons x xs -> (Cons x (append xs lst2))]))
+
+;; n-queens --------------------
+(define-type Queen (Q Int Int))
+
+(define (safe? [q1 : Queen] [q2 : Queen] → Bool)
+  (match q1 with
+   [Q x1 y1 -> 
+    (match q2 with
+     [Q x2 y2 -> 
+      (not (or (= x1 x2) (= y1 y2) (= (abs (- x1 x2)) (abs (- y1 y2)))))])]))
+(define (safe/list? [qs : (List Queen)] → Bool)
+  (match qs with
+   [Nil -> #t]
+   [Cons q1 rst -> (all? (λ ([q2 : Queen]) (safe? q1 q2)) rst)]))
+(define (valid? [lst : (List Queen)] → Bool)
+  (all? safe/list? (tails lst)))
+
+(define (nqueens [n : Int] → (List Queen))
+  (let* ([process-row
+          (λ ([r : Int] [all-possible-so-far : (List (List Queen))])
+            (foldr
+             (λ ([qs : (List Queen)] [new-qss : (List (List Queen))])
+               (append
+                (map (λ ([c : Int]) (Cons (Q r c) qs)) (build-list n add1))
+                new-qss))
+             Nil
+             all-possible-so-far))]
+         [all-possible (foldl process-row (Cons Nil Nil) (build-list n add1))])
+    (let ([solns (filter valid? all-possible)])
+      (match solns with
+       [Nil -> Nil]
+       [Cons x xs -> x]))))
+
+(check-type nqueens : (→ Int (List Queen)))
+(check-type (nqueens 1) 
+  : (List Queen)  ⇒ (Cons (Q 1 1) Nil))
+(check-type (nqueens 2) : (List Queen) ⇒ (Nil {Queen}))
+(check-type (nqueens 3) : (List Queen) ⇒ (Nil {Queen}))
+(check-type (nqueens 4) 
+  : (List Queen) 
+  ⇒ (Cons (Q 3 1) (Cons (Q 2 4) (Cons (Q 1 2) (Cons (Q 4 3) Nil)))))
+(check-type (nqueens 5) 
+  : (List Queen) 
+  ⇒ (Cons (Q 4 2) (Cons (Q 3 4) (Cons (Q 2 1) (Cons (Q 1 3) (Cons (Q 5 5) Nil))))))
+
 
 ;; end infer.rkt tests --------------------------------------------------
 

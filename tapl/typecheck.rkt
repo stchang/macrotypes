@@ -412,7 +412,14 @@
   (define-for-syntax (mk-? id) (format-id id "~a?" id))
   (define (brace? stx)
     (define paren-shape/#f (syntax-property stx 'paren-shape))
-    (and paren-shape/#f (char=? paren-shape/#f #\{))))
+    (and paren-shape/#f (char=? paren-shape/#f #\{)))
+  (define (get-extra-info t)
+    (syntax-parse t
+      [((~literal #%plain-app) internal-id
+        ((~literal #%plain-lambda) bvs
+         ((~literal #%expression) extra-info-to-extract) . rst))
+       #'extra-info-to-extract]
+      [_ #'void])))
 
 (define-syntax define-basic-checked-id-stx
   (syntax-parser #:datum-literals (:)
@@ -467,6 +474,9 @@
          #:defaults ([tycon #'void]))
         (~optional (~seq #:other-prop other-key other-bvs other-val)
                    #:defaults ([other-key #'#f]))
+        (~optional (~seq #:extra-info extra-bvs extra-info)
+                   #:defaults ([extra-bvs #'()]
+                               [extra-info #'void]))
         )
      #:with #%kind (format-id #'kind "#%~a" #'kind)
      #:with τ-internal (generate-temporary #'τ)
@@ -485,7 +495,8 @@
                  #'(~and expanded-τ
                          (~parse
                           ((~literal #%plain-app) (~literal τ-internal)
-                           ((~literal #%plain-lambda) (~and bvs (tv (... (... ...)))) (~literal void) . rst))
+                           ((~literal #%plain-lambda) (~and bvs (tv (... (... ...)))) 
+                            skipped-extra-info . rst))
                           #'expanded-τ)
                          #,(if (attribute has-bvs?)
                                (if (attribute has-annotations?)
@@ -497,7 +508,8 @@
                 [(_ (~optional (~and (~fail #:unless #,(attribute has-bvs?)) bvs-pat)
                                #:defaults ([bvs-pat #'()])) . pat)
                  #'((~literal #%plain-app) (~literal τ-internal)
-                    ((~literal #%plain-lambda) bvs-pat (~literal void) . pat))])))
+                    ((~literal #%plain-lambda) bvs-pat 
+                     skipped-extra-info . pat))])))
            (define-syntax τ-expander*
              (pattern-expander
               (syntax-parser
@@ -546,11 +558,17 @@
                #:with k_result (if #,(attribute has-annotations?)
                                    #'(tycon k_arg (... ...))
                                    #'#%kind)
+               #:with extra-info-inst
+                      (if (stx-null? #'extra-bvs)
+                          #'extra-info
+                          (substs #'τs- #'extra-bvs #'extra-info))
+               ;; #:with extra-info-inst (substs #'args #,#'extra-bvs #,#'extra-info)
                #:with result
-                (assign-type (syntax/loc stx (τ-internal (λ bvs- void . τs-))) #'k_result)
-                #,(if (syntax-e #'other-key)
-                    #`(syntax-property #'result 'other-key (substs #'args #,#'other-bvs #,#'other-val))
-                    #'#'result)]
+                (assign-type (syntax/loc stx (τ-internal (λ bvs- (#%expression extra-info-inst) . τs-))) #'k_result)
+                #'result]
+                ;; #,(if (syntax-e #'other-key)
+                ;;     #`(syntax-property #'result 'other-key (substs #'args #,#'other-bvs #,#'other-val))
+                ;;     #'#'result)]
              ;; else fail with err msg
              [_
               (type-error #:src stx
@@ -658,7 +676,8 @@
      (syntax-parser
        [(_ tycons x ...)
         #'((~literal #%plain-app) tycons
-            ((~literal #%plain-lambda) bvs (~literal void) x ...))])))
+            ((~literal #%plain-lambda) bvs 
+             skipped-extra-info x ...))])))
   (define (merge-type-tags stx)
     (define t (syntax-property stx 'type))
     (or (and (pair? t)
@@ -668,8 +687,13 @@
         stx))
   ; subst τ for y in e, if (bound-id=? x y)
   (define (subst τ x e)
+    #'(printf "subst ~a for ~a in ~a\n"
+      (syntax->datum τ)
+      x
+      (syntax->datum e))
     (syntax-parse e
       [y:id #:when (bound-identifier=? e x)
+      ;      #:when (printf "~a = ~a\n" #'y x)
 ;            #:when
 ;            (displayln (syntax-property (syntax-track-origin τ #'y #'y) 'type))
 ;            #:when (displayln (syntax-property (syntax-property (syntax-track-origin τ #'y #'y) 'type #'#%type) 'type))
@@ -682,4 +706,20 @@
       [_ e]))
 
   (define (substs τs xs e)
-    (stx-fold subst e τs xs)))
+    (stx-fold subst e τs xs))
+
+  ;; subst-expr
+  ;; used for inferring recursive types
+  (define (stx=? s1 s2)
+    (or (and (identifier? s1) (identifier? s2) (free-identifier=? s1 s2))
+        (and (stx-null? s1) (stx-null? s2))
+        (and (stx-pair? s1) (stx-pair? s2) (stx-length=? s1 s2)
+             (stx-andmap stx=? s1 s2))))
+  ;; subst e1 for e2 in e3
+  (define (subst-expr e1 e2 e3)
+    (cond 
+     [(stx=? e2 e3) e1]
+     [(identifier? e3) e3]
+     [else ; stx-pair
+      (stx-map (lambda (e) (subst-expr e1 e2 e)) e3)]))
+  )
