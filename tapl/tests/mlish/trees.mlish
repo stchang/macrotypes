@@ -1,0 +1,45 @@
+#lang s-exp "../../mlish.rkt"
+(require "../rackunit-typechecking.rkt")
+
+(define-type (Tree X)
+  (Leaf X)
+  (Node (Tree X) X (Tree X)))
+
+(define (make [item : Int] [depth : Int] -> (Tree Int))
+  (if (zero? depth)
+      (Leaf item)
+      (let ([item2 (* item 2)] [depth2 (sub1 depth)])
+        (Node (make (sub1 item2) depth2) 
+              item 
+              (make item2 depth2)))))
+
+(define tree1 (make 4 1))
+(define tree2 (make 3 2))
+(check-type tree1 : (Tree Int) -> (Node (Leaf 7) 4 (Leaf 8)))
+(check-type tree2
+  : (Tree Int) 
+  -> (Node (Node (Leaf 9) 5 (Leaf 10)) 3 (Node (Leaf 11) 6 (Leaf 12))))
+
+(define (sum [t : (Tree Int)] -> Int)
+  (match t with
+   [Leaf v -> v]
+   [Node l v r -> (+ (+ (sum l) v) (sum r))]))
+
+(check-type (sum tree1) : Int -> 19)
+(check-type (sum tree2) : Int -> 56)
+
+(define (check/acc [t : (Tree Int)] [acc : Int] -> Int)
+  (match t with
+   [Leaf v -> (+ acc v)]
+   [Node l v r -> (check/acc l (- acc (check/acc r 0)))]))
+(define (check [t : (Tree Int)] -> Int)
+  (check/acc t 0))
+
+(define min-depth 4)
+
+(define (main [n : Int] -> Int)
+  (let* ([max-depth (max (+ min-depth 2) n)]
+         [stretch-depth (add1 max-depth)])
+    (check (make 0 stretch-depth))))
+       
+(check-type (main 17) : Int -> 0)
