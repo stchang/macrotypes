@@ -167,50 +167,6 @@
    [Nil -> lst2]
    [Cons x xs -> (Cons x (append xs lst2))]))
 
-;; n-queens --------------------
-(define-type Queen (Q Int Int))
-
-(define (safe? [q1 : Queen] [q2 : Queen] → Bool)
-  (match q1 with
-   [Q x1 y1 -> 
-    (match q2 with
-     [Q x2 y2 -> 
-      (not (or (= x1 x2) (= y1 y2) (= (abs (- x1 x2)) (abs (- y1 y2)))))])]))
-(define (safe/list? [qs : (List Queen)] → Bool)
-  (match qs with
-   [Nil -> #t]
-   [Cons q1 rst -> (all? (λ ([q2 : Queen]) (safe? q1 q2)) rst)]))
-(define (valid? [lst : (List Queen)] → Bool)
-  (all? safe/list? (tails lst)))
-
-(define (nqueens [n : Int] → (List Queen))
-  (let* ([process-row
-          (λ ([r : Int] [all-possible-so-far : (List (List Queen))])
-            (foldr
-             (λ ([qs : (List Queen)] [new-qss : (List (List Queen))])
-               (append
-                (map (λ ([c : Int]) (Cons (Q r c) qs)) (build-list n add1))
-                new-qss))
-             Nil
-             all-possible-so-far))]
-         [all-possible (foldl process-row (Cons Nil Nil) (build-list n add1))])
-    (let ([solns (filter valid? all-possible)])
-      (match solns with
-       [Nil -> Nil]
-       [Cons x xs -> x]))))
-
-(check-type nqueens : (→ Int (List Queen)))
-(check-type (nqueens 1) 
-  : (List Queen)  ⇒ (Cons (Q 1 1) Nil))
-(check-type (nqueens 2) : (List Queen) ⇒ (Nil {Queen}))
-(check-type (nqueens 3) : (List Queen) ⇒ (Nil {Queen}))
-(check-type (nqueens 4) 
-  : (List Queen) 
-  ⇒ (Cons (Q 3 1) (Cons (Q 2 4) (Cons (Q 1 2) (Cons (Q 4 3) Nil)))))
-(check-type (nqueens 5) 
-  : (List Queen) 
-  ⇒ (Cons (Q 4 2) (Cons (Q 3 4) (Cons (Q 2 1) (Cons (Q 1 3) (Cons (Q 5 5) Nil))))))
-
 
 ;; end infer.rkt tests --------------------------------------------------
 
