@@ -38,15 +38,15 @@
 ;; some change due to more specific types
 (check-type 1 : Int)
 (check-not-type 1 : (→ Int Int))
-(typecheck-fail "one") ; unsupported literal
-(typecheck-fail #f) ; unsupported literal
+(check-type "one" : String) 
+(check-type #f : Bool)
 (check-type (λ ([x : Int] [y : Int]) x) : (→ Int Int Int))
 (check-not-type (λ ([x : Int]) x) : Int)
 (check-type (λ ([x : Int]) x) : (→ Int Int))
 (check-type (λ ([f : (→ Int Int)]) 1) : (→ (→ Int Int) Int))
 (check-type ((λ ([x : Int]) x) 1) : Int ⇒ 1)
-(typecheck-fail ((λ ([x : Bool]) x) 1)) ; Bool is not valid type
-(typecheck-fail (λ ([x : Bool]) x)) ; Bool is not valid type
+(typecheck-fail ((λ ([x : Sym]) x) 1)) ; Sym is not valid type
+(typecheck-fail (λ ([x : Sym]) x)) ; Sym is not valid type
 (typecheck-fail (λ ([f : Int]) (f 1 2))) ; applying f with non-fn type
 (check-type (λ ([f : (→ Int Int Int)] [x : Int] [y : Int]) (f x y))
             : (→ (→ Int Int Int) Int Int Int))

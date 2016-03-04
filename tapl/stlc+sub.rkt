@@ -1,6 +1,7 @@
 #lang s-exp "typecheck.rkt"
 (extends "stlc+lit.rkt" #:except #%datum +)
-(reuse add1 #:from "ext-stlc.rkt")
+(reuse Bool String add1 #:from "ext-stlc.rkt")
+(require (prefix-in ext: (only-in "ext-stlc.rkt" #%datum)))
 (provide (for-syntax subs? current-sub?))
 
 ;; Simply-Typed Lambda Calculus, plus subtyping
@@ -29,7 +30,7 @@
   [(_ . n:nat) (⊢ (#%datum . n) : Nat)]
   [(_ . n:integer) (⊢ (#%datum . n) : Int)]
   [(_ . n:number) (⊢ (#%datum . n) : Num)]
-  [(_ . x) #'(stlc+lit:#%datum . x)])
+  [(_ . x) #'(ext:#%datum . x)])
 
 (begin-for-syntax
   (define (sub? t1 t2)

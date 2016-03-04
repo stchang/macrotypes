@@ -40,7 +40,6 @@
    [Cons x xs -> 1])
   #:with-msg "match: clauses not exhaustive; missing: Nil")
   
-
 (define (g2 [lst : (List Y)] → (List Y)) lst)
 (check-type g2 : (→ (List Y) (List Y)))
 (typecheck-fail (g2 1) 

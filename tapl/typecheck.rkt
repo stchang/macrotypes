@@ -114,8 +114,9 @@
      #`(begin
          (require (rename-in (only-in base-lang x ... old ...) [old new] ...))
          (provide (filtered-out
-                   (let ([excluded (map (compose symbol->string syntax->datum) (syntax->list #'(new ...)))])
-                     (λ (n) (and (not (member n excluded)) n)))
+                   (let* ([excluded (map (compose symbol->string syntax->datum) (syntax->list #'(new ...)))])
+                     (λ (name) 
+                       (and (not (member name excluded)) name)))
                    (all-from-out base-lang))))]))
 
 (define-syntax add-expected
@@ -234,7 +235,7 @@
                              [(τ-expander . args) #`(#,e #'args)])
                            e)
                        (syntax-parse t
-                         [(τ-expander . args) #`(#,e #'args)]
+                         [(τ-expander . args) #`(#,e args)]
                          [_ e]))
                      #'(e- (... ...))
                      #'(τ_e (... ...)))

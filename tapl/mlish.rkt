@@ -396,6 +396,21 @@
                  (mk-app-err-msg stx #:given #'(τ_arg ...) #:expected #'(τ_in ...))
    (⊢ (#%app e_fn- e_arg- ...) : τ_out)])
 
+;; cond
+(define-typed-syntax cond
+  [(_ [(~and test (~not (~datum else))) body] ... 
+      (~optional [(~and (~datum else) (~parse else_test #'(ext-stlc:#%datum . #t))) else_body]
+        #:defaults ([else_test #'#f])))
+   #:with (test- ...) (⇑s (test ...) as Bool)
+   #:with ([body- ty_body] ...) (infers+erase #'(body ...))
+   #:when (same-types? #'(ty_body ...))
+   #:with τ_out (stx-car #'(ty_body ...))
+   #:with [last-body- last-ty] (if (attribute else_body)
+                                   (infer+erase #'else_body)
+                                   (infer+erase #'(void)))
+   #:when (or (not (attribute else_body))
+              (typecheck? #'last-ty #'τ_out))
+   (⊢ (cond [test- body-] ... [else_test last-body-]) : τ_out)])
 ;; sync channels
 (define-type-constructor Channel)
 
@@ -411,7 +426,9 @@
   [(_ c v)
    #:with (c- (ty)) (⇑ c as Channel)
    #:with [v- ty_v] (infer+erase #'v)
-   #:when (typechecks? #'ty_v #'ty)
+   #:fail-unless (typechecks? #'ty_v #'ty)
+                 (format "Cannot send ~a value on ~a channel."
+                         (type->str #'ty_v) (type->str #'ty))
    (⊢ (channel-put c- v-) : Unit)])
 
 (define-base-type Thread)
@@ -425,12 +442,70 @@
 (define-base-type Char)
 (define-primop random : (→ Int Int))
 (define-primop integer->char : (→ Int Char))
+(define-primop string->number : (→ String Int))
 (define-primop string : (→ Char String))
 (define-primop sleep : (→ Int Unit))
 (define-primop string=? : (→ String String Bool))
 
-#;(define-typed-syntax rand
-  [(_ k)
-   #:with [k- ty] (infer+erase #'k)
-   #:when (typecheck? #'ty #'Int)
-   (⊢ (thread k-) : Int)])
+;; vectors
+(define-type-constructor Vector)
+
+(define-typed-syntax vector
+  [(_ (~and tys {ty}))
+   #:when (brace? #'tys)
+   (⊢ (vector) : (Vector ty))]
+  [(_ v ...)
+   #:with ([v- ty] ...) (infers+erase #'(v ...))
+   #:when (same-types? #'(ty ...))
+   #:with one-ty (stx-car #'(ty ...))
+   (⊢ (vector v- ...) : (Vector one-ty))])
+(define-typed-syntax make-vector
+  [(_ n e)
+   #:with n- (⇑ n as Int)
+   #:with [e- ty] (infer+erase #'e)
+   (⊢ (make-vector n- e-) : (Vector ty))])
+(define-typed-syntax vector-length
+  [(_ e)
+   #:with [e- _] (⇑ e as Vector)
+   (⊢ (vector-length e-) : Int)])
+(define-typed-syntax vector-ref
+  [(_ e n)
+   #:with n- (⇑ n as Int)
+   #:with [e- (ty)] (⇑ e as Vector)
+   (⊢ (vector-ref e- n-) : ty)])
+(define-typed-syntax vector-set!
+  [(_ e n v)
+   #:with n- (⇑ n as Int)
+   #:with [e- (ty)] (⇑ e as Vector)
+   #:with [v- ty_v] (infer+erase #'v)
+   #:when (typecheck? #'ty_v #'ty)
+   (⊢ (vector-set! e- n- v-) : Unit)])
+
+;; sequences and for loops
+
+(define-type-constructor Sequence)
+
+(define-typed-syntax in-range/tc #:export-as in-range
+  [(_ end)
+   #'(in-range/tc (ext-stlc:#%datum . 0) end (ext-stlc:#%datum . 1))]
+  [(_ start end)
+   #'(in-range/tc stat end (ext-stlc:#%datum . 1))]
+  [(_ start end step)
+   #:with (e- ...) (⇑s (start end step) as Int)
+   (⊢ (in-range e- ...) : (Sequence Int))])
+(define-typed-syntax for
+  [(_ ([x:id e]...) body)
+   #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
+   #:with [(x- ...) body- ty_body] (infer/ctx+erase #'([x : ty] ...) #'body)
+   (⊢ (for ([x- e-] ...) body-) : Unit)])
+(define-typed-syntax for*
+  [(_ ([x:id e]...) body)
+   #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
+   #:with [(x- ...) body- ty_body] (infer/ctx+erase #'([x : ty] ...) #'body)
+   (⊢ (for* ([x- e-] ...) body-) : Unit)])
+
+(define-typed-syntax printf
+  [(_ str e ...)
+   #:with s- (⇑ str as String)
+   #:with ([e- ty] ...) (infers+erase #'(e ...))
+   (⊢ (printf s- e- ...) : Unit)])

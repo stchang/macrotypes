@@ -1,0 +1,20 @@
+#lang s-exp "../../mlish.rkt"
+(require "../rackunit-typechecking.rkt")
+
+;; test vectors and for loops
+(define (main [args : (Vector String)] -> (× Int Int))
+  (let* ([n (if (zero? (vector-length args))
+                1
+                (string->number (vector-ref args 0)))]
+         [x  (make-vector n 0)]
+         [y  (make-vector n 0)]
+         [last (sub1 n)])
+    (begin
+      (for ([i (in-range n)]) (vector-set! x i (add1 i)))
+      (for* ([k (in-range 1000)][i (in-range last -1 -1)])
+        (vector-set! y i (+ (vector-ref x i) (vector-ref y i))))
+      (tup (vector-ref y 0) (vector-ref y last)))))
+
+(check-type (main (vector "100")) : (× Int Int) -> (tup 1000 100000))
+(check-type (main (vector "1000")) : (× Int Int) -> (tup 1000 1000000))
+(check-type (main (vector "10000")) : (× Int Int) -> (tup 1000 10000000))
