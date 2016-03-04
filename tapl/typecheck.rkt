@@ -467,11 +467,10 @@
          #:defaults ([bvs-op #'=][bvs-n #'0]))
         (~optional (~seq #:arr (~and (~parse has-annotations? #'#t) tycon))
          #:defaults ([tycon #'void]))
-        (~optional (~seq #:other-prop other-key other-bvs other-val)
-                   #:defaults ([other-key #'#f]))
         (~optional (~seq #:extra-info extra-bvs extra-info)
                    #:defaults ([extra-bvs #'()]
                                [extra-info #'void]))
+        (~optional (~and #:no-provide (~parse no-provide? #'#t)))
         )
      #:with #%kind (format-id #'kind "#%~a" #'kind)
      #:with τ-internal (generate-temporary #'τ)
@@ -479,7 +478,9 @@
      #:with τ-expander (format-id #'τ "~~~a" #'τ)
      #:with τ-expander* (format-id #'τ-expander "~a*" #'τ-expander)
      #`(begin
-         (provide τ (for-syntax τ-expander τ-expander* τ?))
+         #,(if (attribute no-provide?)
+               #'(provide)
+               #'(provide τ (for-syntax τ-expander τ-expander* τ?)))
          (begin-for-syntax
            (define-syntax τ-expander
              (pattern-expander

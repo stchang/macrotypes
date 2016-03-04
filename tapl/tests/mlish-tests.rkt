@@ -1,6 +1,12 @@
 #lang s-exp "../mlish.rkt"
 (require "rackunit-typechecking.rkt")
 
+;; match on tups
+(check-type
+    (match (tup 1 2) with
+      [x y -> (+ x y)])
+  : Int -> 3)
+
 ;; tests more or less copied from infer-tests.rkt ------------------------------
 (typecheck-fail (λ (x) x) #:with-msg "parameters must have type annotations")
 

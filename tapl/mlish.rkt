@@ -4,15 +4,16 @@
 (extends "ext-stlc.rkt" #:except #%app λ → + - void = zero? sub1 add1 not let and #%datum
           #:rename [~→ ~ext-stlc:→])
 (reuse inst ~∀ ∀ ∀? Λ #:from "sysf.rkt")
-(require (only-in "stlc+rec-iso.rkt" case fld unfld μ × ∨ var tup define-type-alias)
+(require (only-in "stlc+rec-iso.rkt" case fld unfld μ ~× × ×? ∨ var tup proj define-type-alias)
          #;(prefix-in stlc+rec-iso: (only-in "stlc+rec-iso.rkt" define)))
 ;(reuse cons [head hd] [tail tl] nil [isnil nil?] List ~List list #:from "stlc+cons.rkt")
 ;(reuse tup × proj #:from "stlc+tup.rkt")
 ;(reuse define-type-alias #:from "stlc+reco+var.rkt")
 ;(provide hd tl nil?)
-(provide  →)
+(provide → × tup proj define-type-alias)
 (provide define-type match)
 (provide (rename-out [ext-stlc:let let] [ext-stlc:and and] [ext-stlc:#%datum #%datum]))
+(reuse cons nil isnil head tail list List #:from "stlc+cons.rkt")
 
 ;; ML-like language
 ;; - top level recursive functions
@@ -105,7 +106,7 @@
    #'(begin
        (define-syntax f (make-rename-transformer (⊢ g : (∀ (X ...) (ext-stlc:→ τ ... τ_out)))))
        (define g (Λ (X ...) (ext-stlc:λ ([x : τ] ...) e_ann))))]
-  [(_ (f:id [x:id (~datum :) τ] ... (~datum →) τ_out) e)
+  [(_ (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) e)
    #:with Ys
           (let L ([Xs #'()]) ; compute unbound ids; treat as tyvars
             (with-handlers
@@ -163,7 +164,8 @@
      #`(begin
          (define-type-constructor Name
            #:arity = #,(stx-length #'(X ...))
-           #:extra-info (X ...) (λ (RecName) ('Cons Cons? [acc τ/rec] ...) ...))
+           #:extra-info (X ...) (λ (RecName) ('Cons Cons? [acc τ/rec] ...) ...)
+           #:no-provide)
          (struct StructName (fld ...) #:reflection-name 'Cons #:transparent) ...
          (define-syntax (Cons stx)
            (syntax-parse stx
@@ -242,9 +244,23 @@
 (define-syntax (match stx)
   (syntax-parse stx #:datum-literals (with ->)
     [(_ e with . clauses)
+     #:with [e- ty_e] (infer+erase #'e)
+     #:when (×? #'ty_e)
+     #:with (~× ty ...) #'ty_e
+     #:with ([x ... -> e_body]) #'clauses
+     #:fail-unless (stx-length=? #'(ty ...) #'(x ...))
+                   "match clause pattern not compatible with given tuple"
+     #:with [(x- ...) e_body- ty_body] (infer/ctx+erase #'([x ty] ...) #'e_body)
+     #:with (acc ...) (for/list ([(a i) (in-indexed (syntax->list #'(x ...)))])
+                        #`(lambda (s) (list-ref s #,(datum->syntax #'here i))))
+     #:with z (generate-temporary)
+     (⊢ (let ([z e-])
+          (let ([x- (acc z)] ...) e_body-))
+          : ty_body)]
+    [(_ e with . clauses)
      #:fail-when (null? (syntax->list #'clauses)) "no clauses"
      #:with [e- τ_e] (infer+erase #'e)
-     #:with ([Clause:id x:id ... 
+     #:with (~! [Clause:id x:id ... 
              (~optional (~seq #:when e_guard) #:defaults ([e_guard #'(ext-stlc:#%datum . #t)]))
              -> e_c_un] ...) ; un = unannotated with expected ty
             #'clauses ; clauses must stay in same order
@@ -318,6 +334,9 @@
 ; redefine these to use lifted →
 (define-primop + : (→ Int Int Int))
 (define-primop - : (→ Int Int Int))
+(define-primop * : (→ Int Int Int))
+(define-primop max : (→ Int Int Int))
+(define-primop min : (→ Int Int Int))
 (define-primop void : (→ Unit))
 (define-primop = : (→ Int Int Bool))
 (define-primop zero? : (→ Int Bool))
@@ -329,7 +348,7 @@
 
 ; all λs have type (∀ (X ...) (→ τ_in ... τ_out)), even monomorphic fns
 (define-typed-syntax liftedλ #:export-as λ
-  [(_ (x:id ...) . body)
+  [(_ (y:id x:id ...) . body)
    (type-error #:src stx #:msg "λ parameters must have type annotations")]
   [(_ . rst)
    #'(Λ () (ext-stlc:λ . rst))])
@@ -376,3 +395,42 @@
    #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
                  (mk-app-err-msg stx #:given #'(τ_arg ...) #:expected #'(τ_in ...))
    (⊢ (#%app e_fn- e_arg- ...) : τ_out)])
+
+;; sync channels
+(define-type-constructor Channel)
+
+(define-typed-syntax make-channel
+  [(_ (~and tys {ty}))
+   #:when (brace? #'tys)
+   (⊢ (make-channel) : (Channel ty))])
+(define-typed-syntax channel-get
+  [(_ c)
+   #:with (c- (ty)) (⇑ c as Channel)
+   (⊢ (channel-get c-) : ty)])
+(define-typed-syntax channel-put
+  [(_ c v)
+   #:with (c- (ty)) (⇑ c as Channel)
+   #:with [v- ty_v] (infer+erase #'v)
+   #:when (typechecks? #'ty_v #'ty)
+   (⊢ (channel-put c- v-) : Unit)])
+
+(define-base-type Thread)
+
+;; threads
+(define-typed-syntax thread
+  [(_ th)
+   #:with (th- (~∀ () (~ext-stlc:→ τ_out))) (infer+erase #'th)
+   (⊢ (thread th-) : Thread)])
+
+(define-base-type Char)
+(define-primop random : (→ Int Int))
+(define-primop integer->char : (→ Int Char))
+(define-primop string : (→ Char String))
+(define-primop sleep : (→ Int Unit))
+(define-primop string=? : (→ String String Bool))
+
+#;(define-typed-syntax rand
+  [(_ k)
+   #:with [k- ty] (infer+erase #'k)
+   #:when (typecheck? #'ty #'Int)
+   (⊢ (thread k-) : Int)])

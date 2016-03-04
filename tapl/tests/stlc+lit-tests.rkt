@@ -1,6 +1,9 @@
 #lang s-exp "../stlc+lit.rkt"
 (require "rackunit-typechecking.rkt")
 
+;; thunk
+(check-type (λ () 1) : (→ Int))
+
 (check-type 1 : Int)
 (check-not-type 1 : (→ Int Int))
 
