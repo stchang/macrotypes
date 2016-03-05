@@ -1,7 +1,7 @@
 #lang s-exp "typecheck.rkt"
 (require (for-syntax syntax/id-set))
 
-(extends "ext-stlc.rkt" #:except #%app λ → + - void = zero? sub1 add1 not let and #%datum
+(extends "ext-stlc.rkt" #:except #%app λ → + - void = zero? sub1 add1 not let and #%datum begin
           #:rename [~→ ~ext-stlc:→])
 (reuse inst ~∀ ∀ ∀? Λ #:from "sysf.rkt")
 (require (only-in "stlc+rec-iso.rkt" case fld unfld μ ~× × ×? ∨ var tup proj define-type-alias)
@@ -12,8 +12,8 @@
 ;(provide hd tl nil?)
 (provide → × tup proj define-type-alias)
 (provide define-type match)
-(provide (rename-out [ext-stlc:let let] [ext-stlc:and and] [ext-stlc:#%datum #%datum]))
-(reuse cons nil isnil head tail list List #:from "stlc+cons.rkt")
+(provide (rename-out [ext-stlc:and and] [ext-stlc:#%datum #%datum]))
+(reuse cons nil isnil head tail list List ~List List? #:from "stlc+cons.rkt")
 
 ;; ML-like language
 ;; - top level recursive functions
@@ -106,7 +106,7 @@
    #'(begin
        (define-syntax f (make-rename-transformer (⊢ g : (∀ (X ...) (ext-stlc:→ τ ... τ_out)))))
        (define g (Λ (X ...) (ext-stlc:λ ([x : τ] ...) e_ann))))]
-  [(_ (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) e)
+  [(_ (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) e_body ... e)
    #:with Ys
           (let L ([Xs #'()]) ; compute unbound ids; treat as tyvars
             (with-handlers
@@ -128,7 +128,7 @@
          ;(⊢ g : (∀ Ys (ext-stlc:→ τ ... τ_out)))))
          (⊢ g : (∀ Ys (ext-stlc:→ τ+orig ...)))))
       (define g
-        (Λ Ys (ext-stlc:λ ([x : τ] ...) e_ann))))])
+        (Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))])
 ;
 ;; internal form used to expand many types at once under the same context
 (define-type-constructor Tmp #:arity >= 0 #:bvs >= 0) ; need a >= 0 arity
@@ -339,6 +339,9 @@
 (define-primop min : (→ Int Int Int))
 (define-primop void : (→ Unit))
 (define-primop = : (→ Int Int Bool))
+(define-primop <= : (→ Int Int Bool))
+(define-primop < : (→ Int Int Bool))
+(define-primop > : (→ Int Int Bool))
 (define-primop zero? : (→ Int Bool))
 (define-primop sub1 : (→ Int Int))
 (define-primop add1 : (→ Int Int))
@@ -396,7 +399,7 @@
                  (mk-app-err-msg stx #:given #'(τ_arg ...) #:expected #'(τ_in ...))
    (⊢ (#%app e_fn- e_arg- ...) : τ_out)])
 
-;; cond
+;; cond and other conditionals
 (define-typed-syntax cond
   [(_ [(~and test (~not (~datum else))) body] ... 
       (~optional [(~and (~datum else) (~parse else_test #'(ext-stlc:#%datum . #t))) else_body]
@@ -411,7 +414,13 @@
    #:when (or (not (attribute else_body))
               (typecheck? #'last-ty #'τ_out))
    (⊢ (cond [test- body-] ... [else_test last-body-]) : τ_out)])
-;; sync channels
+(define-typed-syntax when
+  [(_ test body ...)
+   #:with test- (⇑ test as Bool)
+   #:with [(body- _) ...] (infers+erase #'(body ...))
+   (⊢ (when test- body- ...) : Unit)])
+
+;; sync channels and threads
 (define-type-constructor Channel)
 
 (define-typed-syntax make-channel
@@ -459,7 +468,8 @@
    #:when (same-types? #'(ty ...))
    #:with one-ty (stx-car #'(ty ...))
    (⊢ (vector v- ...) : (Vector one-ty))])
-(define-typed-syntax make-vector
+(define-typed-syntax make-vector/tc #:export-as make-vector
+  [(_ n) #'(make-vector/tc n (ext-stlc:#%datum . 0))]
   [(_ n e)
    #:with n- (⇑ n as Int)
    #:with [e- ty] (infer+erase #'e)
@@ -480,6 +490,14 @@
    #:with [v- ty_v] (infer+erase #'v)
    #:when (typecheck? #'ty_v #'ty)
    (⊢ (vector-set! e- n- v-) : Unit)])
+(define-typed-syntax vector-copy!
+  [(_ dest start src)
+   #:with start- (⇑ start as Int)
+   #:with [dest- (ty_dest)] (⇑ dest as Vector)
+   #:with [src- (ty_src)] (⇑ src as Vector)
+   #:when (typecheck? #'ty_dest #'ty_src)
+   (⊢ (vector-copy! dest- start- src-) : Unit)])
+
 
 ;; sequences and for loops
 
@@ -493,6 +511,12 @@
   [(_ start end step)
    #:with (e- ...) (⇑s (start end step) as Int)
    (⊢ (in-range e- ...) : (Sequence Int))])
+
+(define-typed-syntax in-vector
+  [(_ e)
+   #:with [e- (ty)] (⇑ e as Vector)
+   (⊢ (in-vector e-) : (Sequence ty))])
+
 (define-typed-syntax for
   [(_ ([x:id e]...) body)
    #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
@@ -504,8 +528,52 @@
    #:with [(x- ...) body- ty_body] (infer/ctx+erase #'([x : ty] ...) #'body)
    (⊢ (for* ([x- e-] ...) body-) : Unit)])
 
+(define-typed-syntax for/list
+  [(_ ([x:id e]...) body)
+   #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
+   #:with [(x- ...) body- ty_body] (infer/ctx+erase #'([x : ty] ...) #'body)
+   (⊢ (for/list ([x- e-] ...) body-) : (List ty_body))])
+(define-typed-syntax for*/list
+  [(_ ([x:id e]...) body)
+   #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
+   #:with [(x- ...) body- ty_body] (infer/ctx+erase #'([x : ty] ...) #'body)
+   (⊢ (for*/list ([x- e-] ...) body-) : (List ty_body))])
+
+; printing and displaying
 (define-typed-syntax printf
   [(_ str e ...)
    #:with s- (⇑ str as String)
    #:with ([e- ty] ...) (infers+erase #'(e ...))
    (⊢ (printf s- e- ...) : Unit)])
+(define-typed-syntax display
+  [(_ e)
+   #:with [e- _] (infer+erase #'e)
+   (⊢ (display e-) : Unit)])
+(define-typed-syntax displayln
+  [(_ e)
+   #:with [e- _] (infer+erase #'e)
+   (⊢ (displayln e-) : Unit)])
+(define-primop newline : (→ Unit))
+
+(define-typed-syntax list->vector
+  [(_ e)
+   #:with [e- (ty)] (⇑ e as List)
+   (⊢ (list->vector e-) : (Vector ty))])
+
+(define-typed-syntax let
+  [(_ name:id (~datum :) ty:type ~! ([x:id e] ...) b ... body)
+   #:with ([e- ty_e] ...) (infers+erase #'(e ...))
+   #:with [(name- . xs-) (body- ...) (_ ... ty_body)] 
+          (infers/ctx+erase #'([name : (→ ty_e ... ty.norm)][x : ty_e] ...) 
+                            #'(b ... body))
+   (⊢ (letrec ([name- (λ xs- body- ...)]) 
+        (name- e- ...))
+      : ty_body)]
+  [(_ ([x:id e] ...) body ...) 
+   #'(ext-stlc:let ([x e] ...) (begin/tc body ...))])
+
+(define-typed-syntax begin/tc #:export-as begin
+ [(_ body ... b)
+  #:with expected (get-expected-type stx)
+  #:with b_ann (add-expected-type #'b #'expected)
+  #'(ext-stlc:begin body ... b_ann)])

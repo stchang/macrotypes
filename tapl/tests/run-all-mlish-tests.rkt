@@ -3,3 +3,6 @@
 (require "mlish/queens.mlish")
 (require "mlish/trees.mlish")
 (require "mlish/chameneos.mlish")
+(require "mlish/ack.mlish")
+(require "mlish/ary.mlish")
+(require "mlish/fannkuch.mlish")
