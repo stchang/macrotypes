@@ -6,3 +6,4 @@
 (require "mlish/ack.mlish")
 (require "mlish/ary.mlish")
 (require "mlish/fannkuch.mlish")
+(require "mlish/fasta.mlish")

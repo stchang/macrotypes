@@ -38,7 +38,7 @@
 ;; begin
 (typecheck-fail (begin))
 (check-type (begin 1) : Int)
-(typecheck-fail (begin 1 2 3))
+;(typecheck-fail (begin 1 2 3))
 (check-type (begin (void) 1) : Int ⇒ 1)
 
 ;;ascription

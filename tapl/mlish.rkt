@@ -1,7 +1,8 @@
 #lang s-exp "typecheck.rkt"
 (require (for-syntax syntax/id-set))
+(require racket/fixnum racket/flonum)
 
-(extends "ext-stlc.rkt" #:except #%app λ → + - void = zero? sub1 add1 not let and #%datum begin
+(extends "ext-stlc.rkt" #:except #%app λ → + - void = zero? sub1 add1 not let let* and #%datum begin
           #:rename [~→ ~ext-stlc:→])
 (reuse inst ~∀ ∀ ∀? Λ #:from "sysf.rkt")
 (require (only-in "stlc+rec-iso.rkt" case fld unfld μ ~× × ×? ∨ var tup proj define-type-alias)
@@ -13,7 +14,8 @@
 (provide → × tup proj define-type-alias)
 (provide define-type match)
 (provide (rename-out [ext-stlc:and and] [ext-stlc:#%datum #%datum]))
-(reuse cons nil isnil head tail list List ~List List? #:from "stlc+cons.rkt")
+(reuse [cons stlc:cons] nil isnil head tail [list stlc:list] List ~List List? #:from "stlc+cons.rkt")
+(provide (rename-out [stlc:list list] [stlc:cons cons]))
 
 ;; ML-like language
 ;; - top level recursive functions
@@ -342,6 +344,7 @@
 (define-primop <= : (→ Int Int Bool))
 (define-primop < : (→ Int Int Bool))
 (define-primop > : (→ Int Int Bool))
+(define-primop modulo : (→ Int Int Int))
 (define-primop zero? : (→ Int Bool))
 (define-primop sub1 : (→ Int Int))
 (define-primop add1 : (→ Int Int))
@@ -401,19 +404,28 @@
 
 ;; cond and other conditionals
 (define-typed-syntax cond
-  [(_ [(~and test (~not (~datum else))) body] ... 
-      (~optional [(~and (~datum else) (~parse else_test #'(ext-stlc:#%datum . #t))) else_body]
+  [(_ [(~and test (~not (~datum else))) b ... body] ... 
+      (~optional 
+       [(~and (~datum else) 
+              (~parse else_test #'(ext-stlc:#%datum . #t)))
+        else_b ... else_body]
         #:defaults ([else_test #'#f])))
    #:with (test- ...) (⇑s (test ...) as Bool)
    #:with ([body- ty_body] ...) (infers+erase #'(body ...))
+   #:with (([b- ty_b] ...) ...) (stx-map infers+erase #'((b ...) ...))
    #:when (same-types? #'(ty_body ...))
    #:with τ_out (stx-car #'(ty_body ...))
    #:with [last-body- last-ty] (if (attribute else_body)
                                    (infer+erase #'else_body)
                                    (infer+erase #'(void)))
+   #:with ([last-b- last-b-ty] ...) (if (attribute else_body)
+                                   (infers+erase #'(else_b ...))
+                                   (infers+erase #'((void))))
    #:when (or (not (attribute else_body))
               (typecheck? #'last-ty #'τ_out))
-   (⊢ (cond [test- body-] ... [else_test last-body-]) : τ_out)])
+   (⊢ (cond [test- b- ... body-] ... 
+            [else_test last-b- ... last-body-]) 
+      : τ_out)])
 (define-typed-syntax when
   [(_ test body ...)
    #:with test- (⇑ test as Bool)
@@ -448,13 +460,17 @@
    #:with (th- (~∀ () (~ext-stlc:→ τ_out))) (infer+erase #'th)
    (⊢ (thread th-) : Thread)])
 
-(define-base-type Char)
 (define-primop random : (→ Int Int))
 (define-primop integer->char : (→ Int Char))
 (define-primop string->number : (→ String Int))
 (define-primop string : (→ Char String))
 (define-primop sleep : (→ Int Unit))
 (define-primop string=? : (→ String String Bool))
+
+(define-typed-syntax string-append
+  [(_ . strs)
+   #:with strs- (⇑s strs as String)
+   (⊢ (string-append . strs-) : String)])
 
 ;; vectors
 (define-type-constructor Vector)
@@ -507,7 +523,7 @@
   [(_ end)
    #'(in-range/tc (ext-stlc:#%datum . 0) end (ext-stlc:#%datum . 1))]
   [(_ start end)
-   #'(in-range/tc stat end (ext-stlc:#%datum . 1))]
+   #'(in-range/tc start end (ext-stlc:#%datum . 1))]
   [(_ start end step)
    #:with (e- ...) (⇑s (start end step) as Int)
    (⊢ (in-range e- ...) : (Sequence Int))])
@@ -538,6 +554,14 @@
    #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
    #:with [(x- ...) body- ty_body] (infer/ctx+erase #'([x : ty] ...) #'body)
    (⊢ (for*/list ([x- e-] ...) body-) : (List ty_body))])
+(define-typed-syntax for/fold
+  [(_ ([acc init]) ([x:id e] ...) body)
+   #:with [init- ty_init] (infer+erase #'init)
+   #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
+   #:with [(acc- x- ...) body- ty_body] 
+          (infer/ctx+erase #'([acc : ty_init][x : ty] ...) #'body)
+   #:when (typecheck? #'ty_body #'ty_init)
+   (⊢ (for/fold ([acc- init-]) ([x- e-] ...) body-) : ty_body)])
 
 ; printing and displaying
 (define-typed-syntax printf
@@ -571,9 +595,77 @@
       : ty_body)]
   [(_ ([x:id e] ...) body ...) 
    #'(ext-stlc:let ([x e] ...) (begin/tc body ...))])
+(define-typed-syntax let*
+  [(_ ([x:id e] ...) body ...) 
+   #'(ext-stlc:let* ([x e] ...) (begin/tc body ...))])
 
 (define-typed-syntax begin/tc #:export-as begin
  [(_ body ... b)
   #:with expected (get-expected-type stx)
   #:with b_ann (add-expected-type #'b #'expected)
   #'(ext-stlc:begin body ... b_ann)])
+
+;; hash
+(define-type-constructor Hash #:arity = 2)
+
+(define-typed-syntax in-hash
+  [(_ e)
+   #:with [e- (ty_k ty_v)] (⇑ e as Hash)
+   (⊢ (map (λ (k+v) (list (car k+v) (cdr k+v))) (hash->list e-)) 
+;   (⊢ (hash->list e-)
+      : (Sequence (× ty_k ty_v)))])
+
+(define-typed-syntax hash
+  [(_ (~seq k v) ...)
+   #:with ([k- ty_k] ...) (infers+erase #'(k ...))
+   #:with ([v- ty_v] ...) (infers+erase #'(v ...))
+   #:when (same-types? #'(ty_k ...))
+   #:when (same-types? #'(ty_v ...))
+   #:with ty_key (stx-car #'(ty_k ...))
+   #:with ty_val (stx-car #'(ty_v ...))
+   (⊢ (make-immutable-hash (list (cons k- v-) ...)) : (Hash ty_key ty_val))])
+   
+(define-base-type String-Port)
+(define-primop open-output-string : (→ String-Port))
+(define-primop get-output-string : (→ String-Port String))
+(define-typed-syntax write-string/tc #:export-as write-string
+ [(_ str out)
+  #'(write-string/tc str out (ext-stlc:#%datum . 0) (string-length/tc str))]
+ [(_ str out start end)
+   #:with str- (⇑ str as String)
+   #:with out- (⇑ out as String-Port)
+   #:with start- (⇑ start as Int)
+   #:with end- (⇑ end as Int)
+   (⊢ (write-string str- out- start- end-) : Unit)])
+
+(define-typed-syntax string-length/tc #:export-as string-length
+ [(_ str) 
+  #:with str- (⇑ str as String)
+  (⊢ (string-length str-) : Int)])
+(define-primop make-string : (→ Int String))
+(define-primop string-set! : (→ String Int Char Unit))
+(define-primop string-ref : (→ String Int Char))
+(define-typed-syntax string-copy!/tc #:export-as string-copy!
+  [(_ dest dest-start src)
+   #'(string-copy!/tc 
+      dest dest-start src (ext-stlc:#%datum . 0) (string-length/tc src))]
+  [(_ dest dest-start src src-start src-end)
+   #:with dest- (⇑ dest as String)
+   #:with src- (⇑ src as String)
+   #:with dest-start- (⇑ dest-start as Int)
+   #:with src-start- (⇑ src-start as Int)
+   #:with src-end- (⇑ src-end as Int)
+   (⊢ (string-copy! dest- dest-start- src- src-start- src-end-) : Unit)])
+
+(define-primop fl+ : (→ Float Float Float))
+(define-primop fl* : (→ Float Float Float))
+(define-primop flceiling : (→ Float Float))
+(define-primop inexact->exact : (→ Float Int))
+(define-primop char->integer : (→ Char Int))
+(define-primop fx->fl : (→ Int Float))
+(define-typed-syntax quotient+remainder
+  [(_ x y)
+   #:with x- (⇑ x as Int)
+   #:with y- (⇑ y as Int)
+   (⊢ (call-with-values (λ () (quotient/remainder x- y-)) list)
+      : (× Int Int))])

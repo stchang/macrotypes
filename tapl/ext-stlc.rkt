@@ -19,10 +19,14 @@
 
 (define-base-type Bool)
 (define-base-type String)
+(define-base-type Float)
+(define-base-type Char)
 
 (define-typed-syntax #%datum
   [(_ . b:boolean) (⊢ (#%datum . b) : Bool)]
   [(_ . s:str) (⊢ (#%datum . s) : String)]
+  [(_ . f) #:when (flonum? (syntax-e #'f)) (⊢ (#%datum . f) : Float)]
+  [(_ . c:char) (⊢ (#%datum . c) : Char)]
   [(_ . x) #'(stlc+lit:#%datum . x)])
 
 (define-primop zero? : (→ Int Bool))
@@ -68,7 +72,7 @@
 
 (define-typed-syntax begin
   [(_ e_unit ... e)
-   #:with (e_unit- ...) (⇑s (e_unit ...) as Unit)
+   #:with ([e_unit- _] ...) (infers+erase #'(e_unit ...)) ;(⇑s (e_unit ...) as Unit)
    #:with (e- τ) (infer+erase #'e)
    (⊢ (begin e_unit- ... e-) : τ)])
 

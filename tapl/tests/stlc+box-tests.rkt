@@ -166,7 +166,11 @@
 ;; begin
 (typecheck-fail (begin))
 (check-type (begin 1) : Int)
-(typecheck-fail (begin 1 2 3))
+;; 2016-03-06: begin terms dont need to be Unit
+(check-type (begin 1 2 3) : Int)
+#;(typecheck-fail
+ (begin 1 2 3)
+ #:with-msg "Expected expression 1 to have Unit type, got: Int")
 (check-type (begin (void) 1) : Int ⇒ 1)
 
 ;;ascription
