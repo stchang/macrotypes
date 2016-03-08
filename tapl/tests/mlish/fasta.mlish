@@ -143,10 +143,22 @@
    [R str ->   
     (random-fasta ">THREE Homo sapiens frequency\n" (* n 5) HOMOSAPIEN R)]))
 (check-type (proj res1 1) : String
- -> ">TWO IUB ambiguity codes\ntaaaWKatgWRattaNBttctNagggcgWt\n")
+ -> ">TWO IUB ambiguity codes\nattRtBtaDtatVataKatgaatcccgDtY\n")
+;taaaWKatgWRattaNBttctNagggcgWt\n")
 ;; should be cttBtatcatatgctaKggNcataaaSatg ?
-(proj res1 0)
 (check-type (proj res2 1) : String
  -> (string-append ">THREE Homo sapiens frequency\n"
-                   "agggctccaaatcataaagaggaatatattattacacgattagaaaccca\n"))
+      "atttgcggaaacgacaaatattaacacatcatcagagtaccataaaggga\n"
+      #;"agggctccaaatcataaagaggaatatattattacacgattagaaaccca\n"))
 ;; should be taaatcttgtgcttcgttagaagtctcgactacgtgtagcctagtgtttg ?
+(define (mk-fasta [n : Int] -> String)
+  (let 
+   ([res1 (repeat-fasta ">ONE Homo sapiens alu\n" (* n 2) +alu+)]
+    [res2 (random-fasta ">TWO IUB ambiguity codes\n" (* n 3) IUB 42)]
+    [res3
+     (match res2 with
+      [R str ->   
+       (random-fasta ">THREE Homo sapiens frequency\n" (* n 5) HOMOSAPIEN R)])])
+   (string-append res1 (proj res2 1) (proj res3 1))))
+(provide mk-fasta)
+(check-type (mk-fasta 100) : String)

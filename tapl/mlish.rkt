@@ -16,6 +16,7 @@
 (provide (rename-out [ext-stlc:and and] [ext-stlc:#%datum #%datum]))
 (reuse [cons stlc:cons] nil isnil head tail [list stlc:list] List ~List List? #:from "stlc+cons.rkt")
 (provide (rename-out [stlc:list list] [stlc:cons cons]))
+(reuse ref deref := Ref #:from "stlc+box.rkt")
 
 ;; ML-like language
 ;; - top level recursive functions
@@ -428,9 +429,16 @@
       : τ_out)])
 (define-typed-syntax when
   [(_ test body ...)
-   #:with test- (⇑ test as Bool)
+;   #:with test- (⇑ test as Bool)
+   #:with [test- _] (infer+erase #'test)
    #:with [(body- _) ...] (infers+erase #'(body ...))
    (⊢ (when test- body- ...) : Unit)])
+(define-typed-syntax unless
+  [(_ test body ...)
+;   #:with test- (⇑ test as Bool)
+   #:with [test- _] (infer+erase #'test)
+   #:with [(body- _) ...] (infers+erase #'(body ...))
+   (⊢ (unless test- body- ...) : Unit)])
 
 ;; sync channels and threads
 (define-type-constructor Channel)
@@ -463,6 +471,13 @@
 (define-primop random : (→ Int Int))
 (define-primop integer->char : (→ Int Char))
 (define-primop string->number : (→ String Int))
+;(define-primop number->string : (→ Int String))
+(define-typed-syntax num->str #:export-as number->string
+ [(_ n)
+  #'(num->str n (ext-stlc:#%datum . 10))]
+ [(_ n rad)
+  #:with args- (⇑s (n rad) as Int)
+  (⊢ (number->string . args-) : String)])
 (define-primop string : (→ Char String))
 (define-primop sleep : (→ Int Unit))
 (define-primop string=? : (→ String String Bool))
@@ -533,11 +548,22 @@
    #:with [e- (ty)] (⇑ e as Vector)
    (⊢ (in-vector e-) : (Sequence ty))])
 
+(define-typed-syntax in-list
+  [(_ e)
+   #:with [e- (ty)] (⇑ e as List)
+   (⊢ (in-list e-) : (Sequence ty))])
+
+(define-typed-syntax in-lines
+  [(_ e)
+   #:with e- (⇑ e as String)
+   (⊢ (in-lines (open-input-string e-)) : (Sequence String))])
+
 (define-typed-syntax for
-  [(_ ([x:id e]...) body)
+  [(_ ([x:id e]...) b ... body)
    #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
-   #:with [(x- ...) body- ty_body] (infer/ctx+erase #'([x : ty] ...) #'body)
-   (⊢ (for ([x- e-] ...) body-) : Unit)])
+   #:with [(x- ...) (b- ... body-) (ty_b ... ty_body)] 
+          (infers/ctx+erase #'([x : ty] ...) #'(b ... body))
+   (⊢ (for ([x- e-] ...) b- ... body-) : Unit)])
 (define-typed-syntax for*
   [(_ ([x:id e]...) body)
    #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
@@ -562,6 +588,24 @@
           (infer/ctx+erase #'([acc : ty_init][x : ty] ...) #'body)
    #:when (typecheck? #'ty_body #'ty_init)
    (⊢ (for/fold ([acc- init-]) ([x- e-] ...) body-) : ty_body)])
+
+(define-typed-syntax for/hash
+  [(_ ([x:id e]...) body)
+   #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
+   #:with [(x- ...) body- (~× ty_k ty_v)] 
+          (infer/ctx+erase #'([x : ty] ...) #'body)
+   (⊢ (for/hash ([x- e-] ...) (let ([t body-]) (values (car t) (cadr t))))
+        : (Hash ty_k ty_v))])
+
+(define-typed-syntax for/sum
+  [(_ ([x:id e]... 
+       (~optional (~seq #:when guard) #:defaults ([guard #'#t])))
+      body)
+   #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
+   #:with [(x- ...) (guard- body-) (_ ty_body)]
+          (infers/ctx+erase #'([x : ty] ...) #'(guard body))
+   #:when (Int? #'ty_body)
+   (⊢ (for/sum ([x- e-] ... #:when guard-) body-) : Int)])
 
 ; printing and displaying
 (define-typed-syntax printf
@@ -615,7 +659,11 @@
 ;   (⊢ (hash->list e-)
       : (Sequence (× ty_k ty_v)))])
 
+; mutable hashes
 (define-typed-syntax hash
+  [(_ (~and tys {ty_key ty_val}))
+   #:when (brace? #'tys)
+   (⊢ (make-hash) : (Hash ty_key ty_val))]
   [(_ (~seq k v) ...)
    #:with ([k- ty_k] ...) (infers+erase #'(k ...))
    #:with ([v- ty_v] ...) (infers+erase #'(v ...))
@@ -623,11 +671,35 @@
    #:when (same-types? #'(ty_v ...))
    #:with ty_key (stx-car #'(ty_k ...))
    #:with ty_val (stx-car #'(ty_v ...))
-   (⊢ (make-immutable-hash (list (cons k- v-) ...)) : (Hash ty_key ty_val))])
-   
+   (⊢ (make-hash (list (cons k- v-) ...)) : (Hash ty_key ty_val))])
+(define-typed-syntax hash-set!
+  [(_ h k v)
+   #:with [h- (ty_key ty_val)] (⇑ h as Hash)
+   #:with [k- ty_k] (infer+erase #'k)
+   #:with [v- ty_v] (infer+erase #'v)
+   #:when (typecheck? #'ty_k #'ty_key)
+   #:when (typecheck? #'ty_v #'ty_val)
+   (⊢ (hash-set! h- k- v-) : Unit)])
+(define-typed-syntax hash-ref/tc #:export-as hash-ref
+  [(_ h k) #'(hash-ref/tc h k (ext-stlc:#%datum . #f))]
+  [(_ h k fail)
+   #:with [h- (ty_key ty_val)] (⇑ h as Hash)
+   #:with [k- ty_k] (infer+erase #'k)
+   #:when (typecheck? #'ty_k #'ty_key)
+   #:with (fail- _) (infer+erase #'fail) ; default val can be any
+   (⊢ (hash-ref h- k- fail-) : ty_val)])
+(define-typed-syntax hash-has-key?
+  [(_ h k)
+   #:with [h- (ty_key _)] (⇑ h as Hash)
+   #:with [k- ty_k] (infer+erase #'k)
+   #:when (typecheck? #'ty_k #'ty_key)
+   (⊢ (hash-has-key? h- k-) : Bool)])
+
 (define-base-type String-Port)
 (define-primop open-output-string : (→ String-Port))
 (define-primop get-output-string : (→ String-Port String))
+(define-primop string-upcase : (→ String String))
+
 (define-typed-syntax write-string/tc #:export-as write-string
  [(_ str out)
   #'(write-string/tc str out (ext-stlc:#%datum . 0) (string-length/tc str))]
@@ -659,8 +731,10 @@
 
 (define-primop fl+ : (→ Float Float Float))
 (define-primop fl* : (→ Float Float Float))
+(define-primop fl/ : (→ Float Float Float))
 (define-primop flceiling : (→ Float Float))
 (define-primop inexact->exact : (→ Float Int))
+(define-primop exact->inexact : (→ Int Float))
 (define-primop char->integer : (→ Char Int))
 (define-primop fx->fl : (→ Int Float))
 (define-typed-syntax quotient+remainder
@@ -669,3 +743,31 @@
    #:with y- (⇑ y as Int)
    (⊢ (call-with-values (λ () (quotient/remainder x- y-)) list)
       : (× Int Int))])
+(define-primop quotient : (→ Int Int Int))
+
+(define-typed-syntax set!
+ [(_ x:id e)
+  #:with [x- ty_x] (infer+erase #'x)
+  #:with [e- ty_e] (infer+erase #'e)
+  #:when (typecheck? #'ty_e #'ty_x)
+  (⊢ (set! x e-) : Unit)])
+
+(define-typed-syntax provide
+  [(_ x:id)
+   #:with [x- ty_x] (infer+erase #'x)
+   #:with x-ty (format-id #'x "~a-ty" #'x) ; TODO: use hash-code to generate this tmp
+   #'(begin
+       (provide x)
+       (define-type-alias x-ty ty_x)
+       (provide x-ty))])
+(define-typed-syntax require-typed
+  [(_ x:id #:from mod)
+   #:with x-ty (format-id #'x "~a-ty" #'x)
+   #:with y (generate-temporary #'x)
+   #'(begin
+       (require (rename-in (only-in mod x x-ty) [x y]))
+       (define-syntax x (make-rename-transformer (assign-type #'y #'x-ty))))])
+
+(define-base-type Regexp)
+(define-primop regexp-match : (→ Regexp String (List String)))
+(define-primop regexp : (→ String Regexp))
