@@ -14,7 +14,7 @@
 (provide → × tup proj define-type-alias)
 (provide define-type match)
 (provide (rename-out [ext-stlc:and and] [ext-stlc:#%datum #%datum]))
-(reuse [cons stlc:cons] nil isnil head tail [list stlc:list] List ~List List? #:from "stlc+cons.rkt")
+(reuse reverse [cons stlc:cons] nil isnil head tail [list stlc:list] List ~List List? #:from "stlc+cons.rkt")
 (provide (rename-out [stlc:list list] [stlc:cons cons]))
 (reuse ref deref := Ref #:from "stlc+box.rkt")
 
@@ -752,12 +752,15 @@
    (⊢ (string-copy! dest- dest-start- src- src-start- src-end-) : Unit)])
 
 (define-primop fl+ : (→ Float Float Float))
+(define-primop fl- : (→ Float Float Float))
 (define-primop fl* : (→ Float Float Float))
 (define-primop fl/ : (→ Float Float Float))
+(define-primop flsqrt : (→ Float Float))
 (define-primop flceiling : (→ Float Float))
 (define-primop inexact->exact : (→ Float Int))
 (define-primop exact->inexact : (→ Int Float))
 (define-primop char->integer : (→ Char Int))
+(define-primop real->decimal-string : (→ Float Int String))
 (define-primop fx->fl : (→ Int Float))
 (define-typed-syntax quotient+remainder
   [(_ x y)

@@ -61,3 +61,8 @@
    #'(cons/tc (add-expected x τ) (list/tc . rst))]
   [(_ x . rst) ; no expected type
    #'(cons/tc x (list/tc . rst))])
+(define-typed-syntax reverse
+  [(_ e)
+   #:with (e- τ-lst) (infer+erase #'e)
+   #:when (List? #'τ-lst)
+   (⊢ (reverse e-) : τ-lst)])

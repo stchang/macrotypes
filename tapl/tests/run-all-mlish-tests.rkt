@@ -12,3 +12,4 @@
 ;(require "mlish/heapsort.mlish")
 (require "mlish/knuc.mlish")
 (require "mlish/matrix.mlish")
+(require "mlish/nbody.mlish")
