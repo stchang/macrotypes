@@ -29,7 +29,7 @@
 
 (check-type line-length : Int)
 
-(define (repeat-fasta [header : String][N : Int][sequence : String] -> String)
+(define (repeat-fasta [header : String] [N : Int] [sequence : String] -> String)
   (let* ([out (open-output-string)]
          [len (string-length sequence)]
          [buf (make-string (+ len line-length))])
@@ -49,11 +49,10 @@
 (define IM 139968)
 (define IM.0 (fx->fl IM))
 
-(define V
-  (let ([v (make-vector IM)])
-    (for ([id (in-range IM)]) 
-      (vector-set! v id (modulo (+ IC (* id IA)) IM)))
-    v))
+(define V 
+  (for/vector ([id (in-range IM)])
+    (modulo (+ IC (* id IA)) IM)))
+
 (check-type V : (Vector Int))
 
 (define (random-next [cur : Int] -> Int) (vector-ref V cur))
@@ -133,24 +132,27 @@
                 (n-randoms buf out lookup-str last R)]
                [else R]))))])
   (get-output-string out))))
+
 (define n 10)
+
 (check-type (repeat-fasta ">ONE Homo sapiens alu\n" (* n 2) +alu+) : String
  -> ">ONE Homo sapiens alu\nGGCCGGGCGCGGTGGCTCAC\n")
+
 (define res1
   (random-fasta ">TWO IUB ambiguity codes\n" (* n 3) IUB 42))
+
 (define res2
   (match res1 with
    [R str ->   
     (random-fasta ">THREE Homo sapiens frequency\n" (* n 5) HOMOSAPIEN R)]))
+
 (check-type (proj res1 1) : String
  -> ">TWO IUB ambiguity codes\nattRtBtaDtatVataKatgaatcccgDtY\n")
-;taaaWKatgWRattaNBttctNagggcgWt\n")
-;; should be cttBtatcatatgctaKggNcataaaSatg ?
+
 (check-type (proj res2 1) : String
  -> (string-append ">THREE Homo sapiens frequency\n"
-      "atttgcggaaacgacaaatattaacacatcatcagagtaccataaaggga\n"
-      #;"agggctccaaatcataaagaggaatatattattacacgattagaaaccca\n"))
-;; should be taaatcttgtgcttcgttagaagtctcgactacgtgtagcctagtgtttg ?
+      "atttgcggaaacgacaaatattaacacatcatcagagtaccataaaggga\n"))
+
 (define (mk-fasta [n : Int] -> String)
   (let 
    ([res1 (repeat-fasta ">ONE Homo sapiens alu\n" (* n 2) +alu+)]
@@ -160,5 +162,30 @@
       [R str ->   
        (random-fasta ">THREE Homo sapiens frequency\n" (* n 5) HOMOSAPIEN R)])])
    (string-append res1 (proj res2 1) (proj res3 1))))
+
 (provide mk-fasta)
-(check-type (mk-fasta 100) : String)
+
+(check-type (mk-fasta 100) 
+  : String
+  -> (string-append  
+      ">ONE Homo sapiens alu\n"
+      "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGGCGGGCGGA\n"
+      "TCACCTGAGGTCAGGAGTTCGAGACCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACT\n"
+      "AAAAATACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCAGCTACTCGGGAG\n"
+      "GCTGAGGCAGGAGAATCGCT\n"
+      ">TWO IUB ambiguity codes\n"
+      "attRtBtaDtatVataKatgaatcccgDtYtcccNaNgtRttNtatttatcctSaRataW\n"
+      "taatNtNctaatctttggMtMttKtYtMHagBttagcMKMttttcWaactgcSttgaaac\n"
+      "gtcatHagHtgtaHVgtcattatgRcaVcaatctcWgaNtttVaaYcaaaataYtgWgtt\n"
+      "acttMgtHHgagtattaaaKSgtBgacaaggSaaRttVaVDHttRgctagtaaacgaaac\n"
+      "ttcRNtgcatttSagBtHttNRaatgtctattcaSaRYcgtatSattttttttgaBgagD\n"
+      ">THREE Homo sapiens frequency\n"
+      "gaagacaggtgtaacgtgggaaaatctctagtaaagctttgatcagcggagacgcgatca\n"
+      "acagatcctttatatcgcgaaacttctctctatcagcgaactaaggagggcgacaatccg\n"
+      "agctgttccggaccaaaccctgaaagtacgactctgctctaataaagtcaaaacgtagaa\n"
+      "gactagatacaattatactgacaacaaaaaaaagttgcgtgcacaagagtacgatgtttg\n"
+      "accgccagttattatgacgagggtgagaacaagtcaggctaaagtagaagagcaccatag\n"
+      "gtatcagtttaactgagtaaatgcgaatgcgtgactttaaataagcctgcgtgtgtcaaa\n"
+      "actctacaatatctttgttatattattgaatcattctggatttgaggcagtggagcatac\n"
+      "tgtataaaataatttttcggtgggtcaaaaataaatttcaattaagacgttaaggataat\n"
+      "gaaatgactcaatctaaggt\n"))

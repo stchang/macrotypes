@@ -2,11 +2,15 @@
 (require "../rackunit-typechecking.rkt")
 
 (define-type Color Red Yellow Blue)
+
 (define-type (Option X) None (Some X))
+
 (define-type-alias Meet 
   (× (Channel (Option (× Color String)))
     (× Color String)))
+
 (define-type-alias Result (× Int Int))
+
 (define-type-alias MeetChan (Channel Meet))
 (define-type-alias ResultChan (Channel Result))
 
@@ -63,7 +67,8 @@
 
 (define (sleeper [ch-meet : MeetChan] [ch-res : ResultChan] 
                  [ch : (Channel (Option (× Color String)))]
-                 [name : String] [c : Color] [met : Int] [same : Int] -> Unit)
+                 [name : String] [c : Color] [met : Int] [same : Int] 
+                 -> Unit)
   (begin
     (channel-put ch-meet (tup ch (tup c name)))
     (match (channel-get ch) with
@@ -72,12 +77,14 @@
        [other-col other-name -> 
         (begin
           (sleep 0)
-          (sleeper ch-meet ch-res ch
-                   name (change c other-col)
-                   (add1 met) (+ same (if (string=? name other-name) 1 0))))])]
+          (sleeper 
+           ch-meet ch-res ch
+           name (change c other-col)
+           (add1 met) (+ same (if (string=? name other-name) 1 0))))])]
      [None -> (channel-put ch-res (tup met same))])))
 
-(define (creature [c : Color] [ch-meet : MeetChan] [ch-res : ResultChan] -> Thread)
+(define (creature [c : Color] [ch-meet : MeetChan] [ch-res : ResultChan] 
+                  -> Thread)
   (thread
     (λ ()
       (let ([ch (make-channel {(Option (× Color String))})]
@@ -96,4 +103,17 @@
          [ths (map (λ ([c : Color]) (creature c ch-meet ch-res)) inits)])
     (map (λ ([c : Color]) (channel-get ch-res)) inits)))
 
-(check-type (go 100 (list Blue Red Yellow)) : (List Result))
+(check-type (go 100 (list Blue Red Yellow)) 
+  : (List Result)
+  -> (list (list 67 0)
+           (list 66 0)
+           (list 67 0)))
+
+(check-type (go 1000 (list Blue Red Yellow Red Yellow Blue)) 
+  : (List Result) 
+  -> (list (list 333 0)
+           (list 333 0)
+           (list 333 0)
+           (list 333 0)
+           (list 334 0)
+           (list 334 0)))

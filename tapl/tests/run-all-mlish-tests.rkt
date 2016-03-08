@@ -11,3 +11,4 @@
 (require "mlish/hash.mlish")
 ;(require "mlish/heapsort.mlish")
 (require "mlish/knuc.mlish")
+(require "mlish/matrix.mlish")

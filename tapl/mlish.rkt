@@ -242,7 +242,6 @@
               #'(C {τ_solved (... ...)} . args)]))
          ...)]))
 
-(require racket/unsafe/ops)
 ;; match --------------------------------------------------
 (define-syntax (match stx)
   (syntax-parse stx #:datum-literals (with ->)
@@ -543,6 +542,14 @@
    #:with (e- ...) (⇑s (start end step) as Int)
    (⊢ (in-range e- ...) : (Sequence Int))])
 
+(define-typed-syntax in-naturals/tc #:export-as in-naturals
+ [(_) #'(in-naturals/tc (ext-stlc:#%datum . 0))]
+ [(_ start)
+  #:with start- (⇑ start as Int)
+  (⊢ (in-naturals start-) : (Sequence Int))])
+
+  
+
 (define-typed-syntax in-vector
   [(_ e)
    #:with [e- (ty)] (⇑ e as Vector)
@@ -575,6 +582,16 @@
    #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
    #:with [(x- ...) body- ty_body] (infer/ctx+erase #'([x : ty] ...) #'body)
    (⊢ (for/list ([x- e-] ...) body-) : (List ty_body))])
+(define-typed-syntax for/vector
+  [(_ ([x:id e]...) body)
+   #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
+   #:with [(x- ...) body- ty_body] (infer/ctx+erase #'([x : ty] ...) #'body)
+   (⊢ (for/vector ([x- e-] ...) body-) : (Vector ty_body))])
+(define-typed-syntax for*/vector
+  [(_ ([x:id e]...) body)
+   #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
+   #:with [(x- ...) body- ty_body] (infer/ctx+erase #'([x : ty] ...) #'body)
+   (⊢ (for*/vector ([x- e-] ...) body-) : (Vector ty_body))])
 (define-typed-syntax for*/list
   [(_ ([x:id e]...) body)
    #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
@@ -694,6 +711,11 @@
    #:with [k- ty_k] (infer+erase #'k)
    #:when (typecheck? #'ty_k #'ty_key)
    (⊢ (hash-has-key? h- k-) : Bool)])
+
+(define-typed-syntax hash-count
+  [(_ h)
+   #:with [h- _] (⇑ h as Hash)
+   (⊢ (hash-count h-) : Int)])
 
 (define-base-type String-Port)
 (define-primop open-output-string : (→ String-Port))
