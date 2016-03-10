@@ -111,12 +111,25 @@
 (define-syntax reuse
   (syntax-parser
     [(_ (~or x:id [old:id new:id]) ... #:from base-lang)
+     #:with pre (or (let ([dat (syntax-e #'base-lang)])
+                      (and (string? dat)
+                           (string->symbol (drop-file-ext dat))))
+                    #'base-lang)                    
+     #:with pre: (format-id #'pre "~a:" #'pre)
      #`(begin
-         (require (rename-in (only-in base-lang x ... old ...) [old new] ...))
+         (require (rename-in (only-in base-lang old ...) [old new] ...))
+         (require (prefix-in pre: (only-in base-lang x ...)))
          (provide (filtered-out
-                   (let* ([excluded (map (compose symbol->string syntax->datum) (syntax->list #'(new ...)))])
+                   (let* ([pre-str #,(string-append (drop-file-ext (syntax-e #'base-lang)) ":")]
+                          [pre-str-len (string-length pre-str)]
+                          [drop-pre (λ (s) (substring s pre-str-len))]
+                          [excluded (map (compose symbol->string syntax->datum) (syntax->list #'(new ...)))])
                      (λ (name) 
-                       (and (not (member name excluded)) name)))
+                       (define out-name
+                         (or (and (string-prefix? name pre-str)
+                                  (drop-pre name))
+                             name))
+                       (and (not (member out-name excluded)) out-name)))
                    (all-from-out base-lang))))]))
 
 (define-syntax add-expected

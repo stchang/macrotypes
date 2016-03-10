@@ -103,11 +103,20 @@
          [ths (map (λ ([c : Color]) (creature c ch-meet ch-res)) inits)])
     (map (λ ([c : Color]) (channel-get ch-res)) inits)))
 
-(check-type (go 100 (list Blue Red Yellow)) 
-  : (List Result)
-  -> (list (list 67 0)
-           (list 66 0)
-           (list 67 0)))
+(define res1 (go 100 (list Blue Red Yellow)))
+
+(define (check-res1 [r : Result] -> Bool)
+  (match r with
+   [met same -> (or (= met 66) (= met 67))]))
+
+(check-type (length res1) : Int -> 3)
+
+(check-type (check-res1 (list-ref res1 0)) : Bool -> #t)
+(check-type (check-res1 (list-ref res1 1)) : Bool -> #t)
+(check-type (check-res1 (list-ref res1 2)) : Bool -> #t)
+  ;; -> (list (list 67 0)
+  ;;          (list 66 0)
+  ;;          (list 67 0)))
 
 (check-type (go 1000 (list Blue Red Yellow Red Yellow Blue)) 
   : (List Result) 

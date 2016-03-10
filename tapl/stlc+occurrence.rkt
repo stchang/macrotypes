@@ -1,7 +1,8 @@
 #lang s-exp "typecheck.rkt"
 (extends "stlc+sub.rkt" #:except #%datum)
 (extends "stlc+cons.rkt" #:except + #%datum and tup × proj ~× list)
-(reuse tup × proj ~× #:from "stlc+tup.rkt")
+(reuse tup × proj #:from "stlc+tup.rkt")
+(require (only-in "stlc+tup.rkt" ~×))
 
 ;; Calculus for occurrence typing.
 ;; - Types can be simple, or sets of simple types
@@ -232,7 +233,7 @@
   ;; -- THIS CASE BELONGS IN A NEW FILE
   [(_ [τ0+:type ? (unop x-stx:id n-stx:nat)] e1 e2)
    ;; 1. Check that we're using a known eliminator
-   #:when (free-identifier=? #'proj #'unop)
+   #:when (free-identifier=? #'stlc+tup:proj #'unop)
    ;; 2. Make sure we're filtering with a valid type
    #:with f (type->filter #'τ0+)
    ;; 3. Typecheck the eliminator call. Remember the type & apply the filter.
@@ -242,8 +243,8 @@
    ;; 4. Build the +/- types for our identifier; the thing we apply the elim. + test to
    ;;    We know that x has a pair type because (proj x n) typechecked
    #:with (x (~× τi* ...)) (infer+erase #'x-stx)
-   #:with τ+ #`(× #,@(replace-at (syntax->list #'(τi* ...)) (syntax-e #'n-stx) #'τ0+))
-   #:with τ- #`(× #,@(replace-at (syntax->list #'(τi* ...)) (syntax-e #'n-stx) #'τ0-))
+   #:with τ+ #`(stlc+tup:× #,@(replace-at (syntax->list #'(τi* ...)) (syntax-e #'n-stx) #'τ0+))
+   #:with τ- #`(stlc+tup:× #,@(replace-at (syntax->list #'(τi* ...)) (syntax-e #'n-stx) #'τ0-))
    ;; 5. Check the branches with the refined types
    #:with [x1 e1+ τ1] (infer/ctx+erase #'([x-stx : τ+]) #'e1)
    #:with [x2 e2+ τ2] (infer/ctx+erase #'([x-stx : τ-]) #'e2)

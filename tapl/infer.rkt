@@ -1,8 +1,9 @@
 #lang s-exp "typecheck.rkt"
 (extends "ext-stlc.rkt" #:except #%app λ → + - void = zero? sub1 add1 not
          #:rename [~→ ~ext-stlc:→])
-(reuse ∀ ~∀ ∀? Λ #:from "sysf.rkt")
-(reuse cons [head hd] [tail tl] nil [isnil nil?] List ~List list #:from "stlc+cons.rkt")
+(require (only-in "sysf.rkt" ∀ ~∀ ∀? Λ))
+(reuse cons [head hd] [tail tl] nil [isnil nil?] List list #:from "stlc+cons.rkt")
+(require (only-in "stlc+cons.rkt" ~List))
 (reuse tup × proj #:from "stlc+tup.rkt")
 (reuse define-type-alias #:from "stlc+reco+var.rkt")
 (provide hd tl nil?)

@@ -4,19 +4,22 @@
 
 (extends "ext-stlc.rkt" #:except #%app λ → + - void = zero? sub1 add1 not let let* and #%datum begin
           #:rename [~→ ~ext-stlc:→])
-(reuse inst ~∀ ∀ ∀? Λ #:from "sysf.rkt")
-(require (only-in "stlc+rec-iso.rkt" case fld unfld μ ~× × ×? ∨ var tup proj define-type-alias)
-         #;(prefix-in stlc+rec-iso: (only-in "stlc+rec-iso.rkt" define)))
-;(reuse cons [head hd] [tail tl] nil [isnil nil?] List ~List list #:from "stlc+cons.rkt")
-;(reuse tup × proj #:from "stlc+tup.rkt")
-;(reuse define-type-alias #:from "stlc+reco+var.rkt")
-;(provide hd tl nil?)
-(provide → × tup proj define-type-alias)
-(provide define-type match)
+;(reuse [inst sysf:inst] #:from "sysf.rkt") 
+(require (rename-in (only-in "sysf.rkt" inst) [inst sysf:inst]))
+(provide inst)
+(require (only-in "ext-stlc.rkt" →?))
+(require (only-in "sysf.rkt" ~∀ ∀ ∀? Λ))
+(reuse × tup proj define-type-alias #:from "stlc+rec-iso.rkt")
+(require (only-in "stlc+rec-iso.rkt" ~× ×?))
+(provide → define-type match)
 (provide (rename-out [ext-stlc:and and] [ext-stlc:#%datum #%datum]))
-(reuse reverse [cons stlc:cons] nil isnil head tail [list stlc:list] List ~List List? #:from "stlc+cons.rkt")
-(provide (rename-out [stlc:list list] [stlc:cons cons]))
+(reuse member length reverse list-ref cons nil isnil head tail list #:from "stlc+cons.rkt")
+(require (only-in "stlc+cons.rkt" ~List List? List))
+(provide List)
 (reuse ref deref := Ref #:from "stlc+box.rkt")
+(require (rename-in (only-in "stlc+reco+var.rkt" tup proj ×)
+           [tup rec] [proj get] [× ××]))
+(provide rec get ××)
 
 ;; ML-like language
 ;; - top level recursive functions
@@ -53,7 +56,7 @@
        #:when (free-identifier=? #'y x)
        #'τ]
       [(_ . rst) (lookup x #'rst)]
-      [() false]))
+      [() #f]))
   ;; solve for tyvars Xs used in tys, based on types of args in stx
   ;; infer types of args left-to-right:
   ;; - use intermediate results to help infer remaining arg types
@@ -122,7 +125,7 @@
               ((current-type-eval) #`(∀ #,Xs (ext-stlc:→ τ ... τ_out)))
               Xs))
    #:with g (add-orig (generate-temporary #'f) #'f)
-   #:with e_ann #'(add-expected e τ_out)
+   #:with e_ann #'(add-expected e τ_out) ; must be macro bc t_out may have (currently unbound) tyvars
    #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
    #:with (~∀ Xs (~ext-stlc:→ in ...)) ((current-type-eval) #'(∀ Ys (ext-stlc:→ τ+orig ...)))
    #`(begin
@@ -144,20 +147,23 @@
      #:with Name2 (add-orig #'(NewName) #'Name)
      #`(begin
          (define-type Name2 . #,(subst #'Name2 #'Name #'rst))
-         (define-type-alias Name Name2))]
+         (stlc+rec-iso:define-type-alias Name Name2))]
     [(_ (Name:id X:id ...)
         ;; constructors must have the form (Cons τ ...)
         ;; but the first ~or clause accepts 0-arg constructors as ids
         ;; the ~and is required to bind the duplicate Cons ids (see Ryan's email)
-        (~and (~or (~and IdCons:id (~parse (Cons τ ...) #'(IdCons)))
-                   (Cons τ ...))) ...)
+        (~and (~or (~and IdCons:id 
+                        (~parse (Cons [fld (~datum :) τ] ...) #'(IdCons)))
+                   (Cons [fld (~datum :) τ] ...)
+                   (~and (Cons τ ...)
+                         (~parse (fld ...) (generate-temporaries #'(τ ...)))))) ...)
      #:with RecName (generate-temporary #'Name)
      #:with NameExpander (format-id #'Name "~~~a" #'Name)
      #:with (StructName ...) (generate-temporaries #'(Cons ...))
      #:with ((e_arg ...) ...) (stx-map generate-temporaries #'((τ ...) ...))
      #:with ((e_arg- ...) ...) (stx-map generate-temporaries #'((τ ...) ...))
      #:with ((τ_arg ...) ...) (stx-map generate-temporaries #'((τ ...) ...))
-     #:with ((fld ...) ...) (stx-map generate-temporaries #'((τ ...) ...))
+;     #:with ((fld ...) ...) (stx-map generate-temporaries #'((τ ...) ...))
      #:with ((acc ...) ...) (stx-map (λ (S fs) (stx-map (λ (f) (format-id S "~a-~a" S f)) fs))
                                      #'(StructName ...) #'((fld ...) ...))
      #:with (Cons? ...) (stx-map mk-? #'(StructName ...))
@@ -167,7 +173,11 @@
      #`(begin
          (define-type-constructor Name
            #:arity = #,(stx-length #'(X ...))
-           #:extra-info (X ...) (λ (RecName) ('Cons Cons? [acc τ/rec] ...) ...)
+           #:extra-info (X ...) 
+             (λ (RecName) 
+               (let-syntax ([RecName (make-rename-transformer 
+                                       (assign-type #'RecName #'#%type))])
+                 ('Cons Cons? [acc τ/rec] ...) ...))
            #:no-provide)
          (struct StructName (fld ...) #:reflection-name 'Cons #:transparent) ...
          (define-syntax (Cons stx)
@@ -246,6 +256,7 @@
 (define-syntax (match stx)
   (syntax-parse stx #:datum-literals (with ->)
     [(_ e with . clauses)
+     ;; e is tuple
      #:with [e- ty_e] (infer+erase #'e)
      #:when (×? #'ty_e)
      #:with (~× ty ...) #'ty_e
@@ -259,6 +270,7 @@
      (⊢ (let ([z e-])
           (let ([x- (acc z)] ...) e_body-))
           : ty_body)]
+    ;; e is variant
     [(_ e with . clauses)
      #:fail-when (null? (syntax->list #'clauses)) "no clauses"
      #:with [e- τ_e] (infer+erase #'e)
@@ -267,8 +279,11 @@
              -> e_c_un] ...) ; un = unannotated with expected ty
             #'clauses ; clauses must stay in same order
      ;; len #'clauses maybe > len #'info, due to guards
-     #:with ((~literal #%plain-lambda) (RecName) . info-body)
-            (get-extra-info #'τ_e)
+     #:with ((~literal #%plain-lambda) (RecName) 
+             ((~literal let-values) ()
+              ((~literal let-values) ()
+               . info-body)))
+             (get-extra-info #'τ_e)
      #:with info-unfolded (subst #'τ_e #'RecName #'info-body)
      #:with ((_ ((~literal quote) ConsAll) . _) ...) #'info-body
      #:fail-unless (set=? (syntax->datum #'(Clause ...))
@@ -411,7 +426,8 @@
         else_b ... else_body]
         #:defaults ([else_test #'#f])))
    #:with (test- ...) (⇑s (test ...) as Bool)
-   #:with ([body- ty_body] ...) (infers+erase #'(body ...))
+   #:with ty-expected (get-expected-type stx)
+   #:with ([body- ty_body] ...) (infers+erase #'((add-expected body ty-expected) ...))
    #:with (([b- ty_b] ...) ...) (stx-map infers+erase #'((b ...) ...))
    #:when (same-types? #'(ty_body ...))
    #:with τ_out (stx-car #'(ty_body ...))
@@ -630,6 +646,11 @@
    #:with s- (⇑ str as String)
    #:with ([e- ty] ...) (infers+erase #'(e ...))
    (⊢ (printf s- e- ...) : Unit)])
+(define-typed-syntax format
+  [(_ str e ...)
+   #:with s- (⇑ str as String)
+   #:with ([e- ty] ...) (infers+erase #'(e ...))
+   (⊢ (format s- e- ...) : String)])
 (define-typed-syntax display
   [(_ e)
    #:with [e- _] (infer+erase #'e)
@@ -663,7 +684,7 @@
 (define-typed-syntax begin/tc #:export-as begin
  [(_ body ... b)
   #:with expected (get-expected-type stx)
-  #:with b_ann (add-expected-type #'b #'expected)
+  #:with b_ann #'(add-expected b expected)
   #'(ext-stlc:begin body ... b_ann)])
 
 ;; hash
@@ -674,7 +695,7 @@
    #:with [e- (ty_k ty_v)] (⇑ e as Hash)
    (⊢ (map (λ (k+v) (list (car k+v) (cdr k+v))) (hash->list e-)) 
 ;   (⊢ (hash->list e-)
-      : (Sequence (× ty_k ty_v)))])
+      : (Sequence (stlc+rec-iso:× ty_k ty_v)))])
 
 ; mutable hashes
 (define-typed-syntax hash
@@ -767,7 +788,7 @@
    #:with x- (⇑ x as Int)
    #:with y- (⇑ y as Int)
    (⊢ (call-with-values (λ () (quotient/remainder x- y-)) list)
-      : (× Int Int))])
+      : (stlc+rec-iso:× Int Int))])
 (define-primop quotient : (→ Int Int Int))
 
 (define-typed-syntax set!
@@ -783,7 +804,7 @@
    #:with x-ty (format-id #'x "~a-ty" #'x) ; TODO: use hash-code to generate this tmp
    #'(begin
        (provide x)
-       (define-type-alias x-ty ty_x)
+       (stlc+rec-iso:define-type-alias x-ty ty_x)
        (provide x-ty))])
 (define-typed-syntax require-typed
   [(_ x:id #:from mod)
@@ -796,3 +817,19 @@
 (define-base-type Regexp)
 (define-primop regexp-match : (→ Regexp String (List String)))
 (define-primop regexp : (→ String Regexp))
+
+(define-typed-syntax equal?
+  [(_ e1 e2)
+   #:with [e1- ty1] (infer+erase #'e1)
+   #:with [e2- ty2] (infer+erase #'(add-expected e2 ty1))
+   #:fail-unless (typecheck? #'ty1 #'ty2) "arguments to equal? have different types"
+   (⊢ (equal? e1- e2-) : Bool)])
+
+(define-syntax (inst stx)
+  (syntax-parse stx
+    [(_ e ty ...)
+     #:with [e- ty_e] (infer+erase #'(sysf:inst e ty ...))
+     #:with ty_out (if (→? #'ty_e)
+                       #'(∀ () ty_e)
+                       #'ty_e)
+     (⊢ e- : ty_out)]))

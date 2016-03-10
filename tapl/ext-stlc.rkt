@@ -55,7 +55,8 @@
 (define-typed-syntax if
   [(~and ifstx (_ e_tst e1 e2))
    #:with τ-expected (get-expected-type #'ifstx)
-   #:with e_tst- (⇑ e_tst as Bool)
+;   #:with e_tst- (⇑ e_tst as Bool)
+   #:with [e_tst- _] (infer+erase #'e_tst)
    #:with e1_ann #'(add-expected e1 τ-expected)
    #:with e2_ann #'(add-expected e2 τ-expected)
    #:with (e1- τ1) (infer+erase #'e1_ann)

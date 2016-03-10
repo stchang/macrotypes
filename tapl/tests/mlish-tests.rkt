@@ -367,10 +367,8 @@
  (or #t "2")
  #:with-msg
  "Expected expression \"2\" to have Bool type, got: String")
-(typecheck-fail
- (if "true" 1 2)
- #:with-msg
- "Expected expression \"true\" to have Bool type, got: String")
+;; 2016-03-09: now ok
+(check-type (if "true" 1 2) : Int -> 1)
 (typecheck-fail
  (if #t 1 "2")
  #:with-msg 

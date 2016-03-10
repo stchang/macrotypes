@@ -18,7 +18,14 @@
   ; minimal type inference
   [ni:id #:with expected-τ (get-expected-type #'ni)
          #:when (syntax-e #'expected-τ) ; 'expected-type property exists (ie, not false)
-         #:with (~List τ) (local-expand #'expected-τ 'expression null) ; canonicalize
+         #:with ty_lst (local-expand #'expected-τ 'expression null) ; canonicalize
+         #:fail-unless (List? #'ty_lst)
+           (raise (exn:fail:type:infer
+                (format "~a (~a:~a): Inferred ~a type for nil, which is not a List."
+                        (syntax-source stx) (syntax-line stx) (syntax-column stx)
+                        (type->str #'ty_lst))
+                (current-continuation-marks)))
+         #:with (~List τ) #'ty_lst
          (⊢ null : (List τ))]
   [_:id #:fail-when #t
         (raise (exn:fail:type:infer
@@ -66,3 +73,19 @@
    #:with (e- τ-lst) (infer+erase #'e)
    #:when (List? #'τ-lst)
    (⊢ (reverse e-) : τ-lst)])
+(define-typed-syntax length
+  [(_ e)
+   #:with (e- τ-lst) (infer+erase #'e)
+   #:when (List? #'τ-lst)
+   (⊢ (length e-) : Int)])
+(define-typed-syntax list-ref
+  [(_ e n)
+   #:with (e- (ty)) (⇑ e as List)
+   #:with n- (⇑ n as Int)
+   (⊢ (list-ref e- n-) : ty)])
+(define-typed-syntax member
+  [(_ v e)
+   #:with (e- (ty)) (⇑ e as List)
+   #:with [v- ty_v] (infer+erase #'(add-expected v ty))
+   #:when (typecheck? #'ty_v #'ty)
+   (⊢ (member v- e-) : Bool)])

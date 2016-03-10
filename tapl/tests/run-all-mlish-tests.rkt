@@ -13,3 +13,6 @@
 (require "mlish/knuc.mlish")
 (require "mlish/matrix.mlish")
 (require "mlish/nbody.mlish")
+
+;; from rw ocaml
+(require "mlish/term.mlish")

@@ -1,6 +1,6 @@
 #lang s-exp "typecheck.rkt"
 (extends "stlc+reco+sub.rkt" #:except +)
-(reuse ∀? [∀ sysf:∀] [~∀ ~sysf:∀] #:from "sysf.rkt")
+(require (rename-in (only-in "sysf.rkt" ∀? ∀ ~∀) [~∀ ~sysf:∀] [∀ sysf:∀]))
  
 ;; System F<:
 ;; Types:
