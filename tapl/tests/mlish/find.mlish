@@ -1,0 +1,33 @@
+#lang s-exp "../../mlish.rkt"
+(require "../rackunit-typechecking.rkt")
+
+(define-type (List X)
+  Nil
+  (Cons X (List X)))
+
+(define-type (Option X)
+  None
+  (Some X))
+
+(define (find [lst : (List X)] [pred : (→ X Bool)] → (Option X))
+  (match lst with
+   [Nil -> None]
+   [Cons fst rst ->
+         (cond [(pred fst) (Some fst)]
+               [else (find rst pred)])]))
+
+(check-type
+ (find (Cons 1 (Cons 2 (Cons 3 Nil))) (λ ([x : Int]) (<= 2 x)))
+ : (Option Int)
+ -> (Some 2))
+
+(check-type
+ (find (Cons 1 (Cons 0 (Cons -1 Nil))) (λ ([x : Int]) (<= 2 x)))
+ : (Option Int)
+ -> (None {Int}))
+
+(check-type
+ (find (Nil {Int}) (λ ([x : Int]) (<= 2 x)))
+ : (Option Int)
+ -> (None {Int}))
+

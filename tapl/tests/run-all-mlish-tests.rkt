@@ -16,3 +16,4 @@
 
 ;; from rw ocaml
 (require "mlish/term.mlish")
+(require "mlish/find.mlish")
