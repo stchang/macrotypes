@@ -18,7 +18,9 @@
 
 (define-syntax (check-type stx)
   (syntax-parse stx #:datum-literals (: ⇒ ->)
-    [(_ e : τ (~or ⇒ ->) v) #'(check-type-and-result e : τ ⇒ v)]
+    [(_ e : τ (~or ⇒ ->) v)
+     (syntax/loc stx
+       (check-type-and-result e : τ ⇒ v))]
     [(_ e : τ-expected)
      #:with τ (typeof (expand/df #'e))
      #:fail-unless
