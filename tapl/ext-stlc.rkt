@@ -91,6 +91,10 @@
    #:with τ-expected (get-expected-type #'l)
    #:with ((e- τ) ...) (infers+erase #'(e ...))
    #:with ((x- ...) e_body- τ_body) (infer/ctx+erase #'([x τ] ...) #'(add-expected e_body τ-expected))
+   #:fail-unless (or (not (syntax-e #'τ-expected)) ; no expected type
+                      (typecheck? #'τ_body ((current-type-eval) #'τ-expected)))
+     (format "let body has type ~a, which does not match expected type ~a"
+             (type->str #'τ_body) (type->str #'τ-expected))
    (⊢ (let ([x- e-] ...) e_body-) : τ_body)])
 
 ; dont need to manually transfer expected type

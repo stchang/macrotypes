@@ -125,14 +125,26 @@
               ((current-type-eval) #`(∀ #,Xs (ext-stlc:→ τ ... τ_out)))
               Xs))
    #:with g (add-orig (generate-temporary #'f) #'f)
-   #:with e_ann #'(add-expected e τ_out) ; must be macro bc t_out may have (currently unbound) tyvars
+   #:with e_ann #'(add-expected e τ_out) ; must be macro bc t_out may have unbound tvs
    #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
-   #:with (~∀ Xs (~ext-stlc:→ in ...)) ((current-type-eval) #'(∀ Ys (ext-stlc:→ τ+orig ...)))
+   ;; TODO: check that specified return type is correct
+   ;; - currently cannot do it here; to do the check here, need all types of
+   ;;  top-lvl fns, since they can call each other
+   #:with (~and ty_fn_expected (~∀ _ (~ext-stlc:→ _ ... out_expected))) 
+          ((current-type-eval) #'(∀ Ys (ext-stlc:→ τ+orig ...)))
+   ;; #:with [_ _ (~and ty_fn_actual (~∀ _ (~ext-stlc:→ _ ... out_actual)))]
+   ;;        (infer/ctx+erase #'([f : ty_fn_expected]) ; need to handle recursive fn calls
+   ;;          #'(Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann))))
+   ;; #:fail-unless (typecheck? #'ty_fn_actual #'ty_fn_expected)
+   ;;               (format 
+   ;;                "Function ~a's body ~a has type ~a, which does not match given type ~a."
+   ;;                (syntax->datum #'f) (syntax->datum #'e) 
+   ;;                (type->str #'out_actual) (type->str #'τ_out))
    #`(begin
       (define-syntax f
         (make-rename-transformer
          ;(⊢ g : (∀ Ys (ext-stlc:→ τ ... τ_out)))))
-         (⊢ g : (∀ Ys (ext-stlc:→ τ+orig ...)))))
+         (⊢ g : ty_fn_expected #;(∀ Ys (ext-stlc:→ τ+orig ...)))))
       (define g
         (Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))])
 ;
@@ -673,6 +685,9 @@
    #:with [(name- . xs-) (body- ...) (_ ... ty_body)] 
           (infers/ctx+erase #'([name : (→ ty_e ... ty.norm)][x : ty_e] ...) 
                             #'(b ... body))
+   #:fail-unless (typecheck? #'ty_body #'ty.norm)
+                 (format "type of let body ~a does not match expected typed ~a"
+                         (type->str #'ty_body) (type->str #'ty))
    (⊢ (letrec ([name- (λ xs- body- ...)]) 
         (name- e- ...))
       : ty_body)]

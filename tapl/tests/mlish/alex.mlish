@@ -1,6 +1,10 @@
 #lang s-exp "../../mlish.rkt"
 (require "../rackunit-typechecking.rkt")
 
+;; the following function def produces error:
+;; define: Function should-err's body (let ((y (f x))) x) has type X, which
+;; does not match given type Y.
+;; TODO: add check-_ rackunit form for functions
 #;(define (should-err [x : X] [f : (→ X Y)] -> Y)
   (let ([y (f x)])
       x))
