@@ -18,7 +18,7 @@
 (typecheck-fail (f (λ ([x : Int]) x)))
 
 (define (g [x : X] → X) x)
-(check-type g : (→ X X))
+(check-type g : (→/test X X))
 
 ;; (inferred) polymorpic instantiation
 (check-type (g 1) : Int ⇒ 1)
@@ -41,7 +41,7 @@
   #:with-msg "match: clauses not exhaustive; missing: Nil")
   
 (define (g2 [lst : (List Y)] → (List Y)) lst)
-(check-type g2 : (→ (List Y) (List Y)))
+(check-type g2 : (→/test (List Y) (List Y)))
 (typecheck-fail (g2 1) 
   #:with-msg 
   (expected "(List Y)" #:given "Int"
@@ -85,11 +85,11 @@
   (match lst with
    [Nil -> Nil]
    [Cons x xs -> (Cons (f x) (map f xs))]))
-(check-type map : (→ (→ X Y) (List X) (List Y)))
-(check-type map : (→ (→ Y X) (List Y) (List X)))
-(check-type map : (→ (→ A B) (List A) (List B)))
-(check-not-type map : (→ (→ A B) (List B) (List A)))
-(check-not-type map : (→ (→ X X) (List X) (List X))) ; only 1 bound tyvar
+(check-type map : (→/test (→ X Y) (List X) (List Y)))
+(check-type map : (→/test (→ Y X) (List Y) (List X)))
+(check-type map : (→/test (→ A B) (List A) (List B)))
+(check-not-type map : (→/test (→ A B) (List B) (List A)))
+(check-not-type map : (→/test (→ X X) (List X) (List X))) ; only 1 bound tyvar
 
 ; nil without annotation; tests fn-first, left-to-right arg inference
 ; does work yet, need to add left-to-right inference in #%app
