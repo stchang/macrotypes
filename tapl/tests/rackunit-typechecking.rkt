@@ -69,6 +69,7 @@
 (define-syntax (check-type-and-result stx)
   (syntax-parse stx #:datum-literals (: ⇒)
     [(_ e : τ ⇒ v)
-     #'(begin
+     #`(begin
          (check-type e : τ)
-         (check-equal? e v))]))
+         #,(syntax/loc stx
+             (check-equal? e v)))]))
