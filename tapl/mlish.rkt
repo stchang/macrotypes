@@ -333,11 +333,12 @@
 
 (define-syntax → ; wrapping →
   (syntax-parser
-    #;[(_ (~and Xs {X:id ...}) . rst)
-     #:when (brace? #'Xs)
-     #:when (with-handlers ([exn:fail:syntax:unbound? (λ (e) (displayln (exn:fail:syntax-exprs e)))])
-              ((current-type-eval) #'(ext-stlc:→ . rst)))
-     #'(∀ (X ...) (ext-stlc:→ . rst))]
+    [(_ . rst) #'(∀ () (ext-stlc:→ . rst))]))
+; special arrow that computes free vars; for use with tests
+; (because we can't write explicit forall
+(provide →/test)
+(define-syntax →/test 
+  (syntax-parser
     [(_ . rst)
      (let L ([Xs #'()]) ; compute unbound ids; treat as tyvars
        (with-handlers ([exn:fail:syntax:unbound?
