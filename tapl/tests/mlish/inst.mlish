@@ -22,3 +22,13 @@
   (Ok 1))
 
 (check-type g : (→/test (Result Int String)))
+
+(define (h -> (Result Int Y))
+  (Ok 1))
+
+(check-type h : (→/test (Result Int Y)))
+
+(define (i -> (Result Int String))
+  (h))
+
+(check-type i : (→/test (Result Int String)))
