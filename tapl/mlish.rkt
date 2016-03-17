@@ -97,7 +97,7 @@
   )
 
 ;; define --------------------------------------------------
-(define-typed-syntax define
+(define-typed-syntax define/tc #:export-as define
   [(_ x:id e)
    #:with (e- τ) (infer+erase #'e)
    #:with y (generate-temporary)
@@ -105,13 +105,37 @@
        (define-syntax x (make-rename-transformer (⊢ y : τ)))
        (define y e-))]
   ; explicit "forall"
-  #;[(_ (~and Xs {X:id ...}) (f:id [x:id (~datum :) τ] ... (~datum →) τ_out) e)
-   #:when (brace? #'Xs)
-   #:with g (generate-temporary #'f)
+  [(_ Ys (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) e_body ... e)
+   #:when (brace? #'Ys)
+   ;; TODO; remove this code duplication
+   #:with g (add-orig (generate-temporary #'f) #'f)
    #:with e_ann #'(add-expected e τ_out)
-   #'(begin
+   #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
+   ;; TODO: check that specified return type is correct
+   ;; - currently cannot do it here; to do the check here, need all types of
+   ;;  top-lvl fns, since they can call each other
+   #:with (~and ty_fn_expected (~∀ _ (~ext-stlc:→ _ ... out_expected))) 
+          ((current-type-eval) #'(∀ Ys (ext-stlc:→ τ+orig ...)))
+   ;; #:with [_ _ (~and ty_fn_actual (~∀ _ (~ext-stlc:→ _ ... out_actual)))]
+   ;;        (infer/ctx+erase #'([f : ty_fn_expected]) ; need to handle recursive fn calls
+   ;;          #'(Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann))))
+   ;; #:fail-unless (typecheck? #'ty_fn_actual #'ty_fn_expected)
+   ;;               (format 
+   ;;                "Function ~a's body ~a has type ~a, which does not match given type ~a."
+   ;;                (syntax->datum #'f) (syntax->datum #'e) 
+   ;;                (type->str #'out_actual) (type->str #'τ_out))
+   #`(begin
+      (define-syntax f
+        (make-rename-transformer
+         ;(⊢ g : (∀ Ys (ext-stlc:→ τ ... τ_out)))))
+         (⊢ g : ty_fn_expected #;(∀ Ys (ext-stlc:→ τ+orig ...)))))
+      (define g
+        (Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))]
+   #;(begin
        (define-syntax f (make-rename-transformer (⊢ g : (∀ (X ...) (ext-stlc:→ τ ... τ_out)))))
-       (define g (Λ (X ...) (ext-stlc:λ ([x : τ] ...) e_ann))))]
+       (define g (Λ (X ...) (ext-stlc:λ ([x : τ] ...) e_ann))))
+  [(_ (f:id x:id ...) (~datum :) ty ... (~or (~datum ->) (~datum →)) ty_out . b)
+   #'(define/tc (f [x : ty] ... -> ty_out) . b)]
   [(_ (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) e_body ... e)
    #:with Ys
           (let L ([Xs #'()]) ; compute unbound ids; treat as tyvars
@@ -378,7 +402,8 @@
 (define-primop add1 : (→ Int Int))
 (define-primop not : (→ Bool Bool))
 (define-primop abs : (→ Int Int))
-
+(define-primop even? : (→ Int Bool))
+(define-primop odd? : (→ Int Bool))
 
 ; all λs have type (∀ (X ...) (→ τ_in ... τ_out)), even monomorphic fns
 (define-typed-syntax liftedλ #:export-as λ
@@ -501,6 +526,7 @@
 (define-primop string->number : (→ String Int))
 ;(define-primop number->string : (→ Int String))
 (define-typed-syntax num->str #:export-as number->string
+ [f:id (assign-type #'number->string #'(→ Int String))]
  [(_ n)
   #'(num->str n (ext-stlc:#%datum . 10))]
  [(_ n rad)
@@ -814,6 +840,8 @@
   #:when (typecheck? #'ty_e #'ty_x)
   (⊢ (set! x e-) : Unit)])
 
+(define-typed-syntax provide-type [(_ ty) #'(provide ty)])
+
 (define-typed-syntax provide
   [(_ x:id)
    #:with [x- ty_x] (infer+erase #'x)
@@ -844,6 +872,7 @@
 (define-syntax (inst stx)
   (syntax-parse stx
     [(_ e ty ...)
+     #:with [ee tyty] (infer+erase #'e)
      #:with [e- ty_e] (infer+erase #'(sysf:inst e ty ...))
      #:with ty_out (if (→? #'ty_e)
                        #'(∀ () ty_e)

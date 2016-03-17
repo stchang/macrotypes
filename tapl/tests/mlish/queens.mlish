@@ -28,6 +28,18 @@
 (check-not-type map : (→/test (→ A B) (List B) (List A)))
 (check-not-type map : (→/test (→ X X) (List X) (List X))) ; only 1 bound tyvar
 
+; map: alt signature syntax
+(define (map2 f lst)
+  : (→ X Y) (List X) → (List Y)
+  (match lst with
+   [Nil -> Nil]
+   [Cons x xs -> (Cons (f x) (map2 f xs))]))
+(check-type map2 : (→/test (→ X Y) (List X) (List Y)))
+(check-type map2 : (→/test (→ Y X) (List Y) (List X)))
+(check-type map2 : (→/test (→ A B) (List A) (List B)))
+(check-not-type map2 : (→/test (→ A B) (List B) (List A)))
+(check-not-type map2 : (→/test (→ X X) (List X) (List X))) ; only 1 bound tyvar
+
 ; nil without annotation; tests fn-first, left-to-right arg inference
 ; does work yet, need to add left-to-right inference in #%app
 (check-type (map add1 Nil) : (List Int) ⇒ (Nil {Int}))
@@ -105,6 +117,10 @@
   : (List Int) ⇒ (Cons 3 (Cons 2 (Cons 1 Nil))))
 (check-type (build-list 5 sub1) 
   : (List Int) ⇒ (Cons 3 (Cons 2 (Cons 1 (Cons 0 (Cons -1 Nil))))))
+
+;; map + filter + fold + build example
+(define INPUT (build-list 1000 number->string))
+(check-type (foldl + 0 (filter even? (map string->number INPUT))) : Int -> 249500)
 
 (define (append [lst1 : (List X)] [lst2 : (List X)] → (List X))
   (match lst1 with
