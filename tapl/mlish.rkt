@@ -375,6 +375,9 @@
 (provide →/test)
 (define-syntax →/test 
   (syntax-parser
+    [(_ (~and Xs (X:id ...)) . rst)
+     #:when (brace? #'Xs)
+     #'(∀ (X ...) (ext-stlc:→ . rst))]
     [(_ . rst)
      (let L ([Xs #'()]) ; compute unbound ids; treat as tyvars
        (with-handlers ([exn:fail:syntax:unbound?
@@ -433,7 +436,16 @@
                          (syntax->datum #'e_fn) (type->str #'τ_fn))
    #:with (~∀ Xs (~ext-stlc:→ τ_inX ... τ_outX)) #'τ_fn
    ;; ) instantiate polymorphic fn type
-   #:with (τ_solved ...) (solve #'Xs #'(τ_inX ...) (syntax/loc stx (e_fn e_arg ...)))
+   ; try to solve with expected-type first
+   #:with expected-ty (get-expected-type stx)
+   #:with maybe-solved 
+          (and (syntax-e #'expected-ty)
+          (let ([cs (compute-constraints (list (list #'τ_outX ((current-type-eval) #'expected-ty))))])
+            (filter (lambda (x) x) (stx-map (λ (X) (lookup X cs)) #'Xs))))
+   ;; else use arg types
+   #:with (τ_solved ...) (if (and (syntax-e #'maybe-solved) (stx-length=? #'maybe-solved #'Xs))
+                             #'maybe-solved
+                             (solve #'Xs #'(τ_inX ...) (syntax/loc stx (e_fn e_arg ...))))
    ;; #:with cs (compute-constraints #'((τ_inX τ_arg) ...))
    ;; #:with (τ_solved ...) (filter (λ (x) x) (stx-map (λ (y) (lookup y #'cs)) #'(X ...)))
    ;; #:fail-unless (stx-length=? #'(X ...) #'(τ_solved ...))

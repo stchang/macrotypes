@@ -1,0 +1,24 @@
+#lang s-exp "../../mlish.rkt"
+(require "../rackunit-typechecking.rkt")
+
+;; tests for instantiation of polymorphic functions and constructors
+
+(define-type (Result A B)
+  (Ok A)
+  (Error B))
+
+(define {A B} (ok [a : A] -> (Result A B))
+  (Ok a))
+
+(check-type ok : (→/test {A B} A (Result A B))) ; test inferred
+(check-type (inst ok Int String) : (→/test Int (Result Int String)))
+
+(define (f -> (Result Int String))
+  (ok 1))
+
+(check-type f : (→/test (Result Int String)))
+
+(define (g -> (Result Int String))
+  (Ok 1))
+
+(check-type g : (→/test (Result Int String)))
