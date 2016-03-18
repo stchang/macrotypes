@@ -482,7 +482,7 @@
    #:when (same-types? #'(ty_body ...))
    #:with τ_out (stx-car #'(ty_body ...))
    #:with [last-body- last-ty] (if (attribute else_body)
-                                   (infer+erase #'else_body)
+                                   (infer+erase #'(add-expected else_body ty-expected))
                                    (infer+erase #'(void)))
    #:with ([last-b- last-b-ty] ...) (if (attribute else_body)
                                    (infers+erase #'(else_b ...))
