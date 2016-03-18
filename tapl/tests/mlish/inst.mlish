@@ -36,3 +36,5 @@
 (define (f/cond [b : Bool] -> (Result Int String))
   (cond [b (ok 1)]
         [else (ok 0)]))
+
+(check-type f/cond : (→/test Bool (Result Int String)))

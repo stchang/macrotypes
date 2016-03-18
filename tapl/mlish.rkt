@@ -469,29 +469,18 @@
 
 ;; cond and other conditionals
 (define-typed-syntax cond
-  [(_ [(~and test (~not (~datum else))) b ... body] ... 
-      (~optional 
-       [(~and (~datum else) 
-              (~parse else_test #'(ext-stlc:#%datum . #t)))
-        else_b ... else_body]
-        #:defaults ([else_test #'#f])))
+  [(_ [(~or (~and (~datum else) (~parse test #'(ext-stlc:#%datum . #t)))
+         test)
+       b ... body] ...)
    #:with (test- ...) (⇑s (test ...) as Bool)
    #:with ty-expected (get-expected-type stx)
    #:with ([body- ty_body] ...) (infers+erase #'((add-expected body ty-expected) ...))
    #:with (([b- ty_b] ...) ...) (stx-map infers+erase #'((b ...) ...))
-   #:when (same-types? #'(ty_body ...))
+   #:when (same-types? (if (syntax-e #'ty-expected)
+                           #`(#,((current-type-eval) #'ty-expected) ty_body ...)
+                           #'(ty_body ...)))
    #:with τ_out (stx-car #'(ty_body ...))
-   #:with [last-body- last-ty] (if (attribute else_body)
-                                   (infer+erase #'(add-expected else_body ty-expected))
-                                   (infer+erase #'(void)))
-   #:with ([last-b- last-b-ty] ...) (if (attribute else_body)
-                                   (infers+erase #'(else_b ...))
-                                   (infers+erase #'((void))))
-   #:when (or (not (attribute else_body))
-              (typecheck? #'last-ty #'τ_out))
-   (⊢ (cond [test- b- ... body-] ... 
-            [else_test last-b- ... last-body-]) 
-      : τ_out)])
+   (⊢ (cond [test- b- ... body-] ...) : τ_out)])
 (define-typed-syntax when
   [(_ test body ...)
 ;   #:with test- (⇑ test as Bool)
