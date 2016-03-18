@@ -226,9 +226,9 @@
               #:with τ-expected (syntax-property #'C 'expected-type)
               #:fail-unless (syntax-e #'τ-expected)
                             (type-error #:src stx #:msg "cannot infer type of ~a; add annotations" #'C)
-              #:with (NameExpander τ-expected-arg (... ...)) #'τ-expected
+              #:with (NameExpander τ-expected-arg (... ...)) ((current-type-eval) #'τ-expected)
               #'(C {τ-expected-arg (... ...)})]
-             [_:id
+             [_:id 
               #:when (and (not (stx-null? #'(X ...)))
                           (not (stx-null? #'(τ ...))))
               (type-error
@@ -782,6 +782,7 @@
    (⊢ (hash-count h-) : Int)])
 
 (define-base-type String-Port)
+(define-base-type Input-Port)
 (define-primop open-output-string : (→ String-Port))
 (define-primop get-output-string : (→ String-Port String))
 (define-primop string-upcase : (→ String String))
@@ -879,3 +880,10 @@
                        #'(∀ () ty_e)
                        #'ty_e)
      (⊢ e- : ty_out)]))
+
+(define-typed-syntax read
+  [(_)
+   (⊢ (let ([x (read)])
+        (cond [(eof-object? x) ""]
+              [(number? x) (number->string x)]
+              [(symbol? x) (symbol->string x)])) : String)])
