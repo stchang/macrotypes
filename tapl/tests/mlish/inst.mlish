@@ -61,3 +61,14 @@
 (check-type alias-test2 : (→/test B (Read-Result B)))
 (check-type alias-test3 : (→/test B (Result (× B (List Char)) String)))
 (check-type alias-test3 : (→/test B (Read-Result B)))
+
+(define (expect-listof-int [loi : (List Int)] → Int)
+  0)
+
+(check-type (expect-listof-int nil) : Int -> 0)
+
+(define (expect-→listof-int [f : (→ (List Int))] → Int)
+  0)
+
+(check-type (expect-→listof-int (λ () nil)) : Int -> 0)
+

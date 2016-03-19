@@ -412,6 +412,9 @@
 (define-typed-syntax liftedλ #:export-as λ
   [(_ (y:id x:id ...) . body)
    (type-error #:src stx #:msg "λ parameters must have type annotations")]
+  [(_ args body)
+   #:with (~∀ () (~ext-stlc:→ arg-ty ... body-ty)) (get-expected-type stx)
+   #`(Λ () (ext-stlc:λ args #,(add-expected-ty #'body #'body-ty)))]
   [(_ . rst)
    #'(Λ () (ext-stlc:λ . rst))])
 
