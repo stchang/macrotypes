@@ -13,3 +13,4 @@
   (let ([y (f x)]) x))
 
 (check-type try : (→/test X (→ X Y) X))
+

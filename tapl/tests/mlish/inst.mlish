@@ -38,3 +38,26 @@
         [else (ok 0)]))
 
 (check-type f/cond : (→/test Bool (Result Int String)))
+
+(define-type-alias (Read-Result A) (Result (× A (List Char)) String))
+
+(define (alias-test -> (Read-Result A))
+  (Error "asd"))
+
+(check-type alias-test : (→/test (Result (× A (List Char)) String)))
+(check-type alias-test : (→/test (Read-Result A)))
+
+(define (alias-test2 [in : A] -> (Read-Result A))
+  (ok (tup in nil)))
+(define (alias-test3 [in : A] -> (Read-Result A))
+  (ok (tup in (list #\a #\b #\c))))
+
+(check-type alias-test2 : (→/test A (Result (× A (List Char)) String)))
+(check-type alias-test2 : (→/test A (Read-Result A)))
+(check-type alias-test3 : (→/test A (Result (× A (List Char)) String)))
+(check-type alias-test3 : (→/test A (Read-Result A)))
+
+(check-type alias-test2 : (→/test B (Result (× B (List Char)) String)))
+(check-type alias-test2 : (→/test B (Read-Result B)))
+(check-type alias-test3 : (→/test B (Result (× B (List Char)) String)))
+(check-type alias-test3 : (→/test B (Read-Result B)))
