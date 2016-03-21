@@ -527,6 +527,7 @@
 
 (define-primop random : (→ Int Int))
 (define-primop integer->char : (→ Int Char))
+(define-primop string->list : (→ String (List Char)))
 (define-primop string->number : (→ String Int))
 ;(define-primop number->string : (→ Int String))
 (define-typed-syntax num->str #:export-as number->string

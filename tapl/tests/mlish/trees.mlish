@@ -5,6 +5,10 @@
   (Leaf X)
   (Node (Tree X) X (Tree X)))
 
+(provide-type Tree)
+(provide-type Leaf)
+(provide-type Node)
+
 (define (make [item : Int] [depth : Int] -> (Tree Int))
   (if (zero? depth)
       (Leaf item)
