@@ -26,8 +26,22 @@
  : (Option Int)
  -> (None {Int}))
 
+;; args inferred in order, L-to-R, currently no backtracking
 (check-type
  (find (Nil {Int}) (λ ([x : Int]) (<= 2 x)))
+ : (Option Int)
+ -> (None {Int}))
+
+;; reversing arg order leads to successful inference
+(define (find2 [pred : (→ X Bool)] [lst : (List X)] → (Option X))
+  (match lst with
+   [Nil -> None]
+   [Cons fst rst ->
+         (cond [(pred fst) (Some fst)]
+               [else (find2 pred rst)])]))
+
+(check-type
+ (find2 (λ ([x : Int]) (<= 2 x)) Nil)
  : (Option Int)
  -> (None {Int}))
 
