@@ -399,14 +399,14 @@
 ;; -----------------------------------------------------------------------------
 ;; --- mergesort
 
-(define (split [x* : (List A)] → (** (List A) (List A)))
+(define (split2 [x* : (List A)] → (** (List A) (List A)))
   (match x* with
    [Nil -> (Pair Nil Nil)]
    [Cons h t ->
     (match t with
      [Nil -> (Pair (Cons h Nil) Nil)]
      [Cons h2 x* ->
-      (match (split x*) with
+      (match (split2 x*) with
        [Pair x* y* ->
         (Pair (Cons h x*) (Cons h2 y*))])])]))
 
@@ -430,7 +430,7 @@
     (match t with
      [Nil -> (Cons h Nil)]
      [Cons h2 t2 ->
-      (match (split x*) with
+      (match (split2 x*) with
        [Pair x* y* ->
         (merge (Pair (mergesort x*) (mergesort y*)))])])]))
 
