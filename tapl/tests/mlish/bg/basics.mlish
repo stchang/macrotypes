@@ -1,0 +1,557 @@
+#lang s-exp "../../../mlish.rkt"
+(require "../../rackunit-typechecking.rkt")
+
+;; =============================================================================
+
+(define-type (List X)
+  Nil
+  (Cons X (List X)))
+
+;; =============================================================================
+;; http://www.cs.cornell.edu/courses/cs3110/2011fa/hw/ps1/ps1.html
+
+(define (fn-list [f* : (List (→ A A))] [a : A] → A)
+  (match f* with
+   [Nil -> a]
+   [Cons f f* -> (fn-list f* (f a))]))
+
+(check-type
+  (fn-list (Cons (λ ([x : Int]) (+ x 1)) (Cons (λ ([x : Int]) (* x 2)) Nil)) 4)
+  : Int
+  ⇒ 10)
+
+;; -----------------------------------------------------------------------------
+
+(define (count-letters/one [s : String] [c : Char] → Int)
+  (for/sum ([i (in-range (string-length s))])
+    (if (equal? (string-ref s i) c)
+      1
+      0)))
+
+(define (count-letters [s* : (List String)] [c : Char] → Int)
+  (match s* with
+   [Nil -> 0]
+   [Cons s s* -> (+ (count-letters/one s c)
+                    (count-letters s* c))]))
+
+(check-type
+  (count-letters (Cons "OCaml" (Cons "Is" (Cons "Alot" (Cons "Better" (Cons "Than" (Cons "Java" Nil)))))) (string-ref "a" 0))
+  : Int
+  ⇒ 4)
+
+;; -----------------------------------------------------------------------------
+
+(define (map [f : (→ A B)] [x* : (List A)] → (List B))
+  (match x* with
+   [Nil -> Nil]
+   [Cons x x* -> (Cons (f x) (map f x*))]))
+
+(define (append [x* : (List A)] [y* : (List A)] → (List A))
+  (match x* with
+   [Nil -> y*]
+   [Cons x x* -> (Cons x (append x* y*))]))
+
+(define (flatten [x** : (List (List A))] → (List A))
+  (match x** with
+   [Nil -> Nil]
+   [Cons x* x** -> (append x* (flatten x**))]))
+
+(define (insert [x : A] → (→ (List A) (List (List A))))
+  (λ ([x* : (List A)])
+    (Cons (Cons x x*)
+      (match x* with
+       [Nil -> Nil]
+       [Cons y y* -> (map (λ ([z* : (List A)]) (Cons y z*))
+                          ((insert x) y*))]))))
+
+(define (permutations [x* : (List A)] → (List (List A)))
+  (match x* with
+   [Nil -> (Cons Nil Nil)]
+   [Cons x x* -> (flatten (map (insert x) (permutations x*)))]))
+
+(check-type
+  (permutations (Nil {Int}))
+  : (List (List Int))
+  ⇒ (Cons (Nil {(List Int)}) Nil))
+
+(check-type
+  (permutations (Cons 1 Nil))
+  : (List (List Int))
+  ⇒ (Cons (Cons 1 Nil) Nil))
+
+(check-type
+  (permutations (Cons 1 (Cons 2 Nil)))
+  : (List (List Int))
+  ⇒ (Cons (Cons 1 (Cons 2 Nil)) (Cons (Cons 2 (Cons 1 Nil)) Nil)))
+
+(check-type
+  (permutations (Cons 1 (Cons 2 (Cons 3 Nil))))
+  : (List (List Int))
+  ⇒ (Cons (Cons 1 (Cons 2 (Cons 3 Nil)))
+    (Cons (Cons 2 (Cons 1 (Cons 3 Nil)))
+    (Cons (Cons 2 (Cons 3 (Cons 1 Nil)))
+    (Cons (Cons 1 (Cons 3 (Cons 2 Nil)))
+    (Cons (Cons 3 (Cons 1 (Cons 2 Nil)))
+    (Cons (Cons 3 (Cons 2 (Cons 1 Nil)))
+    Nil)))))))
+
+;; =============================================================================
+;; http://www.cs.cornell.edu/courses/cs3110/2011sp/hw/ps1/ps1.htm
+
+(define-type (** X Y)
+  (Pair X Y))
+
+(define (split [ab* : (List (** A B))] → (** (List A) (List B)))
+  (match ab* with
+   [Nil -> (Pair Nil Nil)]
+   [Cons ab ab* ->
+    (match ab with
+     [Pair a b ->
+      (match (split ab*) with
+       [Pair a* b* ->
+        (Pair (Cons a a*)
+              (Cons b b*))])])]))
+
+(check-type
+  (split (Nil {(** Int Int)}))
+  : (** (List Int) (List Int))
+  ⇒ (Pair (Nil {Int}) (Nil {Int})))
+
+(check-type
+  (split (Cons (Pair 1 2) (Cons (Pair 3 4) Nil)))
+  : (** (List Int) (List Int))
+  ⇒ (Pair (Cons 1 (Cons 3 Nil))
+          (Cons 2 (Cons 4 Nil))))
+
+(check-type
+  (split (Cons (Pair 1 "one") (Cons (Pair 2 "two") (Cons (Pair 3 "three") Nil))))
+  : (** (List Int) (List String))
+  ⇒ (Pair (Cons 1 (Cons 2 (Cons 3 Nil)))
+          (Cons "one" (Cons "two" (Cons "three" Nil)))))
+
+;; -----------------------------------------------------------------------------
+
+(define (combine [a*b* : (** (List A) (List B))] → (List (** A B)))
+  (match a*b* with
+   [Pair a* b* ->
+    (match a* with
+     [Nil ->
+      (match b* with
+       [Nil ->
+        Nil]
+       [Cons b b* ->
+        Nil])] ;; Error
+     [Cons a a* ->
+      (match b* with
+       [Nil ->
+        Nil] ;; Error
+       [Cons b b* ->
+        (Cons (Pair a b) (combine (Pair a* b*)))])])]))
+
+(check-type
+  (combine (Pair (Nil {Int}) (Nil {Int})))
+  : (List (** Int Int))
+  ⇒ (Nil {(** Int Int)}))
+
+(check-type
+  (combine (Pair (Cons 1 (Cons 2 Nil)) (Cons 3 (Cons 4 Nil))))
+  : (List (** Int Int))
+  ⇒ (Cons (Pair 1 3) (Cons (Pair 2 4) Nil)))
+
+(check-type
+  (combine (split (Cons (Pair 1 "one") (Cons (Pair 2 "two") (Cons (Pair 3 "three") Nil)))))
+  : (List (** Int String))
+  ⇒ (Cons (Pair 1 "one") (Cons (Pair 2 "two") (Cons (Pair 3 "three") Nil))))
+
+;; -----------------------------------------------------------------------------
+
+(define-type Bool
+  True
+  False)
+
+(define (fst [xy : (** A B)] → A)
+  (match xy with
+   [Pair x y -> x]))
+
+(define (snd [xy : (** A B)] → B)
+  (match xy with
+   [Pair x y -> y]))
+
+(define (member [x* : (List A)] [y : A] → Bool)
+  (match x* with
+   [Nil -> False]
+   [Cons x x* ->
+    (if (equal? x y) True (member x* y))]))
+
+(define (foldl [f : (→ A B A)] [acc : A] [x* : (List B)] → A)
+  (match x* with
+   [Nil -> acc]
+   [Cons x x* -> (foldl f (f acc x) x*)]))
+
+(define (foldr [f : (→ A B B)] [x* : (List A)] [acc : B] → B)
+  (match x* with
+   [Nil -> acc]
+   [Cons x x* -> (f x (foldr f x* acc))]))
+
+(define (filter [f : (→ A Bool)] [x* : (List A)] → (List A))
+  (foldr (λ ([x : A] [acc : (List A)]) (match (f x) with [True -> (Cons x acc)] [False -> acc]))
+    x*
+    Nil))
+
+(define (sum [x* : (List Float)] → Float)
+  (foldl fl+ (exact->inexact 0) x*))
+
+(define (reverse [x* : (List A)] → (List A))
+  (foldl (λ ([x* : (List A)] [x : A]) (Cons x x*)) Nil x*))
+
+(define (convolve [x* : (List Float)] [y* : (List Float)] → Float)
+  (sum
+    (map (λ ([xy : (** Float Float)]) (fl* (fst xy) (snd xy)))
+      (combine (Pair x* (reverse y*))))))
+
+(check-type
+  (convolve (Cons 1.0 (Cons 2.0 (Cons 3.0 Nil))) (Cons 1.0 (Cons 2.0 (Cons 3.0 Nil))))
+  : Float
+  ⇒ (fl+ (fl+ (fl* 1.0 3.0) (fl* 2.0 2.0)) (fl* 3.0 1.0)))
+
+;; -----------------------------------------------------------------------------
+
+(define (mc [n : Int] [f : (→ A A)] [x : A] → A)
+  (for/fold ([x x])
+            ([_i (in-range n)])
+    (f x)))
+
+(check-type
+  (mc 3000 (λ ([n : Int]) (+ n 1)) 3110)
+  : Int
+  ⇒ 6110)
+
+(define (square [n : Int] → Int)
+  (* n n))
+
+(check-type
+  (mc 0 square 2)
+  : Int
+  ⇒ 2)
+
+(check-type
+  (mc 2 square 2)
+  : Int
+  ⇒ 16)
+
+(check-type
+  (mc 3 square 2)
+  : Int
+  ⇒ 256)
+
+;; -----------------------------------------------------------------------------
+
+(define (successor [mcn : (→ (→ A A) A A)] → (→ (→ A A) A A))
+  (λ ([f : (→ A A)] [x : A])
+    (f (mcn f x))))
+
+(check-type
+  ((successor (λ ([f : (→ Int Int)] [x : Int]) (mc 0 f x))) square 2)
+  : Int
+  ⇒ 4)
+
+(check-type
+  ((successor (successor (λ ([f : (→ Int Int)] [x : Int]) (mc 0 f x)))) square 2)
+  : Int
+  ⇒ 16)
+
+(check-type
+  ((successor (successor (successor (λ ([f : (→ Int Int)] [x : Int]) (mc 0 f x))))) square 2)
+  : Int
+  ⇒ 256)
+
+;; # (mc 3 successor) (mc 0) square 2;;
+
+;; -----------------------------------------------------------------------------
+
+(define (map-index [is* : (List (** Int (List String)))] → (List (** String Int)))
+  (match is* with
+   [Nil -> Nil]
+   [Cons hd tl ->
+    (match hd with
+     [Pair i s* ->
+      (append (foldr (λ ([s : String] [acc : (List (** String Int))]) (Cons (Pair s i) acc))
+                     s*
+                     Nil)
+              (map-index tl))])]))
+
+(check-type
+  (map-index Nil)
+  : (List (** String Int))
+  ⇒ (Nil {(List (** String Int))}))
+
+(check-type
+  (map-index (Cons (Pair 0 (Cons "a" (Cons "b" (Cons "c" Nil)))) Nil))
+  : (List (** String Int))
+  ⇒ (Cons (Pair "a" 0) (Cons (Pair "b" 0) (Cons (Pair "c" 0) Nil))))
+
+(check-type
+  (map-index (Cons (Pair 0 (Cons "a" (Cons "b" (Cons "c" Nil))))
+             (Cons (Pair 1 (Cons "d" (Cons "e" Nil)))
+             Nil)))
+  : (List (** String Int))
+  ⇒ (Cons (Pair "a" 0) (Cons (Pair "b" 0) (Cons (Pair "c" 0) (Cons (Pair "d" 1) (Cons (Pair "e" 1) Nil))))))
+
+(define (reduce-index [si* : (List (** String Int))] → (List (** String (List Int))))
+  (snd (foldr
+    (λ ([si : (** String Int)] [acc : (** (List String) (List (** String (List Int))))])
+      (match si with
+       [Pair s i ->
+        (match acc with
+         [Pair seen out ->
+          (match (member seen s) with
+           [True ->
+            (Pair
+              seen
+              (foldr
+                (λ ([si* : (** String (List Int))] [acc : (List (** String (List Int)))])
+                  (match si* with
+                   [Pair s2 i* ->
+                    (if (equal? s s2)
+                      (match (member i* i) with
+                       [True -> (Cons si* acc)]
+                       [False -> (Cons (Pair s2 (Cons i i*)) acc)])
+                      (Cons si* acc))]))
+                out
+                Nil))]
+           [False ->
+            (Pair
+              (Cons s seen)
+              (Cons (Pair s (Cons i Nil)) out))])])]))
+    si*
+    (Pair Nil Nil))))
+
+
+(check-type
+  (reduce-index Nil)
+  : (List (** String (List Int)))
+  ⇒ (Nil {(List (** String (List Int)))}))
+
+(check-type
+  (reduce-index
+    (map-index (Cons (Pair 0 (Cons "a" (Cons "b" (Cons "c" Nil))))
+               (Cons (Pair 1 (Cons "d" (Cons "e" Nil)))
+               Nil))))
+  : (List (** String (List Int)))
+  ⇒ (Cons (Pair "a" (Cons 0 Nil))
+    (Cons (Pair "b" (Cons 0 Nil))
+    (Cons (Pair "c" (Cons 0 Nil))
+    (Cons (Pair "d" (Cons 1 Nil))
+    (Cons (Pair "e" (Cons 1 Nil))
+    Nil))))))
+
+(check-type
+  (reduce-index
+    (map-index (Cons (Pair 0 (Cons "a" (Cons "b" (Cons "c" Nil))))
+               (Cons (Pair 1 (Cons "a" (Cons "b" Nil)))
+               Nil))))
+  : (List (** String (List Int)))
+  ⇒ (Cons (Pair "c" (Cons 0 Nil))
+    (Cons (Pair "a" (Cons 0 (Cons 1 Nil)))
+    (Cons (Pair "b" (Cons 0 (Cons 1 Nil)))
+    Nil))))
+
+;; For every string, get all integers that refer to the string
+(define (make-index [is* : (List (** Int (List String)))] → (List (** String (List Int))))
+  (reduce-index (map-index is*)))
+
+(check-type
+  (make-index Nil)
+  : (List (** String (List Int)))
+  ⇒ (Nil {(List (** String (List Int)))}))
+
+(check-type
+  (make-index (Cons (Pair 1 (Cons "ocaml" (Cons "is" (Cons "fun" (Cons "because" (Cons "fun" (Cons "is" (Cons "a" (Cons "keyword" Nil)))))))))
+              (Cons (Pair 2 (Cons "page" (Cons "2" (Cons "intentionally" (Cons "left" (Cons "blank" Nil))))))
+              (Cons (Pair 3 (Cons "the" (Cons "quick" (Cons "brown" (Cons "fox" (Cons "jumped" (Cons "over" (Cons "the" (Cons "lazy" (Cons "dog" Nil))))))))))
+              (Cons (Pair 4 (Cons "is" (Cons "this" (Cons "the" (Cons "end" Nil))))) Nil)))))
+  : (List (** String (List Int)))
+  ⇒ (Cons (Pair "ocaml" (Cons 1 Nil))
+    (Cons (Pair "because" (Cons 1 Nil))
+    (Cons (Pair "fun" (Cons 1 Nil))
+    (Cons (Pair "a" (Cons 1 Nil))
+    (Cons (Pair "keyword" (Cons 1 Nil))
+    (Cons (Pair "page" (Cons 2 Nil))
+    (Cons (Pair "2" (Cons 2 Nil))
+    (Cons (Pair "intentionally" (Cons 2 Nil))
+    (Cons (Pair "left" (Cons 2 Nil))
+    (Cons (Pair "blank" (Cons 2 Nil))
+    (Cons (Pair "quick" (Cons 3 Nil))
+    (Cons (Pair "brown" (Cons 3 Nil))
+    (Cons (Pair "fox" (Cons 3 Nil))
+    (Cons (Pair "jumped" (Cons 3 Nil))
+    (Cons (Pair "over" (Cons 3 Nil))
+    (Cons (Pair "lazy" (Cons 3 Nil))
+    (Cons (Pair "dog" (Cons 3 Nil))
+    (Cons (Pair "is" (Cons 1 (Cons 4 Nil)))
+    (Cons (Pair "this" (Cons 4 Nil))
+    (Cons (Pair "the" (Cons 3 (Cons 4 Nil)))
+    (Cons (Pair "end" (Cons 4 Nil)) Nil))))))))))))))))))))))
+
+;; =============================================================================
+;; === sorting
+
+;; -----------------------------------------------------------------------------
+;; --- mergesort
+
+(define (split [x* : (List A)] → (** (List A) (List A)))
+  (match x* with
+   [Nil -> (Pair Nil Nil)]
+   [Cons h t ->
+    (match t with
+     [Nil -> (Pair (Cons h Nil) Nil)]
+     [Cons h2 x* ->
+      (match (split x*) with
+       [Pair x* y* ->
+        (Pair (Cons h x*) (Cons h2 y*))])])]))
+
+(define (merge [x*+y* : (** (List Int) (List Int))] → (List Int))
+  (match x*+y* with
+   [Pair xx* yy* ->
+    (match xx* with
+     [Nil -> yy*]
+     [Cons x x* ->
+      (match yy* with
+       [Nil -> xx*]
+       [Cons y y* ->
+        (if (<= x y)
+         (Cons x (merge (Pair x* yy*)))
+         (Cons y (merge (Pair xx* y*))))])])]))
+
+(define (mergesort {x* : (List Int)} → (List Int))
+  (match x* with
+   [Nil -> Nil]
+   [Cons h t ->
+    (match t with
+     [Nil -> (Cons h Nil)]
+     [Cons h2 t2 ->
+      (match (split x*) with
+       [Pair x* y* ->
+        (merge (Pair (mergesort x*) (mergesort y*)))])])]))
+
+(check-type
+  (mergesort (Nil {Int}))
+  : (List Int)
+  ⇒ (Nil {Int}))
+
+(check-type
+  (mergesort (Cons 1 (Cons 2 (Cons 3 (Cons 4 Nil)))))
+  : (List Int)
+  ⇒ (Cons 1 (Cons 2 (Cons 3 (Cons 4 Nil)))))
+
+(check-type
+  (mergesort (Cons 3 (Cons 7 (Cons 93 (Cons 0 (Cons 2 Nil))))))
+  : (List Int)
+  ⇒ (Cons 0 (Cons 2 (Cons 3 (Cons 7 (Cons 93 Nil))))))
+
+;; -----------------------------------------------------------------------------
+;; --- quicksort
+
+(define (quicksort [x* : (List Int)] → (List Int))
+  (match x* with
+   [Nil -> x*]
+   [Cons h t ->
+    (match t with
+     [Nil -> x*]
+     [Cons h2 t2 ->
+      (append
+        (quicksort (filter (λ ([y : Int]) (if (<= y h) True False)) t))
+        (append
+          (Cons h Nil)
+          (quicksort (filter (λ ([y : Int]) (if (> y h) True False)) t))))])]))
+
+(check-type
+  (quicksort (Nil {Int}))
+  : (List Int)
+  ⇒ (Nil {Int}))
+
+(check-type
+  (quicksort (Cons 1 (Cons 2 (Cons 3 (Cons 4 Nil)))))
+  : (List Int)
+  ⇒ (Cons 1 (Cons 2 (Cons 3 (Cons 4 Nil)))))
+
+(check-type
+  (quicksort (Cons 3 (Cons 7 (Cons 93 (Cons 0 (Cons 2 Nil))))))
+  : (List Int)
+  ⇒ (Cons 0 (Cons 2 (Cons 3 (Cons 7 (Cons 93 Nil))))))
+
+;; =============================================================================
+;; === CPS
+
+;; -----------------------------------------------------------------------------
+;; --- factorial
+
+(define (fact [n : Int] → Int)
+  (if (< n 2)
+    1
+    (* n (fact (- n 1)))))
+
+(define (range-aux [n : Int] → (List Int))
+  (if (= 0 n)
+    (Cons n Nil)
+    (Cons n (range-aux (- n 1)))))
+
+(define (range [n : Int] → (List Int))
+  (if (<= n 0)
+    Nil
+    (reverse (range-aux (- n 1)))))
+
+(define (fact-acc [n : Int] → Int)
+  (foldl (λ ([acc : Int] [n : Int]) (* n acc)) 1 (map (λ ([n : Int]) (+ n 1)) (range n))))
+
+(define (fact-cps-aux [n : Int] [k : (→ Int Int)] → Int)
+  (if (< n 2)
+    (k 1)
+    (fact-cps-aux (- n 1) (λ ([m : Int]) (k (* n m))))))
+
+(define (fact-cps [n : Int] → Int)
+  (fact-cps-aux n (λ ([x : Int]) x)))
+
+(check-type (fact 0) : Int ⇒ 1)
+(check-type (fact 1) : Int ⇒ 1)
+(check-type (fact 2) : Int ⇒ 2)
+(check-type (fact 3) : Int ⇒ 6)
+(check-type (fact 4) : Int ⇒ 24)
+(check-type (fact 5) : Int ⇒ 120)
+
+(check-type (fact-acc 0) : Int ⇒ 1)
+(check-type (fact-acc 1) : Int ⇒ 1)
+(check-type (fact-acc 2) : Int ⇒ 2)
+(check-type (fact-acc 3) : Int ⇒ 6)
+(check-type (fact-acc 4) : Int ⇒ 24)
+(check-type (fact-acc 5) : Int ⇒ 120)
+
+(check-type (fact-cps 0) : Int ⇒ 1)
+(check-type (fact-cps 1) : Int ⇒ 1)
+(check-type (fact-cps 2) : Int ⇒ 2)
+(check-type (fact-cps 3) : Int ⇒ 6)
+(check-type (fact-cps 4) : Int ⇒ 24)
+(check-type (fact-cps 5) : Int ⇒ 120)
+
+;; -----------------------------------------------------------------------------
+;; --- map
+
+(define (map-cps-aux [f : (→ A B)] [x* : (List A)] [k : (→ (List B) (List B))] → (List B))
+  (match x* with
+   [Nil -> (k Nil)]
+   [Cons x x* ->
+    (map-cps-aux f x* (λ ([b* : (List B)]) (k (Cons (f x) b*))))]))
+
+(define (map-cps [f : (→ A B)] [x* : (List A)] → (List B))
+  (map-cps-aux f x* (λ ([x : (List B)]) x)))
+
+(check-type
+  (map-cps (λ ([x : Int]) (+ x 2)) (Cons 2 (Cons 4 (Cons 8 Nil))))
+  : (List Int)
+  ⇒ (Cons 4 (Cons 6 (Cons 10 Nil))))
+
+(check-type
+  (map-cps exact->inexact (Cons 2 (Cons 4 (Cons 8 Nil))))
+  : (List Float)
+  ⇒ (Cons 2.0 (Cons 4.0 (Cons 8.0 Nil))))
+
