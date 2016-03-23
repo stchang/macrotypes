@@ -45,4 +45,36 @@ mlish tests by Ben
 (map-cps [f : (→ A B)] [x* : (List A)] → (List B))
 ```
 
+`huffman`
+---
+```
+(empty → Symbol*)
+(singleton [s : String] → Symbol*)
+(insert [s* : Symbol*] [s1 : String] → Symbol*)
+(union [s1 : Symbol*] [s2 : Symbol*] → Symbol*)
+(contains [s* : Symbol*] [s : Symbol] → Bool)
+(list [x : A] → (List A))
+(append [x* : (List A)] [y* : (List A)] → (List A))
+(length [x* : (List A)] → Int)
+(symbols [h : HTree] → Symbol*)
+(weight [h : HTree] → Int)
+(make-code-tree [left : HTree] [right : HTree] → HTree)
+(decode-aux [bits : Bit*] [root : HTree] [current-branch : HTree] → SymbolList)
+(decode [bits : Bit*] [tree : HTree] → SymbolList)
+(choose-branch [bit : Bit] [branch : HTree] → HTree)
+(adjoin-set [x : HTree] [set : HTreeSet] → HTreeSet)
+(make-leaf-set [pair* : (List (× Symbol Int))] → HTreeSet)
+sample-tree
+sample-message
+(encode [message : SymbolList] [tree : HTree] → Bit*)
+(contains-symbol [s : Symbol] [tree : HTree] → Bool)
+(encode-symbol [s : Symbol] [tree : HTree] → Bit*)
+(generate-huffman-tree [pair* : (List (× Symbol Frequency))] → HTree)
+(successive-merge [tree* : HTreeSet] → HTree)
+rock-pair*
+rock-tree (generate-huffman-tree rock-pair*))
+rock-message
+rock-bit* (encode rock-message rock-tree))
+```
+
 

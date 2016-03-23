@@ -540,6 +540,7 @@
 (define-primop string : (→ Char String))
 (define-primop sleep : (→ Int Unit))
 (define-primop string=? : (→ String String Bool))
+(define-primop string<=? : (→ String String Bool))
 
 (define-typed-syntax string-append
   [(_ . strs)
