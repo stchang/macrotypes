@@ -78,3 +78,16 @@ rock-bit* (encode rock-message rock-tree))
 ```
 
 
+`lambda`
+---
+```
+(fresh [e : Λ] → Int)
+(subst [e : Λ] [i : Int] [v : Λ] → Λ)
+(simpl-aux [e : Λ] [i : Int] → (× Int Λ))
+(simpl [e : Λ] → Λ)
+(eval [e : Λ] → Λ)
+I (Lambda 0 (Var 0))
+K (Lambda 0 (Lambda 1 (Var 0)))
+S (Lambda 0 (Lambda 1 (Lambda 2 (App (App (Var 0) (Var 2)) (App (Var 1) (Var 2))))))
+false (App S K)
+```
