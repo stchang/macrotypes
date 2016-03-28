@@ -26,3 +26,43 @@
 (check-type 
   (size (Cons 1 (Cons (tup 2 3) (Cons (tup (tup 4 5) (tup 6 7)) Nil)))) 
   : Int -> 7)
+
+(define-type (Digit X)
+  (Zero)
+  (One X)
+  (Two X X))
+
+(define-type (ImplicitQueue X)
+  [Shallow (d : (Digit X))]
+  [Deep (f : (Digit X))
+        (m : (ImplicitQueue (× X X)))
+        (r : (Digit X))])
+
+(define (empty -> (ImplicitQueue X))
+  (Shallow (Zero)))
+
+(define (iq-isEmpty [iq : (ImplicitQueue A)] → Bool)
+  (match iq with
+   [Shallow d ->
+    (match d with
+     [Zero -> #t]
+     [One x -> #f]
+     [Two x y -> #f])]
+   [Deep a b c -> #f]))
+
+(define (iq-snoc [iq : (ImplicitQueue A)] [y : A] → (ImplicitQueue A))
+  (match iq with
+   [Shallow d ->
+    (match d with
+     [Zero -> (Shallow (One y))]
+     [One x -> (Deep (Two x y) (empty) Zero)]
+     [Two x y -> (empty)])] ;; Error
+   [Deep f m d ->
+    (match d with
+     [Zero -> (Deep f m (One y))]
+     [One x -> (Deep f (iq-snoc m (tup x y)) Zero)]
+     [Two x y -> (empty)])])) ; Error
+  
+(check-type (iq-isEmpty (Shallow (Zero {Int}))) : Bool -> #t)
+
+(check-type (iq-isEmpty (iq-snoc (Shallow (Zero {Int})) 5)) : Bool -> #f)
