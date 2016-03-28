@@ -27,6 +27,7 @@
   (size (Cons 1 (Cons (tup 2 3) (Cons (tup (tup 4 5) (tup 6 7)) Nil)))) 
   : Int -> 7)
 
+;; implicit queue
 (define-type (Digit X)
   (Zero)
   (One X)
@@ -66,3 +67,24 @@
 (check-type (iq-isEmpty (Shallow (Zero {Int}))) : Bool -> #t)
 
 (check-type (iq-isEmpty (iq-snoc (Shallow (Zero {Int})) 5)) : Bool -> #f)
+
+;; example from:
+;;  blogs.janestreet.com/ensuring-that-a-function-is-polymorphic-in-ocaml-3-12
+
+(define-type (PerfectTree X)
+  (Leaf X)
+  (Node X (PerfectTree (× X X))))
+(define (flatten [t : (PerfectTree X)] -> (List X))
+  (match t with
+   [Leaf x -> (list x)]
+   [Node x rst ->
+    (cons x
+     (for/fold ([acc (nil {X})]) ([p (in-list (flatten rst))])
+       (match p with
+        [x y -> (cons x (cons y acc))])))]))
+
+(check-type (flatten (Leaf 1)) : (List Int) -> (list 1))
+(check-type (flatten (Node 1 (Leaf (tup 2 3)))) : (List Int) -> (list 1 2 3))
+(check-type
+  (flatten (Node 1 (Node (tup 2 3) (Leaf (tup (tup 4 5) (tup 6 7))))))
+  : (List Int) -> (list 1 6 7 4 5 2 3))
