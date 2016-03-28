@@ -1,8 +1,8 @@
 #lang s-exp "../../../mlish.rkt"
 (require "../../rackunit-typechecking.rkt")
-(require "basics-general.rkt")
+(require "basics-general.mlish")
 (require-typed map append fst snd member foldl foldr filter sum reverse
-               #:from "basics-general.rkt")
+               #:from "basics-general.mlish")
 
 ;; =============================================================================
 ;; http://www.cs.cornell.edu/courses/cs3110/2011fa/hw/ps1/ps1.html

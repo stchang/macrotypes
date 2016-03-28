@@ -1,8 +1,8 @@
 #lang s-exp "../../../mlish.rkt"
 (require "../../rackunit-typechecking.rkt")
-(require "basics-general.rkt")
+(require "basics-general.mlish")
 (require-typed append filter foldr foldl reverse snd member 
-               #:from "basics-general.rkt")
+               #:from "basics-general.mlish")
 
 
 ;; =============================================================================
