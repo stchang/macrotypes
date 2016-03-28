@@ -25,3 +25,6 @@
 (require "mlish/bg/basics.mlish")
 (require "mlish/bg/huffman.mlish")
 (require "mlish/bg/lambda.rkt")
+
+;; okasaki, polymorphic recursion
+(require "mlish/polyrecur.mlish")

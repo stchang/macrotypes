@@ -1,0 +1,28 @@
+#lang s-exp "../../mlish.rkt"
+(require "../rackunit-typechecking.rkt")
+
+;; tests of polymorphic recursion
+
+;; polymorphic recursion of functions
+(define (polyf [lst : (List X)] -> (List X))
+  (let ([x (polyf (list 1 2 3))]
+        [y (polyf (list #t #f))])
+    (polyf lst)))
+
+;; polymorphic recursive type
+;; from okasaki, ch10
+(define-type (Seq X)
+  Nil
+  (Cons X (Seq (× X X))))
+
+(define (size [s : (Seq X)] -> Int)
+  (match s with
+   [Nil -> 0]
+   [Cons x ps -> (add1 (* 2 (size ps)))]))
+       
+(check-type (size (Nil {Int})) : Int -> 0)
+(check-type (size (Cons 1 Nil)) : Int -> 1)
+(check-type (size (Cons 1 (Cons (tup 2 3) Nil))) : Int -> 3)
+(check-type 
+  (size (Cons 1 (Cons (tup 2 3) (Cons (tup (tup 4 5) (tup 6 7)) Nil)))) 
+  : Int -> 7)

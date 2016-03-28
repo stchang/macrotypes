@@ -186,8 +186,8 @@
          (stlc+rec-iso:define-type-alias Name Name2))]
     [(_ (Name:id X:id ...)
         ;; constructors must have the form (Cons τ ...)
-        ;; but the first ~or clause accepts 0-arg constructors as ids
-        ;; the ~and is required to bind the duplicate Cons ids (see Ryan's email)
+        ;; but the first ~or clause accepts 0-arg constructors as ids;
+        ;; the ~and is a workaround to bind the duplicate Cons ids (see Ryan's email)
         (~and (~or (~and IdCons:id 
                         (~parse (Cons [fld (~datum :) τ] ...) #'(IdCons)))
                    (Cons [fld (~datum :) τ] ...)
@@ -199,20 +199,29 @@
      #:with ((e_arg ...) ...) (stx-map generate-temporaries #'((τ ...) ...))
      #:with ((e_arg- ...) ...) (stx-map generate-temporaries #'((τ ...) ...))
      #:with ((τ_arg ...) ...) (stx-map generate-temporaries #'((τ ...) ...))
-;     #:with ((fld ...) ...) (stx-map generate-temporaries #'((τ ...) ...))
      #:with ((acc ...) ...) (stx-map (λ (S fs) (stx-map (λ (f) (format-id S "~a-~a" S f)) fs))
                                      #'(StructName ...) #'((fld ...) ...))
      #:with (Cons? ...) (stx-map mk-? #'(StructName ...))
      #:with get-Name-info (format-id #'Name "get-~a-info" #'Name)
      ;; types, but using RecName instead of Name
-     #:with ((τ/rec ...) ...) (subst-expr #'RecName #'(Name X ...) #'((τ ...) ...))
+     #:with ((τ/rec ...) ...) (subst #'RecName #'Name #'((τ ...) ...))
      #`(begin
          (define-type-constructor Name
            #:arity = #,(stx-length #'(X ...))
            #:extra-info (X ...) 
              (λ (RecName) 
-               (let-syntax ([RecName (make-rename-transformer 
-                                       (assign-type #'RecName #'#%type))])
+               (let-syntax 
+                 ([RecName 
+                   (syntax-parser 
+                     [(_ . rst) 
+                      ;; - this is a placeholder to break the recursion
+                      ;; - clients, like match, must manually unfold by
+                      ;; replacing the entire (#%plain-app RecName ...) stx
+                      ;; - to preserve polymorphic recursion, the entire stx
+                      ;; should be replaced but with #'rst as the args
+                      ;; in place of args in the input type
+                      ;; (see subst-special in typecheck.rkt)
+                      (assign-type #'(#%plain-app RecName . rst) #'#%type)])])
                  ('Cons Cons? [acc τ/rec] ...) ...))
            #:no-provide)
          (struct StructName (fld ...) #:reflection-name 'Cons #:transparent) ...
@@ -291,6 +300,7 @@
 ;; match --------------------------------------------------
 (define-syntax (match stx)
   (syntax-parse stx #:datum-literals (with ->)
+    ;; TODO: eliminate redundant expansions
     [(_ e with . clauses)
      ;; e is tuple
      #:with [e- ty_e] (infer+erase #'e)
@@ -320,7 +330,7 @@
               ((~literal let-values) ()
                . info-body)))
              (get-extra-info #'τ_e)
-     #:with info-unfolded (subst #'τ_e #'RecName #'info-body)
+     #:with info-unfolded (subst-special #'τ_e #'RecName #'info-body)
      #:with ((_ ((~literal quote) ConsAll) . _) ...) #'info-body
      #:fail-unless (set=? (syntax->datum #'(Clause ...))
                           (syntax->datum #'(ConsAll ...)))
@@ -341,6 +351,7 @@
                   (equal? Cl (syntax->datum #'C))])
                 #'info-unfolded))
              (syntax->datum #'(Clause ...)))
+     ;; this commented block experiments with expanding to unsafe ops
      ;; #:with ((acc ...) ...) (stx-map 
      ;;                         (lambda (accs)
      ;;                          (for/list ([(a i) (in-indexed (syntax->list accs))])

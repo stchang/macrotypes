@@ -422,13 +422,22 @@
   (define (brace? stx)
     (define paren-shape/#f (syntax-property stx 'paren-shape))
     (and paren-shape/#f (char=? paren-shape/#f #\{)))
+  ;; todo: abstract out the common shape of a type constructor,
+  ;; i.e., the repeated pattern code in the functions below
   (define (get-extra-info t)
     (syntax-parse t
       [((~literal #%plain-app) internal-id
         ((~literal #%plain-lambda) bvs
          ((~literal #%expression) extra-info-to-extract) . rst))
        #'extra-info-to-extract]
-      [_ #'void])))
+      [_ #'void]))
+  (define (get-tyargs ty)
+    (syntax-parse ty
+      [((~literal #%plain-app) internal-id
+        ((~literal #%plain-lambda) bvs
+         xtra-info . rst))
+       #'rst])))
+
 
 (define-syntax define-basic-checked-id-stx
   (syntax-parser #:datum-literals (:)
@@ -693,16 +702,8 @@
         stx))
   ; subst τ for y in e, if (bound-id=? x y)
   (define (subst τ x e)
-    #'(printf "subst ~a for ~a in ~a\n"
-      (syntax->datum τ)
-      x
-      (syntax->datum e))
     (syntax-parse e
       [y:id #:when (bound-identifier=? e x)
-      ;      #:when (printf "~a = ~a\n" #'y x)
-;            #:when
-;            (displayln (syntax-property (syntax-track-origin τ #'y #'y) 'type))
-;            #:when (displayln (syntax-property (syntax-property (syntax-track-origin τ #'y #'y) 'type #'#%type) 'type))
             ; use syntax-track-origin to transfer 'orig
             ; but may transfer multiple #%type tags, so merge
             (merge-type-tags (syntax-track-origin τ #'y #'y))]
@@ -714,11 +715,24 @@
   (define (substs τs xs e)
     (stx-fold subst e τs xs))
 
-  ;; subst-expr
-  ;; used for inferring recursive types
+  ;; subst-expr: 
+  ;; - like subst except the target can be any stx, rather than just an id
+  ;; - used for implementing polymorphic recursive types
+  (define (stx-lam? s)
+    (syntax-parse s
+      [((~literal #%plain-lambda) . rst) #t] [_ #f]))
+  (define (stx-lam=? s1 s2)
+    (syntax-parse (list s1 s2)
+      [(((~literal #%plain-lambda) xs . bs1)
+        ((~literal #%plain-lambda) ys . bs2))
+       #:with zs (generate-temporaries #'xs)
+       (and (stx-length=? #'xs #'ys)
+            (stx=? (substs #'zs #'xs #'bs1)
+                   (substs #'zs #'ys #'bs2)))]))
   (define (stx=? s1 s2)
     (or (and (identifier? s1) (identifier? s2) (free-identifier=? s1 s2))
         (and (stx-null? s1) (stx-null? s2))
+        (and (stx-lam? s1) (stx-lam? s2) (stx-lam=? s1 s2))
         (and (stx-pair? s1) (stx-pair? s2) (stx-length=? s1 s2)
              (stx-andmap stx=? s1 s2))))
   ;; subst e1 for e2 in e3
@@ -727,5 +741,26 @@
      [(stx=? e2 e3) e1]
      [(identifier? e3) e3]
      [else ; stx-pair
-      (stx-map (lambda (e) (subst-expr e1 e2 e)) e3)]))
+      (with-syntax ([result (stx-map (lambda (e) (subst-expr e1 e2 e)) e3)])
+        (syntax-track-origin #'result e3 #'here))]))
+  (define (subst-exprs τs xs e)
+    (stx-fold subst-expr e τs xs))
+  ;; subst-special:
+  ;; - used for unfolding polymorphic recursive type
+  ;; subst ty1 for x in ty2
+  ;; where ty1 is an applied type constructor type
+  ;;       x is a placeholder for an applied tycons type in ty2
+  ;; - subst special first replaces the args of ty1 with that of x
+  ;;   before replacing applications of tycons x with this modified ty1
+  (define (subst-special ty1 x ty2)
+    (cond
+     [(identifier? ty2) ty2]
+     [(syntax-parse ty2 [((~literal #%plain-app) tycons:id . _) (free-identifier=? #'tycons x)] [_ #f])
+      (syntax-parse ty2
+        [((~literal #%plain-app) tycons:id . newargs)
+;         #:with oldargs (get-tyargs ty1)
+         (subst-exprs #'newargs (get-tyargs ty1) ty1)])]
+     [else ; stx-pair
+      (with-syntax ([result (stx-map (lambda (e) (subst-special ty1 x e)) ty2)])
+        (syntax-track-origin #'result ty2 #'here))]))
   )
