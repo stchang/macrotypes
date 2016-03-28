@@ -1,11 +1,8 @@
 #lang s-exp "../../../mlish.rkt"
 (require "../../rackunit-typechecking.rkt")
-
-;; =============================================================================
-
-(define-type (List X)
-  Nil
-  (Cons X (List X)))
+(require "basics-general.rkt")
+(require-typed map append fst snd member foldl foldr filter sum reverse
+               #:from "basics-general.rkt")
 
 ;; =============================================================================
 ;; http://www.cs.cornell.edu/courses/cs3110/2011fa/hw/ps1/ps1.html
@@ -40,16 +37,6 @@
   ⇒ 4)
 
 ;; -----------------------------------------------------------------------------
-
-(define (map [f : (→ A B)] [x* : (List A)] → (List B))
-  (match x* with
-   [Nil -> Nil]
-   [Cons x x* -> (Cons (f x) (map f x*))]))
-
-(define (append [x* : (List A)] [y* : (List A)] → (List A))
-  (match x* with
-   [Nil -> y*]
-   [Cons x x* -> (Cons x (append x* y*))]))
 
 (define (flatten [x** : (List (List A))] → (List A))
   (match x** with
@@ -97,9 +84,6 @@
 
 ;; =============================================================================
 ;; http://www.cs.cornell.edu/courses/cs3110/2011sp/hw/ps1/ps1.htm
-
-(define-type (** X Y)
-  (Pair X Y))
 
 (define (split [ab* : (List (** A B))] → (** (List A) (List B)))
   (match ab* with
@@ -165,45 +149,6 @@
 
 ;; -----------------------------------------------------------------------------
 
-(define-type Bool
-  True
-  False)
-
-(define (fst [xy : (** A B)] → A)
-  (match xy with
-   [Pair x y -> x]))
-
-(define (snd [xy : (** A B)] → B)
-  (match xy with
-   [Pair x y -> y]))
-
-(define (member [x* : (List A)] [y : A] → Bool)
-  (match x* with
-   [Nil -> False]
-   [Cons x x* ->
-    (if (equal? x y) True (member x* y))]))
-
-(define (foldl [f : (→ A B A)] [acc : A] [x* : (List B)] → A)
-  (match x* with
-   [Nil -> acc]
-   [Cons x x* -> (foldl f (f acc x) x*)]))
-
-(define (foldr [f : (→ A B B)] [x* : (List A)] [acc : B] → B)
-  (match x* with
-   [Nil -> acc]
-   [Cons x x* -> (f x (foldr f x* acc))]))
-
-(define (filter [f : (→ A Bool)] [x* : (List A)] → (List A))
-  (foldr (λ ([x : A] [acc : (List A)]) (match (f x) with [True -> (Cons x acc)] [False -> acc]))
-    x*
-    Nil))
-
-(define (sum [x* : (List Float)] → Float)
-  (foldl fl+ (exact->inexact 0) x*))
-
-(define (reverse [x* : (List A)] → (List A))
-  (foldl (λ ([x* : (List A)] [x : A]) (Cons x x*)) Nil x*))
-
 (define (convolve [x* : (List Float)] [y* : (List Float)] → Float)
   (sum
     (map (λ ([xy : (** Float Float)]) (fl* (fst xy) (snd xy)))
@@ -266,132 +211,6 @@
   ⇒ 256)
 
 ;; # (mc 3 successor) (mc 0) square 2;;
-
-;; -----------------------------------------------------------------------------
-
-(define (map-index [is* : (List (** Int (List String)))] → (List (** String Int)))
-  (match is* with
-   [Nil -> Nil]
-   [Cons hd tl ->
-    (match hd with
-     [Pair i s* ->
-      (append (foldr (λ ([s : String] [acc : (List (** String Int))]) (Cons (Pair s i) acc))
-                     s*
-                     Nil)
-              (map-index tl))])]))
-
-(check-type
-  (map-index Nil)
-  : (List (** String Int))
-  ⇒ (Nil {(List (** String Int))}))
-
-(check-type
-  (map-index (Cons (Pair 0 (Cons "a" (Cons "b" (Cons "c" Nil)))) Nil))
-  : (List (** String Int))
-  ⇒ (Cons (Pair "a" 0) (Cons (Pair "b" 0) (Cons (Pair "c" 0) Nil))))
-
-(check-type
-  (map-index (Cons (Pair 0 (Cons "a" (Cons "b" (Cons "c" Nil))))
-             (Cons (Pair 1 (Cons "d" (Cons "e" Nil)))
-             Nil)))
-  : (List (** String Int))
-  ⇒ (Cons (Pair "a" 0) (Cons (Pair "b" 0) (Cons (Pair "c" 0) (Cons (Pair "d" 1) (Cons (Pair "e" 1) Nil))))))
-
-(define (reduce-index [si* : (List (** String Int))] → (List (** String (List Int))))
-  (snd (foldr
-    (λ ([si : (** String Int)] [acc : (** (List String) (List (** String (List Int))))])
-      (match si with
-       [Pair s i ->
-        (match acc with
-         [Pair seen out ->
-          (match (member seen s) with
-           [True ->
-            (Pair
-              seen
-              (foldr
-                (λ ([si* : (** String (List Int))] [acc : (List (** String (List Int)))])
-                  (match si* with
-                   [Pair s2 i* ->
-                    (if (equal? s s2)
-                      (match (member i* i) with
-                       [True -> (Cons si* acc)]
-                       [False -> (Cons (Pair s2 (Cons i i*)) acc)])
-                      (Cons si* acc))]))
-                out
-                Nil))]
-           [False ->
-            (Pair
-              (Cons s seen)
-              (Cons (Pair s (Cons i Nil)) out))])])]))
-    si*
-    (Pair Nil Nil))))
-
-
-(check-type
-  (reduce-index Nil)
-  : (List (** String (List Int)))
-  ⇒ (Nil {(List (** String (List Int)))}))
-
-(check-type
-  (reduce-index
-    (map-index (Cons (Pair 0 (Cons "a" (Cons "b" (Cons "c" Nil))))
-               (Cons (Pair 1 (Cons "d" (Cons "e" Nil)))
-               Nil))))
-  : (List (** String (List Int)))
-  ⇒ (Cons (Pair "a" (Cons 0 Nil))
-    (Cons (Pair "b" (Cons 0 Nil))
-    (Cons (Pair "c" (Cons 0 Nil))
-    (Cons (Pair "d" (Cons 1 Nil))
-    (Cons (Pair "e" (Cons 1 Nil))
-    Nil))))))
-
-(check-type
-  (reduce-index
-    (map-index (Cons (Pair 0 (Cons "a" (Cons "b" (Cons "c" Nil))))
-               (Cons (Pair 1 (Cons "a" (Cons "b" Nil)))
-               Nil))))
-  : (List (** String (List Int)))
-  ⇒ (Cons (Pair "c" (Cons 0 Nil))
-    (Cons (Pair "a" (Cons 0 (Cons 1 Nil)))
-    (Cons (Pair "b" (Cons 0 (Cons 1 Nil)))
-    Nil))))
-
-;; For every string, get all integers that refer to the string
-(define (make-index [is* : (List (** Int (List String)))] → (List (** String (List Int))))
-  (reduce-index (map-index is*)))
-
-(check-type
-  (make-index Nil)
-  : (List (** String (List Int)))
-  ⇒ (Nil {(List (** String (List Int)))}))
-
-(check-type
-  (make-index (Cons (Pair 1 (Cons "ocaml" (Cons "is" (Cons "fun" (Cons "because" (Cons "fun" (Cons "is" (Cons "a" (Cons "keyword" Nil)))))))))
-              (Cons (Pair 2 (Cons "page" (Cons "2" (Cons "intentionally" (Cons "left" (Cons "blank" Nil))))))
-              (Cons (Pair 3 (Cons "the" (Cons "quick" (Cons "brown" (Cons "fox" (Cons "jumped" (Cons "over" (Cons "the" (Cons "lazy" (Cons "dog" Nil))))))))))
-              (Cons (Pair 4 (Cons "is" (Cons "this" (Cons "the" (Cons "end" Nil))))) Nil)))))
-  : (List (** String (List Int)))
-  ⇒ (Cons (Pair "ocaml" (Cons 1 Nil))
-    (Cons (Pair "because" (Cons 1 Nil))
-    (Cons (Pair "fun" (Cons 1 Nil))
-    (Cons (Pair "a" (Cons 1 Nil))
-    (Cons (Pair "keyword" (Cons 1 Nil))
-    (Cons (Pair "page" (Cons 2 Nil))
-    (Cons (Pair "2" (Cons 2 Nil))
-    (Cons (Pair "intentionally" (Cons 2 Nil))
-    (Cons (Pair "left" (Cons 2 Nil))
-    (Cons (Pair "blank" (Cons 2 Nil))
-    (Cons (Pair "quick" (Cons 3 Nil))
-    (Cons (Pair "brown" (Cons 3 Nil))
-    (Cons (Pair "fox" (Cons 3 Nil))
-    (Cons (Pair "jumped" (Cons 3 Nil))
-    (Cons (Pair "over" (Cons 3 Nil))
-    (Cons (Pair "lazy" (Cons 3 Nil))
-    (Cons (Pair "dog" (Cons 3 Nil))
-    (Cons (Pair "is" (Cons 1 (Cons 4 Nil)))
-    (Cons (Pair "this" (Cons 4 Nil))
-    (Cons (Pair "the" (Cons 3 (Cons 4 Nil)))
-    (Cons (Pair "end" (Cons 4 Nil)) Nil))))))))))))))))))))))
 
 ;; =============================================================================
 ;; === sorting

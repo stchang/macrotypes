@@ -858,23 +858,24 @@
   #:when (typecheck? #'ty_e #'ty_x)
   (⊢ (set! x e-) : Unit)])
 
-(define-typed-syntax provide-type [(_ ty) #'(provide ty)])
+(define-typed-syntax provide-type [(_ ty ...) #'(provide ty ...)])
 
 (define-typed-syntax provide
-  [(_ x:id)
-   #:with [x- ty_x] (infer+erase #'x)
-   #:with x-ty (format-id #'x "~a-ty" #'x) ; TODO: use hash-code to generate this tmp
+  [(_ x:id ...)
+   #:with ([x- ty_x] ...) (infers+erase #'(x ...))
+   ; TODO: use hash-code to generate this tmp
+   #:with (x-ty ...) (stx-map (lambda (y) (format-id y "~a-ty" y)) #'(x ...)) 
    #'(begin
-       (provide x)
-       (stlc+rec-iso:define-type-alias x-ty ty_x)
-       (provide x-ty))])
+       (provide x ...)
+       (stlc+rec-iso:define-type-alias x-ty ty_x) ...
+       (provide x-ty ...))])
 (define-typed-syntax require-typed
-  [(_ x:id #:from mod)
-   #:with x-ty (format-id #'x "~a-ty" #'x)
-   #:with y (generate-temporary #'x)
+  [(_ x:id ... #:from mod)
+   #:with (x-ty ...) (stx-map (lambda (y) (format-id y "~a-ty" y)) #'(x ...))
+   #:with (y ...) (generate-temporaries #'(x ...))
    #'(begin
-       (require (rename-in (only-in mod x x-ty) [x y]))
-       (define-syntax x (make-rename-transformer (assign-type #'y #'x-ty))))])
+       (require (rename-in (only-in mod x ... x-ty ...) [x y] ...))
+       (define-syntax x (make-rename-transformer (assign-type #'y #'x-ty))) ...)])
 
 (define-base-type Regexp)
 (define-primop regexp-match : (→ Regexp String (List String)))
