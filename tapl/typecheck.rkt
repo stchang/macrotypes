@@ -6,9 +6,9 @@
               "stx-utils.rkt")
   (for-meta 2 racket/base syntax/parse racket/syntax syntax/stx "stx-utils.rkt")
   (for-meta 3 racket/base syntax/parse racket/syntax)
-  racket/bool racket/provide racket/require)
+  racket/bool racket/provide racket/require racket/match)
 (provide
- symbol=?
+ symbol=? match
  (except-out (all-from-out racket/base) #%module-begin)
  (for-syntax (all-defined-out)) (all-defined-out)
  (for-syntax
