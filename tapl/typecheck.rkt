@@ -422,6 +422,9 @@
   (define (brace? stx)
     (define paren-shape/#f (syntax-property stx 'paren-shape))
     (and paren-shape/#f (char=? paren-shape/#f #\{)))
+  (define (brack? stx)
+    (define paren-shape/#f (syntax-property stx 'paren-shape))
+    (and paren-shape/#f (char=? paren-shape/#f #\[)))
   ;; todo: abstract out the common shape of a type constructor,
   ;; i.e., the repeated pattern code in the functions below
   (define (get-extra-info t)

@@ -299,84 +299,113 @@
 
 ;; match --------------------------------------------------
 (define-syntax (match stx)
-  (syntax-parse stx #:datum-literals (with ->)
-    ;; TODO: eliminate redundant expansions
-    [(_ e with . clauses)
-     ;; e is tuple
-     #:with [e- ty_e] (infer+erase #'e)
-     #:when (×? #'ty_e)
-     #:with (~× ty ...) #'ty_e
-     #:with ([x ... -> e_body]) #'clauses
-     #:fail-unless (stx-length=? #'(ty ...) #'(x ...))
-                   "match clause pattern not compatible with given tuple"
-     #:with [(x- ...) e_body- ty_body] (infer/ctx+erase #'([x ty] ...) #'e_body)
-     #:with (acc ...) (for/list ([(a i) (in-indexed (syntax->list #'(x ...)))])
-                        #`(lambda (s) (list-ref s #,(datum->syntax #'here i))))
-     #:with z (generate-temporary)
-     (⊢ (let ([z e-])
-          (let ([x- (acc z)] ...) e_body-))
-          : ty_body)]
-    ;; e is variant
-    [(_ e with . clauses)
-     #:fail-when (null? (syntax->list #'clauses)) "no clauses"
-     #:with [e- τ_e] (infer+erase #'e)
-     #:with (~! [Clause:id x:id ... 
+ (syntax-parse stx #:datum-literals (with)
+   [(_ e with . clauses)
+    #:fail-when (null? (syntax->list #'clauses)) "no clauses"
+    #:with [e- τ_e] (infer+erase #'e)
+    (cond
+     [(×? #'τ_e) ;; e is tuple
+      (syntax-parse #'clauses #:datum-literals (->)
+       [([x ... -> e_body])
+        #:with (~× ty ...) #'τ_e
+        #:fail-unless (stx-length=? #'(ty ...) #'(x ...))
+                      "match clause pattern not compatible with given tuple"
+        #:with [(x- ...) e_body- ty_body] (infer/ctx+erase #'([x ty] ...) #'e_body)
+        #:with (acc ...) (for/list ([(a i) (in-indexed (syntax->list #'(x ...)))])
+                           #`(lambda (s) (list-ref s #,(datum->syntax #'here i))))
+        #:with z (generate-temporary)
+        (⊢ (let ([z e-])
+             (let ([x- (acc z)] ...) e_body-))
+           : ty_body)])]
+     [(List? #'τ_e) ;; e is List
+      (syntax-parse #'clauses #:datum-literals (-> ::)
+       [([(~or (~and (~and xs [x ...]) (~parse rst (generate-temporary)))
+               (~and (~seq (~seq x ::) ... rst:id) (~parse xs #'())))
+          -> e_body] ...)
+        #:fail-unless (stx-ormap (lambda (xx) (and (brack? xx) (zero? (stx-length xx)))) #'(xs ...))
+                      "match: missing empty list case"
+        #:fail-when (and (stx-andmap brack? #'(xs ...))
+                         (= 1 (stx-length #'(xs ...))))
+                    "match: missing non-empty list case"
+        #:with (~List ty) #'τ_e
+        #:with ([(x- ... rst-) e_body- ty_body] ...)
+               (stx-map (lambda (ctx e) (infer/ctx+erase ctx e)) 
+                 #'(([x ty] ... [rst (List ty)]) ...) #'(e_body ...))
+        #:with τ_out (stx-car #'(ty_body ...))
+        #:with (len ...) (stx-map (lambda (p) #`#,(stx-length p)) #'((x ...) ...))
+        #:with (lenop ...) (stx-map (lambda (p) (if (brack? p) #'= #'>=)) #'(xs ...))
+        #:with (pred? ...) (stx-map
+                            (lambda (l lo) #`(λ (lst) (#,lo (length lst) #,l)))
+                            #'(len ...) #'(lenop ...))
+        #:with ((acc1 ...) ...) (stx-map 
+                                    (lambda (xs)
+                                      (for/list ([(x i) (in-indexed (syntax->list xs))])
+                                        #`(lambda (lst) (list-ref lst #,(datum->syntax #'here i)))))
+                                  #'((x ...) ...))
+        #:with (acc2 ...) (stx-map (lambda (l) #`(lambda (lst) (list-tail lst #,l))) #'(len ...))
+        (⊢ (let ([z e-])
+             (cond 
+              [(pred? z)
+               (let ([x- (acc1 z)] ... [rst- (acc2 z)]) e_body-)] ...))
+           : τ_out)])]
+     [else  ;; e is variant
+      (syntax-parse #'clauses #:datum-literals (->)
+       [([Clause:id x:id ... 
              (~optional (~seq #:when e_guard) #:defaults ([e_guard #'(ext-stlc:#%datum . #t)]))
              -> e_c_un] ...) ; un = unannotated with expected ty
-            #'clauses ; clauses must stay in same order
-     ;; len #'clauses maybe > len #'info, due to guards
-     #:with ((~literal #%plain-lambda) (RecName) 
-             ((~literal let-values) ()
-              ((~literal let-values) ()
-               . info-body)))
-             (get-extra-info #'τ_e)
-     #:with info-unfolded (subst-special #'τ_e #'RecName #'info-body)
-     #:with ((_ ((~literal quote) ConsAll) . _) ...) #'info-body
-     #:fail-unless (set=? (syntax->datum #'(Clause ...))
-                          (syntax->datum #'(ConsAll ...)))
-                   (string-append
-                     "clauses not exhaustive; missing: "
-                     (string-join      
-                         (map symbol->string
-                              (set-subtract 
-                                  (syntax->datum #'(ConsAll ...))
-                                (syntax->datum #'(Clause ...))))
-                       ", "))
-     #:with ((_ ((~literal quote) Cons) Cons? [_ acc τ] ...) ...)
-            (map ; ok to compare symbols since clause names can't be rebound
-             (lambda (Cl) 
-               (stx-findf
-                (syntax-parser
-                 [((~literal #%plain-app) 'C . rst)
-                  (equal? Cl (syntax->datum #'C))])
-                #'info-unfolded))
-             (syntax->datum #'(Clause ...)))
-     ;; this commented block experiments with expanding to unsafe ops
-     ;; #:with ((acc ...) ...) (stx-map 
-     ;;                         (lambda (accs)
-     ;;                          (for/list ([(a i) (in-indexed (syntax->list accs))])
-     ;;                            #`(lambda (s) (unsafe-struct*-ref s #,(datum->syntax #'here i)))))
-     ;;                         #'((acc-fn ...) ...))
-     #:with t_expect (syntax-property stx 'expected-type) ; propagate inferred type
-     #:with (e_c ...) (stx-map (lambda (ec) (add-expected-ty ec #'t_expect)) #'(e_c_un ...))
-     #:with (((x- ...) (e_guard- e_c-) (τ_guard τ_ec)) ...)
-            (stx-map 
-              (λ (bs eg+ec) (infers/ctx+erase bs eg+ec)) 
-              #'(([x : τ] ...) ...) #'((e_guard e_c) ...))
-     #:fail-unless (and (same-types? #'(τ_guard ...))
-                        (Bool? (stx-car #'(τ_guard ...))))
-                   "guard expression(s) must have type bool"
-     #:fail-unless (same-types? #'(τ_ec ...)) 
-                   (string-append "branches have different types, given: "
-                    (string-join (stx-map type->str #'(τ_ec ...)) ", "))
-     #:with τ_out (stx-car #'(τ_ec ...))
-     #:with z (generate-temporary) ; dont duplicate eval of test expr
-     (⊢ (let ([z e-])
-          (cond 
-           [(and (Cons? z) 
-                 (let ([x- (acc z)] ...) e_guard-))
-            (let ([x- (acc z)] ...) e_c-)] ...))
-          : τ_out)]))
+        ;; len #'clauses maybe > len #'info, due to guards
+        #:with ((~literal #%plain-lambda) (RecName) 
+                ((~literal let-values) ()
+                 ((~literal let-values) ()
+                  . info-body)))
+               (get-extra-info #'τ_e)
+        #:with info-unfolded (subst-special #'τ_e #'RecName #'info-body)
+        #:with ((_ ((~literal quote) ConsAll) . _) ...) #'info-body
+        #:fail-unless (set=? (syntax->datum #'(Clause ...))
+                             (syntax->datum #'(ConsAll ...)))
+                      (string-append
+                       "clauses not exhaustive; missing: "
+                       (string-join      
+                           (map symbol->string
+                                (set-subtract 
+                                    (syntax->datum #'(ConsAll ...))
+                                  (syntax->datum #'(Clause ...))))
+                         ", "))
+        #:with ((_ ((~literal quote) Cons) Cons? [_ acc τ] ...) ...)
+               (map ; ok to compare symbols since clause names can't be rebound
+                (lambda (Cl) 
+                  (stx-findf
+                      (syntax-parser
+                        [((~literal #%plain-app) 'C . rst)
+                         (equal? Cl (syntax->datum #'C))])
+                    #'info-unfolded))
+                (syntax->datum #'(Clause ...)))
+        ;; this commented block experiments with expanding to unsafe ops
+        ;; #:with ((acc ...) ...) (stx-map 
+        ;;                         (lambda (accs)
+        ;;                          (for/list ([(a i) (in-indexed (syntax->list accs))])
+        ;;                            #`(lambda (s) (unsafe-struct*-ref s #,(datum->syntax #'here i)))))
+        ;;                         #'((acc-fn ...) ...))
+        #:with t_expect (syntax-property stx 'expected-type) ; propagate inferred type
+        #:with (e_c ...) (stx-map (lambda (ec) (add-expected-ty ec #'t_expect)) #'(e_c_un ...))
+        #:with (((x- ...) (e_guard- e_c-) (τ_guard τ_ec)) ...)
+               (stx-map 
+                   (λ (bs eg+ec) (infers/ctx+erase bs eg+ec)) 
+                 #'(([x : τ] ...) ...) #'((e_guard e_c) ...))
+        #:fail-unless (and (same-types? #'(τ_guard ...))
+                           (Bool? (stx-car #'(τ_guard ...))))
+                      "guard expression(s) must have type bool"
+        #:fail-unless (same-types? #'(τ_ec ...)) 
+                      (string-append "branches have different types, given: "
+                       (string-join (stx-map type->str #'(τ_ec ...)) ", "))
+        #:with τ_out (stx-car #'(τ_ec ...))
+        #:with z (generate-temporary) ; dont duplicate eval of test expr
+        (⊢ (let ([z e-])
+             (cond 
+              [(and (Cons? z) 
+                    (let ([x- (acc z)] ...) e_guard-))
+               (let ([x- (acc z)] ...) e_c-)] ...))
+           : τ_out)])])]))
 
 (define-syntax → ; wrapping →
   (syntax-parser
