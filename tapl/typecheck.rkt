@@ -704,19 +704,19 @@
              (syntax-property stx 'type (car t)))
         stx))
   ; subst τ for y in e, if (bound-id=? x y)
-  (define (subst τ x e)
+  (define (subst τ x e [cmp bound-identifier=?])
     (syntax-parse e
-      [y:id #:when (bound-identifier=? e x)
+      [y:id #:when (cmp e x)
             ; use syntax-track-origin to transfer 'orig
             ; but may transfer multiple #%type tags, so merge
             (merge-type-tags (syntax-track-origin τ #'y #'y))]
       [(esub ...)
-       #:with (esub_subst ...) (stx-map (λ (e1) (subst τ x e1)) #'(esub ...))
+       #:with (esub_subst ...) (stx-map (λ (e1) (subst τ x e1 cmp)) #'(esub ...))
        (syntax-track-origin #'(esub_subst ...) e x)]
       [_ e]))
 
-  (define (substs τs xs e)
-    (stx-fold subst e τs xs))
+  (define (substs τs xs e [cmp bound-identifier=?])
+    (stx-fold (lambda (ty x res) (subst ty x res cmp)) e τs xs))
 
   ;; subst-expr: 
   ;; - like subst except the target can be any stx, rather than just an id

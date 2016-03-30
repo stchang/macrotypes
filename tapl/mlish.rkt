@@ -159,7 +159,10 @@
    ;; - currently cannot do it here; to do the check here, need all types of
    ;;  top-lvl fns, since they can call each other
    #:with (~and ty_fn_expected (~∀ _ (~ext-stlc:→ _ ... out_expected))) 
-          ((current-type-eval) #'(∀ Ys (ext-stlc:→ τ+orig ...)))
+          (syntax-property 
+              ((current-type-eval) #'(∀ Ys (ext-stlc:→ τ+orig ...)))
+            'orig
+            (list #'(→ τ+orig ...)))
    ;; #:with [_ _ (~and ty_fn_actual (~∀ _ (~ext-stlc:→ _ ... out_actual)))]
    ;;        (infer/ctx+erase #'([f : ty_fn_expected]) ; need to handle recursive fn calls
    ;;          #'(Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann))))
@@ -267,7 +270,7 @@
                         (infer+erase (syntax-property e 'expected-type τ_e)))
                       #'(e_arg ...) #'(τ_in.norm (... ...)))
               #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in.norm (... ...)))
-                           (mk-app-err-msg #'(C e_arg ...)
+                           (mk-app-err-msg (syntax/loc stx (C e_arg ...))
                             #:expected #'(τ_in.norm (... ...)) #:given #'(τ_arg ...)
                             #:name (format "constructor ~a" 'Cons))
               (⊢ (StructName e_arg- ...) : (Name τ_X (... ...)))]
@@ -298,7 +301,7 @@
 ;; ;              #:with (~Tmp Ys τ+ (... ...)) ((current-type-eval) #'(Tmp (X ...) τ ...))
 ;; ;              #:with cs (compute-constraints #'((τ+ τarg) (... ...)))
 ;; ;              #:with (τ_solved (... ...)) (stx-map (λ (y) (lookup y #'cs)) #'Ys)
-              #'(C {τ_solved (... ...)} . args)]))
+              (syntax/loc stx (C {τ_solved (... ...)} . args))]))
          ...)]))
 
 ;; match --------------------------------------------------
@@ -573,7 +576,7 @@
 
 (define-syntax → ; wrapping →
   (syntax-parser
-    [(_ . rst) #'(∀ () (ext-stlc:→ . rst))]))
+    [(_ . rst) (syntax-property #'(∀ () (ext-stlc:→ . rst)) 'orig (list #'(→ . rst)))]))
 ; special arrow that computes free vars; for use with tests
 ; (because we can't write explicit forall
 (provide →/test)
@@ -671,7 +674,20 @@
    #:with ([e_arg- τ_arg] ...) (infers+erase (stx-map add-expected-ty #'(e_arg ...) #'(τ_in ...)))
    ;; ) typecheck args
    #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
-                 (mk-app-err-msg stx #:given #'(τ_arg ...) #:expected #'(τ_in ...))
+                 (mk-app-err-msg stx 
+                   #:given #'(τ_arg ...) 
+                   #:expected 
+                   (stx-map 
+                      (lambda (tyin) 
+                        (define old-orig (get-orig tyin))
+                        (displayln old-orig)
+                        (define new-orig
+                          (and old-orig
+                               (substs (stx-map get-orig #'(τ_solved ...)) #'Xs old-orig
+                                           (lambda (x y) (equal? (syntax->datum x) (syntax->datum y))))))
+                        (displayln new-orig)
+                        (syntax-property tyin 'orig (list new-orig)))
+                     #'(τ_in ...)))
    (⊢ (#%app e_fn- e_arg- ...) : τ_out)])
 
 ;; cond and other conditionals

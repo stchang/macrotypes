@@ -80,7 +80,7 @@
 (define-typed-syntax ann
   #:datum-literals (:)
   [(_ e : ascribed-τ:type)
-   #:with (e- τ) (infer+erase #'e)
+   #:with (e- τ) (infer+erase #'(add-expected e ascribed-τ.norm))
    #:fail-unless (typecheck? #'τ #'ascribed-τ.norm)
                  (format "~a does not have type ~a\n"
                          (syntax->datum #'e) (syntax->datum #'ascribed-τ))

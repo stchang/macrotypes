@@ -113,7 +113,8 @@
 (check-type
    (match2 (list 1 2) with
     [nil -> -1]
-    [x :: xs -> x]) : Int -> 1)
+    [x :: xs -> x]) 
+  : Int -> 1)
 
 (check-type
    (match2 (list 1 2) with

@@ -80,7 +80,7 @@
   (syntax-parse stx
     [(app . rst)
      #:when (not (equal? '#%app (syntax->datum #'app)))
-     (mk-app-err-msg #'(#%app app . rst) 
+     (mk-app-err-msg (syntax/loc stx (#%app app . rst))
        #:expected expected-τs
        #:given given-τs
        #:note note
