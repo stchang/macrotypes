@@ -10,32 +10,32 @@
 
 (check-type
   (match2 (B (tup 2 3)) with
-   [(B x) -> x]) : (× Int Int) -> (list 2 3))
+   [B x -> x]) : (× Int Int) -> (list 2 3))
 
 (check-type
   (match2 (A (tup 2 3)) with
-   [(A x) -> x]) : (× Int Int) -> (list 2 3))
+   [A x -> x]) : (× Int Int) -> (list 2 3))
 
 (check-type
   (match2 (A 1) with
-   [(A x) -> x]) : Int -> 1)
+   [A x -> x]) : Int -> 1)
 
 (typecheck-fail
   (match2 (B 1) with
-   [(B x) -> x]) 
+   [B x -> x]) 
   #:with-msg "Could not infer instantiation of polymorphic function B")
 
 (check-type
   (match2 (B (tup 2 3)) with
-   [(B (tup x y)) -> (+ x y)]) : Int -> 5)
+   [B (tup x y) -> (+ x y)]) : Int -> 5)
 
 (check-type
   (match2 (C (tup 2 (tup 3 4))) with
-   [(C (tup x (tup y z))) -> (+ x (+ y z))]) : Int -> 9)
+   [C (tup x (tup y z)) -> (+ x (+ y z))]) : Int -> 9)
 
 (check-type
   (match2 (C (tup 2 (tup 3 4))) with
-   [(A x) -> x]
+   [A x -> x]
    [_ -> 100]) : Int -> 100)
 
 
@@ -44,28 +44,129 @@
 
 (check-type
   (match2 (list 1) with
-   [(list x) -> x]) : Int -> 1)
+   [list x -> x]) : Int -> 1)
 
 (check-type
   (match2 (list 1 2) with
-   [(list x y) -> (+ x y)]) : Int -> 3)
+   [list x y -> (+ x y)]) : Int -> 3)
 
 (check-type
   (match2 (list 1 2) with
-   [(list) -> 0]
-   [(list x y) -> (+ x y)]) : Int -> 3)
+   [list -> 0]
+   [list x y -> (+ x y)]) : Int -> 3)
 
 (check-type
   (match2 (list (list 3 4) (list 5 6)) with
-   [(list) -> 0]
-   [(list (list w x) (list y z)) -> (+ (+ x y) (+ z w))]) : Int -> 18)
+   [list -> 0]
+   [list (list w x) (list y z) -> (+ (+ x y) (+ z w))]) : Int -> 18)
 
 (check-type
   (match2 (list (tup 3 4) (tup 5 6)) with
-   [(list) -> 0]
-   [(list (tup w x) (tup y z)) -> (+ (+ x y) (+ z w))]) : Int -> 18)
+   [list -> 0]
+   [list (tup w x) (tup y z) -> (+ (+ x y) (+ z w))]) : Int -> 18)
 
-#;(check-type
+(check-type
   (match2 (nil {Int}) with
    [nil -> 0]
-   [(list x y) -> (+ x y)]) : Int -> 0)
+   [list x y -> (+ x y)]) : Int -> 0)
+
+(check-type
+  (match2 (list 1 2) with
+   [nil -> 0]
+   [list x y -> (+ x y)]) : Int -> 3)
+
+;; falls off, results in run-time exception
+#;(check-type
+  (match2 (list 1 2 3) with
+   [nil -> 0]
+   [list x y -> (+ x y)]) : Int -> 3)
+
+;; 0-arity constructors
+(define-type (Test2 X)
+  AA
+  (BB X))
+
+(check-type
+  (match2 (BB 1) with
+   [AA -> 0]
+   [BB x -> x]) : Int -> 1)
+
+(check-type 
+   (match2 (BB (AA {Int})) with
+    [AA -> 0]
+    [BB AA -> 1]
+    [_ -> 2]) : Int -> 1)
+
+;; drop parens around 0-arity constructors
+(check-type
+  (match2 (BB 1) with
+   [AA -> 0]
+   [BB x -> x]) : Int -> 1)
+
+(check-type 
+   (match2 (BB (AA {Int})) with
+    [AA -> 0]
+    [BB AA -> 1]
+    [_ -> 2]) : Int -> 1)
+
+;; nicer cons pattern syntax (::)
+(check-type
+   (match2 (list 1 2) with
+    [nil -> -1]
+    [x :: xs -> x]) : Int -> 1)
+
+(check-type
+   (match2 (list 1 2) with
+    [nil -> -1]
+    [x :: y :: xs -> y]) : Int -> 2)
+
+(check-type
+   (match2 (list (tup 1 2) (tup 3 4)) with
+    [nil -> -1]
+    [(tup x y) :: (tup a b) :: xs -> (+ a b)]) : Int -> 7)
+
+(check-type
+   (match2 (list (list 2 3 4) (list 5 6 7) (list 9 10)) with
+    [nil -> -1]
+    [x :: (y :: z :: zs) :: xs -> z]) : Int -> 6)
+
+(check-type
+   (match2 (list (list 2 3 4) (list 5 6 7) (list 9 10)) with
+    [nil -> -1]
+    [x :: (list a b c) :: xs -> c]) : Int -> 7)
+
+(typecheck-fail
+    (match2 (list (list #t #f)) with
+      [nil -> -1]
+      [(list x y) :: tl -> (+ x y)])
+  #:with-msg "Type error applying function \\+")
+
+;; comma tup pattern syntax
+
+(check-type
+ (match2 (tup 1 2) with
+  [(x,y) -> (+ x y)]) : Int -> 3)
+
+(check-type
+ (match2 (tup 1 2 4) with
+  [(_,y,z) -> (+ z y)]) : Int -> 6)
+
+(check-type
+ (match2 (list (tup 1 2) (tup 3 4) (tup 5 6)) with
+  [(x,y) :: (a,b) :: rst -> (+ y a)]) : Int -> 5)
+
+(check-type
+ (match2 (list (tup (BB 1) (AA {Int})) (tup (BB 2) (AA {Int}))) with
+  [((BB x),AA) :: ((BB y),AA) :: rst -> (+ y x)]) : Int -> 3)
+
+(check-type 
+    (match2 (tup (tup (tup 1 2) (tup 3)) (tup 4 (tup 6 7))) with
+     [(((x,y),z),(a,(b,c))) -> (+ c y)]) : Int -> 9)
+
+(check-type 
+    (match2 (tup (tup (tup 1 2) (tup 3)) (tup 4 (tup 6 7))) with
+     [(((x,y),z),(_,(_,c))) -> (+ c y)]) : Int -> 9)
+
+(check-type 
+    (match2 (tup (tup (tup 1 2) (tup 3)) (tup 4 (tup 6 7))) with
+     [(((_,y),_),(_,(_,c))) -> (+ c y)]) : Int -> 9)

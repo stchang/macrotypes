@@ -307,17 +307,50 @@
     (unify-pat+ty (list pat ty)))
   (define (unify-pat+ty pat+ty)
     (syntax-parse pat+ty
+     [(pat ty) #:when (brace? #'pat) ; handle root pattern specially (to avoid some parens)
+      (syntax-parse #'pat
+        [{(~datum _)} #'()]
+        [{(~literal stlc+cons:nil)}  #'()]
+        [{A:id} ; disambiguate 0-arity constructors (that don't need parens)
+         #:with ((~literal #%plain-lambda) (RecName) 
+                 ((~literal let-values) ()
+                  ((~literal let-values) ()
+                   . info-body)))
+                 (get-extra-info #'ty)
+                #'()]
+        ;; comma tup syntax always has parens
+;        [{(~and ps (p1 ((~literal unquote) p2) ((~literal unquote) p) ...))}
+        [{(~and ps (p1 (unq p) ...))}
+         #:when (not (stx-null? #'(p ...)))
+         #:when (andmap (lambda (u) (equal? u 'unquote)) (syntax->datum #'(unq ...)))
+         (unify-pat+ty #'(ps ty))]
+        [{p ...} 
+         (unify-pat+ty #'((p ...) ty))])] ; pair
       [((~datum _) ty) #'()]
-      [(~literal stlc+cons:nil) ; nil
+      [((~or (~literal stlc+cons:nil)) ty) #'()]
+      [(A:id ty) ; disambiguate 0-arity constructors (that don't need parens)
+       #:with ((~literal #%plain-lambda) (RecName) 
+               ((~literal let-values) ()
+                ((~literal let-values) ()
+                 . info-body)))
+              (get-extra-info #'ty)
        #'()]
-      [(x:id ty)
-       #'((x ty))]
+      [(x:id ty)  #'((x ty))]
+      [((p1 (unq p) ...) ty) ; comma tup stx
+       #:when (not (stx-null? #'(p ...)))
+       #:when (andmap (lambda (u) (equal? u 'unquote)) (syntax->datum #'(unq ...)))
+       #:with (~× t ...) #'ty
+       #:with (pp ...) #'(p1 p ...)
+       (unifys #'([pp t] ...))]
       [(((~literal stlc+tup:tup) p ...) ty) ; tup
        #:with (~× t ...) #'ty
        (unifys #'([p t] ...))]
       [(((~literal stlc+cons:list) p ...) ty) ; known length list
        #:with (~List t) #'ty
        (unifys #'([p t] ...))]
+     [(((~seq p (~datum ::)) ... rst) ty) ; nicer cons stx
+      #:with (~List t) #'ty
+       (unifys #'([p t] ... [rst ty]))]
       [(((~literal stlc+cons:cons) p ps) ty) ; arb length list
        #:with (~List t) #'ty
        (unifys #'([p t] [ps ty]))]
@@ -341,10 +374,42 @@
   
   (define (compile-pat p ty)
     (syntax-parse p
+     [pat #:when (brace? #'pat) ; handle root pattern specially (to avoid some parens)
+      (syntax-parse #'pat
+        [{(~datum _)} #'_]
+        [{(~literal stlc+cons:nil)}  #'(list)]
+        [{A:id} ; disambiguate 0-arity constructors (that don't need parens)
+         #:with ((~literal #%plain-lambda) (RecName) 
+                 ((~literal let-values) ()
+                  ((~literal let-values) ()
+                   . info-body)))
+                 (get-extra-info ty)
+                (compile-pat #'(A) ty)]
+        ;; comma tup stx always has parens
+        ;; comma tup syntax always has parens
+;        [{(~and ps (p1 ((~literal unquote) p2) ((~literal unquote) p) ...))}
+        [{(~and ps (p1 (unq p) ...))}
+         #:when (not (stx-null? #'(p ...)))
+         #:when (andmap (lambda (u) (equal? u 'unquote)) (syntax->datum #'(unq ...)))
+         (compile-pat #'ps ty)]
+        [{p ...} (compile-pat #'(p ...) ty)])]
      [(~datum _) #'_]
      [(~literal stlc+cons:nil) ; nil
       #'(list)]
+     [A:id ; disambiguate 0-arity constructors (that don't need parens)
+      #:with ((~literal #%plain-lambda) (RecName) 
+              ((~literal let-values) ()
+               ((~literal let-values) ()
+                . info-body)))
+              (get-extra-info ty)
+      (compile-pat #'(A) ty)]
      [x:id p]
+     [(p1 (unq p) ...) ; comma tup stx
+      #:when (not (stx-null? #'(p ...)))
+      #:when (andmap (lambda (u) (equal? u 'unquote)) (syntax->datum #'(unq ...)))
+      #:with (~× t ...) ty
+      #:with (p- ...) (stx-map (lambda (p t) (compile-pat p t)) #'(p1 p ...) #'(t ...))
+      #'(list p- ...)]
      [((~literal stlc+tup:tup) p ...)
       #:with (~× t ...) ty
       #:with (p- ...) (stx-map (lambda (p t) (compile-pat p t)) #'(p ...) #'(t ...))
@@ -353,6 +418,11 @@
       #:with (~List t) ty
       #:with (p- ...) (stx-map (lambda (p) (compile-pat p #'t)) #'(p ...))
       #'(list p- ...)]
+     [((~seq p (~datum ::)) ... rst) ; nicer cons stx
+      #:with (~List t) ty
+      #:with (p- ...) (stx-map (lambda (pp) (compile-pat pp #'t)) #'(p ...))
+      #:with ps- (compile-pat #'rst ty)
+      #'(list-rest p- ... ps-)]
      [((~literal stlc+cons:cons) p ps)
       #:with (~List t) ty
       #:with p- (compile-pat #'p #'t)
@@ -383,7 +453,8 @@
     #:fail-when (null? (syntax->list #'clauses)) "no clauses"
     #:with [e- τ_e] (infer+erase #'e)
     (syntax-parse #'clauses #:datum-literals (->)
-     [([pat -> e_body] ...)
+     [([(~seq p ...) -> e_body] ...)
+      #:with (pat ...) #'({p ...} ...) ; use brace to indicate root pattern
       #:with ((~and ctx ([x ty] ...)) ...) (stx-map (lambda (p) (get-ctx p #'τ_e)) #'(pat ...))
       #:with ([(x- ...) e_body- ty_body] ...) (stx-map infer/ctx+erase #'(ctx ...) #'(e_body ...))
       #:with (pat- ...) (stx-map (lambda (p) (compile-pat p #'τ_e)) #'(pat ...))
