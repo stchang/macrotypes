@@ -335,8 +335,9 @@
        #:with ((~literal #%plain-lambda) (RecName) 
                ((~literal let-values) ()
                 ((~literal let-values) ()
-                 . info-body)))
+                 . (((~literal #%plain-app) ((~literal quote) C) . rst) ...))))
               (get-extra-info #'ty)
+       #:when (member (syntax->datum #'A) (syntax->datum #'(C ...)))
        #'()]
       [(x:id ty)  #'((x ty))]
       [((p1 (unq p) ...) ty) ; comma tup stx
@@ -403,8 +404,9 @@
       #:with ((~literal #%plain-lambda) (RecName) 
               ((~literal let-values) ()
                ((~literal let-values) ()
-                . info-body)))
+                . (((~literal #%plain-app) ((~literal quote) C) . rst) ...))))
               (get-extra-info ty)
+       #:when (member (syntax->datum #'A) (syntax->datum #'(C ...)))
       (compile-pat #'(A) ty)]
      [x:id p]
      [(p1 (unq p) ...) ; comma tup stx
@@ -680,12 +682,10 @@
                    (stx-map 
                       (lambda (tyin) 
                         (define old-orig (get-orig tyin))
-                        (displayln old-orig)
                         (define new-orig
                           (and old-orig
                                (substs (stx-map get-orig #'(τ_solved ...)) #'Xs old-orig
                                            (lambda (x y) (equal? (syntax->datum x) (syntax->datum y))))))
-                        (displayln new-orig)
                         (syntax-property tyin 'orig (list new-orig)))
                      #'(τ_in ...)))
    (⊢ (#%app e_fn- e_arg- ...) : τ_out)])
