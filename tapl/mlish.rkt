@@ -381,7 +381,7 @@
      [pat #:when (brace? #'pat) ; handle root pattern specially (to avoid some parens)
       (syntax-parse #'pat
         [{(~datum _)} #'_]
-        [{(~literal stlc+cons:nil)}  #'(list)]
+        [{(~literal stlc+cons:nil)}  (syntax/loc p (list))]
         [{A:id} ; disambiguate 0-arity constructors (that don't need parens)
          #:with ((~literal #%plain-lambda) (RecName) 
                  ((~literal let-values) ()
@@ -396,7 +396,7 @@
          #:when (not (stx-null? #'(p ...)))
          #:when (andmap (lambda (u) (equal? u 'unquote)) (syntax->datum #'(unq ...)))
          (compile-pat #'ps ty)]
-        [{p ...} (compile-pat #'(p ...) ty)])]
+        [{pat ...} (compile-pat (syntax/loc p (pat ...)) ty)])]
      [(~datum _) #'_]
      [(~literal stlc+cons:nil) ; nil
       #'(list)]
@@ -415,25 +415,25 @@
       #:with (~× t ...) ty
       #:with (p- ...) (stx-map (lambda (p t) (compile-pat p t)) #'(p1 p ...) #'(t ...))
       #'(list p- ...)]
-     [((~literal stlc+tup:tup) p ...)
-      #:with (~× t ...) ty
-      #:with (p- ...) (stx-map (lambda (p t) (compile-pat p t)) #'(p ...) #'(t ...))
-      #'(list p- ...)]
-     [((~literal stlc+cons:list) p ...)
+     [((~literal stlc+tup:tup) . pats)
+      #:with (~× . tys) ty
+      #:with (p- ...) (stx-map (lambda (p t) (compile-pat p t)) #'pats #'tys)
+      (syntax/loc p (list p- ...))]
+     [((~literal stlc+cons:list) . ps)
       #:with (~List t) ty
-      #:with (p- ...) (stx-map (lambda (p) (compile-pat p #'t)) #'(p ...))
-      #'(list p- ...)]
-     [((~seq p (~datum ::)) ... rst) ; nicer cons stx
+      #:with (p- ...) (stx-map (lambda (p) (compile-pat p #'t)) #'ps)
+      (syntax/loc p (list p- ...))]
+     [((~seq pat (~datum ::)) ... last) ; nicer cons stx
       #:with (~List t) ty
-      #:with (p- ...) (stx-map (lambda (pp) (compile-pat pp #'t)) #'(p ...))
-      #:with ps- (compile-pat #'rst ty)
-      #'(list-rest p- ... ps-)]
+      #:with (p- ...) (stx-map (lambda (pp) (compile-pat pp #'t)) #'(pat ...))
+      #:with last- (compile-pat #'last ty)
+      (syntax/loc p (list-rest p- ... last-))]
      [((~literal stlc+cons:cons) p ps)
       #:with (~List t) ty
       #:with p- (compile-pat #'p #'t)
       #:with ps- (compile-pat #'ps ty)
       #'(cons p- ps-)]
-     [(Name p ...)
+     [(Name . pats)
       #:with ((~literal #%plain-lambda) (RecName) 
               ((~literal let-values) ()
                ((~literal let-values) ()
@@ -447,8 +447,77 @@
                    [((~literal #%plain-app) 'C . rst)
                     (equal? (syntax->datum #'Name) (syntax->datum #'C))])
                #'info-unfolded)
-      #:with (p- ...) (stx-map compile-pat #'(p ...) #'(τ ...))
-      #'(StructName p- ...)]))
+      #:with (p- ...) (stx-map compile-pat #'pats #'(τ ...))
+      (syntax/loc p (StructName p- ...))]))
+  
+  (define (check-exhaust pats ty)
+    (define (else-pat? p)
+      (syntax-parse p [(~literal _) #t] [_ #f]))
+    (define (nil-pat? p)
+      (syntax-parse p
+        [((~literal list)) #t]
+        [_ #f]))
+    (define (non-nil-pat? p)
+      (syntax-parse p
+        [((~literal list-rest) . rst) #t]
+        [((~literal cons) . rst) #t]
+        [_ #f]))
+    (define (tup-pat? p)
+      (syntax-parse p
+        [((~literal list) . _) #t] [_ #f]))
+    (cond
+     [(or (stx-ormap else-pat? pats) (stx-ormap identifier? pats)) #t]
+     [(List? ty) ; lists
+      (unless (stx-ormap nil-pat? pats)
+        (error 'match2 (let ([last (car (stx-rev pats))])
+                         (format "(~a:~a) missing nil clause for list expression"
+                                 (syntax-line last) (syntax-column last)))))
+      (unless (stx-ormap non-nil-pat? pats)
+        (error 'match2 (let ([last (car (stx-rev pats))])
+                         (format "(~a:~a) missing clause for non-empty, arbitrary length list"
+                                 (syntax-line last) (syntax-column last)))))
+      #t]
+     [(×? ty) ; tuples
+      (unless (stx-ormap tup-pat? pats)
+        (error 'match2 (let ([last (car (stx-rev pats))])
+                         (format "(~a:~a) missing pattern for tuple expression"
+                                 (syntax-line last) (syntax-column last)))))
+      (syntax-parse pats
+        [((_ p ...) ...)
+         (syntax-parse ty
+           [(~× t ...)
+            (apply stx-andmap 
+                   (lambda (t . ps) (check-exhaust ps t)) 
+                   #'(t ...) 
+                   (syntax->list #'((p ...) ...)))])])]
+     [else ; algebraic datatypes
+      (syntax-parse (get-extra-info ty)
+        [((~literal #%plain-lambda) (RecName) 
+           ((~literal let-values) ()
+             ((~literal let-values) ()
+              . (((~literal #%plain-app)  
+                  ((~literal quote) C) 
+                  ((~literal quote) Cstruct)
+                  . rst) ...))))
+         (syntax-parse pats
+           [((Cpat _ ...) ...)
+            (define Cs (syntax->datum #'(C ...)))
+            (define Cstructs (syntax->datum #'(Cstruct ...)))
+            (define Cpats (syntax->datum #'(Cpat ...)))
+            (unless (set=? Cstructs Cpats)
+              (error 'match2
+                (let ([last (car (stx-rev pats))])
+                  (format "(~a:~a) clauses not exhaustive; missing: ~a"
+                          (syntax-line last) (syntax-column last)
+                          (string-join      
+                            (for/list ([C Cs][Cstr Cstructs] #:unless (member Cstr Cpats))
+                              (symbol->string C))
+                            ", ")))))
+            #t])]
+        [_ #t])]))
+
+  (define (compile-pats pats ty)
+    (stx-map (lambda (p) (list (get-ctx p ty) (compile-pat p ty))) pats))
   )
 
 (provide match2)
@@ -459,10 +528,16 @@
     #:with [e- τ_e] (infer+erase #'e)
     (syntax-parse #'clauses #:datum-literals (->)
      [([(~seq p ...) -> e_body] ...)
-      #:with (pat ...) #'({p ...} ...) ; use brace to indicate root pattern
-      #:with ((~and ctx ([x ty] ...)) ...) (stx-map (lambda (p) (get-ctx p #'τ_e)) #'(pat ...))
+      #:with (pat ...) (stx-map (lambda (ps) (syntax-parse ps [(pp ...) (syntax/loc stx {pp ...})]))
+                            #'((p ...) ...)) ; use brace to indicate root pattern
+      #:with ([(~and ctx ([x ty] ...)) pat-] ...) (compile-pats #'(pat ...) #'τ_e)
+      ;; #:with ((~and ctx ([x ty] ...)) ...) (stx-map (lambda (p) (get-ctx p #'τ_e)) #'(pat ...))
       #:with ([(x- ...) e_body- ty_body] ...) (stx-map infer/ctx+erase #'(ctx ...) #'(e_body ...))
-      #:with (pat- ...) (stx-map (lambda (p) (compile-pat p #'τ_e)) #'(pat ...))
+      ;; #:with (pat- ...) (stx-map (lambda (p) (compile-pat p #'τ_e)) #'(pat ...))
+      #:fail-unless (same-types? #'(ty_body ...))
+                    (string-append "branches have different types, given: "
+                      (string-join (stx-map type->str #'(ty_body ...)) ", "))
+      #:when (check-exhaust #'(pat- ...) #'τ_e)
       #:with τ_out (stx-car #'(ty_body ...))
       (⊢ (match e- [pat- (let ([x- x] ...) e_body-)] ...) : τ_out)
       ])]))

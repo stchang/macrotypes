@@ -11,6 +11,8 @@
 (define (stx-cadr stx) (stx-car (stx-cdr stx)))
 (define (stx-caddr stx) (stx-cadr (stx-cdr stx)))
 
+(define (stx-rev stx)
+  (reverse (syntax->list stx)))
 (define (stx-andmap f . stx-lsts)
   (apply andmap f (map syntax->list stx-lsts)))
 (define (stx-ormap f . stx-lsts)

@@ -8,18 +8,57 @@
   (B (× X X))
   (C (× X (× X X))))
 
+(typecheck-fail
+  (match2 (B (tup 2 3)) with
+   [B x -> x]) 
+  #:with-msg "clauses not exhaustive; missing: A, C")
+
+(typecheck-fail
+  (match2 (B (tup 2 3)) with
+   [A x -> x]
+   [C (x,y) -> y]
+   [B x -> x]) #:with-msg "branches have different types")
+
+(typecheck-fail
+  (match2 (B (tup 2 3)) with
+   [A x -> (tup x x)]
+   [C x -> x]
+   [B x -> x]) #:with-msg "branches have different types")
+
 (check-type
   (match2 (B (tup 2 3)) with
+   [A x -> (tup x x)]
+   [C (x,y) -> y]
    [B x -> x]) : (× Int Int) -> (list 2 3))
+
+(typecheck-fail
+  (match2 (A (tup 2 3)) with
+   [A x -> x]) #:with-msg "clauses not exhaustive; missing: B, C")
 
 (check-type
   (match2 (A (tup 2 3)) with
+   [B (x,y) -> y]
+   [C (x,y) -> x]
    [A x -> x]) : (× Int Int) -> (list 2 3))
 
 (check-type
-  (match2 (A 1) with
-   [A x -> x]) : Int -> 1)
+  (match2 (A (tup 2 3)) with
+   [B (x,y) -> y]
+   [A x -> x]
+   [C (x,y) -> x]) : (× Int Int) -> (list 2 3))
 
+(typecheck-fail
+  (match2 (A (tup 2 3)) with
+   [B (x,y) -> y]
+   [A x -> x]
+   [C x -> x]) #:with-msg "branches have different types")
+
+(check-type
+  (match2 (A 1) with
+   [A x -> x]
+   [_ -> -1]) : Int -> 1)
+
+;; TODO: better err msg, is actually a type err
 (typecheck-fail
   (match2 (B 1) with
    [B x -> x]) 
@@ -27,11 +66,13 @@
 
 (check-type
   (match2 (B (tup 2 3)) with
-   [B (tup x y) -> (+ x y)]) : Int -> 5)
+   [B (tup x y) -> (+ x y)]
+   [_ -> -1]) : Int -> 5)
 
 (check-type
   (match2 (C (tup 2 (tup 3 4))) with
-   [C (tup x (tup y z)) -> (+ x (+ y z))]) : Int -> 9)
+   [C (tup x (tup y z)) -> (+ x (+ y z))]
+   [_ -> -1]) : Int -> 9)
 
 (check-type
   (match2 (C (tup 2 (tup 3 4))) with
@@ -42,44 +83,104 @@
 
 ;; lists
 
+(typecheck-fail
+  (match2 (list 1) with
+   [list x -> x]) #:with-msg "missing nil clause")
+
+(typecheck-fail
+  (match2 (list 1) with
+   [nil -> 0]
+   [list x -> x]) 
+  #:with-msg "missing clause for non-empty, arbitrary length list")
+
 (check-type
   (match2 (list 1) with
-   [list x -> x]) : Int -> 1)
+   [nil -> 0]
+   [x :: xs -> x]) : Int -> 1)
+
+(check-type
+  (match2 (list 1) with
+   [nil -> 0]
+   [list x -> x]
+   [x :: xs -> x]) : Int -> 1)
+
+(check-type
+  (match2 (list 1) with
+   [list -> 0]
+   [list x -> x]
+   [x :: xs -> x]) : Int -> 1)
+
+(check-type
+  (match2 (list 1) with
+   [list x -> x]
+   [_ -> 0]) : Int -> 1)
+
+(check-type
+  (match2 (list 1) with
+   [x :: xs -> x]
+   [nil -> 0]) : Int -> 1)
+
+(check-type
+  (match2 (list 1) with
+   [_ -> -1]
+   [list x -> x]
+   [nil -> 0]) : Int -> -1)
+
+(check-type
+  (match2 (list 1) with
+   [_ -> -1]
+   [list x -> x]
+   [list -> 0]) : Int -> -1)
+
+(check-type
+    (match2 (list 1) with
+     [_ -> 0]) : Int -> 0)
+
+(typecheck-fail
+    (match2 (list 1) with
+      [nil -> 0]) 
+  #:with-msg "missing clause for non-empty, arbitrary length list")
 
 (check-type
   (match2 (list 1 2) with
-   [list x y -> (+ x y)]) : Int -> 3)
+   [list x y -> (+ x y)]
+   [_ -> 0]) : Int -> 3)
 
 (check-type
   (match2 (list 1 2) with
    [list -> 0]
-   [list x y -> (+ x y)]) : Int -> 3)
+   [list x y -> (+ x y)]
+   [_ -> -1]) : Int -> 3)
 
 (check-type
   (match2 (list (list 3 4) (list 5 6)) with
    [list -> 0]
-   [list (list w x) (list y z) -> (+ (+ x y) (+ z w))]) : Int -> 18)
+   [list (list w x) (list y z) -> (+ (+ x y) (+ z w))]
+   [_ -> -1]) : Int -> 18)
 
 (check-type
   (match2 (list (tup 3 4) (tup 5 6)) with
    [list -> 0]
-   [list (tup w x) (tup y z) -> (+ (+ x y) (+ z w))]) : Int -> 18)
+   [list (tup w x) (tup y z) -> (+ (+ x y) (+ z w))]
+   [_ -> -1]) : Int -> 18)
 
 (check-type
   (match2 (nil {Int}) with
    [nil -> 0]
-   [list x y -> (+ x y)]) : Int -> 0)
+   [list x y -> (+ x y)]
+   [_ -> -1]) : Int -> 0)
 
 (check-type
   (match2 (list 1 2) with
    [nil -> 0]
-   [list x y -> (+ x y)]) : Int -> 3)
+   [list x y -> (+ x y)]
+   [_ -> -1]) : Int -> 3)
 
-;; falls off, results in run-time exception
-#;(check-type
+(check-type
   (match2 (list 1 2 3) with
    [nil -> 0]
-   [list x y -> (+ x y)]) : Int -> 3)
+   [list x y -> (+ x y)]
+   [_ -> -1]) : Int -> -1)
 
 ;; 0-arity constructors
 (define-type (Test2 X)
@@ -154,11 +255,13 @@
 
 (check-type
  (match2 (list (tup 1 2) (tup 3 4) (tup 5 6)) with
-  [(x,y) :: (a,b) :: rst -> (+ y a)]) : Int -> 5)
+  [(x,y) :: (a,b) :: rst -> (+ y a)]
+  [_ -> -1]) : Int -> 5)
 
 (check-type
  (match2 (list (tup (BB 1) (AA {Int})) (tup (BB 2) (AA {Int}))) with
-  [((BB x),AA) :: ((BB y),AA) :: rst -> (+ y x)]) : Int -> 3)
+  [((BB x),AA) :: ((BB y),AA) :: rst -> (+ y x)]
+  [_ -> -1]) : Int -> 3)
 
 (check-type 
     (match2 (tup (tup (tup 1 2) (tup 3)) (tup 4 (tup 6 7))) with
@@ -171,3 +274,25 @@
 (check-type 
     (match2 (tup (tup (tup 1 2) (tup 3)) (tup 4 (tup 6 7))) with
      [(((_,y),_),(_,(_,c))) -> (+ c y)]) : Int -> 9)
+
+(typecheck-fail 
+    (match2 (tup (BB 1) (BB 2)) with
+     [((BB x),(BB y)) -> (+ x y)])
+  #:with-msg "clauses not exhaustive; missing: AA")
+
+;; TODO: should tail
+#;(typecheck-fail 
+    (match2 (tup (BB 1) (BB 2)) with
+     [((BB x),(BB y)) -> (+ x y)]
+     [(AA,AA) -> 0])
+  #:with-msg "clauses not exhaustive; missing: AA")
+
+;; falls off; runtime match exception
+(match2 (tup (BB 2) (AA {Int})) with
+ [((BB x),(BB y)) -> (+ x y)]
+ [(AA,AA) -> 0])
+
+(check-type 
+    (match2 (tup (BB 1) (BB 2)) with
+     [((BB x),(BB y)) -> (+ x y)]
+     [_ -> -1]) : Int -> 3)
