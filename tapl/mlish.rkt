@@ -61,38 +61,48 @@
        #'τ]
       [(_ . rst) (lookup x #'rst)]
       [() #f]))
-  ;; solve for tyvars Xs used in tys, based on types of args in stx
-  ;; infer types of args left-to-right:
-  ;; - use intermediate results to help infer remaining arg types
-  ;; - short circuit if done early
-  ;; return list of types if success; #f if fail
-  (define (solve Xs tys stx)
-    (define args (stx-cdr stx))
-    (cond 
-     [(stx-null? Xs) #'()]
-     [(or (stx-null? args) (not (stx-length=? tys args)))
-      (type-error #:src stx
-                  #:msg (mk-app-err-msg stx #:expected tys
-                         #:note (format "Could not infer instantiation of polymorphic function ~a."
-                                        (syntax->datum (stx-car stx)))))]
-     [else
-      (let loop ([a (stx-car args)] [args-rst (stx-cdr args)]
-                 [ty (stx-car tys)] [tys-rst (stx-cdr tys)]
-                 [old-cs #'()])
-        (define/with-syntax [a- ty_a] (infer+erase a))
-        (define cs 
-          (stx-append old-cs (compute-constraints (list (list ty #'ty_a)))))
-        (define maybe-solved 
-          (filter (lambda (x) x) (stx-map (λ (X) (lookup X cs)) Xs)))
-        (if (stx-length=? maybe-solved Xs)
-            maybe-solved
-            (if (or (stx-null? args-rst) (stx-null? tys-rst))
-                (type-error #:src stx
-                  #:msg (mk-app-err-msg stx #:expected tys #:given (stx-map cadr (infers+erase args))
-                         #:note (format "Could not infer instantiation of polymorphic function ~a."
-                                        (syntax->datum (stx-car stx)))))
-                (loop (stx-car args-rst) (stx-cdr args-rst) 
-                      (stx-car tys-rst) (stx-cdr tys-rst) cs))))]))
+  
+  ;; Returns list of types, for each X in Xs, 
+  ;;   if it's possible to solve for such types from constraints cs
+  ;; else returns #f
+  (define (try-to-solve Xs cs)
+    (define maybe-solved 
+      (filter (lambda (x) x) (stx-map (λ (X) (lookup X cs)) Xs)))
+    (and (stx-length=? Xs maybe-solved)
+         maybe-solved))
+
+  ;; solve for Xs by unifying quantified fn type with the concrete types of stx's args
+  ;;   stx = the application stx = (#%app e_fn e_arg ...)
+  ;;   tyXs = input and output types from fn type
+  ;;          ie (typeof e_fn) = (-> . tyXs)
+  ;; returns list of types if success, else throws type error
+  ;; - infers type of arguments from left-to-right
+  ;; - short circuits if done early
+  (define (solve Xs tyXs stx)
+    (syntax-parse tyXs
+      [(τ_inX ... τ_outX)
+       ;; generate initial constraints with expected type and τ_outX
+       #:with expected-ty (get-expected-type stx)
+       (define initial-cs
+         (if (syntax-e #'expected-ty)
+             (compute-constraint (list #'τ_outX ((current-type-eval) #'expected-ty)))
+             #'()))
+       (syntax-parse stx
+         [(_ e_fn . args)
+          (define maybe-solved-tys
+            (try-to-solve Xs
+              (for/fold ([cs initial-cs])
+                        ([a (in-list (syntax->list #'args))]
+                         [tyXin (in-list (syntax->list #'(τ_inX ...)))]
+                         #:break (try-to-solve Xs cs))
+                (define/with-syntax [_ ty_a] (infer+erase a))
+                (stx-append cs (compute-constraint (list tyXin #'ty_a))))))
+          (or maybe-solved-tys
+              (type-error #:src stx
+               #:msg (mk-app-err-msg stx #:expected #'(τ_inX ...) #:given (infers+erase #'args)
+                      #:note (format "Could not infer instantiation of polymorphic function ~a."
+                                     (syntax->datum #'e_fn)))))])]))
+
   ;; instantiate polymorphic types
   (define (inst-type ty-solved Xs ty)
     (substs ty-solved Xs ty))
@@ -274,34 +284,11 @@
                             #:expected #'(τ_in.norm (... ...)) #:given #'(τ_arg ...)
                             #:name (format "constructor ~a" 'Cons))
               (⊢ (StructName e_arg- ...) : (Name τ_X (... ...)))]
-             [(C . args) #:when (stx-null? #'(X ...)) #'(C {} . args)] ; no tyvars, no annotations
              [(C . args) ; no type annotations, must infer instantiation
-              ;; infer instantiation types from args left-to-right,
-              ;; short-circuit if done early, and use result to help infer remaining args
-              #:with (~Tmp Ys . τs+) ((current-type-eval) #'(Tmp (X ...) (Name X ...) τ ...))
-              #:with ty-expected (get-expected-type stx) ; first attempt to instantiate using expected-ty
-              #:with dummy-e (if (syntax-e #'ty-expected) ; to use solve, need to attach expected-ty to expr
-                                 (assign-type #'"dummy" #'ty-expected)
-                                 (assign-type #'"dummy" #'Int)) ; Int is another dummy
-              #:with (new-app (... ...)) #'(C dummy-e . args)
-              #:with (τ_solved (... ...)) (solve #'Ys #'τs+ #'(new-app (... ...)))
-;;               (let loop ([a (stx-car #'args)] [a-rst (stx-cdr #'args)]
-;;                          [τ+ (stx-car #'τs+)] [τ+rst (stx-cdr #'τs+)]
-;;                          [old-cs #'()])
-;;                 (define/with-syntax [a- τ_a] (infer+erase a))
-;;                 (define cs (stx-append old-cs (compute-constraints (list (list τ+ #'τ_a)))))
-;;                 (define maybe-solved (filter syntax-e (stx-map (λ (y) (lookup y cs)) #'Ys)))
-;;                 (if (stx-length=? maybe-solved #'Ys)
-;;                     #`(C #,(syntax-property #`{#,@maybe-solved} 'paren-shape #\{) . args) ; loses 'paren-shape
-;;                     (if (or (stx-null? a-rst) (stx-null? τ+rst))
-;;                         (type-error #:src stx
-;;                                     #:msg "could not infer types for constructor ~a; add annotations" #'(C . args))
-;;                         (loop (stx-car a-rst) (stx-cdr a-rst) (stx-car τ+rst) (stx-cdr τ+rst) cs))))]))
-;; ;              #:with ([arg- τarg] (... ...)) (infers+erase #'args)
-;; ;              #:with (~Tmp Ys τ+ (... ...)) ((current-type-eval) #'(Tmp (X ...) τ ...))
-;; ;              #:with cs (compute-constraints #'((τ+ τarg) (... ...)))
-;; ;              #:with (τ_solved (... ...)) (stx-map (λ (y) (lookup y #'cs)) #'Ys)
-              (syntax/loc stx (C {τ_solved (... ...)} . args))]))
+              #:with StructName/ty 
+                     (⊢ StructName : (∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))
+              ; stx/loc transfers expected-type
+              (syntax/loc stx (mlish:#%app StructName/ty . args))]))
          ...)]))
 
 ;; match --------------------------------------------------
@@ -449,7 +436,8 @@
                #'info-unfolded)
       #:with (p- ...) (stx-map compile-pat #'pats #'(τ ...))
       (syntax/loc p (StructName p- ...))]))
-  
+
+  ;; pats = compiled pats = racket pats
   (define (check-exhaust pats ty)
     (define (else-pat? p)
       (syntax-parse p [(~literal _) #t] [_ #f]))
@@ -703,67 +691,50 @@
    #'(Λ () (ext-stlc:λ . rst))])
 
 
-#;(define-typed-syntax new-app #:export-as #%app
-  [(_ τs f . args)
-   #:when (brace? #'τs)
-   #'(ext-stlc:#%app (inst f . τs) . args)]
-  [(_ f . args)
-   #'(ext-stlc:#%app (inst f) . args)])
-
 ;; #%app --------------------------------------------------
-(define-typed-syntax #%app
-  [(_ e_fn e_arg ...) 
+(define-typed-syntax mlish:#%app #:export-as #%app
+  [(_ e_fn . e_args)
    ;; ) compute fn type (ie ∀ and →) 
-   ;; - use multiple steps to produce better err msg
-   ;#:with [e_fn- ((X ...) ((~ext-stlc:→ τ_inX ... τ_outX)))] (⇑ e_fn as ∀)
-   ;#:with [e_fn- (~∀ (X ...) (~ext-stlc:→ τ_inX ... τ_outX))] (infer+erase #'e_fn)
+   #:with [e_fn- (~∀ Xs (~ext-stlc:→ . tyX_args))] (infer+erase #'e_fn)
+   (cond 
+    [(stx-null? #'Xs)
+     (syntax-parse #'(e_args tyX_args)
+       [((e_arg ...) (τ_inX ... _))
+        #:with e_fn/ty (⊢ e_fn- : (ext-stlc:→ . tyX_args))
+        #'(ext-stlc:#%app e_fn/ty (add-expected e_arg τ_inX) ...)])]
+    [else
+     ;; ) solve for type variables Xs
+     (define tys-solved (solve #'Xs #'tyX_args stx))
+     ;; ) instantiate polymorphic function type
+     (syntax-parse (inst-types tys-solved #'Xs #'tyX_args)
+      [(τ_in ... τ_out) ; concrete types
+       ;; ) arity check
+       #:fail-unless (stx-length=? #'(τ_in ...) #'e_args)
+                     (mk-app-err-msg stx #:expected #'(τ_in ...)
+                      #:note "Wrong number of arguments.")
+       ;; ) compute argument types; (possibly) double-expand args (for now)
+       #:with ([e_arg- τ_arg] ...) (infers+erase (stx-map add-expected-ty #'e_args #'(τ_in ...)))
+       ;; ) typecheck args
+       #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
+                     (mk-app-err-msg stx 
+                      #:given #'(τ_arg ...) 
+                      #:expected 
+                      (stx-map 
+                        (lambda (tyin) 
+                          (define old-orig (get-orig tyin))
+                          (define new-orig
+                            (and old-orig
+                                 (substs (stx-map get-orig tys-solved) #'Xs old-orig
+                                             (lambda (x y) (equal? (syntax->datum x) (syntax->datum y))))))
+                          (syntax-property tyin 'orig (list new-orig)))
+                       #'(τ_in ...)))
+       (⊢ (#%app e_fn- e_arg- ...) : τ_out)])])]
+  [(_ e_fn . e_args) ; err case; e_fn is not a function
    #:with [e_fn- τ_fn] (infer+erase #'e_fn)
-   #:fail-unless (and (∀? #'τ_fn) (syntax-parse #'τ_fn [(~∀ _ (~ext-stlc:→ . args)) #t][_ #f]))
-                 (format "Expected expression ~a to have → type, got: ~a"
-                         (syntax->datum #'e_fn) (type->str #'τ_fn))
-   #:with (~∀ Xs (~ext-stlc:→ τ_inX ... τ_outX)) #'τ_fn
-   ;; ) instantiate polymorphic fn type
-   ; try to solve with expected-type first
-   #:with expected-ty (get-expected-type stx)
-   #:with maybe-solved 
-          (and (syntax-e #'expected-ty)
-          (let ([cs (compute-constraints (list (list #'τ_outX ((current-type-eval) #'expected-ty))))])
-            (filter (lambda (x) x) (stx-map (λ (X) (lookup X cs)) #'Xs))))
-   ;; else use arg types
-   #:with (τ_solved ...) (if (and (syntax-e #'maybe-solved) (stx-length=? #'maybe-solved #'Xs))
-                             #'maybe-solved
-                             (solve #'Xs #'(τ_inX ...) (syntax/loc stx (e_fn e_arg ...))))
-   ;; #:with cs (compute-constraints #'((τ_inX τ_arg) ...))
-   ;; #:with (τ_solved ...) (filter (λ (x) x) (stx-map (λ (y) (lookup y #'cs)) #'(X ...)))
-   ;; #:fail-unless (stx-length=? #'(X ...) #'(τ_solved ...))
-   ;;               (mk-app-err-msg stx #:expected #'(τ_inX ...) #:given #'(τ_arg ...)
-   ;;                #:note "Could not infer instantiation of polymorphic function.")
-   #:with (τ_in ... τ_out) (inst-types #'(τ_solved ...) #'Xs #'(τ_inX ... τ_outX))
-                              #;(stx-map 
-                             (λ (t) (substs #'(τ_solved ...) #'Xs t)) 
-                             #'(τ_inX ... τ_outX))
-   ;; ) arity check
-   #:fail-unless (stx-length=? #'(τ_inX ...) #'(e_arg ...))
-                 (mk-app-err-msg stx #:expected #'(τ_inX ...) 
-;                                     #:given #'(τ_arg ...)
-                  #:note "Wrong number of arguments.")
-   ;; ) compute argument types; (possibly) double-expand args (for now)
-   #:with ([e_arg- τ_arg] ...) (infers+erase (stx-map add-expected-ty #'(e_arg ...) #'(τ_in ...)))
-   ;; ) typecheck args
-   #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
-                 (mk-app-err-msg stx 
-                   #:given #'(τ_arg ...) 
-                   #:expected 
-                   (stx-map 
-                      (lambda (tyin) 
-                        (define old-orig (get-orig tyin))
-                        (define new-orig
-                          (and old-orig
-                               (substs (stx-map get-orig #'(τ_solved ...)) #'Xs old-orig
-                                           (lambda (x y) (equal? (syntax->datum x) (syntax->datum y))))))
-                        (syntax-property tyin 'orig (list new-orig)))
-                     #'(τ_in ...)))
-   (⊢ (#%app e_fn- e_arg- ...) : τ_out)])
+   (type-error #:src stx 
+               #:msg (format "Expected expression ~a to have → type, got: ~a"
+                             (syntax->datum #'e_fn) (type->str #'τ_fn)))])
+
 
 ;; cond and other conditionals
 (define-typed-syntax cond

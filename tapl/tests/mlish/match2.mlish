@@ -288,7 +288,7 @@
   #:with-msg "clauses not exhaustive; missing: AA")
 
 ;; falls off; runtime match exception
-(match2 (tup (BB 2) (AA {Int})) with
+#;(match2 (tup (BB 2) (AA {Int})) with
  [((BB x),(BB y)) -> (+ x y)]
  [(AA,AA) -> 0])
 
