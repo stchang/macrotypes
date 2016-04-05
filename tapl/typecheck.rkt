@@ -712,7 +712,7 @@
             (merge-type-tags (syntax-track-origin τ #'y #'y))]
       [(esub ...)
        #:with (esub_subst ...) (stx-map (λ (e1) (subst τ x e1 cmp)) #'(esub ...))
-       (syntax-track-origin #'(esub_subst ...) e x)]
+       (syntax-track-origin (syntax/loc e (esub_subst ...)) e x)]
       [_ e]))
 
   (define (substs τs xs e [cmp bound-identifier=?])

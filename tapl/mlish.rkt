@@ -222,9 +222,9 @@
      #:with ((acc ...) ...) (stx-map (λ (S fs) (stx-map (λ (f) (format-id S "~a-~a" S f)) fs))
                                      #'(StructName ...) #'((fld ...) ...))
      #:with (Cons? ...) (stx-map mk-? #'(StructName ...))
-;     #:with get-Name-info (format-id #'Name "get-~a-info" #'Name)
      ;; types, but using RecName instead of Name
      #:with ((τ/rec ...) ...) (subst #'RecName #'Name #'((τ ...) ...))
+     #:with (Y ...) (generate-temporaries #'(X ...))
      #`(begin
          (define-type-constructor Name
            #:arity = #,(stx-length #'(X ...))
@@ -233,15 +233,21 @@
                (let-syntax 
                  ([RecName 
                    (syntax-parser 
-                     [(_ . rst) 
+                     [(_ Y ...)
                       ;; - this is a placeholder to break the recursion
                       ;; - clients, like match, must manually unfold by
                       ;; replacing the entire (#%plain-app RecName ...) stx
                       ;; - to preserve polymorphic recursion, the entire stx
-                      ;; should be replaced but with #'rst as the args
+                      ;; should be replaced but with X ... as the args
                       ;; in place of args in the input type
                       ;; (see subst-special in typecheck.rkt)
-                      (assign-type #'(#%plain-app RecName . rst) #'#%type)])])
+                      (assign-type #'(#%plain-app RecName Y ...) #'#%type)]
+                     [(~and err (_ . rst))
+                      (type-error #:src #'err 
+                       #:msg (format "type constructor ~a expects ~a args, given ~a: ~a"
+                                     (syntax->datum #'Name) (stx-length #'(X ...)) 
+                                     (stx-length #'rst) (string-join (stx-map type->str #'rst) ", ")))]
+                     )])
                  ('Cons 'StructName Cons? [acc τ/rec] ...) ...))
            #:no-provide)
          (struct StructName (fld ...) #:reflection-name 'Cons #:transparent) ...
@@ -691,7 +697,14 @@
    #:with (~∀ () (~ext-stlc:→ arg-ty ... body-ty)) (get-expected-type stx)
    #`(Λ () (ext-stlc:λ args #,(add-expected-ty #'body #'body-ty)))]
   [(_ . rst)
-   #'(Λ () (ext-stlc:λ . rst))])
+   (let L ([Xs #'()]) ; compute unbound ids; treat as tyvars
+     (with-handlers ([exn:fail:syntax:unbound?
+                         (λ (e)
+                           (define X (stx-car (exn:fail:syntax-exprs e)))
+                           ; X is tainted, so need to launder it
+                           (define Y (datum->syntax #'rst (syntax->datum X)))
+                           (L (cons Y Xs)))])
+       (local-expand #`(Λ #,Xs (ext-stlc:λ . rst)) 'expression null)))])
 
 
 ;; #%app --------------------------------------------------

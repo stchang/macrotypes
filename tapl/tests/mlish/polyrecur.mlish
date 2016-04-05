@@ -88,3 +88,28 @@
 (check-type
   (flatten (Node 1 (Node (tup 2 3) (Leaf (tup (tup 4 5) (tup 6 7))))))
   : (List Int) -> (list 1 6 7 4 5 2 3))
+
+
+;; catch type constructor arity error; should not loop
+(define-type (BankersDeque A)
+  [BD Int (List A) Int (List A)])
+
+(define-type (ImplicitCatDeque A)
+  [Shall (BankersDeque A)]
+  [Dp (BankersDeque A)
+        (ImplicitCatDeque (BankersDeque A) (CmpdElem (BankersDeque A)))
+        (BankersDeque A)
+        (ImplicitCatDeque (BankersDeque A) (CmpdElem (BankersDeque A)))
+        (BankersDeque A)])
+
+(define-type (CmpdElem A)
+  [Simple (BankersDeque A)]
+  [Cmpd (BankersDeque A) 
+        (ImplicitCatDeque (BankersDeque (CmpdElem (BankersDeque A)))) 
+        (BankersDeque A)])
+
+
+(typecheck-fail
+  (λ ([icd : (ImplicitCatDeque A)]) icd)
+  #:with-msg 
+  "type constructor ImplicitCatDeque expects 1 args, given 2")
