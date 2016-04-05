@@ -65,6 +65,9 @@
 (define (stx-appendmap f stx)
   (stx-flatten (stx-map f stx)))
 
+(define (stx-drop stx n)
+  (drop (syntax->list stx) n))
+
 ;; based on make-variable-like-transformer from syntax/transformer,
 ;; but using (#%app id ...) instead of ((#%expression id) ...)
 (define (make-variable-like-transformer ref-stx)

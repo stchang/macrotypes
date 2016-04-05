@@ -9,11 +9,11 @@
 (typecheck-fail 
   (match (Cons 1 Nil) with
    [Nil -> 1])
-  #:with-msg "match: clauses not exhaustive; missing: Cons")
+  #:with-msg "clauses not exhaustive; missing\\: Cons")
 (typecheck-fail 
   (match (Cons 1 Nil) with
    [Cons x xs -> 1])
-  #:with-msg "match: clauses not exhaustive; missing: Nil")
+  #:with-msg "clauses not exhaustive; missing: Nil")
   
 ;; list fns ----------
 

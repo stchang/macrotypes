@@ -321,8 +321,10 @@ debugging notes -------------
 ?: literal data is not allowed;
  no #%datum syntax transformer is bound in: #f
 
+  - happens when you try to syntax->datum or local-expand a #f value
   - likely indicates use of wrong version of some overloaded form
     - eg, using stlc:lambda instead of racket's lambda
+  - could also be trying to ty-eval a (#f) expected-type
 
 - vague "bad syntax" error
   - means a syntax-parse #:when or #:with matching failed

@@ -89,19 +89,22 @@
              #'()))
        (syntax-parse stx
          [(_ e_fn . args)
-          (define maybe-solved-tys
-            (try-to-solve Xs
-              (for/fold ([cs initial-cs])
+          (define-values (as- cs)
+              (for/fold ([as- null] [cs initial-cs])
                         ([a (in-list (syntax->list #'args))]
                          [tyXin (in-list (syntax->list #'(τ_inX ...)))]
                          #:break (try-to-solve Xs cs))
-                (define/with-syntax [_ ty_a] (infer+erase a))
-                (stx-append cs (compute-constraint (list tyXin #'ty_a))))))
-          (or maybe-solved-tys
-              (type-error #:src stx
-               #:msg (mk-app-err-msg stx #:expected #'(τ_inX ...) #:given (infers+erase #'args)
-                      #:note (format "Could not infer instantiation of polymorphic function ~a."
-                                     (syntax->datum #'e_fn)))))])]))
+                (define/with-syntax [a- ty_a] (infer+erase a))
+                (values 
+                 (cons #'a- as-)
+                 (stx-append cs (compute-constraint (list tyXin #'ty_a))))))
+         (define maybe-solved-tys (try-to-solve Xs cs))
+         (if maybe-solved-tys
+             (list (reverse as-) maybe-solved-tys)
+             (type-error #:src stx
+              #:msg (mk-app-err-msg stx #:expected #'(τ_inX ...) #:given (infers+erase #'args)
+                     #:note (format "Could not infer instantiation of polymorphic function ~a."
+                                    (syntax->datum #'e_fn)))))])]))
 
   ;; instantiate polymorphic types
   (define (inst-type ty-solved Xs ty)
@@ -704,27 +707,34 @@
         #'(ext-stlc:#%app e_fn/ty (add-expected e_arg τ_inX) ...)])]
     [else
      ;; ) solve for type variables Xs
-     (define tys-solved (solve #'Xs #'tyX_args stx))
+     (define/with-syntax ((e_arg1- ...) tys-solved) 
+       (solve #'Xs #'tyX_args stx))
      ;; ) instantiate polymorphic function type
-     (syntax-parse (inst-types tys-solved #'Xs #'tyX_args)
+     (syntax-parse (inst-types #'tys-solved #'Xs #'tyX_args)
       [(τ_in ... τ_out) ; concrete types
        ;; ) arity check
        #:fail-unless (stx-length=? #'(τ_in ...) #'e_args)
                      (mk-app-err-msg stx #:expected #'(τ_in ...)
                       #:note "Wrong number of arguments.")
-       ;; ) compute argument types; (possibly) double-expand args (for now)
-       #:with ([e_arg- τ_arg] ...) (infers+erase (stx-map add-expected-ty #'e_args #'(τ_in ...)))
+       ;; ) compute argument types; re-use args expanded during solve
+       #:with ([e_arg2- τ_arg2] ...) (let ([n (stx-length #'(e_arg1- ...))])
+                                       (infers+erase 
+                                         (stx-map add-expected-ty 
+                                           (stx-drop #'e_args n) (stx-drop #'(τ_in ...) n))))
+       #:with (τ_arg1 ...) (stx-map typeof #'(e_arg1- ...))
+       #:with (τ_arg ...) #'(τ_arg1 ... τ_arg2 ...)
+       #:with (e_arg- ...) #'(e_arg1- ... e_arg2- ...)
        ;; ) typecheck args
        #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
                      (mk-app-err-msg stx 
-                      #:given #'(τ_arg ...) 
+                      #:given #'(τ_arg ...)
                       #:expected 
                       (stx-map 
                         (lambda (tyin) 
                           (define old-orig (get-orig tyin))
                           (define new-orig
                             (and old-orig
-                                 (substs (stx-map get-orig tys-solved) #'Xs old-orig
+                                 (substs (stx-map get-orig #'tys-solved) #'Xs old-orig
                                              (lambda (x y) (equal? (syntax->datum x) (syntax->datum y))))))
                           (syntax-property tyin 'orig (list new-orig)))
                        #'(τ_in ...)))

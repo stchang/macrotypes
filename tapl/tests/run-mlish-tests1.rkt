@@ -1,6 +1,6 @@
 #lang racket
 (require "mlish-tests.rkt")
-(require "mlish/queens.mlish")
+;(require "mlish/queens.mlish")
 (require "mlish/listpats.mlish")
 (require "mlish/match2.mlish")
 

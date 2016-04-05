@@ -1,6 +1,6 @@
 #lang racket
 ;; (require "mlish-tests.rkt")
-;; (require "mlish/queens.mlish")
+(require "mlish/queens.mlish")
 (require "mlish/trees-tests.mlish")
 (require "mlish/chameneos.mlish")
 (require "mlish/ack.mlish")
