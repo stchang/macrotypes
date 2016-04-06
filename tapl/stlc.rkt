@@ -78,7 +78,7 @@
                                        #:note [note ""]
                                        #:name [name #f])
   (syntax-parse stx
-    [(app . rst)
+    #;[(app . rst)
      #:when (not (equal? '#%app (syntax->datum #'app)))
      (mk-app-err-msg (syntax/loc stx (#%app app . rst))
        #:expected expected-τs
@@ -111,10 +111,12 @@
    #:with [e_fn- (τ_in ... τ_out)] (⇑ e_fn as →)
    #:with ([e_arg- τ_arg] ...) (infers+erase #'(e_arg ...))
    #:fail-unless (stx-length=? #'(τ_arg ...) #'(τ_in ...))
-                 (mk-app-err-msg stx #:expected #'(τ_in ...) 
-                                     #:given #'(τ_arg ...)
-                  #:note "Wrong number of arguments.")
+                 (type-error #:src stx
+                  #:msg (mk-app-err-msg stx #:expected #'(τ_in ...) 
+                                            #:given #'(τ_arg ...)
+                                            #:note "Wrong number of arguments."))
    #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
-                 (mk-app-err-msg stx #:expected #'(τ_in ...) 
-                                     #:given #'(τ_arg ...))
+                 (type-error #:src stx
+                  #:msg (mk-app-err-msg stx #:expected #'(τ_in ...) 
+                                            #:given #'(τ_arg ...)))
   (⊢ (#%app e_fn- e_arg- ...) : τ_out)])

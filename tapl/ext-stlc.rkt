@@ -23,11 +23,11 @@
 (define-base-type Char)
 
 (define-typed-syntax #%datum
-  [(_ . b:boolean) (⊢ (#%datum . b) : Bool)]
-  [(_ . s:str) (⊢ (#%datum . s) : String)]
-  [(_ . f) #:when (flonum? (syntax-e #'f)) (⊢ (#%datum . f) : Float)]
-  [(_ . c:char) (⊢ (#%datum . c) : Char)]
-  [(_ . x) #'(stlc+lit:#%datum . x)])
+  [(_ . b:boolean) (⊢ #,(syntax/loc stx (#%datum . b)) : Bool)]
+  [(_ . s:str) (⊢ #,(syntax/loc stx (#%datum . s)) : String)]
+  [(_ . f) #:when (flonum? (syntax-e #'f)) (⊢ #,(syntax/loc stx (#%datum . f)) : Float)]
+  [(_ . c:char) (⊢ #,(syntax/loc stx (#%datum . c)) : Char)]
+  [(_ . x) (syntax/loc stx (stlc+lit:#%datum . x))])
 
 (define-primop zero? : (→ Int Bool))
 (define-primop = : (→ Int Int Bool))
@@ -114,8 +114,9 @@
    #:with ((x- ...) (e- ... e_body-) (τ ... τ_body))
           (infers/ctx+erase #'(b ...) #'(e ... e_body))
    #:fail-unless (typechecks? #'(b.type ...) #'(τ ...))
-                 (string-append
-                  "type check fail, args have wrong type:\n"
+                 (type-error #:src stx
+                  #:msg (string-append
+                  "letrec: type check fail, args have wrong type:\n"
                   (string-join
                    (stx-map
                     (λ (e τ τ-expect)
@@ -123,7 +124,7 @@
                        "~a has type ~a, expected ~a"
                        (syntax->datum e) (type->str τ) (type->str τ-expect)))
                     #'(e ...) #'(τ ...) #'(b.type ...))
-                   "\n"))
+                   "\n")))
   (⊢ (letrec ([x- e-] ...) e_body-) : τ_body)])
 
      

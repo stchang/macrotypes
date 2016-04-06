@@ -117,7 +117,8 @@
 ;   #:with [e_fn- (τ_in ... τ_out)] (⇑ e_fn_anno as →)
    #:with [e_fn- ((X ...) ((~ext-stlc:→ τ_inX ... τ_outX)))] (⇑ e_fn_anno as ∀)
    #:fail-unless (stx-length=? #'(τ_inX ...) #'(e_arg ...)) ; check arity
-                 (string-append
+                 (type-error #:src stx
+                  #:msg (string-append
                   (format "~a (~a:~a) Wrong number of arguments given to function ~a.\n"
                           (syntax-source stx) (syntax-line stx) (syntax-column stx)
                           (syntax->datum #'e_fn))
@@ -129,13 +130,14 @@
                    (map (λ (e t) (format "  ~a : ~a" e t)) ; indent each line
                         (syntax->datum #'(e_arg ...))
                         (stx-map type->str #'(τ_arg ...)))
-                   "\n"))
+                   "\n")))
    #:with cs (compute-constraints #'((τ_inX τ_arg) ...))
    #:with (τ_solved ...) (stx-map (λ (y) (lookup y #'cs)) #'(X ...))
    #:with (τ_in ... τ_out) (stx-map (λ (t) (substs #'(τ_solved ...) #'(X ...) t)) #'(τ_inX ... τ_outX))
    ; some code duplication
    #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
-                 (string-append
+                 (type-error #:src stx
+                  #:msg (string-append
                   (format "~a (~a:~a) Arguments to function ~a have wrong type(s).\n"
                           (syntax-source stx) (syntax-line stx) (syntax-column stx)
                           (syntax->datum #'e_fn))
@@ -147,7 +149,7 @@
                    "\n" #:after-last "\n")
                   (format "Expected: ~a arguments with type(s): "
                           (stx-length #'(τ_in ...)))
-                  (string-join (stx-map type->str #'(τ_in ...)) ", "))
+                  (string-join (stx-map type->str #'(τ_in ...)) ", ")))
    ; propagate inferred types for variables up
    #:with env (stx-flatten (filter (λ (x) x) (stx-map get-env #'(e_arg- ...))))
    #:with result-app (add-env #'(#%app e_fn- e_arg- ...) #'env)
@@ -157,7 +159,8 @@
 ;   #:when (printf "fn first ~a\n" (syntax->datum stx))
    #:with [e_fn- ((X ...) ((~ext-stlc:→ τ_inX ... τ_outX)))] (⇑ e_fn as ∀)
    #:fail-unless (stx-length=? #'(τ_inX ...) #'(e_arg ...)) ; check arity
-                 (string-append
+                 (type-error #:src stx
+                  #:msg (string-append
                   (format "~a (~a:~a) Wrong number of arguments given to function ~a.\n"
                           (syntax-source stx) (syntax-line stx) (syntax-column stx)
                           (syntax->datum #'e_fn))
@@ -165,7 +168,7 @@
                           (stx-length #'(τ_inX ...)))
                   (string-join (stx-map type->str #'(τ_inX ...)) ", " #:after-last "\n")
                   "Given args: "
-                  (string-join (map ~a (syntax->datum #'(e_arg ...))) ", "))
+                  (string-join (map ~a (syntax->datum #'(e_arg ...))) ", ")))
 ;   #:with ([e_arg- τ_arg] ...) #'(infers+erase #'(e_arg ...))
    #:with (cs ([e_arg- τ_arg] ...))
           (let-values ([(cs e+τs)
