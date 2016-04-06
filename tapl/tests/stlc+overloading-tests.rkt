@@ -36,7 +36,7 @@
 (instance (to-string Str)
   (λ ([x : Str]) "string"))
 
-(check-type-and-result
+(check-type
  (to-string 3)
  : Str ⇒ "nat")
 
@@ -47,25 +47,25 @@
 (instance (to-string Num)
   (λ ([x : Num]) "num"))
 
-(check-type-and-result
+(check-type
  (to-string (+ 2 2))
  : Str ⇒ "num")
 
-(check-type-and-result
+(check-type
  (to-string -1)
  : Str ⇒ "num")
 
-(check-type-and-result
+(check-type
  (to-string "hi")
  : Str ⇒ "string")
 
 ;; -- use 'resolve' to get exact matches
 
-(check-type-and-result
+(check-type
  ((resolve to-string Nat) 1)
  : Str ⇒ "nat")
 
-(check-type-and-result
+(check-type
  ((resolve to-string Num) 1)
  : Str ⇒ "num")
 
@@ -112,7 +112,7 @@
 (instance (to-string (List Nat))
           (λ ([x : (List Nat)]) "listnat"))
 
-(check-type-and-result
+(check-type
  (to-string (cons 1 (cons 2 (nil {Nat}))))
  : Str ⇒ "listnat")
 

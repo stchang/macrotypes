@@ -118,13 +118,13 @@
           #t
           #f))
  : (→ (∪ Boolean Int) Boolean))
-(check-type-and-result
+(check-type
  ((λ ([x : (∪ Boolean Int)])
      (test (Boolean ? x)
            #t
            #f)) #t)
   : Boolean ⇒ #t)
-(check-type-and-result
+(check-type
  ((λ ([x : (∪ Boolean Int)])
      (test (Boolean ? x)
            #t
@@ -138,19 +138,19 @@
           (+ 1 x)
           0))
  : (→ (∪ Int Boolean) (∪ Num Nat)))
-(check-type-and-result
+(check-type
  ((λ ([x : (∪ Int Boolean)])
     (test (Int ? x)
           (+ 1 x)
           0)) #f)
  : Num ⇒ 0)
-(check-type-and-result
+(check-type
  ((λ ([x : (∪ Int Boolean)])
     (test (Int ? x)
           (+ 1 x)
           1)) #t)
  : Num ⇒ 1)
-(check-type-and-result
+(check-type
  ((λ ([x : (∪ Int Boolean)])
     (test (Int ? x)
           (+ 1 x)
@@ -190,7 +190,7 @@
           x))
  : (→ (∪ Boolean Int) (∪ Nat Boolean)))
 
-(check-type-and-result
+(check-type
  ((λ ([x : (∪ Int Boolean)])
      (test (Num ? x)
            #f
@@ -199,7 +199,7 @@
  ⇒ #t)
 
 ;; Should filter all the impossible types 
-(check-type-and-result
+(check-type
  ((λ ([x : (∪ Nat Int Num Boolean)])
      (test (Num ? x)
            #f
@@ -208,7 +208,7 @@
  ⇒ #t)
 
 ;; Can refine non-union types
-(check-type-and-result
+(check-type
  ((λ ([x : Top])
     (test (Str ? x)
           x
@@ -304,7 +304,7 @@
           (x 1 0))))
  : (→ (∪ (→ Int Int Int) (→ Int Int)) Int))
 
-(check-type-and-result
+(check-type
  ((λ ([x : (∪ (→ Int Int Int) (→ Int Int) Int)])
     (test ((→ Int Int) ? x)
           (x 0)
@@ -313,7 +313,7 @@
           (x 1 0)))) 1)
  : Int ⇒ 1)
 
-(check-type-and-result
+(check-type
  ((λ ([x : (∪ (→ Int Int Int) (→ Int Int) Int)])
     (test ((→ Int Int) ? x)
           (x 0)
@@ -322,7 +322,7 @@
           (x 1 0)))) (λ ([y : Int]) 5))
  : Int ⇒ 5)
 
-(check-type-and-result
+(check-type
  ((λ ([x : (∪ (→ Int Int Int) (→ Int Int) Int)])
     (test ((→ Int Int) ? x)
           (x 0)
@@ -362,21 +362,21 @@
           "bool"))
  : (→ (∪ Int Str Boolean) Str))
 
-(check-type-and-result
+(check-type
  ((λ ([x : (∪ Str Boolean)])
      (test ((∪ Int Nat Num) ? x)
            x
            (+ 1 2))) "hi")
  : Num ⇒ 3)
 
-(check-type-and-result
+(check-type
   ((λ ([x : (∪ Str Int Boolean)])
       (test ((∪ Int Str) ? x)
             x
             "error")) 1)
   : (∪ Str Int) ⇒ 1)
 
-(check-type-and-result
+(check-type
   ((λ ([x : (∪ Str Int Boolean)])
       (test ((∪ Int Str) ? x)
             x
@@ -415,7 +415,7 @@
           0))
  : (→ (× (∪ Int Str) Int) Num))
 
-(check-type-and-result
+(check-type
  ((λ ([v : (× (∪ Int Str) Int)])
     (test (Int ? (proj v 0))
           (+ (proj v 0) (proj v 1))
@@ -423,7 +423,7 @@
   (tup ((λ ([x : (∪ Int Str)]) x) -2) -3))
  : Num ⇒ -5)
 
-(check-type-and-result
+(check-type
  ((λ ([v : (× (∪ Int Str) Int)])
     (test (Int ? (proj v 0))
           (+ (proj v 0) (proj v 1))
@@ -440,7 +440,7 @@
           (+ (proj x 0) (+ (proj x 1) (proj x 2)))))
  : (→ (∪ (× Int Int Int) Int) Num))
 
-(check-type-and-result
+(check-type
  ((λ ([x : (∪ Int (× Int Int Int))])
      (test (Int ? x)
            (+ 1 x)
@@ -448,7 +448,7 @@
   0)
  : Num ⇒ 1)
 
-(check-type-and-result
+(check-type
  ((λ ([x : (∪ Int (× Int Int Int))])
      (test (Int ? x)
            (+ 1 x)
@@ -456,7 +456,7 @@
   (tup 2 2 2))
  : Num ⇒ 6)
 
-(check-type-and-result
+(check-type
  ((λ ([x : (∪ Int (× Str Nat) (× Int Int Int))])
      (test (Int ? x)
            (+ 1 x)
@@ -466,7 +466,7 @@
   (tup 2 2 2))
  : Num ⇒ 6)
 
-(check-type-and-result
+(check-type
  ((λ ([x : (∪ Int (× Str Nat) (× Int Int Int))])
      (test (Int ? x)
            (+ 1 x)
@@ -478,7 +478,7 @@
 
 ;; -- All together now
 
-(check-type-and-result
+(check-type
  ((λ ([x : (∪ Int (× Boolean Boolean) (× Int (∪ Str Int)))])
      (test (Int ? x)
            "just an int"
@@ -490,7 +490,7 @@
   (tup 33 "success"))
  : Str ⇒ "success")
 
-(check-type-and-result
+(check-type
  ((λ ([x : (∪ Int (× Int Int) (× Int (∪ Str Int)))])
      (test (Int ? x)
            "just an int"

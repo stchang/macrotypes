@@ -1,6 +1,6 @@
 #lang racket/base
 (require (for-syntax rackunit) rackunit "../typecheck.rkt")
-(provide (all-defined-out))
+(provide check-type typecheck-fail check-not-type check-props)
 
 (begin-for-syntax
   (define (add-esc s) (string-append "\\" s))
@@ -18,11 +18,18 @@
 
 (define-syntax (check-type stx)
   (syntax-parse stx #:datum-literals (: ⇒ ->)
-    [(_ e : τ (~or ⇒ ->) v)
-     (syntax/loc stx
-       (check-type-and-result e : τ ⇒ v))]
+    ;; duplicate code to avoid redundant expansions
+    [(_ e : τ-expected (~or ⇒ ->) v)
+     #:with e+ (expand/df #'(add-expected e τ-expected))
+     #:with τ (typeof #'e+)
+     #:fail-unless (typecheck? #'τ ((current-type-eval) #'τ-expected))
+                   (format
+                    "Expression ~a [loc ~a:~a] has type ~a, expected ~a"
+                    (syntax->datum #'e) (syntax-line #'e) (syntax-column #'e)
+                    (type->str #'τ) (type->str #'τ-expected))
+     (syntax/loc stx (check-equal? e+ (add-expected v τ-expected)))]
     [(_ e : τ-expected)
-     #:with τ (typeof (expand/df #'e))
+     #:with τ (typeof (expand/df #'(add-expected e τ-expected)))
      #:fail-unless
      (typecheck? #'τ ((current-type-eval) #'τ-expected))
      (format
@@ -81,11 +88,3 @@
               "Expected type check failure but expression ~a has valid type, OR wrong err msg received."
               (syntax->datum #'e)))
      #'(void)]))
-
-(define-syntax (check-type-and-result stx)
-  (syntax-parse stx #:datum-literals (: ⇒)
-    [(_ e : τ ⇒ v)
-     #`(begin
-         (check-type e : τ)
-         #,(syntax/loc stx
-             (check-equal? e v)))]))
