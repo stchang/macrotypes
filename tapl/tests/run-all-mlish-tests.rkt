@@ -13,7 +13,7 @@
 (match-define (list i3c o3c id3c err3c f3c)
   (process "time racket run-mlish-tests3.rkt"))
 (match-define (list i4 o4 id4 err4 f4)
-  (process "time racket mlish/polyrecur.mlish"))
+  (process "time racket run-mlish-tests4.rkt"))
 
 (displayln "----- General tests and queens: ---------------------------------")
 (write-string (port->string err1))

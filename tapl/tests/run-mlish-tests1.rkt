@@ -1,4 +1,4 @@
-#lang racket
+#lang racket/base
 (require "mlish-tests.rkt")
 (require "mlish/queens.mlish")
 (require "mlish/listpats.mlish")

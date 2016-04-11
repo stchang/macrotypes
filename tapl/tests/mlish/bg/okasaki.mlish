@@ -146,7 +146,7 @@
 
 (check-type
   (match (bq-tail sample-bq) with
-   [None -> (None {Int})]
+   [None -> None]
    [Some bq -> (bq-head bq)])
   : (Option Int)
   ⇒ (Some 2))
@@ -220,7 +220,7 @@
 
 (check-type
   (match (bank-tail sample-bank) with
-   [None -> (None {Int})]
+   [None -> None]
    [Some bank -> (bank-head bank)])
   : (Option Int)
   ⇒ (Some 2))
@@ -297,7 +297,7 @@
 
 (check-type
   (match (pq-tail sample-pq) with
-   [None -> (None {Int})]
+   [None -> None]
    [Some pq -> (pq-head pq)])
   : (Option Int)
   ⇒ (Some 2))
@@ -420,7 +420,7 @@
 
 (check-type
   (match (hm-tail sample-hm) with
-   [None -> (None {Int})]
+   [None -> None]
    [Some hm -> (hm-head hm)])
   : (Option Int)
   ⇒ (Some 2))
@@ -509,7 +509,7 @@
 
 (check-type
   (match (bs-tail sample-bs) with
-   [None -> (None {Int})]
+   [None -> None]
    [Some bs -> (bs-head bs)])
   : (Option Int)
   ⇒ (Some 2))
@@ -570,7 +570,7 @@
    [Shallow d ->
     (match d with
      [Zero -> None]
-     [One x -> (Some (Shallow (Zero {A})))]
+     [One x -> (Some (Shallow Zero))]
      [Two x y -> None])] ;; Error
    [Deep d m r ->
     (match d with
@@ -582,7 +582,7 @@
         (match yz with
          [y z ->
           (match (iq-tail m) with
-           [None -> (None {(ImplicitQueue A)})]
+           [None -> None]
            [Some tl ->
             (Some (Deep (Two y z) tl r))])])])]
      [Two x y -> (Some (Deep (One y) m r))])]))
@@ -614,7 +614,7 @@
 
 (check-type
   (match (iq-tail sample-iq) with
-   [None -> (None {Int})]
+   [None -> None]
    [Some iq -> (iq-head iq)])
   : (Option Int)
   ⇒ (Some 2))
@@ -722,14 +722,14 @@
 
 (check-type
   (match (bd-tail sample-bd) with
-   [None -> (None {Int})]
+   [None -> None]
    [Some bd -> (bd-head bd)])
   : (Option Int)
   ⇒ (Some 2))
 
 (check-type
   (match (bd-init sample-bd) with
-   [None -> (None {Int})]
+   [None -> None]
    [Some bd -> (bd-last bd)])
   : (Option Int)
   ⇒ (Some 8))
@@ -887,7 +887,7 @@
 (check-type
   (scd-head (empty-sample))
   : (Option Int)
-  ⇒ (None {Int}))
+  ⇒ None)
 
 (check-type
   (scd-last sample-scd)
@@ -897,7 +897,7 @@
 (check-type
   (scd-last (empty-sample))
   : (Option Int)
-  ⇒ (None {Int}))
+  ⇒ None)
 
 (check-type
   (scd-head (scd-snoc sample-scd 10))
@@ -911,7 +911,7 @@
 
 (check-type
   (match (scd-tail sample-scd) with
-   [None -> (None {Int})]
+   [None -> None]
    [Some scd -> (scd-head scd)])
   : (Option Int)
   ⇒ (Some 2))
@@ -919,11 +919,11 @@
 (check-type
   (scd-tail (empty-sample))
   : (Option (SimpleCatDeque Int))
-  ⇒ (None {(SimpleCatDeque Int)}))
+  ⇒ None)
 
 (check-type
   (match (scd-init sample-scd) with
-   [None -> (None {Int})]
+   [None -> None]
    [Some scd -> (scd-last scd)])
   : (Option Int)
   ⇒ (Some 8))
@@ -931,25 +931,25 @@
 (check-type
   (scd-init (empty-sample))
   : (Option (SimpleCatDeque Int))
-  ⇒ (None {(SimpleCatDeque Int)}))
+  ⇒ None)
 
 (check-type
   (match (scd-head (scd-++ (scd-cons 1 (scd-empty)) (empty-sample))) with
-   [None -> (None {Int})]
+   [None -> None]
    [Some i -> (Some i)])
   : (Option Int)
   ⇒ (Some 1))
 
 (check-type
   (match (scd-head (scd-++ (empty-sample) (scd-cons 2 (scd-empty)))) with
-   [None -> (None {Int})]
+   [None -> None]
    [Some scd -> (Some scd)])
   : (Option Int)
   ⇒ (Some 2))
 
 (check-type
   (match (scd-tail (scd-++ (scd-cons 1 (scd-empty)) (scd-cons 2 (scd-empty)))) with
-   [None -> (None {Int})]
+   [None -> None]
    [Some scd -> (scd-head scd)])
   : (Option Int)
   ⇒ (Some 2))
@@ -1070,7 +1070,7 @@
         (match udt with
          (a ts ->
           (match a with
-           (Leaf x -> (None {(× (Tree A) (List (BLDigit A)))}))
+           (Leaf x -> None)
            (Node x t1 t2 ->
             (Some (tup t1 (∷ (BLOne t2) ts))))))))))))))
 
@@ -1098,7 +1098,7 @@
        (x y ->
         (match x with
          (Leaf x -> (Some x))
-         (Node a b c -> (None {A}))))))))))
+         (Node a b c -> None)))))))))
 
 (define (bl-tail (b : (BinaryList A)) → (Option (BinaryList A)))
   (match b with
@@ -1192,7 +1192,7 @@
   (list->bl-list (∷ 1 (∷ 2 (∷ 3 (∷ 4 (∷ 5 (∷ 6 (∷ 7 (∷ 8 (∷ 9 Nil)))))))))))
 
 (define (bl-nil → (BinaryList Int))
-  (list->bl-list (Nil {Int})))
+  (list->bl-list Nil))
 
 (check-type
   (bl-isEmpty (bl-nil))
@@ -1238,18 +1238,18 @@
 (check-type
   (bl-lookup -111 bl-digit*)
   : (Option Int)
-  ⇒ (None {Int}))
+  ⇒ None)
 
 (check-type
   (match (bl-update 3 99 bl-digit*) with
-   (None -> (None {Int}))
+   (None -> None)
    (Some x -> (bl-lookup 3 x)))
   : (Option Int)
   ⇒ (Some 99))
 
 (check-type
   (match (bl-update 0 222 bl-digit*) with
-   (None -> (None {Int}))
+   (None -> None)
    (Some x -> (bl-head x)))
   : (Option Int)
   ⇒ (Some 222))
@@ -1257,7 +1257,7 @@
 (check-type
   (bl-update 83 1 bl-digit*)
   : (Option (BinaryList Int))
-  ⇒ (None {(BinaryList Int)}))
+  ⇒ None)
 
 ;; =============================================================================
 ;; === Skew Binary Random Access Lists
@@ -1309,7 +1309,7 @@
          (ALeaf x ->
           (if (= w1 1)
             (Some x)
-            (None {A}))) ;; Invariant error
+            None)) ;; Invariant error
          (ANode x t1 t2 ->
           (Some x))))))))))
 
@@ -1325,7 +1325,7 @@
          (ALeaf x ->
           (if (= 1 w1)
             (Some (SL ts))
-            (None {(SkewList A)}))) ;; Invariant
+            None)) ;; Invariant
          (ANode x t1 t2 ->
            (let ((w1/2 (div w1 2)))
              (Some (SL (∷ (tup w1/2 t1) (∷ (tup w1/2 t2) ts))))))))))))))
@@ -1374,10 +1374,10 @@
      (w t ->
       (if (< i w)
         (match (sb-updTree w i y t) with
-         (None -> (None {(List (× Int (ATree A)))}))
+         (None -> None)
          (Some x -> (Some (∷ (tup w x) ts))))
         (match (sb-upd (- i w) y ts) with
-         (None -> (None {(List (× Int (ATree A)))}))
+         (None -> None)
          (Some x -> (Some (∷ (tup w t) x))))))))))
 
 (define (sb-updTree (w : Int) (i : Int) (y : A) (t : (ATree A)) → (Option (ATree A)))
@@ -1385,19 +1385,17 @@
    (ALeaf x ->
     (if (and (= 1 w) (= 0 i))
       (Some (ALeaf y))
-      (if (= 1 w)
-        (None {(ATree A)}) ;; Bad subscript
-        (None {(ATree A)})))) ;; Invariant error
+      None)) ;; Invariant error
    (ANode x t1 t2 ->
     (if (= 0 i)
       (Some (ANode y t1 t2))
       (let ((w/2 (div w 2)))
         (if (<= i w/2)
           (match (sb-updTree w/2 (- i 1) y t1) with
-           (None -> (None {(ATree A)}))
+           (None -> None)
            (Some z -> (Some (ANode x z t2))))
           (match (sb-updTree w/2 (- (- i 1) w/2) y t2) with
-           (None -> (None {(ATree A)}))
+           (None -> None)
            (Some z -> (Some (ANode x t1 z))))))))))
 
 (define (list->sb-list (x* : (List A)) → (SkewList A))
@@ -1411,7 +1409,7 @@
   (list->sb-list (∷ 1 (∷ 2 (∷ 3 (∷ 4 (∷ 5 (∷ 6 (∷ 7 (∷ 8 (∷ 9 Nil)))))))))))
 
 (define (sb-nil → (SkewList Int))
-  (list->sb-list (Nil {Int})))
+  (list->sb-list Nil))
 
 (check-type
   (sb-isEmpty (sb-nil))
@@ -1457,18 +1455,18 @@
 (check-type
   (sb-lookup -111 sb-digit*)
   : (Option Int)
-  ⇒ (None {Int}))
+  ⇒ None)
 
 (check-type
   (match (sb-update 3 99 sb-digit*) with
-   (None -> (None {Int}))
+   (None -> None)
    (Some x -> (sb-lookup 3 x)))
   : (Option Int)
   ⇒ (Some 99))
 
 (check-type
   (match (sb-update 0 222 sb-digit*) with
-   (None -> (None {Int}))
+   (None -> None)
    (Some x -> (sb-head x)))
   : (Option Int)
   ⇒ (Some 222))
@@ -1476,7 +1474,7 @@
 (check-type
   (sb-update 83 1 sb-digit*)
   : (Option (SkewList Int))
-  ⇒ (None {(SkewList Int)}))
+  ⇒ None)
 
 ;; =============================================================================
 ;; === Alt Binary Random Access List
@@ -1587,7 +1585,7 @@
   (list->abl-list (∷ 1 (∷ 2 (∷ 3 (∷ 4 (∷ 5 (∷ 6 (∷ 7 (∷ 8 (∷ 9 Nil)))))))))))
 
 (define (abl-nil → (BinaryRAList Int))
-  (list->abl-list (Nil {Int})))
+  (list->abl-list Nil))
 
 (check-type
   (abl-isEmpty (abl-nil))
@@ -1633,18 +1631,18 @@
 (check-type
   (abl-lookup -111 abl-digit*)
   : (Option Int)
-  ⇒ (None {Int}))
+  ⇒ None)
 
 (check-type
   (match (abl-update 3 99 abl-digit*) with
-   (None -> (None {Int}))
+   (None -> None)
    (Some x -> (abl-lookup 3 x)))
   : (Option Int)
   ⇒ (Some 99))
 
 (check-type
   (match (abl-update 0 222 abl-digit*) with
-   (None -> (None {Int}))
+   (None -> None)
    (Some x -> (abl-head x)))
   : (Option Int)
   ⇒ (Some 222))
@@ -1652,5 +1650,5 @@
 (check-type
   (abl-update 83 1 abl-digit*)
   : (Option (BinaryRAList Int))
-  ⇒ (None {(BinaryRAList Int)}))
+  ⇒ None)
 
