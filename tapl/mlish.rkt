@@ -549,6 +549,7 @@
    [(_ e with . clauses)
     #:fail-when (null? (syntax->list #'clauses)) "no clauses"
     #:with [e- τ_e] (infer+erase #'e)
+    #:with t_expect (syntax-property stx 'expected-type) ; propagate inferred type
     (cond
      [(×? #'τ_e) ;; e is tuple
       (syntax-parse #'clauses #:datum-literals (->)
@@ -556,7 +557,8 @@
         #:with (~× ty ...) #'τ_e
         #:fail-unless (stx-length=? #'(ty ...) #'(x ...))
                       "match clause pattern not compatible with given tuple"
-        #:with [(x- ...) e_body- ty_body] (infer/ctx+erase #'([x ty] ...) #'e_body)
+        #:with [(x- ...) e_body- ty_body] (infer/ctx+erase #'([x ty] ...) 
+                                            #'(add-expected e_body t_expect))
         #:with (acc ...) (for/list ([(a i) (in-indexed (syntax->list #'(x ...)))])
                            #`(lambda (s) (list-ref s #,(datum->syntax #'here i))))
         #:with z (generate-temporary)
@@ -576,7 +578,7 @@
         #:with (~List ty) #'τ_e
         #:with ([(x- ... rst-) e_body- ty_body] ...)
                (stx-map (lambda (ctx e) (infer/ctx+erase ctx e)) 
-                 #'(([x ty] ... [rst (List ty)]) ...) #'(e_body ...))
+                 #'(([x ty] ... [rst (List ty)]) ...) #'((add-expected e_body t_expect) ...))
         #:with τ_out (stx-car #'(ty_body ...))
         #:with (len ...) (stx-map (lambda (p) #`#,(stx-length p)) #'((x ...) ...))
         #:with (lenop ...) (stx-map (lambda (p) (if (brack? p) #'= #'>=)) #'(xs ...))
@@ -633,7 +635,6 @@
         ;;                          (for/list ([(a i) (in-indexed (syntax->list accs))])
         ;;                            #`(lambda (s) (unsafe-struct*-ref s #,(datum->syntax #'here i)))))
         ;;                         #'((acc-fn ...) ...))
-        #:with t_expect (syntax-property stx 'expected-type) ; propagate inferred type
         #:with (e_c ...) (stx-map (lambda (ec) (add-expected-ty ec #'t_expect)) #'(e_c_un ...))
         #:with (((x- ...) (e_guard- e_c-) (τ_guard τ_ec)) ...)
                (stx-map 

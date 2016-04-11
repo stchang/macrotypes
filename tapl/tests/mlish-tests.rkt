@@ -172,7 +172,6 @@
    [Nil -> lst2]
    [Cons x xs -> (Cons x (append xs lst2))]))
 
-
 ;; end infer.rkt tests --------------------------------------------------
 
 ;; algebraic data types
@@ -257,6 +256,27 @@
    [Nil -> 3])
  : Int ⇒ 6)
             
+;; check expected-type propagation for other match paterns
+
+(define-type (Option A)
+  (None)
+  (Some A))
+
+(check-type (match (tup 1 2) with [a b -> None]) : (Option Int) -> None)
+(check-type 
+  (match (list 1 2) with 
+   [[] -> None]
+   [[x y] -> None]) 
+  : (Option Int) -> None)
+
+(check-type 
+  (match (list 1 2) with 
+   [[] -> None]
+   [x :: xs -> None]) 
+  : (Option Int) -> None)
+
+(define-type (Pairof A B) (C A B))
+(check-type (match (C 1 2) with [C a b -> None]) : (Option Int) -> None)
 
 ; ext-stlc tests --------------------------------------------------
 
