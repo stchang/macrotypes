@@ -57,9 +57,9 @@
    [Cons x x* -> (flatten (map (insert x) (permutations x*)))]))
 
 (check-type
-  (permutations (Nil {Int}))
+  (permutations Nil)
   : (List (List Int))
-  ⇒ (Cons (Nil {Int}) Nil))
+  ⇒ (Cons Nil Nil))
 
 (check-type
   (permutations (Cons 1 Nil))
@@ -97,9 +97,9 @@
               (Cons b b*))])])]))
 
 (check-type
-  (split (Nil {(** Int Int)}))
+  (split Nil)
   : (** (List Int) (List Int))
-  ⇒ (Pair (Nil {Int}) (Nil {Int})))
+  ⇒ (Pair Nil Nil))
 
 (check-type
   (split (Cons (Pair 1 2) (Cons (Pair 3 4) Nil)))
@@ -133,9 +133,9 @@
         (Cons (Pair a b) (combine (Pair a* b*)))])])]))
 
 (check-type
-  (combine (Pair (Nil {Int}) (Nil {Int})))
+  (combine (Pair Nil Nil))
   : (List (** Int Int))
-  ⇒ (Nil {(** Int Int)}))
+  ⇒ Nil)
 
 (check-type
   (combine (Pair (Cons 1 (Cons 2 Nil)) (Cons 3 (Cons 4 Nil))))
@@ -242,7 +242,7 @@
          (Cons x (merge (Pair x* yy*)))
          (Cons y (merge (Pair xx* y*))))])])]))
 
-(define (mergesort {x* : (List Int)} → (List Int))
+(define (mergesort [x* : (List Int)] → (List Int))
   (match x* with
    [Nil -> Nil]
    [Cons h t ->
@@ -253,10 +253,7 @@
        [Pair x* y* ->
         (merge (Pair (mergesort x*) (mergesort y*)))])])]))
 
-(check-type
-  (mergesort (Nil {Int}))
-  : (List Int)
-  ⇒ (Nil {Int}))
+(check-type (mergesort Nil) : (List Int) ⇒ Nil)
 
 (check-type
   (mergesort (Cons 1 (Cons 2 (Cons 3 (Cons 4 Nil)))))
@@ -284,10 +281,7 @@
           (Cons h Nil)
           (quicksort (filter (λ ([y : Int]) (if (> y h) True False)) t))))])]))
 
-(check-type
-  (quicksort (Nil {Int}))
-  : (List Int)
-  ⇒ (Nil {Int}))
+(check-type (quicksort Nil) : (List Int) ⇒ Nil)
 
 (check-type
   (quicksort (Cons 1 (Cons 2 (Cons 3 (Cons 4 Nil)))))

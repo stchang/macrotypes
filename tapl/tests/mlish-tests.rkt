@@ -52,19 +52,25 @@
 (check-type (g2 (Nil {Bool})) : (List Bool) ⇒ (Nil {Bool}))
 (check-type (g2 (Nil {(List Int)})) : (List (List Int)) ⇒ (Nil {(List Int)}))
 (check-type (g2 (Nil {(→ Int Int)})) : (List (→ Int Int)) ⇒ (Nil {(List (→ Int Int))}))
+;; same as tests above, but without annotations
+(check-type (g2 Nil) : (List Int) ⇒ Nil)
+(check-type (g2 Nil) : (List Bool) ⇒ Nil)
+(check-type (g2 Nil) : (List (List Int)) ⇒ Nil)
+(check-type (g2 Nil) : (List (→ Int Int)) ⇒ Nil)
+
 (check-type (g2 (Cons 1 Nil)) : (List Int) ⇒ (Cons 1 Nil))
 (check-type (g2 (Cons "1" Nil)) : (List String) ⇒ (Cons "1" Nil))
 
-;; ;; mlish cant type this fn (ie, incomplete cases on variant --- what to put for Nil case?)
-;; ;(define (g3 [lst : (List X)] → X) (hd lst)) 
-;; ;(check-type g3 : (→ {X} (List X) X))
-;; ;(check-type g3 : (→ {A} (List A) A))
-;; ;(check-not-type g3 : (→ {A B} (List A) B))
-;; ;(typecheck-fail (g3) #:with-msg "Expected.+arguments with type.+List") ; TODO: more precise err msg
-;; ;(check-type (g3 (nil {Int})) : Int) ; runtime fail
-;; ;(check-type (g3 (nil {Bool})) : Bool) ; runtime fail
-;; ;(check-type (g3 (cons 1 nil)) : Int ⇒ 1)
-;; ;(check-type (g3 (cons "1" nil)) : String ⇒ "1")
+;; mlish cant type this fn (ie, incomplete cases on variant --- what to put for Nil case?)
+;(define (g3 [lst : (List X)] → X) (hd lst)) 
+;(check-type g3 : (→ {X} (List X) X))
+;(check-type g3 : (→ {A} (List A) A))
+;(check-not-type g3 : (→ {A B} (List A) B))
+;(typecheck-fail (g3) #:with-msg "Expected.+arguments with type.+List") ; TODO: more precise err msg
+;(check-type (g3 (nil {Int})) : Int) ; runtime fail
+;(check-type (g3 (nil {Bool})) : Bool) ; runtime fail
+;(check-type (g3 (cons 1 nil)) : Int ⇒ 1)
+;(check-type (g3 (cons "1" nil)) : String ⇒ "1")
 
 ;; recursive fn
 (define (recf [x : Int] → Int) (recf x))
@@ -93,7 +99,7 @@
 
 ; nil without annotation; tests fn-first, left-to-right arg inference
 ; does work yet, need to add left-to-right inference in #%app
-(check-type (map add1 Nil) : (List Int) ⇒ (Nil {Int}))
+(check-type (map add1 Nil) : (List Int) ⇒ Nil)
 (check-type (map add1 (Cons 1 (Cons 2 (Cons 3 Nil)))) 
   : (List Int) ⇒ (Cons 2 (Cons 3 (Cons 4 Nil))))
 (typecheck-fail (map add1 (Cons "1" Nil))
@@ -114,16 +120,16 @@
    [Nil -> Nil]
    [Cons x xs #:when (p? x) -> (Cons x (filter p? xs))]
    [Cons x xs -> (filter p? xs)]))
-(check-type (filter zero? Nil) : (List Int) ⇒ (Nil {Int}))
+(check-type (filter zero? Nil) : (List Int) ⇒ Nil)
 (check-type (filter zero? (Cons 1 (Cons 2 (Cons 3 Nil)))) 
-  : (List Int) ⇒ (Nil {Int}))
+  : (List Int) ⇒ Nil)
 (check-type (filter zero? (Cons 0 (Cons 1 (Cons 2 Nil)))) 
   : (List Int) ⇒ (Cons 0 Nil))
 (check-type (filter (λ ([x : Int]) (not (zero? x))) (Cons 0 (Cons 1 (Cons 2 Nil)))) 
   : (List Int) ⇒ (Cons 1 (Cons 2 Nil)))
-(check-type (filter/guard zero? Nil) : (List Int) ⇒ (Nil {Int}))
+(check-type (filter/guard zero? Nil) : (List Int) ⇒ Nil)
 (check-type (filter/guard zero? (Cons 1 (Cons 2 (Cons 3 Nil)))) 
-  : (List Int) ⇒ (Nil {Int}))
+  : (List Int) ⇒ Nil)
 (check-type (filter/guard zero? (Cons 0 (Cons 1 (Cons 2 Nil)))) 
   : (List Int) ⇒ (Cons 0 Nil))
 (check-type 
