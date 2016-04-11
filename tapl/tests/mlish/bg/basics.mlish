@@ -59,7 +59,7 @@
 (check-type
   (permutations (Nil {Int}))
   : (List (List Int))
-  ⇒ (Cons (Nil {(List Int)}) Nil))
+  ⇒ (Cons (Nil {Int}) Nil))
 
 (check-type
   (permutations (Cons 1 Nil))

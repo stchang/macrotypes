@@ -189,7 +189,7 @@
 (typecheck-fail (ConsI #f INil)
  #:with-msg 
  (expected "Int, IntList" #:given "Bool, IntList"
-  #:note "Type error applying constructor ConsI"))
+  #:note "Type error applying.*ConsI"))
 
 ;; annotated
 (check-type (Nil {Int}) : (List Int))
@@ -215,15 +215,15 @@
 (typecheck-fail (Cons 1 (Nil {Bool}))
  #:with-msg 
  (expected "Int, (List Int)" #:given "Int, (List Bool)"
-  #:note "Type error applying constructor Cons"))
+  #:note "Type error applying.*Cons"))
 (typecheck-fail (Cons {Bool} 1 (Nil {Int}))
  #:with-msg 
  (expected "Bool, (List Bool)" #:given "Int, (List Int)"
-  #:note "Type error applying constructor Cons"))
+  #:note "Type error applying.*Cons"))
 (typecheck-fail (Cons {Bool} 1 Nil)
  #:with-msg 
  (expected "Bool, (List Bool)" #:given "Int, (List Bool)"
-  #:note "Type error applying constructor Cons"))
+  #:note "Type error applying.*Cons"))
 
 (typecheck-fail (match Nil with [Cons x xs -> 2] [Nil -> 1])
                 #:with-msg "add annotations")

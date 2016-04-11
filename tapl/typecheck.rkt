@@ -584,9 +584,12 @@
                       (if (stx-null? #'extra-bvs)
                           #'extra-info
                           (substs #'τs- #'extra-bvs #'extra-info))
+               (add-orig
                 (assign-type 
-                  (syntax/loc stx (τ-internal (λ bvs- (#%expression extra-info-inst) . τs-))) 
-                  #'k_result)]
+                  (syntax/loc stx 
+                    (τ-internal (λ bvs- (#%expression extra-info-inst) . τs-))) 
+                  #'k_result)
+                #'(τ . args))]
              ;; else fail with err msg
              [_
               (type-error #:src stx

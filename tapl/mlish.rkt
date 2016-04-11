@@ -99,10 +99,12 @@
                  (cons #'a- as-)
                  (stx-append cs (compute-constraint (list tyXin #'ty_a))))))
          (define maybe-solved-tys (try-to-solve Xs cs))
+         
          (if maybe-solved-tys
              (list (reverse as-) maybe-solved-tys)
              (type-error #:src stx
-              #:msg (mk-app-err-msg stx #:expected #'(τ_inX ...) #:given (infers+erase #'args)
+              #:msg (mk-app-err-msg stx #:expected #'(τ_inX ...) 
+                                        #:given (stx-map stx-cadr (infers+erase #'args))
                      #:note (format "Could not infer instantiation of polymorphic function ~a."
                                     (syntax->datum #'e_fn)))))])]))
 
@@ -289,13 +291,16 @@
                         (infer+erase (syntax-property e 'expected-type τ_e)))
                       #'(e_arg ...) #'(τ_in.norm (... ...)))
               #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in.norm (... ...)))
-                           (mk-app-err-msg (syntax/loc stx (C e_arg ...))
+                           (mk-app-err-msg (syntax/loc stx (#%app C e_arg ...))
                             #:expected #'(τ_in.norm (... ...)) #:given #'(τ_arg ...)
                             #:name (format "constructor ~a" 'Cons))
               (⊢ (StructName e_arg- ...) : (Name τ_X (... ...)))]
              [(C . args) ; no type annotations, must infer instantiation
               #:with StructName/ty 
-                     (⊢ StructName : (∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))
+                     (syntax-property
+                       (⊢ StructName : (∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))
+                       'orig
+                       (list #'C))
               ; stx/loc transfers expected-type
               (syntax/loc stx (mlish:#%app StructName/ty . args))]))
          ...)]))
@@ -604,14 +609,15 @@
         #:with ((_ ((~literal quote) ConsAll) . _) ...) #'info-body
         #:fail-unless (set=? (syntax->datum #'(Clause ...))
                              (syntax->datum #'(ConsAll ...)))
-                      (string-append
-                       "clauses not exhaustive; missing: "
-                       (string-join      
-                           (map symbol->string
-                                (set-subtract 
-                                    (syntax->datum #'(ConsAll ...))
-                                  (syntax->datum #'(Clause ...))))
-                         ", "))
+                      (type-error #:src stx
+                       #:msg (string-append
+                              "match: clauses not exhaustive; missing: "
+                              (string-join      
+                                (map symbol->string
+                                     (set-subtract 
+                                       (syntax->datum #'(ConsAll ...))
+                                       (syntax->datum #'(Clause ...))))
+                                ", ")))
         #:with ((_ ((~literal quote) Cons) ((~literal quote) StructName) Cons? [_ acc τ] ...) ...)
                (map ; ok to compare symbols since clause names can't be rebound
                 (lambda (Cl) 
@@ -716,6 +722,9 @@
     [(stx-null? #'Xs)
      (syntax-parse #'(e_args tyX_args)
        [((e_arg ...) (τ_inX ... _))
+        #:fail-unless (stx-length=? #'(e_arg ...) #'(τ_inX ...))
+                      (mk-app-err-msg stx #:expected #'(τ_inX ...) 
+                                      #:note "Wrong number of arguments.")
         #:with e_fn/ty (⊢ e_fn- : (ext-stlc:→ . tyX_args))
         #'(ext-stlc:#%app e_fn/ty (add-expected e_arg τ_inX) ...)])]
     [else
