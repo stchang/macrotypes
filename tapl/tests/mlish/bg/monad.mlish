@@ -114,9 +114,9 @@
 ;; check match2 nested datatype bug
 (check-type
     (match bq-tails-result with
-     [None -> (None {Int})]
+     [None -> None]
      [Some bq -> (bq-head bq)]) : (Option Int) -> (Some 4))
 (check-type
     (match2 bq-tails-result with
-     [None -> (None {Int})]
+     [None -> None]
      [Some bq -> (bq-head bq)]) : (Option Int) -> (Some 4))

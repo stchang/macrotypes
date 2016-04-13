@@ -68,6 +68,11 @@
 (define (stx-drop stx n)
   (drop (syntax->list stx) n))
 
+(define (generate-temporariess stx)
+  (stx-map generate-temporaries stx))
+(define (generate-temporariesss stx)
+  (stx-map generate-temporariess stx))
+
 ;; based on make-variable-like-transformer from syntax/transformer,
 ;; but using (#%app id ...) instead of ((#%expression id) ...)
 (define (make-variable-like-transformer ref-stx)

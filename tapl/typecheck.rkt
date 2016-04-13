@@ -6,9 +6,9 @@
               "stx-utils.rkt")
   (for-meta 2 racket/base syntax/parse racket/syntax syntax/stx "stx-utils.rkt")
   (for-meta 3 racket/base syntax/parse racket/syntax)
-  racket/bool racket/provide racket/require racket/match)
+  racket/bool racket/provide racket/require racket/match racket/promise)
 (provide
- symbol=? match
+ symbol=? match delay
  (except-out (all-from-out racket/base) #%module-begin)
  (for-syntax (all-defined-out)) (all-defined-out)
  (for-syntax
@@ -431,9 +431,9 @@
     (syntax-parse t
       [((~literal #%plain-app) internal-id
         ((~literal #%plain-lambda) bvs
-         ((~literal #%expression) extra-info-to-extract) . rst))
-       #'extra-info-to-extract]
-      [_ #'void]))
+         ((~literal #%expression) ((~literal quote) extra-info-macro)) . tys))
+       (expand/df #'(extra-info-macro . tys))]
+      [_ #f]))
   (define (get-tyargs ty)
     (syntax-parse ty
       [((~literal #%plain-app) internal-id
@@ -493,9 +493,10 @@
          #:defaults ([bvs-op #'=][bvs-n #'0]))
         (~optional (~seq #:arr (~and (~parse has-annotations? #'#t) tycon))
          #:defaults ([tycon #'void]))
-        (~optional (~seq #:extra-info extra-bvs extra-info)
+        #;(~optional (~seq #:extra-info extra-bvs extra-info)
                    #:defaults ([extra-bvs #'()]
                                [extra-info #'void]))
+        (~optional (~seq #:extra-info extra-info) #:defaults ([extra-info #'void]))
         (~optional (~and #:no-provide (~parse no-provide? #'#t)))
         )
      #:with #%kind (format-id #'kind "#%~a" #'kind)
@@ -580,14 +581,14 @@
                #:with k_result (if #,(attribute has-annotations?)
                                    #'(tycon k_arg (... ...))
                                    #'#%kind)
-               #:with extra-info-inst
-                      (if (stx-null? #'extra-bvs)
-                          #'extra-info
-                          (substs #'τs- #'extra-bvs #'extra-info))
+               ;; #:with extra-info-inst
+               ;;        (if (stx-null? #'extra-bvs)
+               ;;            #'extra-info
+               ;;            (substs #'τs- #'extra-bvs #'extra-info))
                (add-orig
                 (assign-type 
                   (syntax/loc stx 
-                    (τ-internal (λ bvs- (#%expression extra-info-inst) . τs-))) 
+                    (τ-internal (λ bvs- (#%expression extra-info) . τs-))) 
                   #'k_result)
                 #'(τ . args))]
              ;; else fail with err msg

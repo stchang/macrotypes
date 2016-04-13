@@ -109,7 +109,7 @@
         (BankersDeque A)])
 
 
-(typecheck-fail
+#;(typecheck-fail
   (λ ([icd : (ImplicitCatDeque A)]) icd)
   #:with-msg 
   "type constructor ImplicitCatDeque expects 1 args, given 2")
