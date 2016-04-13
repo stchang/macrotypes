@@ -94,15 +94,17 @@
 (define-type (BankersDeque A)
   [BD Int (List A) Int (List A)])
 
-(define-type (ImplicitCatDeque A)
-  [Shall (BankersDeque A)]
-  [Dp (BankersDeque A)
+(typecheck-fail
+    (define-type (ImplicitCatDeque A)
+      [Shall (BankersDeque A)]
+      [Dp (BankersDeque A)
         (ImplicitCatDeque (BankersDeque A) (CmpdElem (BankersDeque A)))
         (BankersDeque A)
         (ImplicitCatDeque (BankersDeque A) (CmpdElem (BankersDeque A)))
         (BankersDeque A)])
+  #:with-msg "Improper use of constructor ImplicitCatDeque; expected 1 args, got 2")
 
-(define-type (CmpdElem A)
+#;(define-type (CmpdElem A)
   [Simple (BankersDeque A)]
   [Cmpd (BankersDeque A) 
         (ImplicitCatDeque (BankersDeque (CmpdElem (BankersDeque A)))) 

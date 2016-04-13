@@ -6,6 +6,21 @@
   (A X) 
   (B X X))
 
+(typecheck-fail
+    (define-type (Test2 X)
+      (AA (Test2 X X)))
+  #:with-msg "Improper use of constructor Test2; expected 1 args, got 2")
+
+(typecheck-fail
+    (define-type (Test3 X)
+      (AA (→)))
+  #:with-msg "Improper usage of type constructor →")
+
+(typecheck-fail
+    (define-type (Test4 X)
+      (AA (+ 1 2)))
+  #:with-msg "\\(\\+ 1 2\\) is not a valid type")
+
 (check-type (A 1) : (Test Int))
 (check-type (B 1 2) : (Test Int))
 
@@ -53,15 +68,12 @@
   NB
   (CB X (ListA X)))
 
-;; TODO: error should occur here
-(define-type (ListC X)
-  NC
-  (CC X (ListA X X))) ; misapplication of ListA type constructor
-
-(check-type NC : (ListC Int))
-(typecheck-fail (CC 1 NA)) ; and not here
-
-;; (define (g [x : (ListA Int Int)] -> Int) 0)
+(typecheck-fail
+    (define-type (ListC X)
+      NC
+      (CC X (ListA X X)))
+  #:with-msg 
+  "Improper usage of type constructor ListA: \\(ListA X X\\), expected = 1 arguments")
 
 (typecheck-fail (CA 1 NA))
 (check-type (CA 1 NB) : (ListA Int))

@@ -109,10 +109,10 @@
                                     (syntax->datum #'e_fn)))))])]))
 
   ;; instantiate polymorphic types
-  (define (inst-type ty-solved Xs ty)
-    (substs ty-solved Xs ty))
-  (define (inst-types ty-solved Xs tys)
-    (stx-map (lambda (t) (inst-type ty-solved Xs t)) tys))
+  (define (inst-type tys-solved Xs ty)
+    (substs tys-solved Xs ty))
+  (define (inst-types tys-solved Xs tys)
+    (stx-map (lambda (t) (inst-type tys-solved Xs t)) tys))
   )
 
 ;; define --------------------------------------------------
@@ -170,7 +170,10 @@
         (Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))])
 
 ;; define-type -----------------------------------------------
-;; TODO: should validate τ as part of define-type definition (before it's ever used)
+;; TODO: should validate τ as part of define-type definition (before it's used)
+;; - not completely possible, since some constructors may not be defined yet,
+;;   ie, mutually recursive datatypes
+;; for now, validate types but punt if encountering unbound ids
 (define-syntax (define-type stx)
   (syntax-parse stx
     [(_ Name:id . rst)
@@ -188,6 +191,35 @@
                    (Cons [fld (~datum :) τ] ...)
                    (~and (Cons τ ...)
                          (~parse (fld ...) (generate-temporaries #'(τ ...)))))) ...)
+     ;; validate tys
+     #:with (ty_flat ...) (stx-flatten #'((τ ...) ...))
+     #:with (_ _ (_ _ (_ _ (_ _ ty+ ...))))
+            (with-handlers 
+              ([exn:fail:syntax:unbound?
+                (λ (e) 
+                  (define X (stx-car (exn:fail:syntax-exprs e)))
+                  #`(lambda () (let-syntax () (let-syntax () (#%app void unbound)))))])
+              (expand/df 
+                #`(lambda (X ...)
+                    (let-syntax 
+                      ([Name 
+                        (syntax-parser 
+                         [(_ X ...) (mk-type #'void)]
+                         [stx 
+                          (type-error 
+                           #:src #'stx
+                           #:msg 
+                           (format "Improper use of constructor ~a; expected ~a args, got ~a"
+                                   (syntax->datum #'Name) (stx-length #'(X ...))
+                                   (stx-length (stx-cdr #'stx))))])]
+                       [X (make-rename-transformer (⊢ X #%type))] ...)
+                      (void ty_flat ...)))))
+     #:when (or (equal? '(unbound) (syntax->datum #'(ty+ ...)))
+                (stx-map 
+                  (lambda (t+ t) (unless (type? t+)
+                              (type-error #:src t
+                                          #:msg "~a is not a valid type" t)))
+                  #'(ty+ ...) #'(ty_flat ...)))
      #:with NameExpander (format-id #'Name "~~~a" #'Name)
      #:with NameExtraInfo (format-id #'Name "~a-extra-info" #'Name)
      #:with (StructName ...) (generate-temporaries #'(Cons ...))
