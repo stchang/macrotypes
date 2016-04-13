@@ -7,10 +7,10 @@
   (Ok A)
   (Error B))
 
-(define {A B} (ok [a : A] -> (Result A B))
+(define (ok [a : A] -> (Result A B))
   (Ok a))
 
-(check-type ok : (→/test {A B} A (Result A B))) ; test inferred
+(check-type ok : (→/test A (Result A B))) ; test inferred
 (check-type (inst ok Int String) : (→/test Int (Result Int String)))
 
 (define (f -> (Result Int String))

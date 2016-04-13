@@ -39,6 +39,7 @@
   N
   (C X (Rec X)))
 
+; check inferred and explicit instantiation versions
 (check-type N : (Rec Int) -> N)
 (check-type (N {Int}) : (Rec Int) -> (N {Int}))
 (check-type (C 1 N) : (Rec Int) -> (C 1 N))

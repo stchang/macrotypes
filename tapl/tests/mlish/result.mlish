@@ -5,9 +5,9 @@
   (Ok A)
   (Error B))
 
-(define {A B} (ok [a : A] → (Result A B))
+(define (ok [a : A] → (Result A B))
   (Ok a))
-(define {A B} (error [b : B] → (Result A B))
+(define (error [b : B] → (Result A B))
   (Error b))
 
 (provide-type Result)
@@ -22,7 +22,8 @@
  : (List (Result Int String))
  -> (list (Ok {Int String} 3) (Error "abject failure") (Ok 4)))
 
-(define {A B Er} (result-bind [a : (Result A Er)] [f : (→ A (Result B Er))] → (Result B Er))
+(define (result-bind [a : (Result A Er)] [f : (→ A (Result B Er))] 
+                     → (Result B Er))
   (match a with
     [Ok v -> (f v)]
     [Error er -> (Error er)]))

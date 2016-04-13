@@ -25,7 +25,7 @@
 (check-type
   (map-index Nil)
   : (List (** String Int))
-  ⇒ (Nil {(List (** String Int))}))
+  ⇒ Nil)
 
 (check-type
   (map-index (Cons (Pair 0 (Cons "a" (Cons "b" (Cons "c" Nil)))) Nil))
@@ -72,7 +72,7 @@
 (check-type
   (reduce-index Nil)
   : (List (** String (List Int)))
-  ⇒ (Nil {(List (** String (List Int)))}))
+  ⇒ Nil)
 
 (check-type
   (reduce-index
@@ -106,7 +106,7 @@
 (check-type
   (make-index Nil)
   : (List (** String (List Int)))
-  ⇒ (Nil {(List (** String (List Int)))}))
+  ⇒ Nil)
 
 (check-type
   (make-index (Cons (Pair 1 (Cons "ocaml" (Cons "is" (Cons "fun" (Cons "because" (Cons "fun" (Cons "is" (Cons "a" (Cons "keyword" Nil)))))))))

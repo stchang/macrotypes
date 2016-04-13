@@ -1,5 +1,5 @@
 #lang racket/base
-(require syntax/stx racket/list)
+(require syntax/stx racket/list syntax/parse)
 (require (prefix-in r: (only-in racket/base syntax->list)))
 (provide (except-out (all-defined-out) syntax->list))
 
@@ -49,12 +49,11 @@
 (define (stx-str=? s1 s2)
   (string=? (syntax-e s1) (syntax-e s2)))
 
-(define (stx-sort stx cmp #:key [key-fn (λ (x) x)])
-  (sort
-   (syntax->list stx)
-   (λ (stx1 stx2)
-     (cmp (syntax-e (stx-car stx1)) (syntax-e (stx-car stx2))))
-   #:key key-fn))
+(define (stx-sort stx 
+          #:cmp [cmp (lambda (x y) (string<=? (symbol->string (syntax->datum x))
+                                         (symbol->string (syntax->datum y))))]
+          #:key [key-fn (λ (x) x)])
+  (sort (with-syntax ([ss stx]) (syntax->list #'ss)) cmp #:key key-fn))
 
 (define (stx-fold f base . lsts)
   (apply foldl f base (map syntax->list lsts)))

@@ -92,7 +92,7 @@
    [Nil -> Nil]
    [Cons x xs -> (Cons (f x) (map f xs))]))
 (check-type map : (→/test (→ X Y) (List X) (List Y)))
-(check-type map : (→/test (→ Y X) (List Y) (List X)))
+(check-type map : (→/test {Y X} (→ Y X) (List Y) (List X)))
 (check-type map : (→/test (→ A B) (List A) (List B)))
 (check-not-type map : (→/test (→ A B) (List B) (List A)))
 (check-not-type map : (→/test (→ X X) (List X) (List X))) ; only 1 bound tyvar

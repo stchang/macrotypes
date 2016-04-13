@@ -116,6 +116,10 @@
   )
 
 ;; define --------------------------------------------------
+;; for function defs, define infers type variables
+;; - since the order of the inferred type variables depends on expansion order,
+;;   which is not known to programmers, to make the result slightly more
+;;   intuitive, we arbitrarily sort the inferred tyvars lexicographically
 (define-typed-syntax define/tc #:export-as define
   [(_ x:id e)
    #:with (e- τ) (infer+erase #'e)
@@ -152,7 +156,7 @@
                     (define Y (datum->syntax #'f (syntax->datum X)))
                     (L (cons Y Xs)))])
               ((current-type-eval) #`(∀ #,Xs (ext-stlc:→ τ ... τ_out)))
-              Xs))
+              (stx-sort Xs)))
    #:with g (add-orig (generate-temporary #'f) #'f)
    #:with e_ann #'(add-expected e τ_out) ; must be macro bc t_out may have unbound tvs
    #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
@@ -617,7 +621,7 @@
                           (define X (stx-car (exn:fail:syntax-exprs e)))
                           ; X is tainted, so need to launder it
                           (define Y (datum->syntax #'rst (syntax->datum X)))
-                          (L (cons Y Xs)))])
+                          (L (stx-sort (cons Y Xs))))])
          ((current-type-eval) #`(∀ #,Xs (ext-stlc:→ . rst)))))]))
 
 ; redefine these to use lifted →

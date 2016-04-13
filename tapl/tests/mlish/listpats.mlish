@@ -33,18 +33,18 @@
 
 (check-type
   (match (list 1 2 3) with
-   [[] -> (nil {Int})]
+   [[] -> nil]
    [x :: rst -> rst]) : (List Int) -> (list 2 3))
 
 (check-type
   (match (list 1 2 3) with
-   [[] -> (nil {Int})]
+   [[] -> nil]
    [x :: y :: rst -> rst]) : (List Int) -> (list 3))
 
 (check-type
   (match (nil {Int}) with
-   [[] -> (nil {Int})]
-   [x :: y :: rst -> rst]) : (List Int) -> (nil {Int}))
+   [[] -> nil]
+   [x :: y :: rst -> rst]) : (List Int) -> nil)
 
 (check-type
   (match (list 1 2 3) with

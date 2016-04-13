@@ -23,7 +23,7 @@
    [Nil -> Nil]
    [Cons x xs -> (Cons (f x) (map f xs))]))
 (check-type map : (→/test (→ X Y) (List X) (List Y)))
-(check-type map : (→/test (→ Y X) (List Y) (List X)))
+(check-type map : (→/test {Y X} (→ Y X) (List Y) (List X)))
 (check-type map : (→/test (→ A B) (List A) (List B)))
 (check-not-type map : (→/test (→ A B) (List B) (List A)))
 (check-not-type map : (→/test (→ X X) (List X) (List X))) ; only 1 bound tyvar
@@ -35,14 +35,14 @@
    [Nil -> Nil]
    [Cons x xs -> (Cons (f x) (map2 f xs))]))
 (check-type map2 : (→/test (→ X Y) (List X) (List Y)))
-(check-type map2 : (→/test (→ Y X) (List Y) (List X)))
+(check-type map2 : (→/test {Y X} (→ Y X) (List Y) (List X)))
 (check-type map2 : (→/test (→ A B) (List A) (List B)))
 (check-not-type map2 : (→/test (→ A B) (List B) (List A)))
 (check-not-type map2 : (→/test (→ X X) (List X) (List X))) ; only 1 bound tyvar
 
 ; nil without annotation; tests fn-first, left-to-right arg inference
 ; does work yet, need to add left-to-right inference in #%app
-(check-type (map add1 Nil) : (List Int) ⇒ (Nil {Int}))
+(check-type (map add1 Nil) : (List Int) ⇒ Nil)
 (check-type (map add1 (Cons 1 (Cons 2 (Cons 3 Nil)))) 
   : (List Int) ⇒ (Cons 2 (Cons 3 (Cons 4 Nil))))
 (typecheck-fail (map add1 (Cons "1" Nil))
@@ -63,9 +63,9 @@
    [Nil -> Nil]
    [Cons x xs #:when (p? x) -> (Cons x (filter p? xs))]
    [Cons x xs -> (filter p? xs)]))
-(check-type (filter zero? Nil) : (List Int) ⇒ (Nil {Int}))
+(check-type (filter zero? Nil) : (List Int) ⇒ Nil)
 (check-type (filter zero? (Cons 1 (Cons 2 (Cons 3 Nil)))) 
-  : (List Int) ⇒ (Nil {Int}))
+  : (List Int) ⇒ Nil)
 (check-type (filter zero? (Cons 0 (Cons 1 (Cons 2 Nil)))) 
   : (List Int) ⇒ (Cons 0 Nil))
 (check-type 
@@ -73,9 +73,9 @@
    (λ ([x : Int]) (not (zero? x))) 
    (Cons 0 (Cons 1 (Cons 2 Nil)))) 
   : (List Int) ⇒ (Cons 1 (Cons 2 Nil)))
-(check-type (filter/guard zero? Nil) : (List Int) ⇒ (Nil {Int}))
+(check-type (filter/guard zero? Nil) : (List Int) ⇒ Nil)
 (check-type (filter/guard zero? (Cons 1 (Cons 2 (Cons 3 Nil)))) 
-  : (List Int) ⇒ (Nil {Int}))
+  : (List Int) ⇒ Nil)
 (check-type (filter/guard zero? (Cons 0 (Cons 1 (Cons 2 Nil)))) 
   : (List Int) ⇒ (Cons 0 Nil))
 (check-type 
@@ -173,12 +173,9 @@
        [Cons x xs -> x]))))
 
 (check-type nqueens : (→ Int (List Queen)))
-(check-type (nqueens 1) 
-  : (List Queen)  ⇒ (Cons (Q 1 1) Nil))
-(check-type (nqueens 2) 
-  : (List Queen) ⇒ (Nil {Queen}))
-(check-type (nqueens 3) 
-  : (List Queen) ⇒ (Nil {Queen}))
+(check-type (nqueens 1) : (List Queen)  ⇒ (Cons (Q 1 1) Nil))
+(check-type (nqueens 2) : (List Queen) ⇒ Nil)
+(check-type (nqueens 3) : (List Queen) ⇒ Nil)
 (check-type (nqueens 4) 
   : (List Queen) 
   ⇒ (Cons (Q 3 1) (Cons (Q 2 4) 

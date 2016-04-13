@@ -24,13 +24,13 @@
 (check-type
  (find (Cons 1 (Cons 0 (Cons -1 Nil))) (λ ([x : Int]) (<= 2 x)))
  : (Option Int)
- -> (None {Int}))
+ -> None)
 
 ;; args inferred in order, L-to-R, currently no backtracking
 (check-type
- (find (Nil {Int}) (λ ([x : Int]) (<= 2 x)))
+ (find Nil (λ ([x : Int]) (<= 2 x)))
  : (Option Int)
- -> (None {Int}))
+ -> None)
 
 ;; reversing arg order leads to successful inference
 (define (find2 [pred : (→ X Bool)] [lst : (List X)] → (Option X))
@@ -43,7 +43,7 @@
 (check-type
  (find2 (λ ([x : Int]) (<= 2 x)) Nil)
  : (Option Int)
- -> (None {Int}))
+ -> None)
 
 (define (find-min/max [lst : (List X)] [<? : (→ Y Y Bool)] [extract-key : (→ X Y)]
                       → (Option (× X X)))
@@ -74,7 +74,7 @@
                (λ ([x : Int])
                  x))
  : (Option (× Int Int))
- -> (None {Int}))
+ -> None)
 
 (check-type
  (find-min/max (Cons 1 (Cons 2 (Cons 3 Nil)))
