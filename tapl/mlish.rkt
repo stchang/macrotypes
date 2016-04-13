@@ -43,9 +43,8 @@
       ; should only be monomorphic?
       [((~∀ () (~ext-stlc:→ τ1 ...)) (~∀ () (~ext-stlc:→ τ2 ...)))
        (compute-constraints #'((τ1 τ2) ...))]
-      [_ #:when #t #;(printf "shouldnt get here. could not unify: ~a\n" τ1-τ2) #'()]))
-  (define (compute-constraints τs)
-    ;(printf "constraints: ~a\n" (syntax->datum τs))
+      [_ #'()]))
+  (define (compute-constraints τs) 
     (stx-appendmap compute-constraint τs))
 
   (define (solve-constraint x-τ)
@@ -136,24 +135,10 @@
    ;;  top-lvl fns, since they can call each other
    #:with (~and ty_fn_expected (~∀ _ (~ext-stlc:→ _ ... out_expected))) 
           ((current-type-eval) #'(∀ Ys (ext-stlc:→ τ+orig ...)))
-   ;; #:with [_ _ (~and ty_fn_actual (~∀ _ (~ext-stlc:→ _ ... out_actual)))]
-   ;;        (infer/ctx+erase #'([f : ty_fn_expected]) ; need to handle recursive fn calls
-   ;;          #'(Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann))))
-   ;; #:fail-unless (typecheck? #'ty_fn_actual #'ty_fn_expected)
-   ;;               (format 
-   ;;                "Function ~a's body ~a has type ~a, which does not match given type ~a."
-   ;;                (syntax->datum #'f) (syntax->datum #'e) 
-   ;;                (type->str #'out_actual) (type->str #'τ_out))
    #`(begin
-      (define-syntax f
-        (make-rename-transformer
-         ;(⊢ g : (∀ Ys (ext-stlc:→ τ ... τ_out)))))
-         (⊢ g : ty_fn_expected #;(∀ Ys (ext-stlc:→ τ+orig ...)))))
+      (define-syntax f (make-rename-transformer (⊢ g : ty_fn_expected)))
       (define g
         (Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))]
-   #;(begin
-       (define-syntax f (make-rename-transformer (⊢ g : (∀ (X ...) (ext-stlc:→ τ ... τ_out)))))
-       (define g (Λ (X ...) (ext-stlc:λ ([x : τ] ...) e_ann))))
   [(_ (f:id x:id ...) (~datum :) ty ... (~or (~datum ->) (~datum →)) ty_out . b)
    #'(define/tc (f [x : ty] ... -> ty_out) . b)]
   [(_ (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) e_body ... e)
@@ -179,19 +164,8 @@
               ((current-type-eval) #'(∀ Ys (ext-stlc:→ τ+orig ...)))
             'orig
             (list #'(→ τ+orig ...)))
-   ;; #:with [_ _ (~and ty_fn_actual (~∀ _ (~ext-stlc:→ _ ... out_actual)))]
-   ;;        (infer/ctx+erase #'([f : ty_fn_expected]) ; need to handle recursive fn calls
-   ;;          #'(Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann))))
-   ;; #:fail-unless (typecheck? #'ty_fn_actual #'ty_fn_expected)
-   ;;               (format 
-   ;;                "Function ~a's body ~a has type ~a, which does not match given type ~a."
-   ;;                (syntax->datum #'f) (syntax->datum #'e) 
-   ;;                (type->str #'out_actual) (type->str #'τ_out))
    #`(begin
-      (define-syntax f
-        (make-rename-transformer
-         ;(⊢ g : (∀ Ys (ext-stlc:→ τ ... τ_out)))))
-         (⊢ g : ty_fn_expected #;(∀ Ys (ext-stlc:→ τ+orig ...)))))
+      (define-syntax f (make-rename-transformer (⊢ g : ty_fn_expected)))
       (define g
         (Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))])
 
@@ -214,12 +188,8 @@
                    (Cons [fld (~datum :) τ] ...)
                    (~and (Cons τ ...)
                          (~parse (fld ...) (generate-temporaries #'(τ ...)))))) ...)
-     #:with RecName (generate-temporary #'Name)
      #:with NameExpander (format-id #'Name "~~~a" #'Name)
      #:with NameExtraInfo (format-id #'Name "~a-extra-info" #'Name)
-     #:with NameDelayed (format-id #'Name "~a-delayed" #'Name)
-     #:with NameForced (format-id #'NameDelayed "~a-force" #'NameDelayed)
-     #:with NameForcedExpander (format-id #'NameForced "~~~a" #'NameForced)
      #:with (StructName ...) (generate-temporaries #'(Cons ...))
      #:with ((e_arg ...) ...) (stx-map generate-temporaries #'((τ ...) ...))
      #:with ((e_arg- ...) ...) (stx-map generate-temporaries #'((τ ...) ...))
@@ -227,47 +197,13 @@
      #:with ((acc ...) ...) (stx-map (λ (S fs) (stx-map (λ (f) (format-id S "~a-~a" S f)) fs))
                                      #'(StructName ...) #'((fld ...) ...))
      #:with (Cons? ...) (stx-map mk-? #'(StructName ...))
-     #:with (Y ...) (generate-temporaries #'(X ...))
-     ;; types, but using RecName instead of Name
-     #:with ((τ/rec ...) ...) (subst #'RecName #'Name #'((τ ...) ...))
      #`(begin
-;         (define NameDelayed (lambda () (error "types not allowed at runtime")))
-         ; TODO: use define-type-constructor for delayed form as well,
-         ;; to get proper pattern expanders, etc
-         ;; (define-syntax (Name stx) 
-         ;;   (syntax-parse stx
-         ;;     [(_ Y ...) (add-orig (mk-type #'(delay NameDelayed Y ...)) stx)]))
          (define-syntax (NameExtraInfo stx)
            (syntax-parse stx
              [(_ X ...) #'(('Cons 'StructName Cons? [acc τ] ...) ...)]))
          (define-type-constructor Name
            #:arity = #,(stx-length #'(X ...))
            #:extra-info 'NameExtraInfo
-;           #:extra-info (X ...) (('Cons 'StructName Cons? [acc τ] ...) ...)
-           #:no-provide)
-         #;(define-type-constructor Name
-           #:arity = #,(stx-length #'(X ...))
-           #:extra-info (X ...) 
-             (λ (RecName) 
-               (let-syntax 
-                 ([RecName 
-                   (syntax-parser 
-                     [(_ Y ...)
-                      ;; - this is a placeholder to break the recursion
-                      ;; - clients, like match, must manually unfold by
-                      ;; replacing the entire (#%plain-app RecName ...) stx
-                      ;; - to preserve polymorphic recursion, the entire stx
-                      ;; should be replaced but with X ... as the args
-                      ;; in place of args in the input type
-                      ;; (see subst-special in typecheck.rkt)
-                      (assign-type #'(#%plain-app RecName Y ...) #'#%type)]
-                     [(~and err (_ . rst))
-                      (type-error #:src #'err 
-                       #:msg (format "type constructor ~a expects ~a args, given ~a: ~a"
-                                     (syntax->datum #'Name) (stx-length #'(X ...)) 
-                                     (stx-length #'rst) (string-join (stx-map type->str #'rst) ", ")))]
-                     )])
-                 ('Cons 'StructName Cons? [acc τ/rec] ...) ...))
            #:no-provide)
          (struct StructName (fld ...) #:reflection-name 'Cons #:transparent) ...
          (define-syntax (Cons stx)
@@ -280,7 +216,6 @@
               #:with τ-expected (syntax-property #'C 'expected-type)
               #:fail-unless (syntax-e #'τ-expected)
                             (type-error #:src stx #:msg "cannot infer type of ~a; add annotations" #'C)
-;              #:with (_ (~datum delay) (_ () _ τ-expected-arg (... ...))) ((current-type-eval) #'τ-expected)
               #:with (NameExpander τ-expected-arg (... ...)) ((current-type-eval) #'τ-expected)
               #'(C {τ-expected-arg (... ...)})]
              [_:id 
@@ -334,14 +269,9 @@
         [{(~datum _)} #'()]
         [{(~literal stlc+cons:nil)}  #'()]
         [{A:id} ; disambiguate 0-arity constructors (that don't need parens)
-         ;; #:with ((~literal #%plain-lambda) (RecName) 
-         ;;         ((~literal let-values) ()
-         ;;          ((~literal let-values) ()
-         ;;           . info-body)))
          #:when (get-extra-info #'ty)
          #'()]
         ;; comma tup syntax always has parens
-;        [{(~and ps (p1 ((~literal unquote) p2) ((~literal unquote) p) ...))}
         [{(~and ps (p1 (unq p) ...))}
          #:when (not (stx-null? #'(p ...)))
          #:when (andmap (lambda (u) (equal? u 'unquote)) (syntax->datum #'(unq ...)))
@@ -351,12 +281,7 @@
       [((~datum _) ty) #'()]
       [((~or (~literal stlc+cons:nil)) ty) #'()]
       [(A:id ty) ; disambiguate 0-arity constructors (that don't need parens)
-       #:with (_ (_ ((~literal quote) C) . _) ...)
-       ;; ((~literal #%plain-lambda) (RecName) 
-       ;;         ((~literal let-values) ()
-       ;;          ((~literal let-values) ()
-       ;;           . (((~literal #%plain-app) ((~literal quote) C) . rst) ...))))
-              (get-extra-info #'ty)
+       #:with (_ (_ (_ C) . _) ...) (get-extra-info #'ty)
        #:when (member (syntax->datum #'A) (syntax->datum #'(C ...)))
        #'()]
       [(x:id ty)  #'((x ty))]
@@ -379,21 +304,15 @@
        #:with (~List t) #'ty
        (unifys #'([p t] [ps ty]))]
       [((Name p ...) ty)
-        ;; #:with ((~literal #%plain-lambda) (RecName) 
-        ;;         ((~literal let-values) ()
-        ;;          ((~literal let-values) ()
-        ;;           . info-body)))
-       ;; (get-extra-info #'ty)
-;        #:with (_ (_ ((~literal quote) ConsAll) . _) ...) (get-extra-info #'ty)
-;        #:with info-unfolded (subst-special #'τ_e #'RecName #'info-body)
-        #:with (_ ((~literal quote) Cons) ((~literal quote) StructName) Cons? [_ acc τ] ...)
-               (stx-findf
-                 (syntax-parser
-                  [(_ 'C . rst) 
-                   (equal? (syntax->datum #'Name) (syntax->datum #'C))])
-                 (stx-cdr (get-extra-info #'ty)))
-        (unifys #'([p τ] ...))]
-      [p+t #:fail-when #t (format "could not unify ~a" (syntax->datum #'p+t)) #'()]))
+       #:with (_ (_ Cons) _ _ [_ _ τ] ...)
+              (stx-findf
+                (syntax-parser
+                 [(_ 'C . rst) 
+                  (equal? (syntax->datum #'Name) (syntax->datum #'C))])
+                (stx-cdr (get-extra-info #'ty)))
+       (unifys #'([p τ] ...))]
+      [p+t #:fail-when #t (format "could not unify ~a" (syntax->datum #'p+t))
+       #'()]))
   (define (unifys p+tys) (stx-appendmap unify-pat+ty p+tys))
   
   (define (compile-pat p ty)
@@ -403,15 +322,9 @@
         [{(~datum _)} #'_]
         [{(~literal stlc+cons:nil)}  (syntax/loc p (list))]
         [{A:id} ; disambiguate 0-arity constructors (that don't need parens)
-         ;; #:with ((~literal #%plain-lambda) (RecName) 
-         ;;         ((~literal let-values) ()
-         ;;          ((~literal let-values) ()
-         ;;           . info-body)))
          #:when (get-extra-info ty)
          (compile-pat #'(A) ty)]
         ;; comma tup stx always has parens
-        ;; comma tup syntax always has parens
-;        [{(~and ps (p1 ((~literal unquote) p2) ((~literal unquote) p) ...))}
         [{(~and ps (p1 (unq p) ...))}
          #:when (not (stx-null? #'(p ...)))
          #:when (andmap (lambda (u) (equal? u 'unquote)) (syntax->datum #'(unq ...)))
@@ -421,12 +334,8 @@
      [(~literal stlc+cons:nil) ; nil
       #'(list)]
      [A:id ; disambiguate 0-arity constructors (that don't need parens)
-      ;; #:with ((~literal #%plain-lambda) (RecName) 
-      ;;         ((~literal let-values) ()
-      ;;          ((~literal let-values) ()
-      ;;           . (((~literal #%plain-app) ((~literal quote) C) . rst) ...))))
-       #:with (_ (_ ((~literal quote) C) . _) ...) (get-extra-info ty)
-       #:when (member (syntax->datum #'A) (syntax->datum #'(C ...)))
+      #:with (_ (_ (_ C) . _) ...) (get-extra-info ty)
+      #:when (member (syntax->datum #'A) (syntax->datum #'(C ...)))
       (compile-pat #'(A) ty)]
      [x:id p]
      [(p1 (unq p) ...) ; comma tup stx
@@ -454,14 +363,7 @@
       #:with ps- (compile-pat #'ps ty)
       #'(cons p- ps-)]
      [(Name . pats)
-      ;; #:with ((~literal #%plain-lambda) (RecName) 
-      ;;         ((~literal let-values) ()
-      ;;          ((~literal let-values) ()
-      ;;           . info-body)))
-      ;;        (get-extra-info ty)
-      ;; #:with ((_ ((~literal quote) ConsAll) . _) ...) #'info-body
-      ;; #:with info-unfolded (subst-special #'τ_e #'RecName #'info-body)
-      #:with (_ ((~literal quote) Cons) ((~literal quote) StructName) Cons? [_ acc τ] ...)
+      #:with (_ (_ Cons) (_ StructName) _ [_ _ τ] ...)
              (stx-findf
                (syntax-parser
                 [(_ 'C . rst) 
@@ -513,14 +415,7 @@
                    (syntax->list #'((p ...) ...)))])])]
      [else ; algebraic datatypes
       (syntax-parse (get-extra-info ty)
-        [#;((~literal #%plain-lambda) (RecName) 
-           ((~literal let-values) ()
-             ((~literal let-values) ()
-              . (((~literal #%plain-app)  
-                  ((~literal quote) C) 
-                  ((~literal quote) Cstruct)
-                  . rst) ...))))
-         (_ (_ ((~literal quote) C) ((~literal quote) Cstruct) . rst) ...)
+        [(_ (_ (_ C) (_ Cstruct) . rst) ...)
          (syntax-parse pats
            [((Cpat _ ...) ...)
             (define Cs (syntax->datum #'(C ...)))
@@ -538,6 +433,7 @@
             #t])]
         [_ #t])]))
 
+  ;; TODO: do get-ctx and compile-pat in one pass
   (define (compile-pats pats ty)
     (stx-map (lambda (p) (list (get-ctx p ty) (compile-pat p ty))) pats))
   )
@@ -553,13 +449,11 @@
                          (lambda (ps) (syntax-parse ps [(pp ...) (syntax/loc stx {pp ...})]))
                          #'((p ...) ...)) 
       #:with ([(~and ctx ([x ty] ...)) pat-] ...) (compile-pats #'(pat ...) #'τ_e)
-      ;; #:with ((~and ctx ([x ty] ...)) ...) (stx-map (lambda (p) (get-ctx p #'τ_e)) #'(pat ...))
       #:with ty-expected (get-expected-type stx)
       #:with ([(x- ...) e_body- ty_body] ...) 
              (stx-map 
                infer/ctx+erase 
                #'(ctx ...) #'((add-expected e_body ty-expected) ...))
-      ;; #:with (pat- ...) (stx-map (lambda (p) (compile-pat p #'τ_e)) #'(pat ...))
       #:fail-unless (same-types? #'(ty_body ...))
                     (string-append "branches have different types, given: "
                       (string-join (stx-map type->str #'(ty_body ...)) ", "))
@@ -569,7 +463,6 @@
       ])]))
 
 (define-typed-syntax match #:datum-literals (with)
-; (syntax-parse stx #:datum-literals (with)
    [(_ e with . clauses)
     #:fail-when (null? (syntax->list #'clauses)) "no clauses"
     #:with [e- τ_e] (infer+erase #'e)
@@ -594,7 +487,9 @@
        [([(~or (~and (~and xs [x ...]) (~parse rst (generate-temporary)))
                (~and (~seq (~seq x ::) ... rst:id) (~parse xs #'())))
           -> e_body] ...)
-        #:fail-unless (stx-ormap (lambda (xx) (and (brack? xx) (zero? (stx-length xx)))) #'(xs ...))
+        #:fail-unless (stx-ormap 
+                        (lambda (xx) (and (brack? xx) (zero? (stx-length xx)))) 
+                        #'(xs ...))
                       "match: missing empty list case"
         #:fail-when (and (stx-andmap brack? #'(xs ...))
                          (= 1 (stx-length #'(xs ...))))
@@ -625,16 +520,9 @@
        [([Clause:id x:id ... 
              (~optional (~seq #:when e_guard) #:defaults ([e_guard #'(ext-stlc:#%datum . #t)]))
              -> e_c_un] ...) ; un = unannotated with expected ty
-        ;; len #'clauses maybe > len #'info, due to guards
-        ;; #:with ((~literal #%plain-lambda) (RecName) 
-        ;;         ((~literal let-values) ()
-        ;;          ((~literal let-values) ()
-        ;;           . info-body)))
-        ;;        (get-extra-info #'τ_e)
-        ;; #:with info-unfolded (subst-special #'τ_e #'RecName #'info-body)
+        ;; length #'clauses may be > length #'info, due to guards
         #:with info-body (get-extra-info #'τ_e)
-        #:with info-unfolded #'info-body
-        #:with (_ (_ ((~literal quote) ConsAll) . _) ...) #'info-body
+        #:with (_ (_ (_ ConsAll) . _) ...) #'info-body
         #:fail-unless (set=? (syntax->datum #'(Clause ...))
                              (syntax->datum #'(ConsAll ...)))
                       (type-error #:src stx
@@ -646,14 +534,13 @@
                                        (syntax->datum #'(ConsAll ...))
                                        (syntax->datum #'(Clause ...))))
                                 ", ")))
-        #:with ((_ ((~literal quote) Cons) ((~literal quote) StructName) Cons? [_ acc τ] ...) ...)
+        #:with ((_ _ _ Cons? [_ acc τ] ...) ...)
                (map ; ok to compare symbols since clause names can't be rebound
                 (lambda (Cl) 
                   (stx-findf
                       (syntax-parser
-                        [((~literal #%plain-app) 'C . rst)
-                         (equal? Cl (syntax->datum #'C))])
-                    (stx-cdr #'info-unfolded))) ; drop leading #%app
+                        [(_ 'C . rst) (equal? Cl (syntax->datum #'C))])
+                    (stx-cdr #'info-body))) ; drop leading #%app
                 (syntax->datum #'(Clause ...)))
         ;; this commented block experiments with expanding to unsafe ops
         ;; #:with ((acc ...) ...) (stx-map 
@@ -781,8 +668,10 @@
                           (define old-orig (get-orig tyin))
                           (define new-orig
                             (and old-orig
-                                 (substs (stx-map get-orig #'tys-solved) #'Xs old-orig
-                                             (lambda (x y) (equal? (syntax->datum x) (syntax->datum y))))))
+                                 (substs 
+                                   (stx-map get-orig #'tys-solved) #'Xs old-orig
+                                   (lambda (x y) 
+                                    (equal? (syntax->datum x) (syntax->datum y))))))
                           (syntax-property tyin 'orig (list new-orig)))
                        #'(τ_in ...)))
        (⊢ (#%app e_fn- e_arg- ...) : τ_out)])])]
@@ -931,8 +820,7 @@
  [(_ start)
   #:with start- (⇑ start as Int)
   (⊢ (in-naturals start-) : (Sequence Int))])
-
-  
+ 
 
 (define-typed-syntax in-vector
   [(_ e)

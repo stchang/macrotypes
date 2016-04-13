@@ -134,12 +134,10 @@
 
 (define-syntax add-expected
   (syntax-parser
-    [(_ e τ)
-;     #:when (printf "adding expected type ~a to expression ~a\n"
-;                    (syntax->datum #'τ) (syntax->datum #'e))
-     (syntax-property #'e 'expected-type #'τ)]))
+    [(_ e τ) (syntax-property #'e 'expected-type #'τ)]))
 (define-for-syntax (add-expected-ty e ty)
-  (or (and (syntax-e ty) (syntax-property e 'expected-type ((current-type-eval) ty)))
+  (or (and (syntax-e ty) 
+           (syntax-property e 'expected-type ((current-type-eval) ty)))
       e))
 
 ;; type assignment
@@ -213,10 +211,6 @@
                ['x (syntax-e #'x)]
                [_ (syntax->datum #'e-)])
              'tycon (type->str #'τ_e))
-            #;(if (stx-pair? #'τ_e)
-                (syntax-parse #'τ_e
-                 [(τ-expander . args) #'(e- args)])
-                #'e-)
             (syntax-parse #'τ_e
               [(τ-expander . args) #'(e- args)]
               [_ #'e-])])]))
@@ -243,10 +237,6 @@
             ;#:with args (τ-get #'τ_e)
             #:with res
             (stx-map (λ (e t)
-                       #;(if (stx-pair? t)
-                           (syntax-parse t
-                             [(τ-expander . args) #`(#,e #'args)])
-                           e)
                        (syntax-parse t
                          [(τ-expander . args) #`(#,e args)]
                          [_ e]))
@@ -298,44 +288,37 @@
                                (assign-type #'tv #'k)
                                #'ok #:tag '#,tag))] ...)
               (λ (x ...)
-                (let-syntax ([x (syntax-parser [i:id
-;                                                #:when (or (not (and (identifier? #'τ) (free-identifier=? #'x #'τ)))
-;                                                           (printf "~a has type = itself\n" #'i))
-;                                                #:when (or (not (get-expected-type #'i))
-;                                                           (printf "expected type of ~a: ~a\n"
-;                                                                   #'i (and (get-expected-type #'i)
-;                                                                                            (syntax->datum (get-expected-type #'i)))))
-;                                                #:when (or (not (get-expected-type #'i))
-;                                                           (printf "assigned type of ~a: ~a\n"
-;                                                                   (syntax->datum #'i) (syntax->datum #'τ)))
-                                                (if (and (identifier? #'τ) (free-identifier=? #'x #'τ))
-                                                    (if (get-expected-type #'i)
-                                                        (add-env (assign-type #'x (get-expected-type #'i)) #`((x #,(get-expected-type #'i))))
-                                                        (raise (exn:fail:type:infer
-                                                                (format "~a (~a:~a): could not infer type of ~a; add annotation(s)"
-                                                                        (syntax-source #'x) (syntax-line #'x) (syntax-column #'x)
-                                                                        (syntax->datum #'x))
-                                                                (current-continuation-marks))))
-                                                    (assign-type #'x #'τ))]
-                                               [(o . rst) ; handle if x used in fn position
-                                                #:fail-when (and (identifier? #'τ) (free-identifier=? #'x #'τ))
-                                                (raise (exn:fail:type:infer
-                                                                (format "~a (~a:~a): could not infer type of function ~a; add annotation(s)"
-                                                                        (syntax-source #'o) (syntax-line #'o) (syntax-column #'o)
-                                                                        (syntax->datum #'o))
-                                                                (current-continuation-marks)))
-                                                #:with app (datum->syntax #'o '#%app)
-                                                #`(app #,(assign-type #'x #'τ) . rst)]
-                                               #;[(_ . rst) #`(#,(assign-type #'x #'τ) . rst)])
-                                #;(make-rename-transformer (assign-type #'x #'τ))] ...)
+                (let-syntax 
+                  ([x 
+                    (syntax-parser 
+                     [i:id
+                      (if (and (identifier? #'τ) (free-identifier=? #'x #'τ))
+                          (if (get-expected-type #'i)
+                              (add-env 
+                                (assign-type #'x (get-expected-type #'i)) 
+                                #`((x #,(get-expected-type #'i))))
+                              (raise
+                               (exn:fail:type:infer
+                                 (format "~a (~a:~a): could not infer type of ~a; add annotation(s)"
+                                         (syntax-source #'x) (syntax-line #'x) (syntax-column #'x)
+                                         (syntax->datum #'x))
+                                 (current-continuation-marks))))
+                          (assign-type #'x #'τ))]
+                     [(o . rst) ; handle if x used in fn position
+                      #:fail-when (and (identifier? #'τ) (free-identifier=? #'x #'τ))
+                      (raise (exn:fail:type:infer
+                                 (format "~a (~a:~a): could not infer type of function ~a; add annotation(s)"
+                                         (syntax-source #'o) (syntax-line #'o) (syntax-column #'o)
+                                         (syntax->datum #'o))
+                               (current-continuation-marks)))
+                      #:with app (datum->syntax #'o '#%app)
+                      #`(app #,(assign-type #'x #'τ) . rst)]
+                     #;[(_ . rst) #`(#,(assign-type #'x #'τ) . rst)])
+                    #;(make-rename-transformer (assign-type #'x #'τ))] ...)
                   (#%expression e) ... void)))))
        (list #'tvs+ #'xs+ #'(e+ ...)
              (stx-map ; need this check when combining #%type and kinds
               (λ (t) (or (false? t)
-                         ; TODO: why does this happen?
-                         ; happens when propagating 'env up in λ
-                         #;(and (pair? t)
-                              (syntax-local-introduce (car t)))
                          (syntax-local-introduce t)))
               (stx-map typeof #'(e+ ...))))]
       [([x τ] ...) (infer es #:ctx #'([x : τ] ...) #:tvctx tvctx)]))
@@ -433,13 +416,7 @@
         ((~literal #%plain-lambda) bvs
          ((~literal #%expression) ((~literal quote) extra-info-macro)) . tys))
        (expand/df #'(extra-info-macro . tys))]
-      [_ #f]))
-  (define (get-tyargs ty)
-    (syntax-parse ty
-      [((~literal #%plain-app) internal-id
-        ((~literal #%plain-lambda) bvs
-         xtra-info . rst))
-       #'rst])))
+      [_ #f])))
 
 
 (define-syntax define-basic-checked-id-stx
@@ -488,17 +465,14 @@
         (~optional
          (~seq #:arity op n:exact-nonnegative-integer)
          #:defaults ([op #'=] [n #'1]))
-        (~optional
-         (~seq #:bvs (~and (~parse has-bvs? #'#t) bvs-op) bvs-n:exact-nonnegative-integer)
+        (~optional (~seq #:bvs (~and (~parse has-bvs? #'#t) bvs-op) 
+                         bvs-n:exact-nonnegative-integer)
          #:defaults ([bvs-op #'=][bvs-n #'0]))
         (~optional (~seq #:arr (~and (~parse has-annotations? #'#t) tycon))
          #:defaults ([tycon #'void]))
-        #;(~optional (~seq #:extra-info extra-bvs extra-info)
-                   #:defaults ([extra-bvs #'()]
-                               [extra-info #'void]))
-        (~optional (~seq #:extra-info extra-info) #:defaults ([extra-info #'void]))
-        (~optional (~and #:no-provide (~parse no-provide? #'#t)))
-        )
+        (~optional (~seq #:extra-info extra-info) 
+          #:defaults ([extra-info #'void]))
+        (~optional (~and #:no-provide (~parse no-provide? #'#t))))
      #:with #%kind (format-id #'kind "#%~a" #'kind)
      #:with τ-internal (generate-temporary #'τ)
      #:with τ? (mk-? #'τ)
@@ -549,8 +523,6 @@
            (define (τ? t)
              (and (stx-pair? t)
                   (syntax-parse t
-                    #;[((~literal #%plain-lambda) bvs ((~literal #%plain-app) (~literal τ-internal) . _))
-                     #t]
                     [((~literal #%plain-app) (~literal τ-internal) . _)
                      #t]
                     [_ #f]))))
@@ -581,10 +553,6 @@
                #:with k_result (if #,(attribute has-annotations?)
                                    #'(tycon k_arg (... ...))
                                    #'#%kind)
-               ;; #:with extra-info-inst
-               ;;        (if (stx-null? #'extra-bvs)
-               ;;            #'extra-info
-               ;;            (substs #'τs- #'extra-bvs #'extra-info))
                (add-orig
                 (assign-type 
                   (syntax/loc stx 
@@ -720,54 +688,4 @@
       [_ e]))
 
   (define (substs τs xs e [cmp bound-identifier=?])
-    (stx-fold (lambda (ty x res) (subst ty x res cmp)) e τs xs))
-
-  ;; subst-expr: 
-  ;; - like subst except the target can be any stx, rather than just an id
-  ;; - used for implementing polymorphic recursive types
-  (define (stx-lam? s)
-    (syntax-parse s
-      [((~literal #%plain-lambda) . rst) #t] [_ #f]))
-  (define (stx-lam=? s1 s2)
-    (syntax-parse (list s1 s2)
-      [(((~literal #%plain-lambda) xs . bs1)
-        ((~literal #%plain-lambda) ys . bs2))
-       #:with zs (generate-temporaries #'xs)
-       (and (stx-length=? #'xs #'ys)
-            (stx=? (substs #'zs #'xs #'bs1)
-                   (substs #'zs #'ys #'bs2)))]))
-  (define (stx=? s1 s2)
-    (or (and (identifier? s1) (identifier? s2) (free-identifier=? s1 s2))
-        (and (stx-null? s1) (stx-null? s2))
-        (and (stx-lam? s1) (stx-lam? s2) (stx-lam=? s1 s2))
-        (and (stx-pair? s1) (stx-pair? s2) (stx-length=? s1 s2)
-             (stx-andmap stx=? s1 s2))))
-  ;; subst e1 for e2 in e3
-  (define (subst-expr e1 e2 e3)
-    (cond 
-     [(stx=? e2 e3) e1]
-     [(identifier? e3) e3]
-     [else ; stx-pair
-      (with-syntax ([result (stx-map (lambda (e) (subst-expr e1 e2 e)) e3)])
-        (syntax-track-origin #'result e3 #'here))]))
-  (define (subst-exprs τs xs e)
-    (stx-fold subst-expr e τs xs))
-  ;; subst-special:
-  ;; - used for unfolding polymorphic recursive type
-  ;; subst ty1 for x in ty2
-  ;; where ty1 is an applied type constructor type
-  ;;       x is a placeholder for an applied tycons type in ty2
-  ;; - subst special first replaces the args of ty1 with that of x
-  ;;   before replacing applications of tycons x with this modified ty1
-  (define (subst-special ty1 x ty2)
-    (cond
-     [(identifier? ty2) ty2]
-     [(syntax-parse ty2 [((~literal #%plain-app) tycons:id . _) (free-identifier=? #'tycons x)] [_ #f])
-      (syntax-parse ty2
-        [((~literal #%plain-app) tycons:id . newargs)
-;         #:with oldargs (get-tyargs ty1)
-         (subst-exprs #'newargs (get-tyargs ty1) ty1)])]
-     [else ; stx-pair
-      (with-syntax ([result (stx-map (lambda (e) (subst-special ty1 x e)) ty2)])
-        (syntax-track-origin #'result ty2 #'here))]))
-  )
+    (stx-fold (lambda (ty x res) (subst ty x res cmp)) e τs xs)))

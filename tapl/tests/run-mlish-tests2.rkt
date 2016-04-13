@@ -1,6 +1,6 @@
 #lang racket/base
 
-(require "mlish/queens.mlish")
+;(require "mlish/queens.mlish")
 
 ;; shootout tests
 (require "mlish/trees-tests.mlish")

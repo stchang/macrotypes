@@ -1,3 +1,61 @@
+2016-04-13:
+Summary of the extra-info problem.
+Problem: datatypes need to know all constructors and argument types
+- to properly do matching
+- but storing this info as part of the type leads to looping for recursive
+  and mutually recursive types, since the canonical form of all types is 
+  full expansion
+Current solution:
+- for each type TY, define:
+ - standard TY macro via define-type-constructor
+   - with extra-info = name of additional macro
+ - additional "extra-info" macro that expands into needed datatype clause info
+- this solution addresses many issues:
+ - breaks the recursion (ie inf looping) in type macros
+ - is much faster, since it avoids the type traversals I was doing to manually 
+   unroll recursive types (see subst-special and subst-expr)
+ - allows for substing of quantified tyvars to occur naturally, 
+   since the types are passed into the extra-info macro
+
+What didnt work:
+- quoting the extra-info (or parts of it) to avoid infinite expansion
+  - summary:
+    - must be exposed to expansion:
+      - struct accessors
+      - any type vars
+    - cannot be exposed to expansion:
+      - call to recursive and mutually recursive type constructors
+  - tried a complicated solution where I used "sentinel" stxs
+    to accumulate the context that the quoted parts were missing
+  - was complicated when needing to instantiate forall types
+    - and didnt fully work for nested datatypes
+
+- manually subst out recursive calls
+  - essentially, this required me to manually manage the recursive types,
+    including, a la tapl, including unrolling in match
+  - was very performance costly (see subst-special and subst-expr)
+  - this solution does work with mutually recursive types (still inf loops)
+
+- store extra-info as stx-property
+ - figured out how to use make-syntax-delta-introducer to sync up unexpanded
+   props, so that it may be instantiated properly
+ - but something doesnt work (specifically match) when types are provided
+   - works if everything is defined in the same file
+     - ie, inline basics-general in basics2
+   - doesnt work if (provide (struct-out ...)) is inserted directly in mlish.rkt
+   - couldnt get it to work if Cons? is assigned different contexts in match
+     - eg context of e-, or τ_e
+   - direct match on constructor is fine (see Bool use in bg/basics2.mlish)
+   - but doesnt work when passed through fn call (see bool-id in basics2)
+   - essentially, struct accessors and predicates must be exposed to expansion
+   error is:
+   ; require: namespace mismatch;
+   ;  reference to a module that is not available
+   ;   reference phase: 0
+   ;   referenced module: 'basics-general
+   ;   referenced phase level: 0
+   ;   in: True26?
+
 2016-02-29
 Problem: storing variant info as properties
 - when instantiating polymorphic type, need to instantiate properties as well
