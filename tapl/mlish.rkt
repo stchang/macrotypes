@@ -104,16 +104,31 @@
              (list (reverse as-) maybe-solved-tys)
              (type-error #:src stx
               #:msg (mk-app-err-msg stx #:expected #'(τ_inX ...) 
-                                        #:given (stx-map stx-cadr (infers+erase #'args))
+                     #:given (stx-map stx-cadr (infers+erase #'args))
                      #:note (format "Could not infer instantiation of polymorphic function ~a."
-                                    (syntax->datum #'e_fn)))))])]))
+                                    (syntax->datum (get-orig #'e_fn))))))])]))
 
   ;; instantiate polymorphic types
   (define (inst-type tys-solved Xs ty)
     (substs tys-solved Xs ty))
   (define (inst-types tys-solved Xs tys)
     (stx-map (lambda (t) (inst-type tys-solved Xs t)) tys))
-  )
+  
+  ;; computes unbound ids in tys, to be used as tyvars
+  (define (compute-tyvars tys)
+    (if (stx-null? tys)
+        #'()
+        (let L ([Xs #'()]) ; compute unbound ids; treat as tyvars
+          (define ctx (stx-car tys))
+          (with-handlers
+            ([exn:fail:syntax:unbound?
+              (λ (e)
+                (define X (stx-car (exn:fail:syntax-exprs e)))
+                ;; X is tainted, so need to launder it
+                (define Y (datum->syntax ctx (syntax->datum X)))
+                (L (cons Y Xs)))])
+            ((current-type-eval) #`(∀ #,Xs (ext-stlc:→ . #,tys)))
+            (stx-sort Xs))))))
 
 ;; define --------------------------------------------------
 ;; for function defs, define infers type variables
@@ -128,7 +143,8 @@
        (define-syntax x (make-rename-transformer (⊢ y : τ)))
        (define y e-))]
   ; explicit "forall"
-  [(_ Ys (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) e_body ... e)
+  [(_ Ys (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) 
+      e_body ... e)
    #:when (brace? #'Ys)
    ;; TODO; remove this code duplication
    #:with g (add-orig (generate-temporary #'f) #'f)
@@ -143,20 +159,12 @@
       (define-syntax f (make-rename-transformer (⊢ g : ty_fn_expected)))
       (define g
         (Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))]
+  ;; alternate type sig syntax, after parameter names
   [(_ (f:id x:id ...) (~datum :) ty ... (~or (~datum ->) (~datum →)) ty_out . b)
    #'(define/tc (f [x : ty] ... -> ty_out) . b)]
-  [(_ (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) e_body ... e)
-   #:with Ys
-          (let L ([Xs #'()]) ; compute unbound ids; treat as tyvars
-            (with-handlers
-                ([exn:fail:syntax:unbound?
-                  (λ (e)
-                    (define X (stx-car (exn:fail:syntax-exprs e)))
-                    ; X is tainted, so need to launder it
-                    (define Y (datum->syntax #'f (syntax->datum X)))
-                    (L (cons Y Xs)))])
-              ((current-type-eval) #`(∀ #,Xs (ext-stlc:→ τ ... τ_out)))
-              (stx-sort Xs)))
+  [(_ (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) 
+      e_body ... e)
+   #:with Ys (compute-tyvars #'(τ ... τ_out))
    #:with g (add-orig (generate-temporary #'f) #'f)
    #:with e_ann #'(add-expected e τ_out) ; must be macro bc t_out may have unbound tvs
    #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
@@ -251,7 +259,9 @@
               #:when (stx-null? #'(τ ...))
               #:with τ-expected (syntax-property #'C 'expected-type)
               #:fail-unless (syntax-e #'τ-expected)
-                            (type-error #:src stx #:msg "cannot infer type of ~a; add annotations" #'C)
+                            (type-error #:src stx 
+                             #:msg (format "cannot infer type of ~a; add annotations" 
+                                           (syntax->datum #'C)))
               #:with (NameExpander τ-expected-arg (... ...)) ((current-type-eval) #'τ-expected)
               #'(C {τ-expected-arg (... ...)})]
              [_:id 
@@ -615,14 +625,8 @@
      #:when (brace? #'Xs)
      #'(∀ (X ...) (ext-stlc:→ . rst))]
     [(_ . rst)
-     (let L ([Xs #'()]) ; compute unbound ids; treat as tyvars
-       (with-handlers ([exn:fail:syntax:unbound?
-                        (λ (e)
-                          (define X (stx-car (exn:fail:syntax-exprs e)))
-                          ; X is tainted, so need to launder it
-                          (define Y (datum->syntax #'rst (syntax->datum X)))
-                          (L (stx-sort (cons Y Xs))))])
-         ((current-type-eval) #`(∀ #,Xs (ext-stlc:→ . rst)))))]))
+     #:with Xs (compute-tyvars #'rst)
+     #'(∀ Xs (ext-stlc:→ . rst))]))
 
 ; redefine these to use lifted →
 (define-primop + : (→ Int Int Int))
@@ -651,15 +655,9 @@
   [(_ args body)
    #:with (~∀ () (~ext-stlc:→ arg-ty ... body-ty)) (get-expected-type stx)
    #`(Λ () (ext-stlc:λ args #,(add-expected-ty #'body #'body-ty)))]
-  [(_ . rst)
-   (let L ([Xs #'()]) ; compute unbound ids; treat as tyvars
-     (with-handlers ([exn:fail:syntax:unbound?
-                         (λ (e)
-                           (define X (stx-car (exn:fail:syntax-exprs e)))
-                           ; X is tainted, so need to launder it
-                           (define Y (datum->syntax #'rst (syntax->datum X)))
-                           (L (cons Y Xs)))])
-       (local-expand #`(Λ #,Xs (ext-stlc:λ . rst)) 'expression null)))])
+  [(_ (~and x+tys ([_ (~datum :) ty] ...)) . body)
+   #:with Xs (compute-tyvars #'(ty ...))
+   #'(Λ Xs (ext-stlc:λ x+tys . body))])
 
 
 ;; #%app --------------------------------------------------
