@@ -1,50 +1,44 @@
 #lang racket/base
-(require syntax/stx racket/list syntax/parse)
-(require (prefix-in r: (only-in racket/base syntax->list)))
-(provide (except-out (all-defined-out) syntax->list))
+(require syntax/stx racket/list)
+(provide (all-defined-out))
 
-(define (syntax->list stx)
-  (if (syntax? stx)
-      (r:syntax->list stx)
-      stx))
-      
 (define (stx-cadr stx) (stx-car (stx-cdr stx)))
 (define (stx-caddr stx) (stx-cadr (stx-cdr stx)))
 
 (define (stx-rev stx)
-  (reverse (syntax->list stx)))
+  (reverse (stx->list stx)))
 (define (stx-andmap f . stx-lsts)
-  (apply andmap f (map syntax->list stx-lsts)))
+  (apply andmap f (map stx->list stx-lsts)))
 (define (stx-ormap f . stx-lsts)
-  (apply ormap f (map syntax->list stx-lsts)))
+  (apply ormap f (map stx->list stx-lsts)))
 
 (define (stx-flatten stxs)
-  (apply append (stx-map (λ (stx) (if (syntax? stx) (syntax->list stx) stx)) stxs)))
+  (apply append (stx-map stx->list stxs)))
 
 (define (curly-parens? stx)
   (define paren-prop (syntax-property stx 'paren-shape))
   (and paren-prop (char=? #\{ paren-prop)))
 
 (define (stx-member v stx)
-  (member v (if (syntax? stx) (syntax->list stx) stx) free-identifier=?))
+  (member v (stx->list stx) free-identifier=?))
 
 (define (str-stx-member v stx)
-  (member (datum->syntax v) (map datum->syntax (syntax->list stx)) string=?))
+  (member (datum->syntax v) (map datum->syntax (stx->list stx)) string=?))
 (define (str-stx-assoc v stx)
-  (assoc v (map syntax->list (syntax->list stx)) stx-str=?))
+  (assoc v (map stx->list (stx->list stx)) stx-str=?))
 (define (stx-assoc v stx [cmp free-identifier=?]) ; v = id
-  (assoc v (map syntax->list (syntax->list stx)) cmp))
+  (assoc v (map stx->list (stx->list stx)) cmp))
 (define (stx-findf f stx)
-  (findf f (syntax->list stx)))
+  (findf f (stx->list stx)))
 
-(define (stx-length stx) (length (if (syntax? stx) (syntax->list stx) stx)))
+(define (stx-length stx) (length (stx->list stx)))
 (define (stx-length=? stx1 stx2)
   (= (stx-length stx1) (stx-length stx2)))
 
-(define (stx-last stx) (last (syntax->list stx)))
+(define (stx-last stx) (last (stx->list stx)))
 
 (define (stx-list-ref stx i)
-  (list-ref (syntax->list stx) i))
+  (list-ref (stx->list stx) i))
 
 (define (stx-str=? s1 s2)
   (string=? (syntax-e s1) (syntax-e s2)))
@@ -53,19 +47,18 @@
           #:cmp [cmp (lambda (x y) (string<=? (symbol->string (syntax->datum x))
                                          (symbol->string (syntax->datum y))))]
           #:key [key-fn (λ (x) x)])
-  (sort (with-syntax ([ss stx]) (syntax->list #'ss)) cmp #:key key-fn))
+  (sort (stx->list stx) cmp #:key key-fn))
 
 (define (stx-fold f base . lsts)
-  (apply foldl f base (map syntax->list lsts)))
+  (apply foldl f base (map stx->list lsts)))
 
 (define (stx-append stx1 stx2)
-  (append (if (syntax? stx1) (syntax->list stx1) stx1)
-          (if (syntax? stx2) (syntax->list stx2) stx2)))
+  (append (stx->list stx1) (stx->list stx2)))
 (define (stx-appendmap f stx)
   (stx-flatten (stx-map f stx)))
 
 (define (stx-drop stx n)
-  (drop (syntax->list stx) n))
+  (drop (stx->list stx) n))
 
 (define (generate-temporariess stx)
   (stx-map generate-temporaries stx))
