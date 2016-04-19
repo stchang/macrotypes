@@ -79,7 +79,7 @@
    [Leaf x -> (list x)]
    [Node x rst ->
     (cons x
-     (for/fold ([acc (nil {X})]) ([p (in-list (flatten rst))])
+     (for/fold ([acc nil]) ([p (in-list (flatten rst))])
        (match p with
         [x y -> (cons x (cons y acc))])))]))
 

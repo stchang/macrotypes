@@ -52,7 +52,7 @@
 (check-type (g2 (Nil {Bool})) : (List Bool) ⇒ (Nil {Bool}))
 (check-type (g2 (Nil {(List Int)})) : (List (List Int)) ⇒ (Nil {(List Int)}))
 (check-type (g2 (Nil {(→ Int Int)})) : (List (→ Int Int)) ⇒ (Nil {(List (→ Int Int))}))
-;; same as tests above, but without annotations
+;; annotations unneeded: same as tests above, but without annotations
 (check-type (g2 Nil) : (List Int) ⇒ Nil)
 (check-type (g2 Nil) : (List Bool) ⇒ Nil)
 (check-type (g2 Nil) : (List (List Int)) ⇒ Nil)
@@ -277,6 +277,39 @@
 
 (define-type (Pairof A B) (C A B))
 (check-type (match (C 1 2) with [C a b -> None]) : (Option Int) -> None)
+
+;; type variable inference
+
+; F should remain valid tyvar, even though it's bound
+(define (F [x : X] -> X) x) 
+(define (tvf1 [x : F] -> F) x)
+(check-type tvf1 : (→/test X X))
+
+; G should remain valid tyvar
+(define-type (Type1 X) (G X)) 
+(define (tvf5 [x : G] -> G) x)
+(check-type tvf5 : (→/test X X))
+
+; TY should not be tyvar, bc it's a valid type
+(define-type-alias TY (Pairof Int Int))
+(define (tvf2 [x : TY] -> TY) x)
+(check-not-type tvf2 : (→/test X X))
+
+; same with Bool
+(define (tvf3 [x : Bool] -> Bool) x)
+(check-not-type tvf3 : (→/test X X))
+
+;; X in lam should not be a new tyvar
+(define (tvf4 [x : X] -> (→ X X))
+  (λ ([y : X]) x))
+(check-type tvf4 : (→/test X (→ X X)))
+(check-not-type tvf4 : (→/test X (→ Y X)))
+
+(check-type (λ ([x : X]) (λ ([y : X]) y)) : (→/test X (→ X X)))
+(check-not-type (λ ([x : X]) (λ ([y : X]) y)) : (→/test {X} X (→/test {Y} Y Y)))
+(check-type (λ ([x : X]) (λ ([y : Y]) y)) : (→/test {X} X (→/test {Y} Y Y)))
+(check-not-type (λ ([x : X]) (λ ([y : Y]) x)) : (→/test X (→ X X)))
+
 
 ; ext-stlc tests --------------------------------------------------
 

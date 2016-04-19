@@ -14,13 +14,15 @@
 (provide ok)
 (provide error)
 
+(check-type ok : (→/test A (Result A B)))
+(check-type error : (→/test B (Result A B)))
 (check-type (inst ok Int String) : (→ Int (Result Int String)))
-(check-type (inst error Int String) : (→ String (Result Int String)))
+(check-type (inst error String Int) : (→ String (Result Int String)))
 
 (check-type
- (list (Ok {Int String} 3) (Error "abject failure") (Ok 4))
+ (list (Ok 3) (Error "abject failure") (Ok 4))
  : (List (Result Int String))
- -> (list (Ok {Int String} 3) (Error "abject failure") (Ok 4)))
+ -> (list (Ok 3) (Error "abject failure") (Ok 4)))
 
 (define (result-bind [a : (Result A Er)] [f : (→ A (Result B Er))] 
                      → (Result B Er))
@@ -74,59 +76,58 @@
 
 (define (read-tree [str : (List Char)] → (Read-Result (Tree Int)))
   (cond
-    [(isnil str)
-     (error "expected a tree of integers, given nothing")]
-    [(equal? (head str) #\( )
-     (do result-bind
-       [tree1+str : (× (Tree Int) (List Char))
-                  <- (read-tree (tail str))]
-       [(cond [(equal? (head (proj tree1+str 1)) #\space)
-               ((inst ok Unit String) (void))]
-              [else
-               ((inst error Unit String) "expected a space")])]
-       [int+str : (× Int (List Char))
-                <- (read-int (tail (proj tree1+str 1)) nil)]
-       [(cond [(equal? (head (proj int+str 1)) #\space)
-               ((inst ok Unit String) (void))]
-              [else
-               ((inst error Unit String) "expected a space")])]
-       [tree2+str : (× (Tree Int) (List Char))
-                  <- (read-tree (tail (proj int+str 1)))]
-       [(cond [(equal? (head (proj tree2+str 1)) #\) )
-               ((inst ok Unit String) (void))]
-              [else
-               ((inst error Unit String) "expected a `)`")])]
-       ((inst ok (× (Tree Int) (List Char)) String)
-        (tup (Node (proj tree1+str 0)
-                   (proj int+str 0)
-                   (proj tree2+str 0))
-             (tail (proj tree2+str 1)))))]
-    [(digit? (head str))
-     (do result-bind
-       [int+str : (× Int (List Char))
-                <- (read-int str nil)]
-       ((inst ok (× (Tree Int) (List Char)) String)
-        (tup (Leaf (proj int+str 0))
-             (proj int+str 1))))]
-    [else
-     (error "expected either a `(` or a digit")]))
+   [(isnil str)
+    (error "expected a tree of integers, given nothing")]
+   [(equal? (head str) #\( )
+    (let ([do-ok (inst ok Unit String)]
+          [do-error (inst error String Unit)])
+      (do result-bind
+          [tree1+str : (× (Tree Int) (List Char))
+                     <- (read-tree (tail str))]
+        [(cond [(equal? (head (proj tree1+str 1)) #\space)
+                (do-ok (void))]
+               [else (do-error "expected a space")])]
+        [int+str : (× Int (List Char))
+                 <- (read-int (tail (proj tree1+str 1)) nil)]
+        [(cond [(equal? (head (proj int+str 1)) #\space)
+                (do-ok (void))]
+               [else (do-error "expected a space")])]
+        [tree2+str : (× (Tree Int) (List Char))
+                   <- (read-tree (tail (proj int+str 1)))]
+        [(cond [(equal? (head (proj tree2+str 1)) #\) )
+                (do-ok (void))]
+               [else (do-error "expected a `)`")])]
+        (ok
+         (tup (Node (proj tree1+str 0)
+                    (proj int+str 0)
+                    (proj tree2+str 0))
+              (tail (proj tree2+str 1))))))]
+   [(digit? (head str))
+    (do result-bind
+        [int+str : (× Int (List Char))
+                 <- (read-int str nil)]
+      (ok
+       (tup (Leaf (proj int+str 0))
+            (proj int+str 1))))]
+   [else
+    (error "expected either a `(` or a digit")]))
 
 (check-type
  (read-tree (string->list "42"))
  : (Read-Result (Tree Int))
- -> ((inst ok (× (Tree Int) (List Char)) String)
+ -> (ok
      (tup (Leaf 42) nil)))
 
 (check-type
  (read-tree (string->list "x"))
  : (Read-Result (Tree Int))
- -> ((inst error (× (Tree Int) (List Char)) String)
+ -> (error
      "expected either a `(` or a digit"))
 
 (check-type
  (read-tree (string->list "(42 43 (44 45 46))"))
  : (Read-Result (Tree Int))
- -> ((inst ok (× (Tree Int) (List Char)) String)
+ -> (ok
      (tup (Node (Leaf 42) 43 (Node (Leaf 44) 45 (Leaf 46))) nil)))
 
 

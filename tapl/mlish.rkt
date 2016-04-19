@@ -114,21 +114,23 @@
   (define (inst-types tys-solved Xs tys)
     (stx-map (lambda (t) (inst-type tys-solved Xs t)) tys))
   
-  ;; computes unbound ids in tys, to be used as tyvars
+  ;; compute unbound tyvars in one unexpanded type ty
+  (define (compute-tyvar1 ty)
+    (syntax-parse ty
+      [X:id #'(X)]
+      [() #'()]
+      [(C t ...) (stx-appendmap compute-tyvar1 #'(t ...))]))
+  ;; computes unbound ids in (unexpanded) tys, to be used as tyvars
   (define (compute-tyvars tys)
-    (if (stx-null? tys)
-        #'()
-        (let L ([Xs #'()]) ; compute unbound ids; treat as tyvars
-          (define ctx (stx-car tys))
-          (with-handlers
-            ([exn:fail:syntax:unbound?
-              (λ (e)
-                (define X (stx-car (exn:fail:syntax-exprs e)))
-                ;; X is tainted, so need to launder it
-                (define Y (datum->syntax ctx (syntax->datum X)))
-                (L (cons Y Xs)))])
-            ((current-type-eval) #`(∀ #,Xs (ext-stlc:→ . #,tys)))
-            (stx-sort Xs))))))
+    (define Xs (stx-appendmap compute-tyvar1 tys))
+    (filter 
+     (lambda (X) 
+       (with-handlers
+        ([exn:fail:syntax:unbound? (lambda (e) #t)]
+         [exn:fail:type:infer? (lambda (e) #t)])
+        (let ([X+ ((current-type-eval) X)])
+          (not (or (tyvar? X+) (type? X+))))))
+     (stx-remove-dups Xs))))
 
 ;; define --------------------------------------------------
 ;; for function defs, define infers type variables
@@ -267,16 +269,20 @@
              [_:id 
               #:when (and (not (stx-null? #'(X ...)))
                           (not (stx-null? #'(τ ...))))
-              (type-error
-               #:src stx
-               #:msg
-               (string-append
-                (format "constructor ~a must instantiate ~a type argument(s): "
-                        'Cons (stx-length #'(X ...)))
-                (string-join (stx-map type->str #'(X ...)) ", ")
-                "\n"
-                (format "and be applied to ~a arguments with type(s): "(stx-length #'(τ ...)))
-                (string-join (stx-map type->str #'(τ ...)) ", ")))]
+              (raise
+               (exn:fail:type:infer
+                 (string-append
+                   (format "TYPE-ERROR: ~a (~a:~a):"
+                           (syntax-source stx) (syntax-line stx) (syntax-column stx))
+                   "\n"
+                   (format "Constructor ~a must be applied to ~a argument(s) with type(s): "
+                           'Cons (stx-length #'(τ ...)))
+                   (string-join (stx-map type->str #'(τ ...)) ", ")
+                   "\n"
+                   (format "The arguments should instantiate ~a type argument(s): "
+                           (stx-length #'(X ...)))
+                   (string-join (stx-map type->str #'(X ...)) ", "))
+                 (current-continuation-marks)))]
              [(C τs e_arg ...)
               #:when (brace? #'τs) ; commit to this clause
               #:with {~! τ_X:type (... ...)} #'τs
@@ -905,7 +911,7 @@
    (⊢ (for*/list ([x- e-] ...) body-) : (List ty_body))])
 (define-typed-syntax for/fold
   [(_ ([acc init]) ([x:id e] ...) body)
-   #:with [init- ty_init] (infer+erase #'init)
+   #:with [init- ty_init] (infer+erase #`(pass-expected init #,stx))
    #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
    #:with [(acc- x- ...) body- ty_body] 
           (infer/ctx+erase #'([acc : ty_init][x : ty] ...) #'body)

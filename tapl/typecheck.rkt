@@ -135,6 +135,10 @@
 (define-syntax add-expected
   (syntax-parser
     [(_ e τ) (syntax-property #'e 'expected-type #'τ)]))
+(define-syntax pass-expected
+  (syntax-parser
+    [(_ e stx) (syntax-property #'e 'expected-type 
+                                (syntax-property #'stx 'expected-type))]))
 (define-for-syntax (add-expected-ty e ty)
   (or (and (syntax-e ty) 
            (syntax-property e 'expected-type ((current-type-eval) ty)))
@@ -169,6 +173,8 @@
   (define (typeof stx #:tag [tag 'type])
     (define ty (syntax-property stx tag))
     (if (cons? ty) (car ty) ty))
+  
+  (define (tyvar? X) (syntax-property X 'tyvar))
   
   (define type-pat "[A-Za-z]+")
   
@@ -284,9 +290,11 @@
        (expand/df
         #`(λ (tv ...)
             (let-syntax ([tv (make-rename-transformer
-                              (assign-type
-                               (assign-type #'tv #'k)
-                               #'ok #:tag '#,tag))] ...)
+                              (syntax-property
+                               (assign-type
+                                (assign-type #'tv #'k)
+                                #'ok #:tag '#,tag)
+                               'tyvar #t))] ...)
               (λ (x ...)
                 (let-syntax 
                   ([x 

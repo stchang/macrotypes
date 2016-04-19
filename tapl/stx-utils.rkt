@@ -57,6 +57,9 @@
 (define (stx-appendmap f stx)
   (stx-flatten (stx-map f stx)))
 
+(define (stx-remove-dups Xs)
+  (remove-duplicates (stx->list Xs) free-identifier=?))
+
 (define (stx-drop stx n)
   (drop (stx->list stx) n))
 
