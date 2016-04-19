@@ -123,13 +123,16 @@
                    (let* ([pre-str #,(string-append (drop-file-ext (syntax-e #'base-lang)) ":")]
                           [pre-str-len (string-length pre-str)]
                           [drop-pre (λ (s) (substring s pre-str-len))]
-                          [excluded (map (compose symbol->string syntax->datum) (syntax->list #'(new ...)))])
+                          [excluded (map (compose symbol->string syntax->datum) (syntax->list #'(new ...)))]
+                          [origs (map symbol->string (syntax->datum #'(x ...)))])
                      (λ (name) 
                        (define out-name
                          (or (and (string-prefix? name pre-str)
                                   (drop-pre name))
                              name))
-                       (and (not (member out-name excluded)) out-name)))
+                       (and (not (member out-name excluded))
+                            (member out-name origs)
+                            out-name)))
                    (all-from-out base-lang))))]))
 
 (define-syntax add-expected
