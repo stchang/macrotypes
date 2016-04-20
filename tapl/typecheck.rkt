@@ -1,8 +1,7 @@
 #lang racket/base
 (require
   (for-syntax (except-in racket extends)
-              syntax/parse racket/syntax syntax/stx racket/stxparam
-              syntax/parse/debug
+              syntax/parse racket/syntax syntax/stx racket/stxparam syntax/parse/define
               "stx-utils.rkt")
   (for-meta 2 racket/base syntax/parse racket/syntax syntax/stx "stx-utils.rkt")
   (for-meta 3 racket/base syntax/parse racket/syntax)
@@ -385,13 +384,14 @@
   ;; usage:
   ;; type-error #:src src-stx
   ;;            #:msg msg-string msg-args ...
-  (define-syntax-rule (type-error #:src stx-src #:msg msg args ...)
+  (define-simple-macro (type-error #:src stx-src #:msg msg args ...)
+    #:with contmarks (syntax/loc this-syntax (current-continuation-marks))
     (raise
      (exn:fail:type:check
       (format (string-append "TYPE-ERROR: ~a (~a:~a): " msg) 
               (syntax-source stx-src) (syntax-line stx-src) (syntax-column stx-src) 
               (type->str args) ...)
-      (current-continuation-marks)))))
+      contmarks))))
 
 (begin-for-syntax
   ; surface type syntax is saved as the value of the 'orig property
