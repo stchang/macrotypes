@@ -1,7 +1,8 @@
 #lang s-exp "typecheck.rkt"
 (extends "stlc+lit.rkt" #:except #%datum +)
 (reuse Bool String add1 #:from "ext-stlc.rkt")
-(require (prefix-in ext: (only-in "ext-stlc.rkt" #%datum)))
+(require (prefix-in ext: (only-in "ext-stlc.rkt" #%datum))
+         (only-in "ext-stlc.rkt" current-join))
 (provide (for-syntax subs? current-sub?))
 
 ;; Simply-Typed Lambda Calculus, plus subtyping
@@ -88,5 +89,11 @@
 
   (define-sub-relation Nat <: Int)
   (define-sub-relation Int <: Num)
-  (define-sub-relation t1 <: s1 ... s2 <: t2 => (→ s1 ... s2) <: (→ t1 ... t2)))
-           
+  (define-sub-relation t1 <: s1 ... s2 <: t2 => (→ s1 ... s2) <: (→ t1 ... t2))
+  
+  (define (join t1 t2)
+    (cond
+      [((current-sub?) t1 t2) t2]
+      [((current-sub?) t2 t1) t1]
+      [else #'Top]))
+  (current-join join))

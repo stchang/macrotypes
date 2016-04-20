@@ -51,7 +51,15 @@
    (⊢ (or e- ...) : Bool)])
 
 (begin-for-syntax 
-  (define current-join (make-parameter (λ (x y) x))))
+  (define current-join 
+    (make-parameter 
+      (λ (x y) 
+        (unless (typecheck? x y)
+          (type-error
+            #:src x
+            #:msg  "branches have incompatible types: ~a and ~a" x y))
+        x))))
+
 (define-typed-syntax if
   [(~and ifstx (_ e_tst e1 e2))
    #:with τ-expected (get-expected-type #'ifstx)
@@ -62,10 +70,6 @@
    #:with (e1- τ1) (infer+erase #'e1_ann)
    #:with (e2- τ2) (infer+erase #'e2_ann)
    #:with τ-out ((current-join) #'τ1 #'τ2)
-   #:fail-unless (and (typecheck? #'τ1 #'τ-out)
-                      (typecheck? #'τ2 #'τ-out))
-                  (format "branches have incompatible types: ~a and ~a"
-                          (type->str #'τ1) (type->str #'τ2))
    (⊢ (if e_tst- e1- e2-) : τ-out)])
 
 (define-base-type Unit)
