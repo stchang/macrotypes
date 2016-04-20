@@ -281,28 +281,17 @@
               #:when (stx-null? #'(τ ...))
               #:with τ-expected (syntax-property #'C 'expected-type)
               #:fail-unless (syntax-e #'τ-expected)
-                            (type-error #:src stx 
-                             #:msg (format "cannot infer type of ~a; add annotations" 
-                                           (syntax->datum #'C)))
+                            (raise
+                              (exn:fail:type:infer
+                                (string-append
+                                  (format "TYPE-ERROR: ~a (~a:~a): "
+                                          (syntax-source stx) (syntax-line stx) (syntax-column stx))
+                                  (format "cannot infer type of ~a; add annotations" 
+                                          (syntax->datum #'C)))
+                                (current-continuation-marks)))
               #:with (NameExpander τ-expected-arg (... ...)) ((current-type-eval) #'τ-expected)
               #'(C {τ-expected-arg (... ...)})]
-             [_:id 
-              #:when (and (not (stx-null? #'(X ...)))
-                          (not (stx-null? #'(τ ...))))
-              (raise
-               (exn:fail:type:infer
-                 (string-append
-                   (format "TYPE-ERROR: ~a (~a:~a):"
-                           (syntax-source stx) (syntax-line stx) (syntax-column stx))
-                   "\n"
-                   (format "Constructor ~a must be applied to ~a argument(s) with type(s): "
-                           'Cons (stx-length #'(τ ...)))
-                   (string-join (stx-map type->str #'(τ ...)) ", ")
-                   "\n"
-                   (format "The arguments should instantiate ~a type argument(s): "
-                           (stx-length #'(X ...)))
-                   (string-join (stx-map type->str #'(X ...)) ", "))
-                 (current-continuation-marks)))]
+             [_:id (⊢ StructName (∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))] ; HO fn
              [(C τs e_arg ...)
               #:when (brace? #'τs) ; commit to this clause
               #:with {~! τ_X:type (... ...)} #'τs

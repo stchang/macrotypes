@@ -31,6 +31,17 @@
   Nil
   (Cons X (List X)))
 
+;; arity err
+(typecheck-fail (Cons 1) #:with-msg "Cons.+Wrong number of arguments")
+
+;; type err
+(typecheck-fail (Cons 1 1)
+  #:with-msg (expected "Int, (List Int)" #:given "Int, Int"))
+  
+;; check Nil still available as tyvar
+(define (f11 [x : Nil] -> Nil) x)
+(check-type f11 : (→/test X X))
+
 (typecheck-fail 
   (match (Cons 1 Nil) with
    [Nil -> 1])
@@ -178,6 +189,17 @@
 (define-type IntList
   INil
   (ConsI Int IntList))
+
+;; HO, monomorphic
+(check-type ConsI : (→ Int IntList IntList))
+(define (new-cons [c : (→ Int IntList IntList)] [x : Int] [xs : IntList] 
+                  -> IntList)
+  (c x xs))
+(check-type (new-cons ConsI 1 INil) : IntList -> (ConsI 1 INil))
+
+;; check that ConsI and INil are available as tyvars
+(define (f10 [x : INil] [y : ConsI] -> ConsI) y)
+(check-type f10 : (→/test X Y Y))
 
 (check-type INil : IntList)
 (check-type (ConsI 1 INil) : IntList)
@@ -363,6 +385,10 @@
 (check-type (rt-fn (RT2 #f 2 Nil)) : Int -> 2)
 (check-type (rt-fn (RT3 10 20)) : Int -> 10)
 
+;; HO constructors
+(check-type RT1 : (→/test X Y String (RecoTest X Y)))
+(check-type RT2 : (→/test {X Y} Y X (List X) (RecoTest X Y)))
+(check-type RT3 : (→/test X Y (RecoTest X Y)))
 
 ; ext-stlc tests --------------------------------------------------
 
