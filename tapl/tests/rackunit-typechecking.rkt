@@ -1,6 +1,6 @@
 #lang racket/base
 (require (for-syntax rackunit syntax/srcloc) rackunit "../typecheck.rkt")
-(provide check-type typecheck-fail check-not-type check-props)
+(provide check-type typecheck-fail check-not-type check-props check-runtime-exn)
 
 (begin-for-syntax
   (define (add-esc s) (string-append "\\" s))
@@ -91,3 +91,9 @@
                  "Expected type check failure but expression ~a has valid type, OR wrong err msg received."
                  (syntax->datum #'e)))))
      #'(void)]))
+
+(define-syntax (check-runtime-exn stx)
+  (syntax-parse stx
+    [(_ e)
+     #:with e- (expand/df #'e)
+     (syntax/loc stx (check-exn exn:fail? (lambda () e-)))]))

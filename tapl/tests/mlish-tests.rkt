@@ -310,6 +310,59 @@
 (check-type (λ ([x : X]) (λ ([y : Y]) y)) : (→/test {X} X (→/test {Y} Y Y)))
 (check-not-type (λ ([x : X]) (λ ([y : Y]) x)) : (→/test X (→ X X)))
 
+;; records and automatically-defined accessors and predicates
+(define-type (RecoTest X Y)
+  (RT1 [x : X] [y : Y] [z : String])
+  (RT2 [a : Y] [b : X] [c : (List X)])
+  (RT3 X Y)) ; mixing records and non-records allowed
+
+(check-type RT1-x : (→/test (RecoTest X Y) X))
+(check-type RT1-y : (→/test (RecoTest X Y) Y))
+(check-type RT1-z : (→/test (RecoTest X Y) String))
+(check-type RT2-a : (→/test (RecoTest X Y) Y))
+(check-type RT2-b : (→/test (RecoTest X Y) X))
+
+(check-type RT1? : (→/test (RecoTest X Y) Bool))
+(check-type RT2? : (→/test (RecoTest X Y) Bool))
+(check-type RT3? : (→/test (RecoTest X Y) Bool))
+
+(check-type (RT1-x (RT1 1 #t "2")) : Int -> 1)
+(check-type (RT1-y (RT1 1 #t "2")) : Bool -> #t)
+(check-type (RT1-z (RT1 1 #t "2")) : String -> "2")
+
+(check-type (RT2-a (RT2 1 #f Nil)) : Int -> 1)
+(check-type (RT2-b (RT2 1 #f Nil)) : Bool -> #f)
+(check-type (RT2-c (RT2 1 #f Nil)) : (List Bool) -> Nil)
+
+(check-type (RT1? (RT1 1 2 "3")) : Bool -> #t)
+(check-type (RT1? (RT2 1 2 Nil)) : Bool -> #f)
+(check-type (RT1? (RT3 1 "2")) : Bool -> #f)
+(check-type (RT3? (RT3 1 2)) : Bool -> #t)
+(check-type (RT3? (RT1 1 2 "3")) : Bool -> #f)
+
+(typecheck-fail RT3-x #:with-msg "unbound identifier")
+  
+;; accessors produce runtime exception if given wrong variant
+(check-runtime-exn (RT1-x (RT2 1 #f (Cons #t Nil))))
+(check-runtime-exn (RT1-y (RT2 1 #f (Cons #t Nil))))
+(check-runtime-exn (RT1-z (RT2 1 #f (Cons #t Nil))))
+(check-runtime-exn (RT1-x (RT3 1 2)))
+(check-runtime-exn (RT2-a (RT1 1 #f "2")))
+(check-runtime-exn (RT2-c (RT1 1 #f "2")))
+(check-runtime-exn (RT2-c (RT1 1 #f "2")))
+(check-runtime-exn (RT2-a (RT3 #f #t)))
+
+;; non-match version
+(define (rt-fn [rt : (RecoTest X Y)] -> X)
+  (if (RT1? rt)
+      (RT1-x rt)
+      (if (RT2? rt)
+          (RT2-b rt)
+          (match rt with [RT3 x y -> x][RT1 x y z -> x][RT2 a b c -> b]))))
+(check-type (rt-fn (RT1 1 #f "3")) : Int -> 1)
+(check-type (rt-fn (RT2 #f 2 Nil)) : Int -> 2)
+(check-type (rt-fn (RT3 10 20)) : Int -> 10)
+
 
 ; ext-stlc tests --------------------------------------------------
 

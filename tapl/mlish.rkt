@@ -1,5 +1,4 @@
 #lang s-exp "typecheck.rkt"
-(require (for-syntax syntax/id-set))
 (require racket/fixnum racket/flonum)
 
 (extends "ext-stlc.rkt" #:except #%app λ → + - void = zero? sub1 add1 not let let* and #%datum begin
@@ -10,7 +9,7 @@
 (require (only-in "ext-stlc.rkt" →?))
 (require (only-in "sysf.rkt" ~∀ ∀ ∀? Λ))
 (reuse × tup proj define-type-alias #:from "stlc+rec-iso.rkt")
-(require (only-in "stlc+rec-iso.rkt" ~× ×?))
+(require (only-in "stlc+rec-iso.rkt" ~× ×?)) ; using current-type=? from here
 (provide (rename-out [ext-stlc:and and] [ext-stlc:#%datum #%datum]))
 (reuse member length reverse list-ref cons nil isnil head tail list #:from "stlc+cons.rkt")
 (require (prefix-in stlc+cons: (only-in "stlc+cons.rkt" list cons nil)))
@@ -240,9 +239,14 @@
      #:with ((e_arg ...) ...) (stx-map generate-temporaries #'((τ ...) ...))
      #:with ((e_arg- ...) ...) (stx-map generate-temporaries #'((τ ...) ...))
      #:with ((τ_arg ...) ...) (stx-map generate-temporaries #'((τ ...) ...))
+     #:with ((exposed-acc ...) ...)
+            (stx-map 
+              (λ (C fs) (stx-map (λ (f) (format-id C "~a-~a" C f)) fs))
+              #'(Cons ...) #'((fld ...) ...))
      #:with ((acc ...) ...) (stx-map (λ (S fs) (stx-map (λ (f) (format-id S "~a-~a" S f)) fs))
                                      #'(StructName ...) #'((fld ...) ...))
      #:with (Cons? ...) (stx-map mk-? #'(StructName ...))
+     #:with (exposed-Cons? ...) (stx-map mk-? #'(Cons ...))
      #`(begin
          (define-syntax (NameExtraInfo stx)
            (syntax-parse stx
@@ -252,6 +256,22 @@
            #:extra-info 'NameExtraInfo
            #:no-provide)
          (struct StructName (fld ...) #:reflection-name 'Cons #:transparent) ...
+         (define-syntax (exposed-acc stx) ; accessor for records
+           (syntax-parse stx
+            [_:id (⊢ acc (∀ (X ...) (ext-stlc:→ (Name X ...) τ)))]
+            [(o . rst) ; handle if used in fn position
+             #:with app (datum->syntax #'o '#%app)
+             #`(app 
+                #,(assign-type #'acc #'(∀ (X ...) (ext-stlc:→ (Name X ...) τ))) 
+                . rst)])) ... ...
+         (define-syntax (exposed-Cons? stx) ; predicates for each variant
+           (syntax-parse stx
+            [_:id (⊢ Cons? (∀ (X ...) (ext-stlc:→ (Name X ...) Bool)))]
+            [(o . rst) ; handle if used in fn position
+             #:with app (datum->syntax #'o '#%app)
+             #`(app 
+                #,(assign-type #'Cons? #'(∀ (X ...) (ext-stlc:→ (Name X ...) Bool))) 
+                . rst)])) ...
          (define-syntax (Cons stx)
            (syntax-parse stx
              ; no args and not polymorphic
