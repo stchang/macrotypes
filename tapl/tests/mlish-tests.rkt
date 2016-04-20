@@ -390,6 +390,9 @@
 (check-type RT2 : (→/test {X Y} Y X (List X) (RecoTest X Y)))
 (check-type RT3 : (→/test X Y (RecoTest X Y)))
 
+(typecheck-fail (for/fold ([x 1]) () "hello") 
+ #:with-msg "for/fold: Type of body and initial accumulator must be the same, given Int and String")
+
 ; ext-stlc tests --------------------------------------------------
 
 ; tests for stlc extensions

@@ -924,7 +924,11 @@
    #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
    #:with [(acc- x- ...) body- ty_body] 
           (infer/ctx+erase #'([acc : ty_init][x : ty] ...) #'body)
-   #:when (typecheck? #'ty_body #'ty_init)
+   #:fail-unless (typecheck? #'ty_body #'ty_init)
+                 (type-error #:src stx
+                  #:msg 
+                  "for/fold: Type of body and initial accumulator must be the same, given ~a and ~a"
+                  #'ty_init #'ty_body)
    (⊢ (for/fold ([acc- init-]) ([x- e-] ...) body-) : ty_body)])
 
 (define-typed-syntax for/hash
