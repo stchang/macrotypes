@@ -136,14 +136,13 @@
 
 (define-syntax add-expected
   (syntax-parser
-    [(_ e τ) (syntax-property #'e 'expected-type #'τ)]))
+    [(_ e τ) (add-expected-ty #'e #'τ)]))
 (define-syntax pass-expected
   (syntax-parser
-    [(_ e stx) (syntax-property #'e 'expected-type 
-                                (syntax-property #'stx 'expected-type))]))
+    [(_ e stx) (add-expected-ty #'e (get-expected-type #'stx))]))
 (define-for-syntax (add-expected-ty e ty)
-  (or (and (syntax-e ty) 
-           (syntax-property e 'expected-type ((current-type-eval) ty)))
+  (if (and (syntax? ty) (syntax-e ty))
+      (syntax-property e 'expected-type ((current-type-eval) ty))
       e))
 
 ;; type assignment
@@ -164,7 +163,9 @@
     (syntax-property e tag (syntax-local-introduce ((current-type-eval) τ))))
 
   (define (add-expected-type e τ)
-    (syntax-property e 'expected-type τ)) ; dont type-eval?, ie expand?
+    (if (and (syntax? τ) (syntax-e τ))
+        (syntax-property e 'expected-type τ) ; dont type-eval?, ie expand?
+        e))
   (define (get-expected-type e)
     (syntax-property e 'expected-type))
   (define (add-env e env) (syntax-property e 'env env))
