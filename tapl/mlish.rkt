@@ -173,10 +173,10 @@
    ;; - currently cannot do it here; to do the check here, need all types of
    ;;  top-lvl fns, since they can call each other
    #:with (~and ty_fn_expected (~∀ _ (~ext-stlc:→ _ ... out_expected))) 
-          (syntax-property 
-              ((current-type-eval) #'(∀ Ys (ext-stlc:→ τ+orig ...)))
-            'orig
-            (list #'(→ τ+orig ...)))
+          (set-stx-prop/preserved 
+           ((current-type-eval) #'(∀ Ys (ext-stlc:→ τ+orig ...)))
+           'orig
+           (list #'(→ τ+orig ...)))
    #`(begin
       (define-syntax f (make-rename-transformer (⊢ g : ty_fn_expected)))
       (define g
@@ -302,7 +302,7 @@
               #:with ([e_arg- τ_arg] ...)
                      (stx-map
                       (λ (e τ_e)
-                        (infer+erase (syntax-property e 'expected-type τ_e)))
+                        (infer+erase (set-stx-prop/preserved e 'expected-type τ_e)))
                       #'(e_arg ...) #'(τ_in.norm (... ...)))
               #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in.norm (... ...)))
                            (mk-app-err-msg (syntax/loc stx (#%app C e_arg ...))
@@ -311,10 +311,10 @@
               (⊢ (StructName e_arg- ...) : (Name τ_X (... ...)))]
              [(C . args) ; no type annotations, must infer instantiation
               #:with StructName/ty 
-                     (syntax-property
-                       (⊢ StructName : (∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))
-                       'orig
-                       (list #'C))
+                     (set-stx-prop/preserved
+                      (⊢ StructName : (∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))
+                      'orig
+                      (list #'C))
               ; stx/loc transfers expected-type
               (syntax/loc stx (mlish:#%app StructName/ty . args))]))
          ...)]))
@@ -631,7 +631,7 @@
 
 (define-syntax → ; wrapping →
   (syntax-parser
-    [(_ . rst) (syntax-property #'(∀ () (ext-stlc:→ . rst)) 'orig (list #'(→ . rst)))]))
+    [(_ . rst) (set-stx-prop/preserved #'(∀ () (ext-stlc:→ . rst)) 'orig (list #'(→ . rst)))]))
 ; special arrow that computes free vars; for use with tests
 ; (because we can't write explicit forall
 (define-syntax →/test 
@@ -721,7 +721,7 @@
                                    (stx-map get-orig #'tys-solved) #'Xs old-orig
                                    (lambda (x y) 
                                     (equal? (syntax->datum x) (syntax->datum y))))))
-                          (syntax-property tyin 'orig (list new-orig)))
+                          (set-stx-prop/preserved tyin 'orig (list new-orig)))
                        #'(τ_in ...)))
        (⊢ (#%app e_fn- e_arg- ...) : τ_out)])])]
   [(_ e_fn . e_args) ; err case; e_fn is not a function

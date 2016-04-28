@@ -142,7 +142,7 @@
     [(_ e stx) (add-expected-ty #'e (get-expected-type #'stx))]))
 (define-for-syntax (add-expected-ty e ty)
   (if (and (syntax? ty) (syntax-e ty))
-      (syntax-property e 'expected-type ((current-type-eval) ty))
+      (set-stx-prop/preserved e 'expected-type ((current-type-eval) ty))
       e))
 
 ;; type assignment
@@ -160,15 +160,15 @@
   ;; - syntax-local-introduce fixes marks on types
   ;;   which didnt get marked bc they were syntax properties
   (define (assign-type e τ #:tag [tag 'type])
-    (syntax-property e tag (syntax-local-introduce ((current-type-eval) τ))))
+    (set-stx-prop/preserved e tag (syntax-local-introduce ((current-type-eval) τ))))
 
   (define (add-expected-type e τ)
     (if (and (syntax? τ) (syntax-e τ))
-        (syntax-property e 'expected-type τ) ; dont type-eval?, ie expand?
+        (set-stx-prop/preserved e 'expected-type τ) ; dont type-eval?, ie expand?
         e))
   (define (get-expected-type e)
     (syntax-property e 'expected-type))
-  (define (add-env e env) (syntax-property e 'env env))
+  (define (add-env e env) (set-stx-prop/preserved e 'env env))
   (define (get-env e) (syntax-property e 'env))
   
   ;; typeof : Syntax -> Type or #f
@@ -293,7 +293,7 @@
        (expand/df
         #`(λ (tv ...)
             (let-syntax ([tv (make-rename-transformer
-                              (syntax-property
+                              (set-stx-prop/preserved
                                (assign-type
                                 (assign-type #'tv #'k)
                                 #'ok #:tag '#,tag)
@@ -399,7 +399,7 @@
   ; used to report error msgs
   (define (add-orig stx orig)
     (define origs (or (syntax-property orig 'orig) null))
-    (syntax-property stx 'orig (cons orig origs)))
+    (set-stx-prop/preserved stx 'orig (cons orig origs)))
   (define (get-orig τ)
     (car (reverse (or (syntax-property τ 'orig) (list τ)))))
   (define (type->str ty)
@@ -685,7 +685,7 @@
     (or (and (pair? t)
              (identifier? (car t)) (identifier? (cdr t))
              (free-identifier=? (car t) (cdr t))
-             (syntax-property stx 'type (car t)))
+             (set-stx-prop/preserved stx 'type (car t)))
         stx))
   ; subst τ for y in e, if (bound-id=? x y)
   (define (subst τ x e [cmp bound-identifier=?])

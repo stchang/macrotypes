@@ -1,5 +1,5 @@
 #lang racket/base
-(require syntax/stx racket/list)
+(require syntax/stx racket/list version/utils)
 (provide (all-defined-out))
 
 (define (stx-cadr stx) (stx-car (stx-cdr stx)))
@@ -67,6 +67,11 @@
   (stx-map generate-temporaries stx))
 (define (generate-temporariesss stx)
   (stx-map generate-temporariess stx))
+
+(define (set-stx-prop/preserved stx prop val)
+  (if (version<=? "6.5.0.4" (version))
+      (syntax-property stx prop val #t)
+      (syntax-property stx prop val)))
 
 ;; based on make-variable-like-transformer from syntax/transformer,
 ;; but using (#%app id ...) instead of ((#%expression id) ...)
