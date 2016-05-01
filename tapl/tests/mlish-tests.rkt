@@ -136,7 +136,7 @@
   : (List Int) ⇒ Nil)
 (check-type (filter zero? (Cons 0 (Cons 1 (Cons 2 Nil)))) 
   : (List Int) ⇒ (Cons 0 Nil))
-(check-type (filter (λ ([x : Int]) (not (zero? x))) (Cons 0 (Cons 1 (Cons 2 Nil)))) 
+(check-type (filter (λ (x) (not (zero? x))) (Cons 0 (Cons 1 (Cons 2 Nil)))) 
   : (List Int) ⇒ (Cons 1 (Cons 2 Nil)))
 (check-type (filter/guard zero? Nil) : (List Int) ⇒ Nil)
 (check-type (filter/guard zero? (Cons 1 (Cons 2 (Cons 3 Nil)))) 
@@ -144,7 +144,7 @@
 (check-type (filter/guard zero? (Cons 0 (Cons 1 (Cons 2 Nil)))) 
   : (List Int) ⇒ (Cons 0 Nil))
 (check-type 
-  (filter/guard (λ ([x : Int]) (not (zero? x))) (Cons 0 (Cons 1 (Cons 2 Nil)))) 
+  (filter/guard (λ (x) (not (zero? x))) (Cons 0 (Cons 1 (Cons 2 Nil)))) 
   : (List Int) ⇒ (Cons 1 (Cons 2 Nil)))
 ; doesnt work yet: all lambdas need annotations
 ;(check-type (filter (λ (x) (not (zero? x))) (list 0 1 2)) : (List Int) ⇒ (list 1 2))
@@ -177,6 +177,8 @@
 (check-type (build-list 3 add1) : (List Int) ⇒ (Cons 3 (Cons 2 (Cons 1 Nil))))
 (check-type (build-list 5 sub1) 
   : (List Int) ⇒ (Cons 3 (Cons 2 (Cons 1 (Cons 0 (Cons -1 Nil))))))
+(check-type (build-list 5 (λ (x) (add1 (add1 x))))
+  : (List Int) ⇒ (Cons 6 (Cons 5 (Cons 4 (Cons 3 (Cons 2 Nil))))))
 
 (define (append [lst1 : (List X)] [lst2 : (List X)] → (List X))
   (match lst1 with
@@ -323,9 +325,13 @@
 
 ;; X in lam should not be a new tyvar
 (define (tvf4 [x : X] -> (→ X X))
-  (λ ([y : X]) x))
+  (λ (y) x))
 (check-type tvf4 : (→/test X (→ X X)))
 (check-not-type tvf4 : (→/test X (→ Y X)))
+
+(define (tvf6 [x : X] -> (→ Y X))
+  (λ (y) x))
+(check-type tvf6 : (→/test X (→ Y X)))
 
 (check-type (λ ([x : X]) (λ ([y : X]) y)) : (→/test X (→ X X)))
 (check-not-type (λ ([x : X]) (λ ([y : X]) y)) : (→/test {X} X (→/test {Y} Y Y)))
@@ -474,7 +480,7 @@
 ;; recursive
 (check-type
  (letrec ([(countdown : (→ Int String))
-           (λ ([i : Int])
+           (λ (i)
              (if (= i 0)
                  "liftoff"
                  (countdown (- i 1))))])
@@ -483,11 +489,11 @@
 ;; mutually recursive
 (check-type
  (letrec ([(is-even? : (→ Int Bool))
-           (λ ([n : Int])
+           (λ (n)
              (or (zero? n)
                  (is-odd? (sub1 n))))]
           [(is-odd? : (→ Int Bool))
-           (λ ([n : Int])
+           (λ (n)
              (and (not (zero? n))
                   (is-even? (sub1 n))))])
    (is-odd? 11)) : Bool ⇒ #t)
@@ -521,10 +527,10 @@
 (check-not-type 1 : (→ Int Int))
 ;(typecheck-fail "one") ; literal now supported
 ;(typecheck-fail #f) ; literal now supported
-(check-type (λ ([x : Int] [y : Int]) x) : (→ Int Int Int))
+(check-type (λ (x y) x) : (→ Int Int Int))
 (check-not-type (λ ([x : Int]) x) : Int)
-(check-type (λ ([x : Int]) x) : (→ Int Int))
-(check-type (λ ([f : (→ Int Int)]) 1) : (→ (→ Int Int) Int))
+(check-type (λ (x) x) : (→ Int Int))
+(check-type (λ (f) 1) : (→ (→ Int Int) Int))
 (check-type ((λ ([x : Int]) x) 1) : Int ⇒ 1)
 
 (typecheck-fail
@@ -536,7 +542,7 @@
  #:with-msg
  "Expected expression f to have → type, got: Int")
 
-(check-type (λ ([f : (→ Int Int Int)] [x : Int] [y : Int]) (f x y))
+(check-type (λ (f x y) (f x y))
             : (→ (→ Int Int Int) Int Int Int))
 (check-type ((λ ([f : (→ Int Int Int)] [x : Int] [y : Int]) (f x y)) + 1 2)
             : Int ⇒ 3)

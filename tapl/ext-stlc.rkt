@@ -116,7 +116,7 @@
 (define-typed-syntax letrec
   [(_ ([b:type-bind e] ...) e_body)
    #:with ((x- ...) (e- ... e_body-) (τ ... τ_body))
-          (infers/ctx+erase #'(b ...) #'(e ... e_body))
+          (infers/ctx+erase #'(b ...) #'((add-expected e b.type) ... e_body))
    #:fail-unless (typechecks? #'(b.type ...) #'(τ ...))
                  (type-error #:src stx
                   #:msg (string-append
