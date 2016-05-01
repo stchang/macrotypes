@@ -515,11 +515,8 @@
              (stx-map 
                infer/ctx+erase 
                #'(ctx ...) #'((add-expected e_body ty-expected) ...))
-      #:fail-unless (same-types? #'(ty_body ...))
-                    (string-append "branches have different types, given: "
-                      (string-join (stx-map type->str #'(ty_body ...)) ", "))
       #:when (check-exhaust #'(pat- ...) #'τ_e)
-      #:with τ_out (stx-car #'(ty_body ...))
+      #:with τ_out (stx-foldr (current-join) (stx-car #'(ty_body ...)) (stx-cdr #'(ty_body ...)))
       (⊢ (match e- [pat- (let ([x- x] ...) e_body-)] ...) : τ_out)
       ])]))
 
@@ -547,7 +544,7 @@
       (syntax-parse #'clauses #:datum-literals (-> ::)
        [([(~or (~and (~and xs [x ...]) (~parse rst (generate-temporary)))
                (~and (~seq (~seq x ::) ... rst:id) (~parse xs #'())))
-          -> e_body] ...)
+          -> e_body] ...+)
         #:fail-unless (stx-ormap 
                         (lambda (xx) (and (brack? xx) (zero? (stx-length xx)))) 
                         #'(xs ...))
@@ -559,7 +556,7 @@
         #:with ([(x- ... rst-) e_body- ty_body] ...)
                (stx-map (lambda (ctx e) (infer/ctx+erase ctx e)) 
                  #'(([x ty] ... [rst (List ty)]) ...) #'((add-expected e_body t_expect) ...))
-        #:with τ_out (stx-car #'(ty_body ...))
+        #:with τ_out (stx-foldr (current-join) (stx-car #'(ty_body ...)) (stx-cdr #'(ty_body ...)))
         #:with (len ...) (stx-map (lambda (p) #`#,(stx-length p)) #'((x ...) ...))
         #:with (lenop ...) (stx-map (lambda (p) (if (brack? p) #'= #'>=)) #'(xs ...))
         #:with (pred? ...) (stx-map
@@ -580,7 +577,7 @@
       (syntax-parse #'clauses #:datum-literals (->)
        [([Clause:id x:id ... 
              (~optional (~seq #:when e_guard) #:defaults ([e_guard #'(ext-stlc:#%datum . #t)]))
-             -> e_c_un] ...) ; un = unannotated with expected ty
+             -> e_c_un] ...+) ; un = unannotated with expected ty
         ;; length #'clauses may be > length #'info, due to guards
         #:with info-body (get-extra-info #'τ_e)
         #:with (_ (_ (_ ConsAll) . _) ...) #'info-body
@@ -609,7 +606,7 @@
         ;;                          (for/list ([(a i) (in-indexed (syntax->list accs))])
         ;;                            #`(lambda (s) (unsafe-struct*-ref s #,(datum->syntax #'here i)))))
         ;;                         #'((acc-fn ...) ...))
-        #:with (e_c ...) (stx-map (lambda (ec) (add-expected-ty ec #'t_expect)) #'(e_c_un ...))
+        #:with (e_c ...+) (stx-map (lambda (ec) (add-expected-ty ec #'t_expect)) #'(e_c_un ...))
         #:with (((x- ...) (e_guard- e_c-) (τ_guard τ_ec)) ...)
                (stx-map 
                    (λ (bs eg+ec) (infers/ctx+erase bs eg+ec)) 
@@ -617,10 +614,7 @@
         #:fail-unless (and (same-types? #'(τ_guard ...))
                            (Bool? (stx-car #'(τ_guard ...))))
                       "guard expression(s) must have type bool"
-        #:fail-unless (same-types? #'(τ_ec ...)) 
-                      (string-append "branches have different types, given: "
-                       (string-join (stx-map type->str #'(τ_ec ...)) ", "))
-        #:with τ_out (stx-car #'(τ_ec ...))
+        #:with τ_out (stx-foldr (current-join) (stx-car #'(τ_ec ...)) (stx-cdr #'(τ_ec ...)))
         #:with z (generate-temporary) ; dont duplicate eval of test expr
         (⊢ (let ([z e-])
              (cond 
@@ -735,15 +729,12 @@
 (define-typed-syntax cond
   [(_ [(~or (~and (~datum else) (~parse test #'(ext-stlc:#%datum . #t)))
          test)
-       b ... body] ...)
+       b ... body] ...+)
    #:with (test- ...) (⇑s (test ...) as Bool)
    #:with ty-expected (get-expected-type stx)
    #:with ([body- ty_body] ...) (infers+erase #'((add-expected body ty-expected) ...))
    #:with (([b- ty_b] ...) ...) (stx-map infers+erase #'((b ...) ...))
-   #:when (same-types? (if (syntax-e #'ty-expected)
-                           #`(#,((current-type-eval) #'ty-expected) ty_body ...)
-                           #'(ty_body ...)))
-   #:with τ_out (stx-car #'(ty_body ...))
+   #:with τ_out (stx-foldr (current-join) (stx-car #'(ty_body ...)) (stx-cdr #'(ty_body ...)))
    (⊢ (cond [test- b- ... body-] ...) : τ_out)])
 (define-typed-syntax when
   [(_ test body ...)

@@ -17,13 +17,14 @@
   (match2 (B (tup 2 3)) with
    [A x -> x]
    [C (x,y) -> y]
-   [B x -> x]) #:with-msg "branches have different types")
+   [B x -> x]) #:with-msg "branches have incompatible types: \\(× Int Int\\) and Int")
 
 (typecheck-fail
   (match2 (B (tup 2 3)) with
    [A x -> (tup x x)]
    [C x -> x]
-   [B x -> x]) #:with-msg "branches have different types")
+   [B x -> x])
+  #:with-msg "branches have incompatible types: \\(× Int \\(× Int Int\\)\\) and \\(× Int Int\\)")
 
 (check-type
   (match2 (B (tup 2 3)) with
@@ -51,7 +52,7 @@
   (match2 (A (tup 2 3)) with
    [B (x,y) -> y]
    [A x -> x]
-   [C x -> x]) #:with-msg "branches have different types")
+   [C x -> x]) #:with-msg "branches have incompatible types")
 
 (check-type
   (match2 (A 1) with

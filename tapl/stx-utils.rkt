@@ -51,6 +51,8 @@
 
 (define (stx-fold f base . lsts)
   (apply foldl f base (map stx->list lsts)))
+(define (stx-foldr f base . lsts)
+  (apply foldr f base (map stx->list lsts)))
 
 (define (stx-append stx1 stx2)
   (append (stx->list stx1) (stx->list stx2)))
