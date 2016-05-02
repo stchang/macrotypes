@@ -670,13 +670,22 @@
 
 ; all λs have type (∀ (X ...) (→ τ_in ... τ_out)), even monomorphic fns
 (define-typed-syntax liftedλ #:export-as λ
-  [(_ (y:id x:id ...) . body)
-   (type-error #:src stx #:msg "λ parameters must have type annotations")]
+  [(_ (x:id ...+) body)
+   #:with (~?∀ Xs expected) (get-expected-type stx)
+   #:do [(unless (→? #'expected)
+           (type-error #:src stx #:msg "λ parameters must have type annotations"))]
+   #:with (~ext-stlc:→ arg-ty ... body-ty) #'expected
+   #:do [(unless (stx-length=? #'[x ...] #'[arg-ty ...])
+           (type-error #:src stx #:msg
+                       (format "expected a function of ~a arguments, got one with ~a arguments"
+                               (stx-length #'[arg-ty ...] #'[x ...]))))]
+   #`(Λ Xs (ext-stlc:λ ([x : arg-ty] ...) #,(add-expected-ty #'body #'body-ty)))]
   [(_ args body)
-   #:with (~∀ () (~ext-stlc:→ arg-ty ... body-ty)) (get-expected-type stx)
+   #:with (~?∀ () (~ext-stlc:→ arg-ty ... body-ty)) (get-expected-type stx)
    #`(Λ () (ext-stlc:λ args #,(add-expected-ty #'body #'body-ty)))]
   [(_ (~and x+tys ([_ (~datum :) ty] ...)) . body)
    #:with Xs (compute-tyvars #'(ty ...))
+   ;; TODO is there a way to have λs that refer to ids defined after them?
    #'(Λ Xs (ext-stlc:λ x+tys . body))])
 
 
