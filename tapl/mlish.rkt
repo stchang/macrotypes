@@ -31,8 +31,19 @@
 ;; - pattern matching
 ;; - (local) type inference
 
-  ;; type inference constraint solving
 (begin-for-syntax 
+  ;; matching possibly polymorphic types
+  (define-syntax ~?∀
+    (pattern-expander
+     (lambda (stx)
+       (syntax-case stx ()
+         [(?∀ vars-pat body-pat)
+          #'(~or (~∀ vars-pat body-pat)
+                 (~and (~not (~∀ _ _))
+                       (~parse vars-pat #'())
+                       body-pat))]))))
+
+  ;; type inference constraint solving
   (define (compute-constraint τ1-τ2)
     (syntax-parse τ1-τ2
       [(X:id τ) #'((X τ))]
