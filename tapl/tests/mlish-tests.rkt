@@ -333,10 +333,25 @@
   (λ (y) x))
 (check-type tvf6 : (→/test X (→ Y X)))
 
+;; nested lambdas
+
 (check-type (λ ([x : X]) (λ ([y : X]) y)) : (→/test X (→ X X)))
 (check-not-type (λ ([x : X]) (λ ([y : X]) y)) : (→/test {X} X (→/test {Y} Y Y)))
 (check-type (λ ([x : X]) (λ ([y : Y]) y)) : (→/test {X} X (→/test {Y} Y Y)))
 (check-not-type (λ ([x : X]) (λ ([y : Y]) x)) : (→/test X (→ X X)))
+
+(check-type 
+  ((λ ([x : X]) (λ ([y : Y]) y)) 1)
+  : (→/test Y Y))
+
+;; TODO?
+;; - this fails if polymorphic functions are allowed as HO args
+;;   - do we want to allow this?
+;; - must explicitly instantiate before passing fn
+(check-type 
+  ((λ ([x : (→ X (→ Y Y))]) x) 
+   (inst (λ ([x : X]) (inst (λ ([y : Y]) y) Int)) Int))
+   : (→ Int (→ Int Int)))  
 
 ;; records and automatically-defined accessors and predicates
 (define-type (RecoTest X Y)
