@@ -6,7 +6,7 @@
 ;(reuse [inst sysf:inst] #:from "sysf.rkt") 
 (require (rename-in (only-in "sysf.rkt" inst) [inst sysf:inst]))
 (provide inst)
-(require (only-in "ext-stlc.rkt" →?))
+(require (only-in "ext-stlc.rkt" → →?))
 (require (only-in "sysf.rkt" ~∀ ∀ ∀? Λ))
 (reuse × tup proj define-type-alias #:from "stlc+rec-iso.rkt")
 (require (only-in "stlc+rec-iso.rkt" ~× ×?)) ; using current-type=? from here
@@ -70,7 +70,7 @@
        #:when (typecheck? #'tycons1 #'tycons2)
        (compute-constraints #'((τ1 τ2) ...))]
       ; should only be monomorphic?
-      [((~∀ () (~ext-stlc:→ τ1 ...)) (~∀ () (~ext-stlc:→ τ2 ...)))
+      [((~?∀ () (~ext-stlc:→ τ1 ...)) (~?∀ () (~ext-stlc:→ τ2 ...)))
        (compute-constraints #'((τ1 τ2) ...))]
       [_ #'()]))
   (define (compute-constraints τs) 
@@ -201,8 +201,8 @@
    ;; TODO: check that specified return type is correct
    ;; - currently cannot do it here; to do the check here, need all types of
    ;;  top-lvl fns, since they can call each other
-   #:with (~and ty_fn_expected (~∀ _ (~ext-stlc:→ _ ... out_expected))) 
-          ((current-type-eval) #'(∀ Ys (ext-stlc:→ τ+orig ...)))
+   #:with (~and ty_fn_expected (~?∀ _ (~ext-stlc:→ _ ... out_expected))) 
+          ((current-type-eval) #'(?∀ Ys (ext-stlc:→ τ+orig ...)))
    #`(begin
       (define-syntax f (make-rename-transformer (⊢ g : ty_fn_expected)))
       (define g
@@ -219,15 +219,15 @@
    ;; TODO: check that specified return type is correct
    ;; - currently cannot do it here; to do the check here, need all types of
    ;;  top-lvl fns, since they can call each other
-   #:with (~and ty_fn_expected (~∀ _ (~ext-stlc:→ _ ... out_expected))) 
+   #:with (~and ty_fn_expected (~?∀ _ (~ext-stlc:→ _ ... out_expected))) 
           (set-stx-prop/preserved 
-           ((current-type-eval) #'(∀ Ys (ext-stlc:→ τ+orig ...)))
+           ((current-type-eval) #'(?∀ Ys (ext-stlc:→ τ+orig ...)))
            'orig
            (list #'(→ τ+orig ...)))
    #`(begin
       (define-syntax f (make-rename-transformer (⊢ g : ty_fn_expected)))
       (define g
-        (Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))])
+        (?Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))])
 
 ;; define-type -----------------------------------------------
 ;; TODO: should validate τ as part of define-type definition (before it's used)
@@ -305,19 +305,19 @@
          (struct StructName (fld ...) #:reflection-name 'Cons #:transparent) ...
          (define-syntax (exposed-acc stx) ; accessor for records
            (syntax-parse stx
-            [_:id (⊢ acc (∀ (X ...) (ext-stlc:→ (Name X ...) τ)))]
+            [_:id (⊢ acc (?∀ (X ...) (ext-stlc:→ (Name X ...) τ)))]
             [(o . rst) ; handle if used in fn position
              #:with app (datum->syntax #'o '#%app)
              #`(app 
-                #,(assign-type #'acc #'(∀ (X ...) (ext-stlc:→ (Name X ...) τ))) 
+                #,(assign-type #'acc #'(?∀ (X ...) (ext-stlc:→ (Name X ...) τ))) 
                 . rst)])) ... ...
          (define-syntax (exposed-Cons? stx) ; predicates for each variant
            (syntax-parse stx
-            [_:id (⊢ Cons? (∀ (X ...) (ext-stlc:→ (Name X ...) Bool)))]
+            [_:id (⊢ Cons? (?∀ (X ...) (ext-stlc:→ (Name X ...) Bool)))]
             [(o . rst) ; handle if used in fn position
              #:with app (datum->syntax #'o '#%app)
              #`(app 
-                #,(assign-type #'Cons? #'(∀ (X ...) (ext-stlc:→ (Name X ...) Bool))) 
+                #,(assign-type #'Cons? #'(?∀ (X ...) (ext-stlc:→ (Name X ...) Bool))) 
                 . rst)])) ...
          (define-syntax (Cons stx)
            (syntax-parse stx
@@ -338,7 +338,7 @@
                                 (current-continuation-marks)))
               #:with (NameExpander τ-expected-arg (... ...)) ((current-type-eval) #'τ-expected)
               #'(C {τ-expected-arg (... ...)})]
-             [_:id (⊢ StructName (∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))] ; HO fn
+             [_:id (⊢ StructName (?∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))] ; HO fn
              [(C τs e_arg ...)
               #:when (brace? #'τs) ; commit to this clause
               #:with {~! τ_X:type (... ...)} #'τs
@@ -359,7 +359,7 @@
              [(C . args) ; no type annotations, must infer instantiation
               #:with StructName/ty 
                      (set-stx-prop/preserved
-                      (⊢ StructName : (∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))
+                      (⊢ StructName : (?∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))
                       'orig
                       (list #'C))
               ; stx/loc transfers expected-type
@@ -670,19 +670,16 @@
                (let ([x- (acc z)] ...) e_c-)] ...))
            : τ_out)])])])
 
-(define-syntax → ; wrapping →
-  (syntax-parser
-    [(_ . rst) (set-stx-prop/preserved #'(∀ () (ext-stlc:→ . rst)) 'orig (list #'(→ . rst)))]))
 ; special arrow that computes free vars; for use with tests
 ; (because we can't write explicit forall
 (define-syntax →/test 
   (syntax-parser
     [(_ (~and Xs (X:id ...)) . rst)
      #:when (brace? #'Xs)
-     #'(∀ (X ...) (ext-stlc:→ . rst))]
+     #'(?∀ (X ...) (ext-stlc:→ . rst))]
     [(_ . rst)
      #:with Xs (compute-tyvars #'rst)
-     #'(∀ Xs (ext-stlc:→ . rst))]))
+     #'(?∀ Xs (ext-stlc:→ . rst))]))
 
 ; redefine these to use lifted →
 (define-primop + : (→ Int Int Int))
@@ -704,7 +701,7 @@
 (define-primop even? : (→ Int Bool))
 (define-primop odd? : (→ Int Bool))
 
-; all λs have type (∀ (X ...) (→ τ_in ... τ_out)), even monomorphic fns
+; all λs have type (?∀ (X ...) (→ τ_in ... τ_out))
 (define-typed-syntax liftedλ #:export-as λ
   [(_ (x:id ...+) body)
    #:with (~?∀ Xs expected) (get-expected-type stx)
@@ -715,21 +712,21 @@
            (type-error #:src stx #:msg
                        (format "expected a function of ~a arguments, got one with ~a arguments"
                                (stx-length #'[arg-ty ...] #'[x ...]))))]
-   #`(Λ Xs (ext-stlc:λ ([x : arg-ty] ...) #,(add-expected-ty #'body #'body-ty)))]
+   #`(?Λ Xs (ext-stlc:λ ([x : arg-ty] ...) #,(add-expected-ty #'body #'body-ty)))]
   [(_ args body)
    #:with (~?∀ () (~ext-stlc:→ arg-ty ... body-ty)) (get-expected-type stx)
-   #`(Λ () (ext-stlc:λ args #,(add-expected-ty #'body #'body-ty)))]
+   #`(?Λ () (ext-stlc:λ args #,(add-expected-ty #'body #'body-ty)))]
   [(_ (~and x+tys ([_ (~datum :) ty] ...)) . body)
    #:with Xs (compute-tyvars #'(ty ...))
    ;; TODO is there a way to have λs that refer to ids defined after them?
-   #'(Λ Xs (ext-stlc:λ x+tys . body))])
+   #'(?Λ Xs (ext-stlc:λ x+tys . body))])
 
 
 ;; #%app --------------------------------------------------
 (define-typed-syntax mlish:#%app #:export-as #%app
   [(_ e_fn . e_args)
    ;; ) compute fn type (ie ∀ and →) 
-   #:with [e_fn- (~∀ Xs (~ext-stlc:→ . tyX_args))] (infer+erase #'e_fn)
+   #:with [e_fn- (~?∀ Xs (~ext-stlc:→ . tyX_args))] (infer+erase #'e_fn)
    (cond 
     [(stx-null? #'Xs)
      (syntax-parse #'(e_args tyX_args)
@@ -833,7 +830,7 @@
 ;; threads
 (define-typed-syntax thread
   [(_ th)
-   #:with (th- (~∀ () (~ext-stlc:→ τ_out))) (infer+erase #'th)
+   #:with (th- (~?∀ () (~ext-stlc:→ τ_out))) (infer+erase #'th)
    (⊢ (thread th-) : Thread)])
 
 (define-primop random : (→ Int Int))
@@ -1196,10 +1193,7 @@
     [(_ e ty ...)
      #:with [ee tyty] (infer+erase #'e)
      #:with [e- ty_e] (infer+erase #'(sysf:inst e ty ...))
-     #:with ty_out (if (→? #'ty_e)
-                       #'(∀ () ty_e)
-                       #'ty_e)
-     (⊢ e- : ty_out)]))
+     (⊢ e- : ty_e)]))
 
 (define-typed-syntax read
   [(_)
