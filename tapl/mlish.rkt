@@ -31,6 +31,25 @@
 ;; - pattern matching
 ;; - (local) type inference
 
+;; creating possibly polymorphic types
+;; ?∀ only wraps a type in a forall if there's at least one type variable
+(define-syntax ?∀
+  (lambda (stx)
+    (syntax-case stx ()
+      [(?∀ () body)
+       #'body]
+      [(?∀ (X ...) body)
+       #'(∀ (X ...) body)])))
+
+;; ?Λ only wraps an expression in a Λ if there's at least one type variable
+(define-syntax ?Λ
+  (lambda (stx)
+    (syntax-case stx ()
+      [(?Λ () body)
+       #'body]
+      [(?Λ (X ...) body)
+       #'(Λ (X ...) body)])))
+
 (begin-for-syntax 
   ;; matching possibly polymorphic types
   (define-syntax ~?∀
