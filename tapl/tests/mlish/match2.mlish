@@ -59,11 +59,10 @@
    [A x -> x]
    [_ -> -1]) : Int -> 1)
 
-;; TODO: better err msg, is actually a type err
 (typecheck-fail
   (match2 (B 1) with
    [B x -> x]) 
-  #:with-msg "Could not infer instantiation of polymorphic function B")
+  #:with-msg (expected "(× X X)" #:given "Int"))
 
 (check-type
   (match2 (B (tup 2 3)) with

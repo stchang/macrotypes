@@ -71,23 +71,30 @@
        #'τ]
       [(_ . rst) (lookup x #'rst)]
       [() #f]))
-  
-  ;; Returns list of types, for each X in Xs, 
-  ;;   if it's possible to solve for such types from constraints cs
-  ;; else returns #f
-  (define (try-to-solve Xs cs)
-    (define maybe-solved 
-      (filter (lambda (x) x) (stx-map (λ (X) (lookup X cs)) Xs)))
-    (and (stx-length=? Xs maybe-solved)
-         maybe-solved))
+
+  ;; find-unsolved-Xs : (Stx-Listof Id) Constraints -> (Listof Id)
+  ;; finds the free Xs that aren't constrained by cs
+  (define (find-unsolved-Xs Xs cs)
+    (for/list ([X (in-list (stx->list Xs))]
+               #:when (not (lookup X cs)))
+      X))
+
+  ;; lookup-Xs/keep-unsolved : (Stx-Listof Id) Constraints -> (Listof Type-Stx)
+  ;; looks up each X in the constraints, returning the X if it's unconstrained
+  (define (lookup-Xs/keep-unsolved Xs cs)
+    (for/list ([X (in-list (stx->list Xs))])
+      (or (lookup X cs) X)))
 
   ;; solve for Xs by unifying quantified fn type with the concrete types of stx's args
   ;;   stx = the application stx = (#%app e_fn e_arg ...)
   ;;   tyXs = input and output types from fn type
   ;;          ie (typeof e_fn) = (-> . tyXs)
-  ;; returns list of types if success, else throws type error
-  ;; - infers type of arguments from left-to-right
-  ;; - short circuits if done early
+  ;; It infers the types of arguments from left-to-right,
+  ;; and it short circuits if it's done early.
+  ;; It returns list of 3 values if successful, else throws a type error
+  ;;  - a list of the arguments that it expanded
+  ;;  - a list of the the un-constrained type variables
+  ;;  - a list of types to fill in for the Xs
   (define (solve Xs tyXs stx)
     (syntax-parse tyXs
       [(τ_inX ... τ_outX)
@@ -103,20 +110,19 @@
               (for/fold ([as- null] [cs initial-cs])
                         ([a (in-list (syntax->list #'args))]
                          [tyXin (in-list (syntax->list #'(τ_inX ...)))]
-                         #:break (try-to-solve Xs cs))
+                         #:break (empty? (find-unsolved-Xs Xs cs)))
                 (define/with-syntax [a- ty_a] (infer+erase a))
                 (values 
                  (cons #'a- as-)
                  (stx-append cs (compute-constraint (list tyXin #'ty_a))))))
-         (define maybe-solved-tys (try-to-solve Xs cs))
-         
-         (if maybe-solved-tys
-             (list (reverse as-) maybe-solved-tys)
-             (type-error #:src stx
-              #:msg (mk-app-err-msg stx #:expected #'(τ_inX ...) 
-                     #:given (stx-map stx-cadr (infers+erase #'args))
-                     #:note (format "Could not infer instantiation of polymorphic function ~a."
-                                    (syntax->datum (get-orig #'e_fn))))))])]))
+
+         (list (reverse as-) (find-unsolved-Xs Xs cs) (lookup-Xs/keep-unsolved Xs cs))])]))
+
+  (define (raise-app-poly-infer-error stx expected-tys given-tys e_fn)
+    (type-error #:src stx
+     #:msg (mk-app-err-msg stx #:expected expected-tys #:given given-tys
+            #:note (format "Could not infer instantiation of polymorphic function ~a."
+                           (syntax->datum (get-orig e_fn))))))
 
   ;; instantiate polymorphic types
   (define (inst-type tys-solved Xs ty)
@@ -705,7 +711,7 @@
         #'(ext-stlc:#%app e_fn/ty (add-expected e_arg τ_inX) ...)])]
     [else
      ;; ) solve for type variables Xs
-     (define/with-syntax ((e_arg1- ...) tys-solved) (solve #'Xs #'tyX_args stx))
+     (define/with-syntax ((e_arg1- ...) (unsolved-X ...) tys-solved) (solve #'Xs #'tyX_args stx))
      ;; ) instantiate polymorphic function type
      (syntax-parse (inst-types #'tys-solved #'Xs #'tyX_args)
       [(τ_in ... τ_out) ; concrete types
@@ -737,7 +743,14 @@
                                     (equal? (syntax->datum x) (syntax->datum y))))))
                           (set-stx-prop/preserved tyin 'orig (list new-orig)))
                        #'(τ_in ...)))
-       (⊢ (#%app e_fn- e_arg- ...) : τ_out)])])]
+       #:with τ_out* (if (stx-null? #'(unsolved-X ...))
+                         #'τ_out
+                         (syntax-parse #'τ_out
+                           [(~?∀ (Y ...) τ_out)
+                            (unless (→? #'τ_out)
+                              (raise-app-poly-infer-error stx #'(τ_in ...) #'(τ_arg ...) #'e_fn))
+                            #'(∀ (unsolved-X ... Y ...) τ_out)]))
+       (⊢ (#%app e_fn- e_arg- ...) : τ_out*)])])]
   [(_ e_fn . e_args) ; err case; e_fn is not a function
    #:with [e_fn- τ_fn] (infer+erase #'e_fn)
    (type-error #:src stx 

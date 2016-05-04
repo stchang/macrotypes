@@ -55,8 +55,7 @@
 (check-type g2 : (→/test (List Y) (List Y)))
 (typecheck-fail (g2 1) 
   #:with-msg 
-  (expected "(List Y)" #:given "Int"
-   #:note "Could not infer instantiation of polymorphic function"))
+  (expected "(List Y)" #:given "Int"))
 
 ;; todo? allow polymorphic nil?
 (check-type (g2 (Nil {Int})) : (List Int) ⇒ (Nil {Int}))
@@ -352,6 +351,107 @@
   ((λ ([x : (→ X (→ Y Y))]) x) 
    (inst (λ ([x : X]) (inst (λ ([y : Y]) y) Int)) Int))
    : (→ Int (→ Int Int)))  
+
+(check-type 
+  ((λ ([x : X]) (λ ([y : Y]) (λ ([z : Z]) z))) 1)
+  : (→/test {Y} Y (→/test {Z} Z Z)))
+
+(check-type (inst Cons (→/test X X))
+  : (→ (→/test X X) (List (→/test X X)) (List (→/test X X))))
+(check-type map : (→/test (→ X Y) (List X) (List Y)))
+
+(check-type (Cons (λ ([x : X]) x) Nil)
+  : (List (→/test {X} X X)))
+
+(define (nn [x : X] -> (→ (× X (→ Y Y))))
+  (λ () (tup x (λ ([x : Y]) x))))
+(define nn-1 (nn 1))
+(check-type (nn-1) : (× Int (→ String String)))
+(check-type (nn-1) : (× Int (→ (List Int) (List Int))))
+
+(define (nn2 [x : X] -> (→ (× X (→ Y Y) (List Z))))
+  (λ () (tup x (λ ([x : Y]) x) Nil)))
+(define nn2-1 (nn2 1))
+(check-type (nn2-1) : (× Int (→ String String) (List (List Int))))
+(check-type (nn2-1) : (× Int (→ (List Int) (List Int)) (List String)))
+;; test inst order
+(check-type ((inst nn2-1 String (List Int))) : (× Int (→ String String) (List (List Int))))
+(check-type ((inst nn2-1 (List Int) String)) : (× Int (→ (List Int) (List Int)) (List String)))
+
+(define-type (Result A B)
+  (Ok A)
+  (Error B))
+
+(define (ok [a : A] → (Result A B))
+  (Ok a))
+(define (error [b : B] → (Result A B))
+  (Error b))
+
+(check-type (if (zero? (random 2))
+                (ok 0)
+                (error "didn't get a zero"))
+            : (Result Int String))
+
+(define result-if-0
+  (λ ([b : (Result A1 B1)] [succeed : (→ A1 (Result A2 B2))] [fail : (→ B1 (Result A2 B2))])
+    (match b with
+      [Ok a -> (succeed a)]
+      [Error b -> (fail b)])))
+(check-type result-if-0
+            : (→/test (Result A1 B1) (→ A1 (Result A2 B2)) (→ B1 (Result A2 B2))
+                      (Result A2 B2)))
+
+(define (result-if-1 [b : (Result A1 B1)]
+                     → (→ (→ A1 (Result A2 B2)) (→ B1 (Result A2 B2))
+                          (Result A2 B2)))
+  (λ ([succeed : (→ A1 (Result A2 B2))] [fail : (→ B1 (Result A2 B2))])
+    (result-if-0 b succeed fail)))
+(check-type result-if-1
+            : (→/test (Result A1 B1) (→ (→ A1 (Result A2 B2)) (→ B1 (Result A2 B2))
+                                        (Result A2 B2))))
+(check-type (inst (result-if-1 (Ok {Int String} 1)) (List Int) (List String))
+            : (→ (→ Int (Result (List Int) (List String)))
+                 (→ String (Result (List Int) (List String)))
+                 (Result (List Int) (List String))))
+(check-type (inst (result-if-1 (Error {Int String} "bad")) (List Int) (List String))
+            : (→ (→ Int (Result (List Int) (List String)))
+                 (→ String (Result (List Int) (List String)))
+                 (Result (List Int) (List String))))
+(check-type ((result-if-1 (Ok {Int String} 1))
+             (λ ([a : Int])    (ok (Cons a Nil)))
+             (λ ([b : String]) (error (Cons b Nil))))
+            : (Result (List Int) (List String)))
+;; same thing, but without the lambda annotations:
+(check-type ((result-if-1 (Ok {Int String} 1))
+             (λ (a) (ok (Cons a Nil)))
+             (λ (b) (error (Cons b Nil))))
+            : (Result (List Int) (List String)))
+
+(define (result-if-2 [b : (Result A1 B1)]
+                     → (→ (→ A1 (Result A2 B2))
+                          (→ (→ B1 (Result A2 B2))
+                             (Result A2 B2))))
+  (λ ([succeed : (→ A1 (Result A2 B2))])
+    (λ ([fail : (→ B1 (Result A2 B2))])
+      (result-if-0 b succeed fail))))
+(check-type result-if-2
+            : (→/test (Result A1 B1) (→ (→ A1 (Result A2 B2))
+                                        (→ (→ B1 (Result A2 B2))
+                                           (Result A2 B2)))))
+(check-type (inst (result-if-2 (Ok {Int String} 1)) (List Int) (List String))
+            : (→/test (→ Int (Result (List Int) (List String)))
+                      (→ (→ String (Result (List Int) (List String)))
+                         (Result (List Int) (List String)))))
+(check-type ((result-if-2 (Ok {Int String} 1))
+             (λ ([a : Int]) (Ok {(List Int) (List String)} (Cons a Nil))))
+            : (→/test (→ String (Result (List Int) (List String)))
+                      (Result (List Int) (List String))))
+(check-type (((result-if-2 (Ok {Int String} 1))
+              ; type annotations are necessary here:
+              (λ ([a : Int]) (Ok {(List Int) (List String)} (Cons a Nil))))
+             ; but not here:
+             (λ (b) (Error (Cons b Nil))))
+            : (Result (List Int) (List String)))
 
 ;; records and automatically-defined accessors and predicates
 (define-type (RecoTest X Y)
