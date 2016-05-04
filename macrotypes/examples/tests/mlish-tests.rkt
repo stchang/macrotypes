@@ -359,13 +359,16 @@
 ;; nested lambdas
 
 (check-type (λ ([x : X]) (λ ([y : X]) y)) : (→/test X (→ X X)))
-(check-not-type (λ ([x : X]) (λ ([y : X]) y)) : (→/test {X} X (→/test {Y} Y Y)))
-(check-type (λ ([x : X]) (λ ([y : Y]) y)) : (→/test {X} X (→/test {Y} Y Y)))
+(check-not-type (λ ([x : X]) (λ ([y : X]) y)) : (→/test X (→ Y Y)))
+(check-type (λ ([x : X]) (λ ([y : Y]) y)) : (→/test X (→ Y Y)))
 (check-not-type (λ ([x : X]) (λ ([y : Y]) x)) : (→/test X (→ X X)))
 
 (check-type 
   ((λ ([x : X]) (λ ([y : Y]) y)) 1)
-  : (→/test Y Y))
+  : (→ Int Int))
+(check-type 
+  ((λ ([x : X]) (λ ([y : Y]) y)) 1)
+  : (→ String String))
 
 ;; TODO?
 ;; - this fails if polymorphic functions are allowed as HO args
@@ -378,7 +381,10 @@
 
 (check-type 
   ((λ ([x : X]) (λ ([y : Y]) (λ ([z : Z]) z))) 1)
-  : (→/test {Y} Y (→/test {Z} Z Z)))
+  : (→/test Int (→ String String)))
+(check-type 
+  ((λ ([x : X]) (λ ([y : Y]) (λ ([z : Z]) z))) 1)
+  : (→/test String (→ Int Int)))
 
 (check-type (inst Cons (→/test X X))
   : (→ (→/test X X) (List (→/test X X)) (List (→/test X X))))
@@ -419,6 +425,8 @@
 (check-type (let ([x (nn4)])
               x)
             : (→/test (Option X)))
+(check-type (λ () (nn4)) : (→/test (→ (Option X))))
+
 
 (define (nn5 -> (→ (Ref (Option X))))
   (λ () (ref (None {X}))))
@@ -430,6 +438,7 @@
   (let ([r (((inst nn5 X)))])
     (λ () (deref r))))
 (check-type (nn6) : (→/test (Option X)))
+(check-type (λ () (nn6)) : (→/test (→ (Option X))))
 
 ;; A is covariant, B is invariant.
 (define-type (Cps A B)
@@ -449,6 +458,7 @@
 (check-type (let ([x (nn8)])
               x)
             : (→/test (Cps (Option A) Int)))
+(check-type (λ () (nn8)) : (→/test (→ (Cps (Option A) Int))))
 
 (define-type (Result A B)
   (Ok A)

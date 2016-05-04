@@ -874,7 +874,9 @@
   [(_ (~and x+tys ([_ (~datum :) ty] ...)) . body)
    #:with Xs (compute-tyvars #'(ty ...))
    ;; TODO is there a way to have λs that refer to ids defined after them?
-   #'(?Λ Xs (ext-stlc:λ x+tys . body))])
+   #:with [f (~?∀ (X ...) (~ext-stlc:→ arg-ty ... (~?∀ (Y ...) body-ty)))]
+   (infer+erase #'(?Λ Xs (ext-stlc:λ x+tys . body)))
+   (⊢ f : (?∀ (X ... Y ...) (→ arg-ty ... body-ty)))])
 
 
 ;; #%app --------------------------------------------------
