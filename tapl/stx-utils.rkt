@@ -70,8 +70,11 @@
 (define (generate-temporariesss stx)
   (stx-map generate-temporariess stx))
 
+(define REQUIRED-VERSION "6.5.0.4")
+(define VERSION (version))
+(define PRESERVED-STX-PROP-SUPPORTED? (version<=? REQUIRED-VERSION VERSION))
 (define (set-stx-prop/preserved stx prop val)
-  (if (version<=? "6.5.0.4" (version))
+  (if PRESERVED-STX-PROP-SUPPORTED?
       (syntax-property stx prop val #t)
       (syntax-property stx prop val)))
 
