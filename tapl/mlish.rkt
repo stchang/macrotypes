@@ -62,26 +62,91 @@
                        (~parse vars-pat #'())
                        body-pat))]))))
 
-  ;; type inference constraint solving
-  (define (compute-constraint τ1-τ2)
-    (syntax-parse τ1-τ2
-      [(X:id τ) #'((X τ))]
-      [((~Any tycons1 τ1 ...) (~Any tycons2 τ2 ...))
-       #:when (typecheck? #'tycons1 #'tycons2)
-       (compute-constraints #'((τ1 τ2) ...))]
-      ; should only be monomorphic?
-      [((~?∀ () (~ext-stlc:→ τ1 ...)) (~?∀ () (~ext-stlc:→ τ2 ...)))
-       (compute-constraints #'((τ1 τ2) ...))]
-      [_ #'()]))
-  (define (compute-constraints τs) 
-    (stx-appendmap compute-constraint τs))
-
-  (define (solve-constraint x-τ)
-    (syntax-parse x-τ
-      [(X:id τ) #'((X τ))]
-      [_ #'()]))
-  (define (solve-constraints cs)
-    (stx-appendmap compute-constraint cs))
+  ;; add-constraints :
+  ;; (Listof Id) (Listof (List Id Type)) (Stx-Listof (Stx-List Stx Stx)) -> (Listof (List Id Type))
+  ;; Adds a new set of constaints to a substituion, using the type
+  ;; unification algorithm for local type inference.
+  (define (add-constraints Xs substs new-cs [orig-cs new-cs])
+    (define Xs* (stx->list Xs))
+    (define Ys (stx-map stx-car substs))
+    (define-syntax-class var
+      [pattern x:id #:when (member #'x Xs* free-identifier=?)])
+    (syntax-parse new-cs
+      [() substs]
+      [([a:var b] . rst)
+       (cond
+         [(member #'a Ys free-identifier=?)
+          ;; There are two cases.
+          ;; Either #'a already maps to #'b or an equivalent type,
+          ;; or #'a already maps to a type that conflicts with #'b.
+          ;; In either case, whatever #'a maps to must be equivalent
+          ;; to #'b, so add that to the constraints.
+          (add-constraints
+           Xs
+           substs
+           (cons (list (lookup #'a substs) #'b)
+                 #'rst)
+           orig-cs)]
+         [else
+          (add-constraints
+           Xs*
+           ;; Add the mapping #'a -> #'b to the substitution,
+           (cons (list #'a #'b)
+                 (for/list ([subst (in-list (stx->list substs))])
+                   (list (stx-car subst)
+                         (inst-type (list #'b) (list #'a) (stx-cadr subst)))))
+           ;; and substitute that in each of the constraints.
+           (for/list ([c (in-list (syntax->list #'rst))])
+             (list (inst-type (list #'b) (list #'a) (stx-car c))
+                   (inst-type (list #'b) (list #'a) (stx-cadr c))))
+           orig-cs)])]
+      [([a b:var] . rst)
+       (add-constraints Xs*
+                        substs
+                        #'([b a] . rst)
+                        orig-cs)]
+      [([a b] . rst)
+       ;; If #'a and #'b are base types, check that they're equal.
+       ;; Identifers not within Xs count as base types.
+       ;; If #'a and #'b are constructed types, check that the
+       ;; constructors are the same, add the sub-constraints, and
+       ;; recur.
+       ;; Otherwise, raise an error.
+       (cond
+         [(identifier? #'a)
+          ;; #'a is an identifier, but not a var, so it is considered
+          ;; a base type. We also know #'b is not a var, so #'b has
+          ;; to be the same "identifier base type" as #'a.
+          (unless (and (identifier? #'b) (free-identifier=? #'a #'b))
+            (type-error #:src (get-orig #'a)
+                        #:msg (format "couldn't unify ~~a and ~~a\n  expected: ~a\n  given: ~a"
+                                      (string-join (map type->str (stx-map stx-car orig-cs)) ", ")
+                                      (string-join (map type->str (stx-map stx-cadr orig-cs)) ", "))
+                        #'a #'b))
+          (add-constraints Xs*
+                           substs
+                           #'rst
+                           orig-cs)]
+         [else
+          (syntax-parse #'[a b]
+            [_
+             #:when (typecheck? #'a #'b)
+             (add-constraints Xs
+                              substs
+                              #'rst
+                              orig-cs)]
+            [((~Any tycons1 τ1 ...) (~Any tycons2 τ2 ...))
+             #:when (typecheck? #'tycons1 #'tycons2)
+             (add-constraints Xs
+                              substs
+                              #'((τ1 τ2) ... . rst)
+                              orig-cs)]
+            [else
+             (type-error #:src (get-orig #'a)
+                         #:msg (format "couldn't unify ~~a and ~~a\n  expected: ~a\n  given: ~a"
+                                       (string-join (map type->str (stx-map stx-car orig-cs)) ", ")
+                                       (string-join (map type->str (stx-map stx-cadr orig-cs)) ", "))
+                         #'a #'b)])])]))
   
   (define (lookup x substs)
     (syntax-parse substs
@@ -118,10 +183,11 @@
     (syntax-parse tyXs
       [(τ_inX ... τ_outX)
        ;; generate initial constraints with expected type and τ_outX
-       #:with expected-ty (get-expected-type stx)
+       #:with (~?∀ Vs expected-ty) (and (get-expected-type stx)
+                                        ((current-type-eval) (get-expected-type stx)))
        (define initial-cs
-         (if (syntax-e #'expected-ty)
-             (compute-constraint (list #'τ_outX ((current-type-eval) #'expected-ty)))
+         (if (and (syntax-e #'expected-ty) (stx-null? #'Vs))
+             (add-constraints Xs '() (list (list #'expected-ty #'τ_outX)))
              #'()))
        (syntax-parse stx
          [(_ e_fn . args)
@@ -133,7 +199,7 @@
                 (define/with-syntax [a- ty_a] (infer+erase a))
                 (values 
                  (cons #'a- as-)
-                 (stx-append cs (compute-constraint (list tyXin #'ty_a))))))
+                 (add-constraints Xs cs (list (list (inst-type/cs Xs cs tyXin) #'ty_a))))))
 
          (list (reverse as-) (find-unsolved-Xs Xs cs) cs)])]))
 

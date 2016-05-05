@@ -55,7 +55,7 @@
 (check-type g2 : (→/test (List Y) (List Y)))
 (typecheck-fail (g2 1) 
   #:with-msg 
-  (expected "(List Y)" #:given "Int"))
+  "expected: \\(List Y\\)\n *given: Int")
 
 ;; todo? allow polymorphic nil?
 (check-type (g2 (Nil {Int})) : (List Int) ⇒ (Nil {Int}))
