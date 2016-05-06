@@ -36,7 +36,7 @@
 
 ;; type err
 (typecheck-fail (Cons 1 1)
-  #:with-msg (expected "Int, (List Int)" #:given "Int, Int"))
+  #:with-msg "expected: \\(List Int\\)\n *given: Int")
   
 ;; check Nil still available as tyvar
 (define (f11 [x : Nil] -> Nil) x)
@@ -113,7 +113,7 @@
 (check-type (map add1 (Cons 1 (Cons 2 (Cons 3 Nil)))) 
   : (List Int) ⇒ (Cons 2 (Cons 3 (Cons 4 Nil))))
 (typecheck-fail (map add1 (Cons "1" Nil))
-  #:with-msg (expected "Int, (List Int)" #:given "String, (List Int)"))
+  #:with-msg "expected: Int\n *given: String")
 (check-type (map (λ ([x : Int]) (+ x 2)) (Cons 1 (Cons 2 (Cons 3 Nil)))) 
   : (List Int) ⇒ (Cons 3 (Cons 4 (Cons 5 Nil))))
 ;; ; doesnt work yet: all lambdas need annotations
@@ -242,8 +242,7 @@
 (typecheck-fail Nil #:with-msg "add annotations")
 (typecheck-fail (Cons 1 (Nil {Bool}))
  #:with-msg 
- (expected "Int, (List Int)" #:given "Int, (List Bool)"
-  #:note "Type error applying.*Cons"))
+ "expected: \\(List Int\\)\n *given: \\(List Bool\\)")
 (typecheck-fail (Cons {Bool} 1 (Nil {Int}))
  #:with-msg 
  (expected "Bool, (List Bool)" #:given "Int, (List Int)"

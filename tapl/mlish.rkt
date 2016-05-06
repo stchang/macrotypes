@@ -174,9 +174,9 @@
   ;;   tyXs = input and output types from fn type
   ;;          ie (typeof e_fn) = (-> . tyXs)
   ;; It infers the types of arguments from left-to-right,
-  ;; and it short circuits if it's done early.
+  ;; and it expands and returns all of the arguments.
   ;; It returns list of 3 values if successful, else throws a type error
-  ;;  - a list of the arguments that it expanded
+  ;;  - a list of all the arguments, expanded
   ;;  - a list of the the un-constrained type variables
   ;;  - the constraints for substituting the types
   (define (solve Xs tyXs stx)
@@ -194,12 +194,21 @@
           (define-values (as- cs)
               (for/fold ([as- null] [cs initial-cs])
                         ([a (in-list (syntax->list #'args))]
-                         [tyXin (in-list (syntax->list #'(τ_inX ...)))]
-                         #:break (empty? (find-unsolved-Xs Xs cs)))
-                (define/with-syntax [a- ty_a] (infer+erase a))
+                         [tyXin (in-list (syntax->list #'(τ_inX ...)))])
+                (define ty_in (inst-type/cs Xs cs tyXin))
+                (define/with-syntax [a- ty_a]
+                  (infer+erase (if (empty? (find-unsolved-Xs Xs cs))
+                                   (add-expected-ty a ty_in)
+                                   a)))
                 (values 
                  (cons #'a- as-)
-                 (add-constraints Xs cs (list (list (inst-type/cs Xs cs tyXin) #'ty_a))))))
+                 (add-constraints Xs cs (list (list ty_in #'ty_a))
+                                  (list (list (inst-type/cs/orig
+                                               Xs cs ty_in
+                                               (λ (id1 id2)
+                                                 (equal? (syntax->datum id1)
+                                                         (syntax->datum id2))))
+                                              #'ty_a))))))
 
          (list (reverse as-) (find-unsolved-Xs Xs cs) cs)])]))
 
@@ -215,6 +224,11 @@
   ;; identifier in Xs is associated with the ith type in tys-solved
   (define (inst-type tys-solved Xs ty)
     (substs tys-solved Xs ty))
+  ;; inst-type/orig : (Listof Type) (Listof Id) Type (Id Id -> Bool) -> Type
+  ;; like inst-type, but also substitutes within the orig property
+  (define (inst-type/orig tys-solved Xs ty [var=? free-identifier=?])
+    (add-orig (inst-type tys-solved Xs ty)
+              (substs (stx-map get-orig tys-solved) Xs (get-orig ty) var=?)))
   
   ;; inst-type/cs : (Stx-Listof Id) Constraints Type-Stx -> Type-Stx
   ;; Instantiates ty, substituting each identifier in Xs with its mapping in cs.
@@ -225,6 +239,18 @@
   ;; the plural version of inst-type/cs
   (define (inst-types/cs Xs cs tys)
     (stx-map (lambda (t) (inst-type/cs Xs cs t)) tys))
+
+  ;; inst-type/cs/orig :
+  ;; (Stx-Listof Id) Constraints Type-Stx (Id Id -> Bool) -> Type-Stx
+  ;; like inst-type/cs, but also substitutes within the orig property
+  (define (inst-type/cs/orig Xs cs ty [var=? free-identifier=?])
+    (define tys-solved (lookup-Xs/keep-unsolved Xs cs))
+    (inst-type/orig tys-solved Xs ty var=?))
+  ;; inst-types/cs/orig :
+  ;; (Stx-Listof Id) Constraints (Stx-Listof Type-Stx) (Id Id -> Bool) -> (Listof Type-Stx)
+  ;; the plural version of inst-type/cs/orig
+  (define (inst-types/cs/orig Xs cs tys [var=? free-identifier=?])
+    (stx-map (lambda (t) (inst-type/cs/orig Xs cs t var=?)) tys))
 
   ;; compute unbound tyvars in one unexpanded type ty
   (define (compute-tyvar1 ty)
@@ -804,7 +830,7 @@
         #'(ext-stlc:#%app e_fn/ty (add-expected e_arg τ_inX) ...)])]
     [else
      ;; ) solve for type variables Xs
-     (define/with-syntax ((e_arg1- ...) (unsolved-X ...) cs) (solve #'Xs #'tyX_args stx))
+     (define/with-syntax ((e_arg- ...) (unsolved-X ...) cs) (solve #'Xs #'tyX_args stx))
      ;; ) instantiate polymorphic function type
      (syntax-parse (inst-types/cs #'Xs #'cs #'tyX_args)
       [(τ_in ... τ_out) ; concrete types
@@ -812,14 +838,8 @@
        #:fail-unless (stx-length=? #'(τ_in ...) #'e_args)
                      (mk-app-err-msg stx #:expected #'(τ_in ...)
                       #:note "Wrong number of arguments.")
-       ;; ) compute argument types; re-use args expanded during solve
-       #:with ([e_arg2- τ_arg2] ...) (let ([n (stx-length #'(e_arg1- ...))])
-                                       (infers+erase 
-                                         (stx-map add-expected-ty 
-                                           (stx-drop #'e_args n) (stx-drop #'(τ_in ...) n))))
-       #:with (τ_arg1 ...) (stx-map typeof #'(e_arg1- ...))
-       #:with (τ_arg ...) #'(τ_arg1 ... τ_arg2 ...)
-       #:with (e_arg- ...) #'(e_arg1- ... e_arg2- ...)
+       ;; ) compute argument types
+       #:with (τ_arg ...) (stx-map typeof #'(e_arg- ...))
        ;; ) typecheck args
        #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
                      (mk-app-err-msg stx 
