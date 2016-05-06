@@ -156,11 +156,11 @@
       [(_ . rst) (lookup x #'rst)]
       [() #f]))
 
-  ;; find-unsolved-Xs : (Stx-Listof Id) Constraints -> (Listof Id)
-  ;; finds the free Xs that aren't constrained by cs
-  (define (find-unsolved-Xs Xs cs)
+  ;; find-free-Xs : (Stx-Listof Id) Type -> (Listof Id)
+  ;; finds the free Xs in the type
+  (define (find-free-Xs Xs ty)
     (for/list ([X (in-list (stx->list Xs))]
-               #:when (not (lookup X cs)))
+               #:when (stx-contains-id? ty X))
       X))
 
   ;; lookup-Xs/keep-unsolved : (Stx-Listof Id) Constraints -> (Listof Type-Stx)
@@ -177,7 +177,7 @@
   ;; and it expands and returns all of the arguments.
   ;; It returns list of 3 values if successful, else throws a type error
   ;;  - a list of all the arguments, expanded
-  ;;  - a list of the the un-constrained type variables
+  ;;  - a list of all the type variables
   ;;  - the constraints for substituting the types
   (define (solve Xs tyXs stx)
     (syntax-parse tyXs
@@ -197,7 +197,7 @@
                          [tyXin (in-list (syntax->list #'(τ_inX ...)))])
                 (define ty_in (inst-type/cs Xs cs tyXin))
                 (define/with-syntax [a- ty_a]
-                  (infer+erase (if (empty? (find-unsolved-Xs Xs cs))
+                  (infer+erase (if (empty? (find-free-Xs Xs ty_in))
                                    (add-expected-ty a ty_in)
                                    a)))
                 (values 
@@ -210,7 +210,7 @@
                                                          (syntax->datum id2))))
                                               #'ty_a))))))
 
-         (list (reverse as-) (find-unsolved-Xs Xs cs) cs)])]))
+         (list (reverse as-) Xs cs)])]))
 
   (define (raise-app-poly-infer-error stx expected-tys given-tys e_fn)
     (type-error #:src stx
@@ -830,10 +830,11 @@
         #'(ext-stlc:#%app e_fn/ty (add-expected e_arg τ_inX) ...)])]
     [else
      ;; ) solve for type variables Xs
-     (define/with-syntax ((e_arg- ...) (unsolved-X ...) cs) (solve #'Xs #'tyX_args stx))
+     (define/with-syntax ((e_arg- ...) Xs* cs) (solve #'Xs #'tyX_args stx))
      ;; ) instantiate polymorphic function type
-     (syntax-parse (inst-types/cs #'Xs #'cs #'tyX_args)
+     (syntax-parse (inst-types/cs #'Xs* #'cs #'tyX_args)
       [(τ_in ... τ_out) ; concrete types
+       #:with (unsolved-X ...) (find-free-Xs #'Xs* #'τ_out)
        ;; ) arity check
        #:fail-unless (stx-length=? #'(τ_in ...) #'e_args)
                      (mk-app-err-msg stx #:expected #'(τ_in ...)
@@ -851,7 +852,9 @@
                           (define new-orig
                             (and old-orig
                                  (substs 
-                                   (stx-map get-orig (lookup-Xs/keep-unsolved #'Xs #'cs)) #'Xs old-orig
+                                   (stx-map get-orig (lookup-Xs/keep-unsolved #'Xs* #'cs))
+                                   #'Xs*
+                                   old-orig
                                    (lambda (x y) 
                                     (equal? (syntax->datum x) (syntax->datum y))))))
                           (set-stx-prop/preserved tyin 'orig (list new-orig)))

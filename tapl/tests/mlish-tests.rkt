@@ -179,6 +179,24 @@
 (check-type (build-list 5 (λ (x) (add1 (add1 x))))
   : (List Int) ⇒ (Cons 6 (Cons 5 (Cons 4 (Cons 3 (Cons 2 Nil))))))
 
+(define (build-list/comp [i : Int] [n : Int] [nf : (→ Int Int)] [f : (→ Int X)] → (List X))
+  (if (= i n)
+      Nil
+      (Cons (f (nf i)) (build-list/comp (add1 i) n nf f))))
+
+(define built-list-1 (build-list/comp 0 3 (λ (x) (* 2 x)) add1))
+(define built-list-2 (build-list/comp 0 3 (λ (x) (* 2 x)) number->string))
+(check-type built-list-1 : (List Int) -> (Cons 1 (Cons 3 (Cons 5 Nil))))
+(check-type built-list-2 : (List String) -> (Cons "0" (Cons "2" (Cons "4" Nil))))
+
+(define (~>2 [a : A] [f : (→ A A)] [g : (→ A B)] → B)
+  (g (f a)))
+
+(define ~>2-result-1 (~>2 1 (λ (x) (* 2 x)) add1))
+(define ~>2-result-2 (~>2 1 (λ (x) (* 2 x)) number->string))
+(check-type ~>2-result-1 : Int -> 3)
+(check-type ~>2-result-2 : String -> "2")
+
 (define (append [lst1 : (List X)] [lst2 : (List X)] → (List X))
   (match lst1 with
    [Nil -> lst2]
