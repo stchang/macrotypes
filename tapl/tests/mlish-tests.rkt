@@ -397,6 +397,16 @@
 (check-type ((inst nn2 Int (List Int) String) 1)
             : (→ (× Int (→ (List Int) (List Int)) (List String))))
 
+(define (nn3 [x : X] -> (→ (× X (Option Y) (Option Z))))
+  (λ () (tup x None None)))
+(check-type (nn3 1) : (→/test (× Int (Option Y) (Option Z))))
+(check-type (nn3 1) : (→ (× Int (Option String) (Option (List Int)))))
+(check-type ((nn3 1)) : (× Int (Option String) (Option (List Int))))
+(check-type ((nn3 1)) : (× Int (Option (List Int)) (Option String)))
+;; test inst order
+(check-type ((inst (nn3 1) String (List Int))) : (× Int (Option String) (Option (List Int))))
+(check-type ((inst (nn3 1) (List Int) String)) : (× Int (Option (List Int)) (Option String)))
+
 (define-type (Result A B)
   (Ok A)
   (Error B))

@@ -916,7 +916,14 @@
                        #'(τ_in ...)))
        #:with τ_out* (if (stx-null? #'(unsolved-X ...))
                          #'τ_out
-                         (raise-app-poly-infer-error stx #'(τ_in ...) #'(τ_arg ...) #'e_fn))
+                         (syntax-parse #'τ_out
+                           [(~?∀ (Y ...) τ_out)
+                            (unless (→? #'τ_out)
+                              (raise-app-poly-infer-error stx #'(τ_in ...) #'(τ_arg ...) #'e_fn))
+                            (for ([X (in-list (syntax->list #'(unsolved-X ...)))])
+                              (unless (covariant-X? X #'τ_out)
+                                (raise-app-poly-infer-error stx #'(τ_in ...) #'(τ_arg ...) #'e_fn)))
+                            #'(∀ (unsolved-X ... Y ...) τ_out)]))
        (⊢ (#%app e_fn- e_arg- ...) : τ_out*)])])]
   [(_ e_fn . e_args) ; err case; e_fn is not a function
    #:with [e_fn- τ_fn] (infer+erase #'e_fn)
