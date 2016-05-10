@@ -1,5 +1,7 @@
 #lang s-exp "typecheck.rkt"
 (extends "ext-stlc.rkt")
+
+(require (for-syntax racket/list))
  
 ;; Simply-Typed Lambda Calculus, plus tuples
 ;; Types:
@@ -9,7 +11,9 @@
 ;; - terms from ext-stlc.rkt
 ;; - tup and proj
 
-(define-type-constructor × #:arity >= 0)
+(define-type-constructor × #:arity >= 0
+  #:arg-variances (λ (stx)
+                    (make-list (stx-length (stx-cdr stx)) covariant)))
 
 (define-typed-syntax tup
   [(_ e ...)

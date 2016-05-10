@@ -15,6 +15,9 @@
                 "stx-utils.rkt"))
  (for-meta 2 (all-from-out racket/base syntax/parse racket/syntax)))
 
+(module+ test
+  (require (for-syntax rackunit)))
+
 ;; type checking functions/forms
 
 ;; General type checking strategy:
@@ -420,6 +423,48 @@
   (define (brack? stx)
     (define paren-shape/#f (syntax-property stx 'paren-shape))
     (and paren-shape/#f (char=? paren-shape/#f #\[)))
+
+  (define (iff b1 b2)
+    (boolean=? b1 b2))
+
+  ;; Variance is (variance Boolean Boolean)
+  (struct variance (covariant? contravariant?) #:prefab)
+  (define irrelevant    (variance #true  #true))
+  (define covariant     (variance #true  #false))
+  (define contravariant (variance #false #true))
+  (define invariant     (variance #false #false))
+  ;; variance-irrelevant? : Variance -> Boolean
+  (define (variance-irrelevant? v)
+    (and (variance-covariant? v) (variance-contravariant? v)))
+  ;; variance-invariant? : Variance -> Boolean
+  (define (variance-invariant? v)
+    (and (not (variance-covariant? v)) (not (variance-contravariant? v))))
+  ;; variance-join : Variance Variance -> Variance
+  (define (variance-join v1 v2)
+    (variance (and (variance-covariant? v1)
+                   (variance-covariant? v2))
+              (and (variance-contravariant? v1)
+                   (variance-contravariant? v2))))
+  ;; variance-compose : Variance Variance -> Variance
+  (define (variance-compose v1 v2)
+    (variance (or (variance-irrelevant? v1)
+                  (variance-irrelevant? v2)
+                  (and (variance-covariant? v1) (variance-covariant? v2))
+                  (and (variance-contravariant? v1) (variance-contravariant? v2)))
+              (or (variance-irrelevant? v1)
+                  (variance-irrelevant? v2)
+                  (and (variance-covariant? v1) (variance-contravariant? v2))
+                  (and (variance-contravariant? v1) (variance-covariant? v2)))))
+
+  ;; add-arg-variances : Id (Listof Variance) -> Id
+  ;; Takes a type constructor id and adds variance information about the arguments.
+  (define (add-arg-variances id arg-variances)
+    (set-stx-prop/preserved id 'arg-variances arg-variances))
+  ;; get-arg-variances : Id -> (U False (Listof Variance))
+  ;; Takes a type constructor id and gets the argument variance information.
+  (define (get-arg-variances id)
+    (syntax-property id 'arg-variances))
+  
   ;; todo: abstract out the common shape of a type constructor,
   ;; i.e., the repeated pattern code in the functions below
   (define (get-extra-info t)
@@ -482,6 +527,10 @@
          #:defaults ([bvs-op #'=][bvs-n #'0]))
         (~optional (~seq #:arr (~and (~parse has-annotations? #'#t) tycon))
          #:defaults ([tycon #'void]))
+        (~optional (~seq #:arg-variances arg-variances-stx:expr)
+         #:defaults ([arg-variances-stx
+                      #`(λ (stx-id) (for/list ([arg (in-list (stx->list (stx-cdr stx-id)))])
+                                      invariant))]))
         (~optional (~seq #:extra-info extra-info) 
           #:defaults ([extra-info #'void]))
         (~optional (~and #:no-provide (~parse no-provide? #'#t))))
@@ -532,6 +581,7 @@
                                   #:msg
                                   "Expected ~a type, got: ~a"
                                   #'τ #'any))))])))
+           (define arg-variances arg-variances-stx)
            (define (τ? t)
              (and (stx-pair? t)
                   (syntax-parse t
@@ -565,10 +615,11 @@
                #:with k_result (if #,(attribute has-annotations?)
                                    #'(tycon k_arg (... ...))
                                    #'#%kind)
+               #:with τ-internal* (add-arg-variances #'τ-internal (arg-variances stx))
                (add-orig
                 (assign-type 
                   (syntax/loc stx 
-                    (τ-internal (λ bvs- (#%expression extra-info) . τs-))) 
+                    (τ-internal* (λ bvs- (#%expression extra-info) . τs-))) 
                   #'k_result)
                 #'(τ . args))]
              ;; else fail with err msg
@@ -701,3 +752,48 @@
 
   (define (substs τs xs e [cmp bound-identifier=?])
     (stx-fold (lambda (ty x res) (subst ty x res cmp)) e τs xs)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(module+ test
+  (begin-for-syntax
+    (test-case "variance-join"
+      (test-case "joining with irrelevant doesn't change it"
+        (check-equal? (variance-join irrelevant irrelevant) irrelevant)
+        (check-equal? (variance-join irrelevant covariant) covariant)
+        (check-equal? (variance-join irrelevant contravariant) contravariant)
+        (check-equal? (variance-join irrelevant invariant) invariant))
+      (test-case "joining with invariant results in invariant"
+        (check-equal? (variance-join invariant irrelevant) invariant)
+        (check-equal? (variance-join invariant covariant) invariant)
+        (check-equal? (variance-join invariant contravariant) invariant)
+        (check-equal? (variance-join invariant invariant) invariant))
+      (test-case "joining a with a results in a"
+        (check-equal? (variance-join irrelevant irrelevant) irrelevant)
+        (check-equal? (variance-join covariant covariant) covariant)
+        (check-equal? (variance-join contravariant contravariant) contravariant)
+        (check-equal? (variance-join invariant invariant) invariant))
+      (test-case "joining covariant with contravariant results in invariant"
+        (check-equal? (variance-join covariant contravariant) invariant)
+        (check-equal? (variance-join contravariant covariant) invariant)))
+    (test-case "variance-compose"
+      (test-case "composing with covariant doesn't change it"
+        (check-equal? (variance-compose covariant irrelevant) irrelevant)
+        (check-equal? (variance-compose covariant covariant) covariant)
+        (check-equal? (variance-compose covariant contravariant) contravariant)
+        (check-equal? (variance-compose covariant invariant) invariant))
+      (test-case "composing with irrelevant results in irrelevant"
+        (check-equal? (variance-compose irrelevant irrelevant) irrelevant)
+        (check-equal? (variance-compose irrelevant covariant) irrelevant)
+        (check-equal? (variance-compose irrelevant contravariant) irrelevant)
+        (check-equal? (variance-compose irrelevant invariant) irrelevant))
+      (test-case "otherwise composing with invariant results in invariant"
+        (check-equal? (variance-compose invariant covariant) invariant)
+        (check-equal? (variance-compose invariant contravariant) invariant)
+        (check-equal? (variance-compose invariant invariant) invariant))
+      (test-case "composing with with contravariant flips covariant and contravariant"
+        (check-equal? (variance-compose contravariant covariant) contravariant)
+        (check-equal? (variance-compose contravariant contravariant) covariant)
+        (check-equal? (variance-compose contravariant irrelevant) irrelevant)
+        (check-equal? (variance-compose contravariant invariant) invariant)))
+    ))

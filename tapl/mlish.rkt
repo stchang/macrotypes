@@ -23,6 +23,9 @@
 (require (prefix-in stlc+cons: (only-in "stlc+cons.rkt" list)))
 (require (prefix-in stlc+tup: (only-in "stlc+tup.rkt" tup)))
 
+(module+ test
+  (require (for-syntax rackunit)))
+
 (provide → →/test match2 define-type)
 
 ;; ML-like language
@@ -252,6 +255,44 @@
   (define (inst-types/cs/orig Xs cs tys [var=? free-identifier=?])
     (stx-map (lambda (t) (inst-type/cs/orig Xs cs t var=?)) tys))
 
+  ;; covariant-Xs? : Type -> Bool
+  ;; Takes a possibly polymorphic type, and returns true if all of the
+  ;; type variables are in covariant positions within the type, false
+  ;; otherwise.
+  (define (covariant-Xs? ty)
+    (syntax-parse ((current-type-eval) ty)
+      [(~?∀ Xs ty)
+       (for/and ([X (in-list (syntax->list #'Xs))])
+         (covariant-X? X #'ty))]))
+
+  ;; find-X-variance : Id Type -> Variance
+  ;; Returns  the variance of X within the type ty
+  (define (find-X-variance X ty)
+    (syntax-parse ty
+      [A:id #:when (free-identifier=? #'A X) covariant]
+      [(~Any tycons) irrelevant]
+      [(~?∀ () (~Any tycons τ ...))
+       #:when (get-arg-variances #'tycons)
+       #:when (stx-length=? #'[τ ...] (get-arg-variances #'tycons))
+       (for/fold ([acc irrelevant])
+                 ([τ (in-list (syntax->list #'[τ ...]))]
+                  [arg-variance (in-list (get-arg-variances #'tycons))])
+         (variance-join
+          acc
+          (variance-compose arg-variance (find-X-variance X τ))))]
+      [ty #:when (not (stx-contains-id? #'ty X)) irrelevant]
+      [_ invariant]))
+
+  ;; covariant-X? : Id Type -> Bool
+  ;; Returns true if every place X appears in ty is a covariant position, false otherwise.
+  (define (covariant-X? X ty)
+    (variance-covariant? (find-X-variance X ty)))
+
+  ;; contravariant-X? : Id Type -> Bool
+  ;; Returns true if every place X appears in ty is a contravariant position, false otherwise.
+  (define (contravariant-X? X ty)
+    (variance-contravariant? (find-X-variance X ty)))
+
   ;; compute unbound tyvars in one unexpanded type ty
   (define (compute-tyvar1 ty)
     (syntax-parse ty
@@ -386,12 +427,26 @@
                                      #'(StructName ...) #'((fld ...) ...))
      #:with (Cons? ...) (stx-map mk-? #'(StructName ...))
      #:with (exposed-Cons? ...) (stx-map mk-? #'(Cons ...))
+     #:do [(define expanded-tys
+             (for/list ([τ (in-list (syntax->list #'[τ ... ...]))])
+               (with-handlers ([exn:fail:syntax? (λ (e) #false)])
+                 ((current-type-eval) #`(∀ (X ...) #,τ)))))]
+     #:with [arg-variance ...]
+     (for/list ([i (in-range (length (syntax->list #'[X ...])))])
+       (for/fold ([acc irrelevant])
+                 ([ty (in-list expanded-tys)])
+         (cond [ty
+                (define/syntax-parse (~?∀ Xs τ) ty)
+                (define X (list-ref (syntax->list #'Xs) i))
+                (variance-join acc (find-X-variance X #'τ))]
+               [else invariant])))
      #`(begin
          (define-syntax (NameExtraInfo stx)
            (syntax-parse stx
              [(_ X ...) #'(('Cons 'StructName Cons? [acc τ] ...) ...)]))
          (define-type-constructor Name
            #:arity = #,(stx-length #'(X ...))
+           #:arg-variances (λ (stx) (list 'arg-variance ...))
            #:extra-info 'NameExtraInfo
            #:no-provide)
          (struct StructName (fld ...) #:reflection-name 'Cons #:transparent) ...
@@ -1290,3 +1345,30 @@
         (cond [(eof-object? x) ""]
               [(number? x) (number->string x)]
               [(symbol? x) (symbol->string x)])) : String)])
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(module+ test
+  (begin-for-syntax
+    (check-true  (covariant-Xs? #'Int))
+    (check-true  (covariant-Xs? #'(stlc+box:Ref Int)))
+    (check-true  (covariant-Xs? #'(→ Int Int)))
+    (check-true  (covariant-Xs? #'(∀ (X) X)))
+    (check-false (covariant-Xs? #'(∀ (X) (stlc+box:Ref X))))
+    (check-false (covariant-Xs? #'(∀ (X) (→ X X))))
+    (check-false (covariant-Xs? #'(∀ (X) (→ X Int))))
+    (check-true  (covariant-Xs? #'(∀ (X) (→ Int X))))
+    (check-true  (covariant-Xs? #'(∀ (X) (→ (→ X Int) X))))
+    (check-false (covariant-Xs? #'(∀ (X) (→ (→ (→ X Int) Int) X))))
+    (check-false (covariant-Xs? #'(∀ (X) (→ (stlc+box:Ref X) Int))))
+    (check-false (covariant-Xs? #'(∀ (X Y) (→ X Y))))
+    (check-true  (covariant-Xs? #'(∀ (X Y) (→ (→ X Int) Y))))
+    (check-false (covariant-Xs? #'(∀ (X Y) (→ (→ X Int) (→ Y Int)))))
+    (check-true  (covariant-Xs? #'(∀ (X Y) (→ (→ X Int) (→ Int Y)))))
+    (check-false (covariant-Xs? #'(∀ (A B) (→ (→ Int (stlc+rec-iso:× A B))
+                                              (→ String (stlc+rec-iso:× A B))
+                                              (stlc+rec-iso:× A B)))))
+    (check-true  (covariant-Xs? #'(∀ (A B) (→ (→ (stlc+rec-iso:× A B) Int)
+                                              (→ (stlc+rec-iso:× A B) String)
+                                              (stlc+rec-iso:× A B)))))
+    ))
