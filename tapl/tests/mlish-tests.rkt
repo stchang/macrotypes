@@ -302,6 +302,8 @@
   (None)
   (Some A))
 
+(define (None* → (Option A)) None)
+
 (check-type (match (tup 1 2) with [a b -> None]) : (Option Int) -> None)
 (check-type 
   (match (list 1 2) with 
@@ -407,6 +409,42 @@
 (check-type ((inst (nn3 1) String (List Int))) : (× Int (Option String) (Option (List Int))))
 (check-type ((inst (nn3 1) (List Int) String)) : (× Int (Option (List Int)) (Option String)))
 
+(define (nn4 -> (→ (Option X)))
+  (λ () (None*)))
+(check-type (let ([x (nn4)])
+              x)
+            : (→/test (Option X)))
+
+(define (nn5 -> (→ (Ref (Option X))))
+  (λ () (ref (None {X}))))
+(typecheck-fail (let ([x (nn5)])
+                  x)
+                #:with-msg "Could not infer instantiation of polymorphic function nn5.")
+
+(define (nn6 -> (→ (Option X)))
+  (let ([r (((inst nn5 X)))])
+    (λ () (deref r))))
+(check-type (nn6) : (→/test (Option X)))
+
+;; A is covariant, B is invariant.
+(define-type (Cps A B)
+  (cps (→ (→ A B) B)))
+(define (cps* [f : (→ (→ A B) B)] → (Cps A B))
+  (cps f))
+
+(define (nn7 -> (→ (Cps (Option A) B)))
+  (let ([r (((inst nn5 A)))])
+    (λ () (cps* (λ (k) (k (deref r)))))))
+(typecheck-fail (let ([x (nn7)])
+                  x)
+                #:with-msg "Could not infer instantiation of polymorphic function nn7.")
+
+(define (nn8 -> (→ (Cps (Option A) Int)))
+  (nn7))
+(check-type (let ([x (nn8)])
+              x)
+            : (→/test (Cps (Option A) Int)))
+
 (define-type (Result A B)
   (Ok A)
   (Error B))
@@ -415,6 +453,35 @@
   (Ok a))
 (define (error [b : B] → (Result A B))
   (Error b))
+
+(define (ok-fn [a : A] -> (→ (Result A B)))
+  (λ () (ok a)))
+(define (error-fn [b : B] -> (→ (Result A B)))
+  (λ () (error b)))
+
+(check-type (let ([x (ok-fn 1)])
+              x)
+            : (→/test (Result Int B)))
+(check-type (let ([x (error-fn "bad")])
+              x)
+            : (→/test (Result A String)))
+
+(define (nn9 [a : A] -> (→ (Result A (Ref B))))
+  (ok-fn a))
+(define (nn10 [a : A] -> (→ (Result A (Ref String))))
+  (nn9 a))
+(define (nn11 -> (→ (Result (Option A) (Ref String))))
+  (nn10 (None*)))
+
+(typecheck-fail (let ([x (nn9 1)])
+                  x)
+                #:with-msg "Could not infer instantiation of polymorphic function nn9.")
+(check-type (let ([x (nn10 1)])
+              x)
+            : (→ (Result Int (Ref String))))
+(check-type (let ([x (nn11)])
+              x)
+            : (→/test (Result (Option A) (Ref String))))
 
 (check-type (if (zero? (random 2))
                 (ok 0)
@@ -479,6 +546,21 @@
               (λ (a) (Ok (Cons a Nil))))
              (λ (b) (Error (Cons b Nil))))
             : (Result (List Int) (List String)))
+
+(define (tup* [a : A] [b : B] -> (× A B))
+  (tup a b))
+
+(define (nn12 -> (→ (× (Option A) (Option B))))
+  (λ () (tup* (None*) (None*))))
+(check-type (let ([x (nn12)])
+              x)
+            : (→/test (× (Option A) (Option B))))
+
+(define (nn13 -> (→ (× (Option A) (Option (Ref B)))))
+  (nn12))
+(typecheck-fail (let ([x (nn13)])
+                  x)
+                #:with-msg "Could not infer instantiation of polymorphic function nn13.")
 
 ;; records and automatically-defined accessors and predicates
 (define-type (RecoTest X Y)
