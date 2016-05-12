@@ -1,5 +1,5 @@
 #lang racket/base
-(require syntax/stx racket/list version/utils)
+(require syntax/stx syntax/parse racket/list version/utils)
 (provide (all-defined-out))
 
 (define (stx-cadr stx) (stx-car (stx-cdr stx)))
@@ -70,6 +70,9 @@
 (define (generate-temporariesss stx)
   (stx-map generate-temporariess stx))
 
+;; set-stx-prop/preserved : Stx Any Any -> Stx
+;; Returns a new syntax object with the prop property set to val. If preserved
+;; syntax properties are supported, this also marks the property as preserved.
 (define REQUIRED-VERSION "6.5.0.4")
 (define VERSION (version))
 (define PRESERVED-STX-PROP-SUPPORTED? (version<=? REQUIRED-VERSION VERSION))
@@ -77,6 +80,16 @@
   (if PRESERVED-STX-PROP-SUPPORTED?
       (syntax-property stx prop val #t)
       (syntax-property stx prop val)))
+
+;; stx-contains-id? : Stx Id -> Boolean
+;; Returns true if stx contains the identifier x, false otherwise.
+(define (stx-contains-id? stx x)
+  (syntax-parse stx
+    [a:id (free-identifier=? #'a x)]
+    [(a . b)
+     (or (stx-contains-id? #'a x)
+         (stx-contains-id? #'b x))]
+    [_ #false]))
 
 ;; based on make-variable-like-transformer from syntax/transformer,
 ;; but using (#%app id ...) instead of ((#%expression id) ...)

@@ -36,7 +36,7 @@
 
 ;; type err
 (typecheck-fail (Cons 1 1)
-  #:with-msg (expected "Int, (List Int)" #:given "Int, Int"))
+  #:with-msg "expected: \\(List Int\\)\n *given: Int")
   
 ;; check Nil still available as tyvar
 (define (f11 [x : Nil] -> Nil) x)
@@ -55,7 +55,7 @@
 (check-type g2 : (→/test (List Y) (List Y)))
 (typecheck-fail (g2 1) 
   #:with-msg 
-  (expected "(List Y)" #:given "Int"))
+  "expected: \\(List Y\\)\n *given: Int")
 
 ;; todo? allow polymorphic nil?
 (check-type (g2 (Nil {Int})) : (List Int) ⇒ (Nil {Int}))
@@ -113,7 +113,7 @@
 (check-type (map add1 (Cons 1 (Cons 2 (Cons 3 Nil)))) 
   : (List Int) ⇒ (Cons 2 (Cons 3 (Cons 4 Nil))))
 (typecheck-fail (map add1 (Cons "1" Nil))
-  #:with-msg (expected "Int, (List Int)" #:given "String, (List Int)"))
+  #:with-msg "expected: Int\n *given: String")
 (check-type (map (λ ([x : Int]) (+ x 2)) (Cons 1 (Cons 2 (Cons 3 Nil)))) 
   : (List Int) ⇒ (Cons 3 (Cons 4 (Cons 5 Nil))))
 ;; ; doesnt work yet: all lambdas need annotations
@@ -179,6 +179,24 @@
 (check-type (build-list 5 (λ (x) (add1 (add1 x))))
   : (List Int) ⇒ (Cons 6 (Cons 5 (Cons 4 (Cons 3 (Cons 2 Nil))))))
 
+(define (build-list/comp [i : Int] [n : Int] [nf : (→ Int Int)] [f : (→ Int X)] → (List X))
+  (if (= i n)
+      Nil
+      (Cons (f (nf i)) (build-list/comp (add1 i) n nf f))))
+
+(define built-list-1 (build-list/comp 0 3 (λ (x) (* 2 x)) add1))
+(define built-list-2 (build-list/comp 0 3 (λ (x) (* 2 x)) number->string))
+(check-type built-list-1 : (List Int) -> (Cons 1 (Cons 3 (Cons 5 Nil))))
+(check-type built-list-2 : (List String) -> (Cons "0" (Cons "2" (Cons "4" Nil))))
+
+(define (~>2 [a : A] [f : (→ A A)] [g : (→ A B)] → B)
+  (g (f a)))
+
+(define ~>2-result-1 (~>2 1 (λ (x) (* 2 x)) add1))
+(define ~>2-result-2 (~>2 1 (λ (x) (* 2 x)) number->string))
+(check-type ~>2-result-1 : Int -> 3)
+(check-type ~>2-result-2 : String -> "2")
+
 (define (append [lst1 : (List X)] [lst2 : (List X)] → (List X))
   (match lst1 with
    [Nil -> lst2]
@@ -242,8 +260,7 @@
 (typecheck-fail Nil #:with-msg "add annotations")
 (typecheck-fail (Cons 1 (Nil {Bool}))
  #:with-msg 
- (expected "Int, (List Int)" #:given "Int, (List Bool)"
-  #:note "Type error applying.*Cons"))
+ "expected: \\(List Int\\)\n *given: \\(List Bool\\)")
 (typecheck-fail (Cons {Bool} 1 (Nil {Int}))
  #:with-msg 
  (expected "Bool, (List Bool)" #:given "Int, (List Int)"
@@ -284,6 +301,8 @@
 (define-type (Option A)
   (None)
   (Some A))
+
+(define (None* → (Option A)) None)
 
 (check-type (match (tup 1 2) with [a b -> None]) : (Option Int) -> None)
 (check-type 
@@ -380,6 +399,52 @@
 (check-type ((inst nn2 Int (List Int) String) 1)
             : (→ (× Int (→ (List Int) (List Int)) (List String))))
 
+(define (nn3 [x : X] -> (→ (× X (Option Y) (Option Z))))
+  (λ () (tup x None None)))
+(check-type (nn3 1) : (→/test (× Int (Option Y) (Option Z))))
+(check-type (nn3 1) : (→ (× Int (Option String) (Option (List Int)))))
+(check-type ((nn3 1)) : (× Int (Option String) (Option (List Int))))
+(check-type ((nn3 1)) : (× Int (Option (List Int)) (Option String)))
+;; test inst order
+(check-type ((inst (nn3 1) String (List Int))) : (× Int (Option String) (Option (List Int))))
+(check-type ((inst (nn3 1) (List Int) String)) : (× Int (Option (List Int)) (Option String)))
+
+(define (nn4 -> (→ (Option X)))
+  (λ () (None*)))
+(check-type (let ([x (nn4)])
+              x)
+            : (→/test (Option X)))
+
+(define (nn5 -> (→ (Ref (Option X))))
+  (λ () (ref (None {X}))))
+(typecheck-fail (let ([x (nn5)])
+                  x)
+                #:with-msg "Could not infer instantiation of polymorphic function nn5.")
+
+(define (nn6 -> (→ (Option X)))
+  (let ([r (((inst nn5 X)))])
+    (λ () (deref r))))
+(check-type (nn6) : (→/test (Option X)))
+
+;; A is covariant, B is invariant.
+(define-type (Cps A B)
+  (cps (→ (→ A B) B)))
+(define (cps* [f : (→ (→ A B) B)] → (Cps A B))
+  (cps f))
+
+(define (nn7 -> (→ (Cps (Option A) B)))
+  (let ([r (((inst nn5 A)))])
+    (λ () (cps* (λ (k) (k (deref r)))))))
+(typecheck-fail (let ([x (nn7)])
+                  x)
+                #:with-msg "Could not infer instantiation of polymorphic function nn7.")
+
+(define (nn8 -> (→ (Cps (Option A) Int)))
+  (nn7))
+(check-type (let ([x (nn8)])
+              x)
+            : (→/test (Cps (Option A) Int)))
+
 (define-type (Result A B)
   (Ok A)
   (Error B))
@@ -388,6 +453,35 @@
   (Ok a))
 (define (error [b : B] → (Result A B))
   (Error b))
+
+(define (ok-fn [a : A] -> (→ (Result A B)))
+  (λ () (ok a)))
+(define (error-fn [b : B] -> (→ (Result A B)))
+  (λ () (error b)))
+
+(check-type (let ([x (ok-fn 1)])
+              x)
+            : (→/test (Result Int B)))
+(check-type (let ([x (error-fn "bad")])
+              x)
+            : (→/test (Result A String)))
+
+(define (nn9 [a : A] -> (→ (Result A (Ref B))))
+  (ok-fn a))
+(define (nn10 [a : A] -> (→ (Result A (Ref String))))
+  (nn9 a))
+(define (nn11 -> (→ (Result (Option A) (Ref String))))
+  (nn10 (None*)))
+
+(typecheck-fail (let ([x (nn9 1)])
+                  x)
+                #:with-msg "Could not infer instantiation of polymorphic function nn9.")
+(check-type (let ([x (nn10 1)])
+              x)
+            : (→ (Result Int (Ref String))))
+(check-type (let ([x (nn11)])
+              x)
+            : (→/test (Result (Option A) (Ref String))))
 
 (check-type (if (zero? (random 2))
                 (ok 0)
@@ -452,6 +546,21 @@
               (λ (a) (Ok (Cons a Nil))))
              (λ (b) (Error (Cons b Nil))))
             : (Result (List Int) (List String)))
+
+(define (tup* [a : A] [b : B] -> (× A B))
+  (tup a b))
+
+(define (nn12 -> (→ (× (Option A) (Option B))))
+  (λ () (tup* (None*) (None*))))
+(check-type (let ([x (nn12)])
+              x)
+            : (→/test (× (Option A) (Option B))))
+
+(define (nn13 -> (→ (× (Option A) (Option (Ref B)))))
+  (nn12))
+(typecheck-fail (let ([x (nn13)])
+                  x)
+                #:with-msg "Could not infer instantiation of polymorphic function nn13.")
 
 ;; records and automatically-defined accessors and predicates
 (define-type (RecoTest X Y)

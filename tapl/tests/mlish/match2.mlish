@@ -62,7 +62,7 @@
 (typecheck-fail
   (match2 (B 1) with
    [B x -> x]) 
-  #:with-msg (expected "(× X X)" #:given "Int"))
+  #:with-msg "expected: \\(× X X\\)\n *given: Int")
 
 (check-type
   (match2 (B (tup 2 3)) with

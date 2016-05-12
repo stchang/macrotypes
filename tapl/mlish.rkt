@@ -6,7 +6,7 @@
 ;(reuse [inst sysf:inst] #:from "sysf.rkt") 
 (require (rename-in (only-in "sysf.rkt" inst) [inst sysf:inst]))
 (provide inst)
-(require (only-in "ext-stlc.rkt" →?))
+(require (only-in "ext-stlc.rkt" → →?))
 (require (only-in "sysf.rkt" ~∀ ∀ ∀? Λ))
 (reuse × tup proj define-type-alias #:from "stlc+rec-iso.rkt")
 (require (only-in "stlc+rec-iso.rkt" ~× ×?)) ; using current-type=? from here
@@ -23,6 +23,9 @@
 (require (prefix-in stlc+cons: (only-in "stlc+cons.rkt" list)))
 (require (prefix-in stlc+tup: (only-in "stlc+tup.rkt" tup)))
 
+(module+ test
+  (require (for-syntax rackunit)))
+
 (provide → →/test match2 define-type)
 
 ;; ML-like language
@@ -30,6 +33,25 @@
 ;; - user-definable algebraic datatypes
 ;; - pattern matching
 ;; - (local) type inference
+
+;; creating possibly polymorphic types
+;; ?∀ only wraps a type in a forall if there's at least one type variable
+(define-syntax ?∀
+  (lambda (stx)
+    (syntax-case stx ()
+      [(?∀ () body)
+       #'body]
+      [(?∀ (X ...) body)
+       #'(∀ (X ...) body)])))
+
+;; ?Λ only wraps an expression in a Λ if there's at least one type variable
+(define-syntax ?Λ
+  (lambda (stx)
+    (syntax-case stx ()
+      [(?Λ () body)
+       #'body]
+      [(?Λ (X ...) body)
+       #'(Λ (X ...) body)])))
 
 (begin-for-syntax 
   ;; matching possibly polymorphic types
@@ -43,26 +65,91 @@
                        (~parse vars-pat #'())
                        body-pat))]))))
 
-  ;; type inference constraint solving
-  (define (compute-constraint τ1-τ2)
-    (syntax-parse τ1-τ2
-      [(X:id τ) #'((X τ))]
-      [((~Any tycons1 τ1 ...) (~Any tycons2 τ2 ...))
-       #:when (typecheck? #'tycons1 #'tycons2)
-       (compute-constraints #'((τ1 τ2) ...))]
-      ; should only be monomorphic?
-      [((~∀ () (~ext-stlc:→ τ1 ...)) (~∀ () (~ext-stlc:→ τ2 ...)))
-       (compute-constraints #'((τ1 τ2) ...))]
-      [_ #'()]))
-  (define (compute-constraints τs) 
-    (stx-appendmap compute-constraint τs))
-
-  (define (solve-constraint x-τ)
-    (syntax-parse x-τ
-      [(X:id τ) #'((X τ))]
-      [_ #'()]))
-  (define (solve-constraints cs)
-    (stx-appendmap compute-constraint cs))
+  ;; add-constraints :
+  ;; (Listof Id) (Listof (List Id Type)) (Stx-Listof (Stx-List Stx Stx)) -> (Listof (List Id Type))
+  ;; Adds a new set of constaints to a substituion, using the type
+  ;; unification algorithm for local type inference.
+  (define (add-constraints Xs substs new-cs [orig-cs new-cs])
+    (define Xs* (stx->list Xs))
+    (define Ys (stx-map stx-car substs))
+    (define-syntax-class var
+      [pattern x:id #:when (member #'x Xs* free-identifier=?)])
+    (syntax-parse new-cs
+      [() substs]
+      [([a:var b] . rst)
+       (cond
+         [(member #'a Ys free-identifier=?)
+          ;; There are two cases.
+          ;; Either #'a already maps to #'b or an equivalent type,
+          ;; or #'a already maps to a type that conflicts with #'b.
+          ;; In either case, whatever #'a maps to must be equivalent
+          ;; to #'b, so add that to the constraints.
+          (add-constraints
+           Xs
+           substs
+           (cons (list (lookup #'a substs) #'b)
+                 #'rst)
+           orig-cs)]
+         [else
+          (add-constraints
+           Xs*
+           ;; Add the mapping #'a -> #'b to the substitution,
+           (cons (list #'a #'b)
+                 (for/list ([subst (in-list (stx->list substs))])
+                   (list (stx-car subst)
+                         (inst-type (list #'b) (list #'a) (stx-cadr subst)))))
+           ;; and substitute that in each of the constraints.
+           (for/list ([c (in-list (syntax->list #'rst))])
+             (list (inst-type (list #'b) (list #'a) (stx-car c))
+                   (inst-type (list #'b) (list #'a) (stx-cadr c))))
+           orig-cs)])]
+      [([a b:var] . rst)
+       (add-constraints Xs*
+                        substs
+                        #'([b a] . rst)
+                        orig-cs)]
+      [([a b] . rst)
+       ;; If #'a and #'b are base types, check that they're equal.
+       ;; Identifers not within Xs count as base types.
+       ;; If #'a and #'b are constructed types, check that the
+       ;; constructors are the same, add the sub-constraints, and
+       ;; recur.
+       ;; Otherwise, raise an error.
+       (cond
+         [(identifier? #'a)
+          ;; #'a is an identifier, but not a var, so it is considered
+          ;; a base type. We also know #'b is not a var, so #'b has
+          ;; to be the same "identifier base type" as #'a.
+          (unless (and (identifier? #'b) (free-identifier=? #'a #'b))
+            (type-error #:src (get-orig #'a)
+                        #:msg (format "couldn't unify ~~a and ~~a\n  expected: ~a\n  given: ~a"
+                                      (string-join (map type->str (stx-map stx-car orig-cs)) ", ")
+                                      (string-join (map type->str (stx-map stx-cadr orig-cs)) ", "))
+                        #'a #'b))
+          (add-constraints Xs*
+                           substs
+                           #'rst
+                           orig-cs)]
+         [else
+          (syntax-parse #'[a b]
+            [_
+             #:when (typecheck? #'a #'b)
+             (add-constraints Xs
+                              substs
+                              #'rst
+                              orig-cs)]
+            [((~Any tycons1 τ1 ...) (~Any tycons2 τ2 ...))
+             #:when (typecheck? #'tycons1 #'tycons2)
+             (add-constraints Xs
+                              substs
+                              #'((τ1 τ2) ... . rst)
+                              orig-cs)]
+            [else
+             (type-error #:src (get-orig #'a)
+                         #:msg (format "couldn't unify ~~a and ~~a\n  expected: ~a\n  given: ~a"
+                                       (string-join (map type->str (stx-map stx-car orig-cs)) ", ")
+                                       (string-join (map type->str (stx-map stx-cadr orig-cs)) ", "))
+                         #'a #'b)])])]))
   
   (define (lookup x substs)
     (syntax-parse substs
@@ -72,11 +159,11 @@
       [(_ . rst) (lookup x #'rst)]
       [() #f]))
 
-  ;; find-unsolved-Xs : (Stx-Listof Id) Constraints -> (Listof Id)
-  ;; finds the free Xs that aren't constrained by cs
-  (define (find-unsolved-Xs Xs cs)
+  ;; find-free-Xs : (Stx-Listof Id) Type -> (Listof Id)
+  ;; finds the free Xs in the type
+  (define (find-free-Xs Xs ty)
     (for/list ([X (in-list (stx->list Xs))]
-               #:when (not (lookup X cs)))
+               #:when (stx-contains-id? ty X))
       X))
 
   ;; lookup-Xs/keep-unsolved : (Stx-Listof Id) Constraints -> (Listof Type-Stx)
@@ -90,33 +177,43 @@
   ;;   tyXs = input and output types from fn type
   ;;          ie (typeof e_fn) = (-> . tyXs)
   ;; It infers the types of arguments from left-to-right,
-  ;; and it short circuits if it's done early.
+  ;; and it expands and returns all of the arguments.
   ;; It returns list of 3 values if successful, else throws a type error
-  ;;  - a list of the arguments that it expanded
-  ;;  - a list of the the un-constrained type variables
+  ;;  - a list of all the arguments, expanded
+  ;;  - a list of all the type variables
   ;;  - the constraints for substituting the types
   (define (solve Xs tyXs stx)
     (syntax-parse tyXs
       [(τ_inX ... τ_outX)
        ;; generate initial constraints with expected type and τ_outX
-       #:with expected-ty (get-expected-type stx)
+       #:with (~?∀ Vs expected-ty) (and (get-expected-type stx)
+                                        ((current-type-eval) (get-expected-type stx)))
        (define initial-cs
-         (if (syntax-e #'expected-ty)
-             (compute-constraint (list #'τ_outX ((current-type-eval) #'expected-ty)))
+         (if (and (syntax-e #'expected-ty) (stx-null? #'Vs))
+             (add-constraints Xs '() (list (list #'expected-ty #'τ_outX)))
              #'()))
        (syntax-parse stx
          [(_ e_fn . args)
           (define-values (as- cs)
               (for/fold ([as- null] [cs initial-cs])
                         ([a (in-list (syntax->list #'args))]
-                         [tyXin (in-list (syntax->list #'(τ_inX ...)))]
-                         #:break (empty? (find-unsolved-Xs Xs cs)))
-                (define/with-syntax [a- ty_a] (infer+erase a))
+                         [tyXin (in-list (syntax->list #'(τ_inX ...)))])
+                (define ty_in (inst-type/cs Xs cs tyXin))
+                (define/with-syntax [a- ty_a]
+                  (infer+erase (if (empty? (find-free-Xs Xs ty_in))
+                                   (add-expected-ty a ty_in)
+                                   a)))
                 (values 
                  (cons #'a- as-)
-                 (stx-append cs (compute-constraint (list tyXin #'ty_a))))))
+                 (add-constraints Xs cs (list (list ty_in #'ty_a))
+                                  (list (list (inst-type/cs/orig
+                                               Xs cs ty_in
+                                               (λ (id1 id2)
+                                                 (equal? (syntax->datum id1)
+                                                         (syntax->datum id2))))
+                                              #'ty_a))))))
 
-         (list (reverse as-) (find-unsolved-Xs Xs cs) cs)])]))
+         (list (reverse as-) Xs cs)])]))
 
   (define (raise-app-poly-infer-error stx expected-tys given-tys e_fn)
     (type-error #:src stx
@@ -130,6 +227,11 @@
   ;; identifier in Xs is associated with the ith type in tys-solved
   (define (inst-type tys-solved Xs ty)
     (substs tys-solved Xs ty))
+  ;; inst-type/orig : (Listof Type) (Listof Id) Type (Id Id -> Bool) -> Type
+  ;; like inst-type, but also substitutes within the orig property
+  (define (inst-type/orig tys-solved Xs ty [var=? free-identifier=?])
+    (add-orig (inst-type tys-solved Xs ty)
+              (substs (stx-map get-orig tys-solved) Xs (get-orig ty) var=?)))
   
   ;; inst-type/cs : (Stx-Listof Id) Constraints Type-Stx -> Type-Stx
   ;; Instantiates ty, substituting each identifier in Xs with its mapping in cs.
@@ -140,6 +242,56 @@
   ;; the plural version of inst-type/cs
   (define (inst-types/cs Xs cs tys)
     (stx-map (lambda (t) (inst-type/cs Xs cs t)) tys))
+
+  ;; inst-type/cs/orig :
+  ;; (Stx-Listof Id) Constraints Type-Stx (Id Id -> Bool) -> Type-Stx
+  ;; like inst-type/cs, but also substitutes within the orig property
+  (define (inst-type/cs/orig Xs cs ty [var=? free-identifier=?])
+    (define tys-solved (lookup-Xs/keep-unsolved Xs cs))
+    (inst-type/orig tys-solved Xs ty var=?))
+  ;; inst-types/cs/orig :
+  ;; (Stx-Listof Id) Constraints (Stx-Listof Type-Stx) (Id Id -> Bool) -> (Listof Type-Stx)
+  ;; the plural version of inst-type/cs/orig
+  (define (inst-types/cs/orig Xs cs tys [var=? free-identifier=?])
+    (stx-map (lambda (t) (inst-type/cs/orig Xs cs t var=?)) tys))
+
+  ;; covariant-Xs? : Type -> Bool
+  ;; Takes a possibly polymorphic type, and returns true if all of the
+  ;; type variables are in covariant positions within the type, false
+  ;; otherwise.
+  (define (covariant-Xs? ty)
+    (syntax-parse ((current-type-eval) ty)
+      [(~?∀ Xs ty)
+       (for/and ([X (in-list (syntax->list #'Xs))])
+         (covariant-X? X #'ty))]))
+
+  ;; find-X-variance : Id Type -> Variance
+  ;; Returns  the variance of X within the type ty
+  (define (find-X-variance X ty)
+    (syntax-parse ty
+      [A:id #:when (free-identifier=? #'A X) covariant]
+      [(~Any tycons) irrelevant]
+      [(~?∀ () (~Any tycons τ ...))
+       #:when (get-arg-variances #'tycons)
+       #:when (stx-length=? #'[τ ...] (get-arg-variances #'tycons))
+       (for/fold ([acc irrelevant])
+                 ([τ (in-list (syntax->list #'[τ ...]))]
+                  [arg-variance (in-list (get-arg-variances #'tycons))])
+         (variance-join
+          acc
+          (variance-compose arg-variance (find-X-variance X τ))))]
+      [ty #:when (not (stx-contains-id? #'ty X)) irrelevant]
+      [_ invariant]))
+
+  ;; covariant-X? : Id Type -> Bool
+  ;; Returns true if every place X appears in ty is a covariant position, false otherwise.
+  (define (covariant-X? X ty)
+    (variance-covariant? (find-X-variance X ty)))
+
+  ;; contravariant-X? : Id Type -> Bool
+  ;; Returns true if every place X appears in ty is a contravariant position, false otherwise.
+  (define (contravariant-X? X ty)
+    (variance-contravariant? (find-X-variance X ty)))
 
   ;; compute unbound tyvars in one unexpanded type ty
   (define (compute-tyvar1 ty)
@@ -182,8 +334,8 @@
    ;; TODO: check that specified return type is correct
    ;; - currently cannot do it here; to do the check here, need all types of
    ;;  top-lvl fns, since they can call each other
-   #:with (~and ty_fn_expected (~∀ _ (~ext-stlc:→ _ ... out_expected))) 
-          ((current-type-eval) #'(∀ Ys (ext-stlc:→ τ+orig ...)))
+   #:with (~and ty_fn_expected (~?∀ _ (~ext-stlc:→ _ ... out_expected))) 
+          ((current-type-eval) #'(?∀ Ys (ext-stlc:→ τ+orig ...)))
    #`(begin
       (define-syntax f (make-rename-transformer (⊢ g : ty_fn_expected)))
       (define g
@@ -200,15 +352,15 @@
    ;; TODO: check that specified return type is correct
    ;; - currently cannot do it here; to do the check here, need all types of
    ;;  top-lvl fns, since they can call each other
-   #:with (~and ty_fn_expected (~∀ _ (~ext-stlc:→ _ ... out_expected))) 
+   #:with (~and ty_fn_expected (~?∀ _ (~ext-stlc:→ _ ... out_expected))) 
           (set-stx-prop/preserved 
-           ((current-type-eval) #'(∀ Ys (ext-stlc:→ τ+orig ...)))
+           ((current-type-eval) #'(?∀ Ys (ext-stlc:→ τ+orig ...)))
            'orig
            (list #'(→ τ+orig ...)))
    #`(begin
       (define-syntax f (make-rename-transformer (⊢ g : ty_fn_expected)))
       (define g
-        (Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))])
+        (?Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))])
 
 ;; define-type -----------------------------------------------
 ;; TODO: should validate τ as part of define-type definition (before it's used)
@@ -275,30 +427,44 @@
                                      #'(StructName ...) #'((fld ...) ...))
      #:with (Cons? ...) (stx-map mk-? #'(StructName ...))
      #:with (exposed-Cons? ...) (stx-map mk-? #'(Cons ...))
+     #:do [(define expanded-tys
+             (for/list ([τ (in-list (syntax->list #'[τ ... ...]))])
+               (with-handlers ([exn:fail:syntax? (λ (e) #false)])
+                 ((current-type-eval) #`(∀ (X ...) #,τ)))))]
+     #:with [arg-variance ...]
+     (for/list ([i (in-range (length (syntax->list #'[X ...])))])
+       (for/fold ([acc irrelevant])
+                 ([ty (in-list expanded-tys)])
+         (cond [ty
+                (define/syntax-parse (~?∀ Xs τ) ty)
+                (define X (list-ref (syntax->list #'Xs) i))
+                (variance-join acc (find-X-variance X #'τ))]
+               [else invariant])))
      #`(begin
          (define-syntax (NameExtraInfo stx)
            (syntax-parse stx
              [(_ X ...) #'(('Cons 'StructName Cons? [acc τ] ...) ...)]))
          (define-type-constructor Name
            #:arity = #,(stx-length #'(X ...))
+           #:arg-variances (λ (stx) (list 'arg-variance ...))
            #:extra-info 'NameExtraInfo
            #:no-provide)
          (struct StructName (fld ...) #:reflection-name 'Cons #:transparent) ...
          (define-syntax (exposed-acc stx) ; accessor for records
            (syntax-parse stx
-            [_:id (⊢ acc (∀ (X ...) (ext-stlc:→ (Name X ...) τ)))]
+            [_:id (⊢ acc (?∀ (X ...) (ext-stlc:→ (Name X ...) τ)))]
             [(o . rst) ; handle if used in fn position
              #:with app (datum->syntax #'o '#%app)
              #`(app 
-                #,(assign-type #'acc #'(∀ (X ...) (ext-stlc:→ (Name X ...) τ))) 
+                #,(assign-type #'acc #'(?∀ (X ...) (ext-stlc:→ (Name X ...) τ))) 
                 . rst)])) ... ...
          (define-syntax (exposed-Cons? stx) ; predicates for each variant
            (syntax-parse stx
-            [_:id (⊢ Cons? (∀ (X ...) (ext-stlc:→ (Name X ...) Bool)))]
+            [_:id (⊢ Cons? (?∀ (X ...) (ext-stlc:→ (Name X ...) Bool)))]
             [(o . rst) ; handle if used in fn position
              #:with app (datum->syntax #'o '#%app)
              #`(app 
-                #,(assign-type #'Cons? #'(∀ (X ...) (ext-stlc:→ (Name X ...) Bool))) 
+                #,(assign-type #'Cons? #'(?∀ (X ...) (ext-stlc:→ (Name X ...) Bool))) 
                 . rst)])) ...
          (define-syntax (Cons stx)
            (syntax-parse stx
@@ -319,7 +485,7 @@
                                 (current-continuation-marks)))
               #:with (NameExpander τ-expected-arg (... ...)) ((current-type-eval) #'τ-expected)
               #'(C {τ-expected-arg (... ...)})]
-             [_:id (⊢ StructName (∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))] ; HO fn
+             [_:id (⊢ StructName (?∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))] ; HO fn
              [(C τs e_arg ...)
               #:when (brace? #'τs) ; commit to this clause
               #:with {~! τ_X:type (... ...)} #'τs
@@ -340,7 +506,7 @@
              [(C . args) ; no type annotations, must infer instantiation
               #:with StructName/ty 
                      (set-stx-prop/preserved
-                      (⊢ StructName : (∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))
+                      (⊢ StructName : (?∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))
                       'orig
                       (list #'C))
               ; stx/loc transfers expected-type
@@ -651,19 +817,16 @@
                (let ([x- (acc z)] ...) e_c-)] ...))
            : τ_out)])])])
 
-(define-syntax → ; wrapping →
-  (syntax-parser
-    [(_ . rst) (set-stx-prop/preserved #'(∀ () (ext-stlc:→ . rst)) 'orig (list #'(→ . rst)))]))
 ; special arrow that computes free vars; for use with tests
 ; (because we can't write explicit forall
 (define-syntax →/test 
   (syntax-parser
     [(_ (~and Xs (X:id ...)) . rst)
      #:when (brace? #'Xs)
-     #'(∀ (X ...) (ext-stlc:→ . rst))]
+     #'(?∀ (X ...) (ext-stlc:→ . rst))]
     [(_ . rst)
      #:with Xs (compute-tyvars #'rst)
-     #'(∀ Xs (ext-stlc:→ . rst))]))
+     #'(?∀ Xs (ext-stlc:→ . rst))]))
 
 ; redefine these to use lifted →
 (define-primop + : (→ Int Int Int))
@@ -685,7 +848,7 @@
 (define-primop even? : (→ Int Bool))
 (define-primop odd? : (→ Int Bool))
 
-; all λs have type (∀ (X ...) (→ τ_in ... τ_out)), even monomorphic fns
+; all λs have type (?∀ (X ...) (→ τ_in ... τ_out))
 (define-typed-syntax liftedλ #:export-as λ
   [(_ (x:id ...+) body)
    #:with (~?∀ Xs expected) (get-expected-type stx)
@@ -696,21 +859,21 @@
            (type-error #:src stx #:msg
                        (format "expected a function of ~a arguments, got one with ~a arguments"
                                (stx-length #'[arg-ty ...] #'[x ...]))))]
-   #`(Λ Xs (ext-stlc:λ ([x : arg-ty] ...) #,(add-expected-ty #'body #'body-ty)))]
+   #`(?Λ Xs (ext-stlc:λ ([x : arg-ty] ...) #,(add-expected-ty #'body #'body-ty)))]
   [(_ args body)
    #:with (~?∀ () (~ext-stlc:→ arg-ty ... body-ty)) (get-expected-type stx)
-   #`(Λ () (ext-stlc:λ args #,(add-expected-ty #'body #'body-ty)))]
+   #`(?Λ () (ext-stlc:λ args #,(add-expected-ty #'body #'body-ty)))]
   [(_ (~and x+tys ([_ (~datum :) ty] ...)) . body)
    #:with Xs (compute-tyvars #'(ty ...))
    ;; TODO is there a way to have λs that refer to ids defined after them?
-   #'(Λ Xs (ext-stlc:λ x+tys . body))])
+   #'(?Λ Xs (ext-stlc:λ x+tys . body))])
 
 
 ;; #%app --------------------------------------------------
 (define-typed-syntax mlish:#%app #:export-as #%app
   [(_ e_fn . e_args)
    ;; ) compute fn type (ie ∀ and →) 
-   #:with [e_fn- (~∀ Xs (~ext-stlc:→ . tyX_args))] (infer+erase #'e_fn)
+   #:with [e_fn- (~?∀ Xs (~ext-stlc:→ . tyX_args))] (infer+erase #'e_fn)
    (cond 
     [(stx-null? #'Xs)
      (syntax-parse #'(e_args tyX_args)
@@ -722,22 +885,17 @@
         #'(ext-stlc:#%app e_fn/ty (add-expected e_arg τ_inX) ...)])]
     [else
      ;; ) solve for type variables Xs
-     (define/with-syntax ((e_arg1- ...) (unsolved-X ...) cs) (solve #'Xs #'tyX_args stx))
+     (define/with-syntax ((e_arg- ...) Xs* cs) (solve #'Xs #'tyX_args stx))
      ;; ) instantiate polymorphic function type
-     (syntax-parse (inst-types/cs #'Xs #'cs #'tyX_args)
+     (syntax-parse (inst-types/cs #'Xs* #'cs #'tyX_args)
       [(τ_in ... τ_out) ; concrete types
+       #:with (unsolved-X ...) (find-free-Xs #'Xs* #'τ_out)
        ;; ) arity check
        #:fail-unless (stx-length=? #'(τ_in ...) #'e_args)
                      (mk-app-err-msg stx #:expected #'(τ_in ...)
                       #:note "Wrong number of arguments.")
-       ;; ) compute argument types; re-use args expanded during solve
-       #:with ([e_arg2- τ_arg2] ...) (let ([n (stx-length #'(e_arg1- ...))])
-                                       (infers+erase 
-                                         (stx-map add-expected-ty 
-                                           (stx-drop #'e_args n) (stx-drop #'(τ_in ...) n))))
-       #:with (τ_arg1 ...) (stx-map typeof #'(e_arg1- ...))
-       #:with (τ_arg ...) #'(τ_arg1 ... τ_arg2 ...)
-       #:with (e_arg- ...) #'(e_arg1- ... e_arg2- ...)
+       ;; ) compute argument types
+       #:with (τ_arg ...) (stx-map typeof #'(e_arg- ...))
        ;; ) typecheck args
        #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
                      (mk-app-err-msg stx 
@@ -749,14 +907,23 @@
                           (define new-orig
                             (and old-orig
                                  (substs 
-                                   (stx-map get-orig (lookup-Xs/keep-unsolved #'Xs #'cs)) #'Xs old-orig
+                                   (stx-map get-orig (lookup-Xs/keep-unsolved #'Xs* #'cs))
+                                   #'Xs*
+                                   old-orig
                                    (lambda (x y) 
                                     (equal? (syntax->datum x) (syntax->datum y))))))
                           (set-stx-prop/preserved tyin 'orig (list new-orig)))
                        #'(τ_in ...)))
        #:with τ_out* (if (stx-null? #'(unsolved-X ...))
                          #'τ_out
-                         (raise-app-poly-infer-error stx #'(τ_in ...) #'(τ_arg ...) #'e_fn))
+                         (syntax-parse #'τ_out
+                           [(~?∀ (Y ...) τ_out)
+                            (unless (→? #'τ_out)
+                              (raise-app-poly-infer-error stx #'(τ_in ...) #'(τ_arg ...) #'e_fn))
+                            (for ([X (in-list (syntax->list #'(unsolved-X ...)))])
+                              (unless (covariant-X? X #'τ_out)
+                                (raise-app-poly-infer-error stx #'(τ_in ...) #'(τ_arg ...) #'e_fn)))
+                            #'(∀ (unsolved-X ... Y ...) τ_out)]))
        (⊢ (#%app e_fn- e_arg- ...) : τ_out*)])])]
   [(_ e_fn . e_args) ; err case; e_fn is not a function
    #:with [e_fn- τ_fn] (infer+erase #'e_fn)
@@ -814,7 +981,7 @@
 ;; threads
 (define-typed-syntax thread
   [(_ th)
-   #:with (th- (~∀ () (~ext-stlc:→ τ_out))) (infer+erase #'th)
+   #:with (th- (~?∀ () (~ext-stlc:→ τ_out))) (infer+erase #'th)
    (⊢ (thread th-) : Thread)])
 
 (define-primop random : (→ Int Int))
@@ -1177,10 +1344,7 @@
     [(_ e ty ...)
      #:with [ee tyty] (infer+erase #'e)
      #:with [e- ty_e] (infer+erase #'(sysf:inst e ty ...))
-     #:with ty_out (if (→? #'ty_e)
-                       #'(∀ () ty_e)
-                       #'ty_e)
-     (⊢ e- : ty_out)]))
+     (⊢ e- : ty_e)]))
 
 (define-typed-syntax read
   [(_)
@@ -1188,3 +1352,30 @@
         (cond [(eof-object? x) ""]
               [(number? x) (number->string x)]
               [(symbol? x) (symbol->string x)])) : String)])
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(module+ test
+  (begin-for-syntax
+    (check-true  (covariant-Xs? #'Int))
+    (check-true  (covariant-Xs? #'(stlc+box:Ref Int)))
+    (check-true  (covariant-Xs? #'(→ Int Int)))
+    (check-true  (covariant-Xs? #'(∀ (X) X)))
+    (check-false (covariant-Xs? #'(∀ (X) (stlc+box:Ref X))))
+    (check-false (covariant-Xs? #'(∀ (X) (→ X X))))
+    (check-false (covariant-Xs? #'(∀ (X) (→ X Int))))
+    (check-true  (covariant-Xs? #'(∀ (X) (→ Int X))))
+    (check-true  (covariant-Xs? #'(∀ (X) (→ (→ X Int) X))))
+    (check-false (covariant-Xs? #'(∀ (X) (→ (→ (→ X Int) Int) X))))
+    (check-false (covariant-Xs? #'(∀ (X) (→ (stlc+box:Ref X) Int))))
+    (check-false (covariant-Xs? #'(∀ (X Y) (→ X Y))))
+    (check-true  (covariant-Xs? #'(∀ (X Y) (→ (→ X Int) Y))))
+    (check-false (covariant-Xs? #'(∀ (X Y) (→ (→ X Int) (→ Y Int)))))
+    (check-true  (covariant-Xs? #'(∀ (X Y) (→ (→ X Int) (→ Int Y)))))
+    (check-false (covariant-Xs? #'(∀ (A B) (→ (→ Int (stlc+rec-iso:× A B))
+                                              (→ String (stlc+rec-iso:× A B))
+                                              (stlc+rec-iso:× A B)))))
+    (check-true  (covariant-Xs? #'(∀ (A B) (→ (→ (stlc+rec-iso:× A B) Int)
+                                              (→ (stlc+rec-iso:× A B) String)
+                                              (stlc+rec-iso:× A B)))))
+    ))

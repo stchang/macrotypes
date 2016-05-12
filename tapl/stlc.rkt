@@ -2,6 +2,8 @@
 (provide (for-syntax current-type=? types=?))
 (provide (for-syntax mk-app-err-msg))
  
+(require (for-syntax racket/list))
+
 ;; Simply-Typed Lambda Calculus
 ;; - no base types; can't write any terms
 ;; Types: multi-arg → (1+)
@@ -66,7 +68,13 @@
   
 (define-syntax-category type)
 
-(define-type-constructor → #:arity >= 1)
+(define-type-constructor → #:arity >= 1
+  #:arg-variances (λ (stx)
+                    (syntax-parse stx
+                      [(_ τ_in ... τ_out)
+                       (append
+                        (make-list (stx-length #'[τ_in ...]) contravariant)
+                        (list covariant))])))
 
 (define-typed-syntax λ
   [(_ bvs:type-ctx e)
