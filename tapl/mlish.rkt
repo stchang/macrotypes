@@ -293,6 +293,21 @@
   (define (contravariant-X? X ty)
     (variance-contravariant? (find-X-variance X ty)))
 
+  ;; infer-variances : Id (Stx-Listof Id) (Stx-Listof Type-Stx) -> (Listof Variance)
+  (define (infer-variances type-constructor Xs τs)
+    (define expanded-tys
+      (for/list ([τ (in-list (stx->list τs))])
+        (with-handlers ([exn:fail:syntax? (λ (e) #false)])
+          ((current-type-eval) #`(∀ #,Xs #,τ)))))
+    (for/list ([i (in-range (length (stx->list Xs)))])
+      (for/fold ([acc irrelevant])
+                ([ty (in-list expanded-tys)])
+        (cond [ty
+               (define/syntax-parse (~?∀ Xs τ) ty)
+               (define X (list-ref (syntax->list #'Xs) i))
+               (variance-join acc (find-X-variance X #'τ))]
+              [else invariant]))))
+
   ;; compute unbound tyvars in one unexpanded type ty
   (define (compute-tyvar1 ty)
     (syntax-parse ty
@@ -427,19 +442,8 @@
                                      #'(StructName ...) #'((fld ...) ...))
      #:with (Cons? ...) (stx-map mk-? #'(StructName ...))
      #:with (exposed-Cons? ...) (stx-map mk-? #'(Cons ...))
-     #:do [(define expanded-tys
-             (for/list ([τ (in-list (syntax->list #'[τ ... ...]))])
-               (with-handlers ([exn:fail:syntax? (λ (e) #false)])
-                 ((current-type-eval) #`(∀ (X ...) #,τ)))))]
      #:with [arg-variance ...]
-     (for/list ([i (in-range (length (syntax->list #'[X ...])))])
-       (for/fold ([acc irrelevant])
-                 ([ty (in-list expanded-tys)])
-         (cond [ty
-                (define/syntax-parse (~?∀ Xs τ) ty)
-                (define X (list-ref (syntax->list #'Xs) i))
-                (variance-join acc (find-X-variance X #'τ))]
-               [else invariant])))
+     (infer-variances #'Name #'[X ...] #'[τ ... ...])
      #`(begin
          (define-syntax (NameExtraInfo stx)
            (syntax-parse stx
