@@ -265,33 +265,50 @@
        (for/and ([X (in-list (syntax->list #'Xs))])
          (covariant-X? X #'ty))]))
 
-  ;; find-X-variance : Id Type -> Variance
-  ;; Returns  the variance of X within the type ty
-  (define (find-X-variance X ty)
-    (syntax-parse ty
-      [A:id #:when (free-identifier=? #'A X) covariant]
-      [(~Any tycons) irrelevant]
-      [(~?∀ () (~Any tycons τ ...))
-       #:when (get-arg-variances #'tycons)
-       #:when (stx-length=? #'[τ ...] (get-arg-variances #'tycons))
-       (for/fold ([acc irrelevant])
-                 ([τ (in-list (syntax->list #'[τ ...]))]
-                  [arg-variance (in-list (get-arg-variances #'tycons))])
-         (variance-join
-          acc
-          (variance-compose arg-variance (find-X-variance X τ))))]
-      [ty #:when (not (stx-contains-id? #'ty X)) irrelevant]
-      [_ invariant]))
+  ;; find-X-variance : Id Type [Variance] -> Variance
+  ;; Returns the variance of X within the type ty
+  (define (find-X-variance X ty [ctxt-variance covariant])
+    (match (find-variances (list X) ty ctxt-variance)
+      [(list variance) variance]))
 
   ;; covariant-X? : Id Type -> Bool
   ;; Returns true if every place X appears in ty is a covariant position, false otherwise.
   (define (covariant-X? X ty)
-    (variance-covariant? (find-X-variance X ty)))
+    (variance-covariant? (find-X-variance X ty covariant)))
 
   ;; contravariant-X? : Id Type -> Bool
   ;; Returns true if every place X appears in ty is a contravariant position, false otherwise.
   (define (contravariant-X? X ty)
-    (variance-contravariant? (find-X-variance X ty)))
+    (variance-contravariant? (find-X-variance X ty covariant)))
+
+  ;; find-variances : (Listof Id) Type [Variance] -> (Listof Variance)
+  ;; Returns the variances of each of the Xs within the type ty,
+  ;; where it's already within a context represented by ctxt-variance.
+  (define (find-variances Xs ty [ctxt-variance covariant])
+    (syntax-parse ty
+      [A:id
+       (for/list ([X (in-list Xs)])
+         (cond [(free-identifier=? X #'A) ctxt-variance]
+               [else irrelevant]))]
+      [(~Any tycons)
+       (make-list (length Xs) irrelevant)]
+      [(~?∀ () (~Any tycons τ ...))
+       #:when (get-arg-variances #'tycons)
+       #:when (stx-length=? #'[τ ...] (get-arg-variances #'tycons))
+       (define τ-ctxt-variances
+         (for/list ([arg-variance (in-list (get-arg-variances #'tycons))])
+           (variance-compose ctxt-variance arg-variance)))
+       (for/fold ([acc (make-list (length Xs) irrelevant)])
+                 ([τ (in-list (syntax->list #'[τ ...]))]
+                  [τ-ctxt-variance (in-list τ-ctxt-variances)])
+         (map variance-join
+              acc
+              (find-variances Xs τ τ-ctxt-variance)))]
+      [ty
+       #:when (not (for/or ([X (in-list Xs)])
+                     (stx-contains-id? #'ty X)))
+       (make-list (length Xs) irrelevant)]
+      [_ (make-list (length Xs) invariant)]))
 
   ;; infer-variances : Id (Stx-Listof Id) (Stx-Listof Type-Stx) -> (Listof Variance)
   (define (infer-variances type-constructor Xs τs)
@@ -299,14 +316,15 @@
       (for/list ([τ (in-list (stx->list τs))])
         (with-handlers ([exn:fail:syntax? (λ (e) #false)])
           ((current-type-eval) #`(∀ #,Xs #,τ)))))
-    (for/list ([i (in-range (length (stx->list Xs)))])
-      (for/fold ([acc irrelevant])
-                ([ty (in-list expanded-tys)])
-        (cond [ty
-               (define/syntax-parse (~?∀ Xs τ) ty)
-               (define X (list-ref (syntax->list #'Xs) i))
-               (variance-join acc (find-X-variance X #'τ))]
-              [else invariant]))))
+    (for/fold ([acc (make-list (length (stx->list Xs)) irrelevant)])
+              ([ty (in-list expanded-tys)])
+      (cond [ty
+             (define/syntax-parse (~?∀ Xs τ) ty)
+             (map variance-join
+                  acc
+                  (find-variances (syntax->list #'Xs) #'τ covariant))]
+            [else
+             (make-list (length acc) invariant)])))
 
   ;; compute unbound tyvars in one unexpanded type ty
   (define (compute-tyvar1 ty)
