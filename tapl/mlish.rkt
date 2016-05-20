@@ -1,5 +1,5 @@
 #lang s-exp "typecheck.rkt"
-(require racket/fixnum racket/flonum)
+(require racket/fixnum racket/flonum (for-syntax "variance-constraints.rkt"))
 
 (extends "ext-stlc.rkt" #:except #%app λ → + - void = zero? sub1 add1 not let let* and #%datum begin
           #:rename [~→ ~ext-stlc:→])
@@ -310,21 +310,76 @@
        (make-list (length Xs) irrelevant)]
       [_ (make-list (length Xs) invariant)]))
 
-  ;; infer-variances : Id (Stx-Listof Id) (Stx-Listof Type-Stx) -> (Listof Variance)
-  (define (infer-variances type-constructor Xs τs)
-    (define expanded-tys
-      (for/list ([τ (in-list (stx->list τs))])
-        (with-handlers ([exn:fail:syntax? (λ (e) #false)])
-          ((current-type-eval) #`(∀ #,Xs #,τ)))))
-    (for/fold ([acc (make-list (length (stx->list Xs)) irrelevant)])
-              ([ty (in-list expanded-tys)])
-      (cond [ty
-             (define/syntax-parse (~?∀ Xs τ) ty)
-             (map variance-join
-                  acc
-                  (find-variances (syntax->list #'Xs) #'τ covariant))]
-            [else
-             (make-list (length acc) invariant)])))
+  ;; find-variances/exprs : (Listof Id) Type [Variance-Expr] -> (Listof Variance-Expr)
+  ;; Like find-variances, but works with Variance-Exprs instead of
+  ;; concrete variance values.
+  (define (find-variances/exprs Xs ty [ctxt-variance covariant])
+    (syntax-parse ty
+      [A:id
+       (for/list ([X (in-list Xs)])
+         (cond [(free-identifier=? X #'A) ctxt-variance]
+               [else irrelevant]))]
+      [(~Any tycons)
+       (make-list (length Xs) irrelevant)]
+      [(~?∀ () (~Any tycons τ ...))
+       #:when (get-arg-variances #'tycons)
+       #:when (stx-length=? #'[τ ...] (get-arg-variances #'tycons))
+       (define τ-ctxt-variances
+         (for/list ([arg-variance (in-list (get-arg-variances #'tycons))])
+           (variance-compose/expr ctxt-variance arg-variance)))
+       (for/fold ([acc (make-list (length Xs) irrelevant)])
+                 ([τ (in-list (syntax->list #'[τ ...]))]
+                  [τ-ctxt-variance (in-list τ-ctxt-variances)])
+         (map variance-join/expr
+              acc
+              (find-variances/exprs Xs τ τ-ctxt-variance)))]
+      [ty
+       #:when (not (for/or ([X (in-list Xs)])
+                     (stx-contains-id? #'ty X)))
+       (make-list (length Xs) irrelevant)]
+      [_ (make-list (length Xs) invariant)]))
+
+  ;; current-variance-constraints : (U False (Mutable-Setof Variance-Constraint))
+  ;; If this is false, that means that infer-variances should return concrete Variance values.
+  ;; If it's a mutable set, that means that infer-variances should mutate it and return false,
+  ;; and type constructors should return the list of variance vars.
+  (define current-variance-constraints (make-parameter #false))
+
+  ;; infer-variances :
+  ;; ((-> Stx) -> Stx) (Listof Variance-Var) (Listof Id) (Listof Type-Stx)
+  ;; -> (U False (Listof Variance))
+  (define (infer-variances with-variance-vars-okay variance-vars Xs τs)
+    (cond
+      [(current-variance-constraints)
+       (define variance-constraints (current-variance-constraints))
+       (define variance-exprs
+         (for/fold ([exprs (make-list (length variance-vars) irrelevant)])
+                   ([τ (in-list τs)])
+           (define/syntax-parse (~?∀ Xs* τ*)
+             ;; This can mutate variance-constraints!
+             ;; This avoids causing an infinite loop by having the type
+             ;; constructors provide with-variance-vars-okay so that within
+             ;; this call they declare variance-vars for their variances.
+             (with-variance-vars-okay
+              (λ () ((current-type-eval) #`(∀ #,Xs #,τ)))))
+           (map variance-join/expr
+                exprs
+                (find-variances/exprs (syntax->list #'Xs*) #'τ* covariant))))
+       (for ([var (in-list variance-vars)]
+             [expr (in-list variance-exprs)])
+         (set-add! variance-constraints (variance= var expr)))
+       #f]
+      [else
+       (define variance-constraints (mutable-set))
+       ;; This will mutate variance-constraints!
+       (parameterize ([current-variance-constraints variance-constraints])
+         (infer-variances with-variance-vars-okay variance-vars Xs τs))
+       (define mapping
+         (solve-variance-constraints variance-vars
+                                     (set->list variance-constraints)
+                                     (variance-mapping)))
+       (for/list ([var (in-list variance-vars)])
+         (variance-mapping-ref mapping var))]))
 
   ;; compute unbound tyvars in one unexpanded type ty
   (define (compute-tyvar1 ty)
@@ -460,15 +515,47 @@
                                      #'(StructName ...) #'((fld ...) ...))
      #:with (Cons? ...) (stx-map mk-? #'(StructName ...))
      #:with (exposed-Cons? ...) (stx-map mk-? #'(Cons ...))
-     #:with [arg-variance ...]
-     (infer-variances #'Name #'[X ...] #'[τ ... ...])
      #`(begin
          (define-syntax (NameExtraInfo stx)
            (syntax-parse stx
              [(_ X ...) #'(('Cons 'StructName Cons? [acc τ] ...) ...)]))
+         (begin-for-syntax
+           ;; arg-variance-vars : (List Variance-Var ...)
+           (define arg-variance-vars
+             (list (variance-var (syntax-e (generate-temporary 'X))) ...))
+           ;; variance-vars-okay? : (Parameterof Boolean)
+           ;; A parameter that determines whether or not it's okay for
+           ;; this type constructor to return a list of Variance-Vars
+           ;; for the variances.
+           (define variance-vars-okay? (make-parameter #false))
+           ;; with-variance-vars-okay : (-> A) -> A
+           (define (with-variance-vars-okay f)
+             (parameterize ([variance-vars-okay? #true])
+               (f)))
+           ;; arg-variances : (Boxof (U False (List Variance ...)))
+           ;; If false, means that the arg variances have not been
+           ;; computed yet. Otherwise, stores the complete computed
+           ;; variances for the arguments to this type constructor.
+           (define arg-variances (box #f)))
          (define-type-constructor Name
            #:arity = #,(stx-length #'(X ...))
-           #:arg-variances (λ (stx) (list 'arg-variance ...))
+           #:arg-variances (λ (stx)
+                             (or (unbox arg-variances)
+                                 (cond
+                                   [(variance-vars-okay?)
+                                    arg-variance-vars]
+                                   [else
+                                    (define inferred-variances
+                                      (infer-variances
+                                       with-variance-vars-okay
+                                       arg-variance-vars
+                                       (list #'X ...)
+                                       (list #'τ ... ...)))
+                                    (cond [inferred-variances
+                                           (set-box! arg-variances inferred-variances)
+                                           inferred-variances]
+                                          [else
+                                           arg-variance-vars])])))
            #:extra-info 'NameExtraInfo
            #:no-provide)
          (struct StructName (fld ...) #:reflection-name 'Cons #:transparent) ...

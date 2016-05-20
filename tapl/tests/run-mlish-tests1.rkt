@@ -6,6 +6,7 @@
 (require "mlish/polyrecur.mlish")
 (require "mlish/loop.mlish")
 (require "mlish/value-restriction-example.mlish")
+(require "mlish/infer-variances.mlish")
 
 ;; (require "mlish/trees.mlish")
 ;; (require "mlish/chameneos.mlish")
