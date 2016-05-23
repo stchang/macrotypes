@@ -381,6 +381,44 @@
        (for/list ([var (in-list variance-vars)])
          (variance-mapping-ref mapping var))]))
 
+  ;; make-arg-variances-proc :
+  ;; (Listof Variance-Var) (Listof Id) (Listof Type-Stx) -> (Stx -> (U (Listof Variance)
+  ;;                                                                   (Listof Variance-Var)))
+  (define (make-arg-variances-proc arg-variance-vars Xs τs)
+    ;; variance-vars-okay? : (Parameterof Boolean)
+    ;; A parameter that determines whether or not it's okay for
+    ;; this type constructor to return a list of Variance-Vars
+    ;; for the variances.
+    (define variance-vars-okay? (make-parameter #false))
+    ;; with-variance-vars-okay : (-> A) -> A
+    (define (with-variance-vars-okay f)
+      (parameterize ([variance-vars-okay? #true])
+        (f)))
+    ;; arg-variances : (Boxof (U False (List Variance ...)))
+    ;; If false, means that the arg variances have not been
+    ;; computed yet. Otherwise, stores the complete computed
+    ;; variances for the arguments to this type constructor.
+    (define arg-variances (box #f))
+    ;; arg-variances-proc : Stx -> (U (Listof Variance) (Listof Variance-Var))
+    (define (arg-variance-proc stx)
+      (or (unbox arg-variances)
+          (cond
+            [(variance-vars-okay?)
+             arg-variance-vars]
+            [else
+             (define inferred-variances
+               (infer-variances
+                with-variance-vars-okay
+                arg-variance-vars
+                Xs
+                τs))
+             (cond [inferred-variances
+                    (set-box! arg-variances inferred-variances)
+                    inferred-variances]
+                   [else
+                    arg-variance-vars])])))
+    arg-variance-proc)
+
   ;; compute unbound tyvars in one unexpanded type ty
   (define (compute-tyvar1 ty)
     (syntax-parse ty
@@ -522,40 +560,12 @@
          (begin-for-syntax
            ;; arg-variance-vars : (List Variance-Var ...)
            (define arg-variance-vars
-             (list (variance-var (syntax-e (generate-temporary 'X))) ...))
-           ;; variance-vars-okay? : (Parameterof Boolean)
-           ;; A parameter that determines whether or not it's okay for
-           ;; this type constructor to return a list of Variance-Vars
-           ;; for the variances.
-           (define variance-vars-okay? (make-parameter #false))
-           ;; with-variance-vars-okay : (-> A) -> A
-           (define (with-variance-vars-okay f)
-             (parameterize ([variance-vars-okay? #true])
-               (f)))
-           ;; arg-variances : (Boxof (U False (List Variance ...)))
-           ;; If false, means that the arg variances have not been
-           ;; computed yet. Otherwise, stores the complete computed
-           ;; variances for the arguments to this type constructor.
-           (define arg-variances (box #f)))
+             (list (variance-var (syntax-e (generate-temporary 'X))) ...)))
          (define-type-constructor Name
            #:arity = #,(stx-length #'(X ...))
-           #:arg-variances (λ (stx)
-                             (or (unbox arg-variances)
-                                 (cond
-                                   [(variance-vars-okay?)
-                                    arg-variance-vars]
-                                   [else
-                                    (define inferred-variances
-                                      (infer-variances
-                                       with-variance-vars-okay
-                                       arg-variance-vars
-                                       (list #'X ...)
-                                       (list #'τ ... ...)))
-                                    (cond [inferred-variances
-                                           (set-box! arg-variances inferred-variances)
-                                           inferred-variances]
-                                          [else
-                                           arg-variance-vars])])))
+           #:arg-variances (make-arg-variances-proc arg-variance-vars
+                                                    (list #'X ...)
+                                                    (list #'τ ... ...))
            #:extra-info 'NameExtraInfo
            #:no-provide)
          (struct StructName (fld ...) #:reflection-name 'Cons #:transparent) ...
