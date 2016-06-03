@@ -551,11 +551,11 @@
                  #:with expanded-τ (generate-temporary)
                  #:with tycon-expander (format-id #'tycon "~~~a" #'tycon)
                  #'(~and expanded-τ
-                         (~parse
-                          (~Any/bvs (~literal τ-internal)
-                                    (~and bvs (tv (... (... ...))))
-                                    . rst)
-                          #'expanded-τ)
+                         (~Any/bvs (~literal/else τ-internal
+                                                  (format "Expected ~a type, got: ~a"
+                                                          'τ (type->str #'expanded-τ)))
+                                   (~and bvs (tv (... (... ...))))
+                                   . rst)
                          #,(if (attribute has-bvs?)
                                (if (attribute has-annotations?)
                                    #'(~and (~parse (tycon-expander k (... (... ...))) (typeof #'expanded-τ))
@@ -565,9 +565,13 @@
                 ;; TODO: fix this to handle has-annotations?
                 [(_ (~optional (~and (~fail #:unless #,(attribute has-bvs?)) bvs-pat)
                                #:defaults ([bvs-pat #'()])) . pat)
-                 #'(~Any/bvs (~literal τ-internal)
-                             bvs-pat
-                             . pat)])))
+                 #:with expanded-τ (generate-temporary)
+                 #'(~and expanded-τ
+                         (~Any/bvs (~literal/else τ-internal
+                                                  (format "Expected ~a type, got: ~a"
+                                                          'τ (type->str #'expanded-τ)))
+                                   bvs-pat
+                                   . pat))])))
            (define-syntax τ-expander*
              (pattern-expander
               (syntax-parser
@@ -736,6 +740,14 @@
      (syntax-parser
        [(_ tycons x ...)
         #'(~Any/bvs tycons _ x ...)])))
+  (define-syntax ~literal/else
+    (pattern-expander
+     (syntax-parser
+       [(_ lit:id fail-msg:expr)
+        #'(~and actual
+                (~fail #:unless (and (identifier? #'actual)
+                                     (free-identifier=? #'actual #'lit))
+                       fail-msg))])))
   (define (merge-type-tags stx)
     (define t (syntax-property stx 'type))
     (or (and (pair? t)
