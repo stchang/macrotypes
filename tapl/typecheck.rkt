@@ -552,9 +552,9 @@
                  #:with tycon-expander (format-id #'tycon "~~~a" #'tycon)
                  #'(~and expanded-τ
                          (~parse
-                          ((~literal #%plain-app) (~literal τ-internal)
-                           ((~literal #%plain-lambda) (~and bvs (tv (... (... ...)))) 
-                            skipped-extra-info . rst))
+                          (~Any/bvs (~literal τ-internal)
+                                    (~and bvs (tv (... (... ...))))
+                                    . rst)
                           #'expanded-τ)
                          #,(if (attribute has-bvs?)
                                (if (attribute has-annotations?)
@@ -565,9 +565,9 @@
                 ;; TODO: fix this to handle has-annotations?
                 [(_ (~optional (~and (~fail #:unless #,(attribute has-bvs?)) bvs-pat)
                                #:defaults ([bvs-pat #'()])) . pat)
-                 #'((~literal #%plain-app) (~literal τ-internal)
-                    ((~literal #%plain-lambda) bvs-pat 
-                     skipped-extra-info . pat))])))
+                 #'(~Any/bvs (~literal τ-internal)
+                             bvs-pat
+                             . pat)])))
            (define-syntax τ-expander*
              (pattern-expander
               (syntax-parser
@@ -724,13 +724,18 @@
 
 ; substitution
 (begin-for-syntax
-  (define-syntax ~Any ; matches any tycon
+  (define-syntax ~Any/bvs ; matches any tycon
+    (pattern-expander
+     (syntax-parser
+       [(_ tycons bvs . rst)
+        #'((~literal #%plain-app) tycons
+            ((~literal #%plain-lambda) bvs 
+             skipped-extra-info . rst))])))
+  (define-syntax ~Any
     (pattern-expander
      (syntax-parser
        [(_ tycons x ...)
-        #'((~literal #%plain-app) tycons
-            ((~literal #%plain-lambda) bvs 
-             skipped-extra-info x ...))])))
+        #'(~Any/bvs tycons _ x ...)])))
   (define (merge-type-tags stx)
     (define t (syntax-property stx 'type))
     (or (and (pair? t)
