@@ -326,7 +326,9 @@
                                          (syntax->datum #'o))
                                (current-continuation-marks)))
                       #:with app (datum->syntax #'o '#%app)
-                      #`(app #,(assign-type #'x #'τ) . rst)]
+                      (datum->syntax this-syntax
+                                     (list* #'app (assign-type #'x #'τ) #'rst)
+                                     this-syntax)]
                      #;[(_ . rst) #`(#,(assign-type #'x #'τ) . rst)])
                     #;(make-rename-transformer (assign-type #'x #'τ))] ...)
                   (#%expression e) ... void)))))
@@ -745,9 +747,11 @@
      (syntax-parser
        [(_ lit:id fail-msg:expr)
         #'(~and actual
-                (~fail #:unless (and (identifier? #'actual)
-                                     (free-identifier=? #'actual #'lit))
-                       fail-msg))])))
+                (~parse
+                 (~fail #:unless (and (identifier? #'actual)
+                                      (free-identifier=? #'actual #'lit))
+                        fail-msg)
+                 this-syntax))])))
   (define (merge-type-tags stx)
     (define t (syntax-property stx 'type))
     (or (and (pair? t)
