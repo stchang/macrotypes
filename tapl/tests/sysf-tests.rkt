@@ -27,7 +27,7 @@
 (typecheck-fail
  (inst 1 Int)
  #:with-msg
- "Expected type of expression to match pattern \\(∀ \\(\\(x ...)) body), got: Int")
+ "Expected expression 1 to have ∀ type, got: Int")
 
 ;; polymorphic arguments
 (check-type (Λ (t) (λ ([x : t]) x)) : (∀ (t) (→ t t)))

@@ -139,7 +139,7 @@
 
 (define-syntax add-expected
   (syntax-parser
-    [(_ e τ) (add-expected-ty #'e #'τ)]))
+    [(_ e τ) (add-orig (add-expected-ty #'e #'τ) (get-orig #'e))]))
 (define-syntax pass-expected
   (syntax-parser
     [(_ e stx) (add-expected-ty #'e (get-expected-type #'stx))]))
@@ -219,9 +219,9 @@
             (format
              "~a (~a:~a): Expected expression ~s to have ~a type, got: ~a"
              (syntax-source #'e) (syntax-line #'e) (syntax-column #'e)
-             (syntax-parse #'e-
-               ['x (syntax-e #'x)]
-               [_ (syntax->datum #'e-)])
+             (if (has-orig? #'e-)
+                 (syntax->datum (get-orig #'e-))
+                 (syntax->datum #'e))
              'tycon (type->str #'τ_e))
             (syntax-parse #'τ_e
               [(τ-expander . args) #'(e- args)]
@@ -407,6 +407,8 @@
     (set-stx-prop/preserved stx 'orig (cons orig origs)))
   (define (get-orig τ)
     (car (reverse (or (syntax-property τ 'orig) (list τ)))))
+  (define (has-orig? stx)
+    (and (syntax-property stx 'orig) #true))
   (define (type->str ty)
     (define τ (get-orig ty))
     (cond

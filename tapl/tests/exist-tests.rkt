@@ -179,11 +179,11 @@
 (typecheck-fail
  (pack (Int 1) as Int)
  #:with-msg
- "Expected type of expression to match pattern \\(∃ \\(\\(X)) τ_body), got: Int")
+ "Expected ∃ type, got: Int")
 (typecheck-fail
  (open ([(X x) <= 2]) 3)
  #:with-msg
- "Expected type of expression to match pattern \\(∃ \\(\\(X)) τ_body), got: Int")
+ "Expected expression 2 to have ∃ type, got: Int")
 
 ;; previous tets from stlc+reco+var-tests.rkt ---------------------------------
 ;; define-type-alias

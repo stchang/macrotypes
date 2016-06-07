@@ -2,7 +2,7 @@
 (require "rackunit-typechecking.rkt")
 
 (typecheck-fail (cons 1 2)
-                #:with-msg "Expected type with pattern: \\(List τ)")
+                #:with-msg "Expected expression 2 to have List type, got: Int")
 ;(typecheck-fail (cons 1 nil)
 ;                #:with-msg "nil: requires type annotation")
 (check-type (cons 1 nil) : (List Int))
@@ -15,15 +15,15 @@
 (typecheck-fail
  (nil (Int))
  #:with-msg
- "Improperly formatted type annotation: \\(Int); should have shape {τ}, where τ is a valid type.")
+ "Improperly formatted type annotation: \\(Int\\); should have shape {τ}, where τ is a valid type.")
 (typecheck-fail
  (λ ([lst : (List Int Int)]) lst)
  #:with-msg
- "Improper usage of type constructor List: \\(List Int Int), expected pattern \\(List τ)")
+ "Improper usage of type constructor List: \\(List Int Int\\), expected = 1 arguments")
 (typecheck-fail
  (λ ([lst : (List)]) lst)
  #:with-msg
- "Improper usage of type constructor List: \\(List), expected pattern \\(List τ)")
+ "Improper usage of type constructor List: \\(List\\), expected = 1 arguments")
 ;; passes bc ⇒-rhs is only used for its runtime value
 (check-type (nil {Int}) : (List Int) ⇒ (nil {Bool}))
 (check-not-type (nil {Bool}) : (List Int))
@@ -35,7 +35,7 @@
 (typecheck-fail
  (isnil (head fn-lst))
  #:with-msg
- "Expected type of expression \\(head fn-lst) to match pattern \\(List τ), got: \\(→ Int Int)")
+ "Expected expression \\(head fn-lst\\) to have List type, got: \\(→ Int Int\\)")
 (check-type (isnil (tail fn-lst)) : Bool ⇒ #t)
 (check-type (head fn-lst) : (→ Int Int))
 (check-type ((head fn-lst) 25) : Int ⇒ 35)
@@ -45,7 +45,7 @@
 (typecheck-fail
  (cons 1 1)
  #:with-msg
- "Expected type of expression to match pattern \\(List τ), got: Int")
+ "Expected expression 1 to have List type, got: Int")
 
 ;; previous tests: ------------------------------------------------------------
 ;; define-type-alias

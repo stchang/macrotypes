@@ -24,19 +24,19 @@
 (typecheck-fail
  (λ ([lst : (Ref Int Int)]) lst)
  #:with-msg
- "Improper usage of type constructor Ref: \\(Ref Int Int), expected pattern \\(Ref τ)")
+ "Improper usage of type constructor Ref: \\(Ref Int Int\\), expected = 1 arguments")
 (typecheck-fail
  (λ ([lst : (Ref)]) lst)
  #:with-msg
- "Improper usage of type constructor Ref: \\(Ref), expected pattern \\(Ref τ)")
+ "Improper usage of type constructor Ref: \\(Ref\\), expected = 1 arguments")
 (typecheck-fail
  (deref 1)
  #:with-msg
- "Expected type of expression.+to match pattern \\(Ref τ), got: Int")
+ "Expected Ref type, got: Int")
 (typecheck-fail
  (:= 1 1)
  #:with-msg
- "Expected type of expression.+to match pattern \\(Ref τ), got: Int")
+ "Expected Ref type, got: Int")
 
 ;; previous tests: ------------------------------------------------------------
 (typecheck-fail (cons 1 2))

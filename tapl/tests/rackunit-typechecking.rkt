@@ -70,26 +70,19 @@
      #:with msg:str 
             (eval-syntax (datum->syntax #'here (syntax->datum #'msg-pat)))
      #:when (with-check-info*
-             (list (make-check-location (build-source-location-list stx)))
+             (list (make-check-expected (syntax-e #'msg))
+                   (make-check-expression (syntax->datum stx))
+                   (make-check-location (build-source-location-list stx))
+                   (make-check-name 'typecheck-fail)
+                   (make-check-params (list (syntax->datum #'e) (syntax-e #'msg))))
              (λ ()
                (check-exn
-                (λ (ex) (or (exn:fail? ex) (exn:test:check? ex)))
+                (λ (ex)
+                  (and (or (exn:fail? ex) (exn:test:check? ex))
+                       ; check err msg matches
+                       (regexp-match? (syntax-e #'msg) (exn-message ex))))
                 (λ ()
-                  (with-handlers
-                      ; check err msg matches
-                      ([exn:fail?
-                        (λ (ex)
-                          (unless (regexp-match? (syntax-e #'msg) (exn-message ex))
-                            (printf
-                             (string-append
-                              "ERROR-MSG ERROR: wrong err msg produced by expression ~v:\n"
-                              "EXPECTED:\nmsg matching pattern ~v,\nGOT:\n~v\n")
-                             (syntax->datum #'e) (syntax-e #'msg) (exn-message ex)))
-                          (raise ex))])
-                    (expand/df #'e)))
-                (format
-                 "Expected type check failure but expression ~a has valid type, OR wrong err msg received."
-                 (syntax->datum #'e)))))
+                  (expand/df #'e)))))
      #'(void)]))
 
 (define-syntax (check-runtime-exn stx)

@@ -84,7 +84,7 @@
     [any
      (type-error #:src #'any
                  #:msg (string-append
-                        "Improper usage of type constructor ∨: ~a,"
+                        "Improper usage of type constructor ∨: ~a, "
                         "expected (∨ [label:id : τ:type] ...+)")
                  #'any)]))
 (begin-for-syntax

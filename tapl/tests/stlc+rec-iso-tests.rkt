@@ -56,11 +56,11 @@
 (typecheck-fail
  (fld {Int} 1)
  #:with-msg
- "Expected type of expression to match pattern \\(μ \\(\\(tv)) τ_body), got: Int")
+ "Expected μ type, got: Int")
 (typecheck-fail
  (unfld {Int} 1)
  #:with-msg
- "Expected type of expression to match pattern \\(μ \\(\\(tv)) τ_body), got: Int")
+ "Expected μ type, got: Int")
 
 ;; previous stlc+var tests ----------------------------------------------------
 ;; define-type-alias
@@ -157,7 +157,7 @@
 (typecheck-fail
  (proj 1 2)
  #:with-msg
- "Expected type of expression 1 to match pattern \\(× τ ...), got: Int")
+ "Expected expression 1 to have × type, got: Int")
 
 ;; ext-stlc.rkt tests ---------------------------------------------------------
 ;; should still pass

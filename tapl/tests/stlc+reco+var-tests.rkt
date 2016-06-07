@@ -109,25 +109,25 @@
  "Expected expression 1 to have ∨ type, got: Int")
 (typecheck-fail
  (λ ([x : (∨)]) x)
- #:with-msg "Improper usage of type constructor ∨: \\(∨), expected \\(∨ [label:id : τ:type] ...+)")
+ #:with-msg "Improper usage of type constructor ∨: \\(∨\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
 (typecheck-fail
  (λ ([x : (∨ 1)]) x)
- #:with-msg "Improper usage of type constructor ∨: \\(∨ 1\\), expected \\(∨ [label:id : τ:type] ...+)")
+ #:with-msg "Improper usage of type constructor ∨: \\(∨ 1\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
 (typecheck-fail
  (λ ([x : (∨ [1 2])]) x)
- #:with-msg "Improper usage of type constructor ∨: \\(∨ (1 2)), expected \\(∨ [label:id : τ:type] ...+)")
+ #:with-msg "Improper usage of type constructor ∨: \\(∨ \\(1 2\\)\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
 (typecheck-fail
  (λ ([x : (∨ [a 2])]) x)
- #:with-msg "Improper usage of type constructor ∨: \\(∨ (a 2)), expected \\(∨ [label:id : τ:type] ...+)")
+ #:with-msg "Improper usage of type constructor ∨: \\(∨ \\(a 2\\)\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
 (typecheck-fail
  (λ ([x : (∨ [a Int])]) x)
- #:with-msg "Improper usage of type constructor ∨: \\(∨ (a Int)), expected \\(∨ [label:id : τ:type] ...+)")
+ #:with-msg "Improper usage of type constructor ∨: \\(∨ \\(a Int\\)\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
 (typecheck-fail
  (λ ([x : (∨ [1 : Int])]) x)
- #:with-msg "Improper usage of type constructor ∨: \\(∨ (1 : Int)), expected \\(∨ [label:id : τ:type] ...+)")
+ #:with-msg "Improper usage of type constructor ∨: \\(∨ \\(1 : Int\\)\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
 (typecheck-fail
  (λ ([x : (∨ [a : 1])]) x)
- #:with-msg "Improper usage of type constructor ∨: \\(∨ (a : 1)), expected \\(∨ [label:id : τ:type] ...+)")
+ #:with-msg "Improper usage of type constructor ∨: \\(∨ \\(a : 1\\)\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
 
 ;; previous tuple tests: ------------------------------------------------------------
 ;; wont work anymore

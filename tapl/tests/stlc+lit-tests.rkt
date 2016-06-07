@@ -22,7 +22,7 @@
  #:with-msg "Improper usage of type constructor →: →, expected >= 1 arguments")
 (typecheck-fail
  (λ ([x : (→)]) x)
- #:with-msg "Improper usage of type constructor →: \\(→), expected >= 1 arguments")
+ #:with-msg "Improper usage of type constructor →: \\(→\\), expected >= 1 arguments")
 
 (check-type (λ ([f : (→ Int Int)]) 1) : (→ (→ Int Int) Int))
 (check-type ((λ ([x : Int]) x) 1) : Int ⇒ 1)
