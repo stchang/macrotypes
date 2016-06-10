@@ -754,23 +754,13 @@
                                       (free-identifier=? #'actual #'lit))
                         fail-msg)
                  this-syntax))])))
-  (define (merge-type-tags stx)
-    (define t (syntax-property stx 'type))
-    (or (and (pair? t)
-             (identifier? (car t)) (identifier? (cdr t))
-             (free-identifier=? (car t) (cdr t))
-             (set-stx-prop/preserved stx 'type (car t)))
-        stx))
   ; subst τ for y in e, if (bound-id=? x y)
   (define (subst τ x e [cmp bound-identifier=?])
     (syntax-parse e
-      [y:id #:when (cmp e x)
-            ; use syntax-track-origin to transfer 'orig
-            ; but may transfer multiple #%type tags, so merge
-            (merge-type-tags (syntax-track-origin τ #'y #'y))]
+      [y:id #:when (cmp e x) (transfer-stx-props τ e)]
       [(esub ...)
-       #:with (esub_subst ...) (stx-map (λ (e1) (subst τ x e1 cmp)) #'(esub ...))
-       (syntax-track-origin (syntax/loc e (esub_subst ...)) e x)]
+       #:with res (stx-map (λ (e1) (subst τ x e1 cmp)) #'(esub ...))
+       (transfer-stx-props #'res e #:ctx e)]
       [_ e]))
 
   (define (substs τs xs e [cmp bound-identifier=?])

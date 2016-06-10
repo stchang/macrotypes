@@ -70,6 +70,10 @@
 (define (generate-temporariesss stx)
   (stx-map generate-temporariess stx))
 
+;; transfers properties and src loc from orig to new
+(define (transfer-stx-props new orig #:ctx [ctx new])
+  (datum->syntax ctx (syntax-e new) orig orig))
+
 ;; set-stx-prop/preserved : Stx Any Any -> Stx
 ;; Returns a new syntax object with the prop property set to val. If preserved
 ;; syntax properties are supported, this also marks the property as preserved.

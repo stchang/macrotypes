@@ -53,17 +53,19 @@
   (define (normalize τ)
     (syntax-parse τ
       [x:id #'x]
-      [((~literal #%plain-app) ((~literal #%plain-lambda) (tv ...) τ_body) τ_arg ...)
+      [((~literal #%plain-app) 
+        ((~literal #%plain-lambda) (tv ...) τ_body) τ_arg ...)
        (normalize (substs #'(τ_arg ...) #'(tv ...) #'τ_body))]
       [((~literal #%plain-lambda) (x ...) . bodys)
        #:with bodys_norm (stx-map normalize #'bodys)
-       (syntax-track-origin #'(#%plain-lambda (x ...) . bodys_norm) τ #'plain-lambda)]
+       (transfer-stx-props #'(#%plain-lambda (x ...) . bodys_norm) τ #:ctx τ)]
       [((~literal #%plain-app) x:id . args)
        #:with args_norm (stx-map normalize #'args)
-       (syntax-track-origin #'(#%plain-app x . args_norm) τ #'#%plain-app)]
+       (transfer-stx-props #'(#%plain-app x . args_norm) τ #:ctx τ)]
       [((~literal #%plain-app) . args)
        #:with args_norm (stx-map normalize #'args)
-       (syntax-track-origin (normalize #'(#%plain-app . args_norm)) τ #'#%plain-app)]
+       #:with res (normalize #'(#%plain-app . args_norm))
+       (transfer-stx-props #'res τ #:ctx τ)]
       [_ τ]))
   
   (define old-eval (current-type-eval))
