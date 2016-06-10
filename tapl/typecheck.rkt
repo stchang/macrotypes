@@ -557,7 +557,8 @@
                  #'(~and expanded-τ
                          (~Any/bvs (~literal/else τ-internal
                                                   (format "Expected ~a type, got: ~a"
-                                                          'τ (type->str #'expanded-τ)))
+                                                          'τ (type->str #'expanded-τ))
+                                                  #'expanded-τ)
                                    (~and bvs (tv (... (... ...))))
                                    . rst)
                          #,(if (attribute has-bvs?)
@@ -573,7 +574,8 @@
                  #'(~and expanded-τ
                          (~Any/bvs (~literal/else τ-internal
                                                   (format "Expected ~a type, got: ~a"
-                                                          'τ (type->str #'expanded-τ)))
+                                                          'τ (type->str #'expanded-τ))
+                                                  #'expanded-τ)
                                    bvs-pat
                                    . pat))])))
            (define-syntax τ-expander*
@@ -747,13 +749,13 @@
   (define-syntax ~literal/else
     (pattern-expander
      (syntax-parser
-       [(_ lit:id fail-msg:expr)
+       [(_ lit:id fail-msg:expr stx)
         #'(~and actual
                 (~parse
                  (~fail #:unless (and (identifier? #'actual)
                                       (free-identifier=? #'actual #'lit))
                         fail-msg)
-                 this-syntax))])))
+                 stx))])))
   ; subst τ for y in e, if (bound-id=? x y)
   (define (subst τ x e [cmp bound-identifier=?])
     (syntax-parse e
