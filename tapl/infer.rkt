@@ -30,6 +30,13 @@
 (define-primop abs : (→ Int Int))
 
 (begin-for-syntax
+  ;; find-free-Xs : (Stx-Listof Id) Type -> (Listof Id)
+  ;; finds the free Xs in the type
+  (define (find-free-Xs Xs ty)
+    (for/list ([X (in-list (stx->list Xs))]
+               #:when (stx-contains-id? ty X))
+      X))
+
   ;; solve : (Stx-Listof Id) (Stx-Listof Stx) (Stx-Listof Type-Stx)
   ;;         -> (List Constraints (Listof (Stx-List Stx Type-Stx)))
   ;; Solves for the Xs by inferring the type of each arg and unifying it against
@@ -43,19 +50,14 @@
           (for/fold ([cs #'()] [e+τs #'()])
                     ([e_arg (syntax->list args)]
                      [τ_inX (syntax->list expected-τs)])
-            (define/with-syntax τs_solved (stx-map (λ (y) (lookup y cs)) Xs))
-            (cond
-              [(andmap syntax-e (syntax->list #'τs_solved)) ; all tyvars X have mapping
-               ; TODO: substs is not properly transferring #%type property
-               ;               (stx-map displayln #'τs_solved)
-               (define e+τ (infer+erase #`(add-expected #,e_arg #,(substs #'τs_solved Xs τ_inX))))
-               ;              (displayln e+τ)
-               (values cs (cons e+τ e+τs))]
-              [else
-               (define/with-syntax [e τ] (infer+erase e_arg))
-               ;             (displayln #'(e τ))
-               (define cs* (add-constraints Xs cs #`([#,τ_inX τ])))
-               (values cs* (cons #'[e τ] e+τs))]))])
+            (define τ_in (inst-type/cs Xs cs τ_inX))
+            (define/with-syntax [e τ]
+              (infer+erase (if (empty? (find-free-Xs Xs τ_in))
+                               (add-expected-ty e_arg τ_in)
+                               e_arg)))
+            ;             (displayln #'(e τ))
+            (define cs* (add-constraints Xs cs #`([#,τ_in τ])))
+            (values cs* (cons #'[e τ] e+τs)))])
       (list cs (reverse (stx->list e+τs))))))
 
 (define-typed-syntax define
