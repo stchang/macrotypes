@@ -1,0 +1,153 @@
+#lang racket/base
+
+(provide add-constraints
+         lookup
+         lookup-Xs/keep-unsolved
+         inst-type
+         inst-type/orig
+         inst-type/cs
+         inst-types/cs
+         inst-type/cs/orig
+         inst-types/cs/orig
+         )
+
+(require syntax/parse
+         syntax/stx
+         (for-meta -1 "typecheck.rkt")
+         "stx-utils.rkt"
+         )
+
+;; add-constraints :
+;; (Listof Id) (Listof (List Id Type)) (Stx-Listof (Stx-List Stx Stx)) -> (Listof (List Id Type))
+;; Adds a new set of constaints to a substituion, using the type
+;; unification algorithm for local type inference.
+(define (add-constraints Xs substs new-cs [orig-cs new-cs])
+  (define Xs* (stx->list Xs))
+  (define Ys (stx-map stx-car substs))
+  (define-syntax-class var
+    [pattern x:id #:when (member #'x Xs* free-identifier=?)])
+  (syntax-parse new-cs
+    [() substs]
+    [([a:var b] . rst)
+     (cond
+       [(member #'a Ys free-identifier=?)
+        ;; There are two cases.
+        ;; Either #'a already maps to #'b or an equivalent type,
+        ;; or #'a already maps to a type that conflicts with #'b.
+        ;; In either case, whatever #'a maps to must be equivalent
+        ;; to #'b, so add that to the constraints.
+        (add-constraints
+         Xs
+         substs
+         (cons (list (lookup #'a substs) #'b)
+               #'rst)
+         orig-cs)]
+       [else
+        (add-constraints
+         Xs*
+         ;; Add the mapping #'a -> #'b to the substitution,
+         (cons (list #'a #'b)
+               (for/list ([subst (in-list (stx->list substs))])
+                 (list (stx-car subst)
+                       (inst-type (list #'b) (list #'a) (stx-cadr subst)))))
+         ;; and substitute that in each of the constraints.
+         (for/list ([c (in-list (syntax->list #'rst))])
+           (list (inst-type (list #'b) (list #'a) (stx-car c))
+                 (inst-type (list #'b) (list #'a) (stx-cadr c))))
+         orig-cs)])]
+    [([a b:var] . rst)
+     (add-constraints Xs*
+                      substs
+                      #'([b a] . rst)
+                      orig-cs)]
+    [([a b] . rst)
+     ;; If #'a and #'b are base types, check that they're equal.
+     ;; Identifers not within Xs count as base types.
+     ;; If #'a and #'b are constructed types, check that the
+     ;; constructors are the same, add the sub-constraints, and
+     ;; recur.
+     ;; Otherwise, raise an error.
+     (cond
+       [(identifier? #'a)
+        ;; #'a is an identifier, but not a var, so it is considered
+        ;; a base type. We also know #'b is not a var, so #'b has
+        ;; to be the same "identifier base type" as #'a.
+        (unless (and (identifier? #'b) (free-identifier=? #'a #'b))
+          (type-error #:src (get-orig #'a)
+                      #:msg (format "couldn't unify ~~a and ~~a\n  expected: ~a\n  given: ~a"
+                                    (string-join (map type->str (stx-map stx-car orig-cs)) ", ")
+                                    (string-join (map type->str (stx-map stx-cadr orig-cs)) ", "))
+                      #'a #'b))
+        (add-constraints Xs*
+                         substs
+                         #'rst
+                         orig-cs)]
+       [else
+        (syntax-parse #'[a b]
+          [_
+           #:when (typecheck? #'a #'b)
+           (add-constraints Xs
+                            substs
+                            #'rst
+                            orig-cs)]
+          [((~Any tycons1 τ1 ...) (~Any tycons2 τ2 ...))
+           #:when (typecheck? #'tycons1 #'tycons2)
+           (add-constraints Xs
+                            substs
+                            #'((τ1 τ2) ... . rst)
+                            orig-cs)]
+          [else
+           (type-error #:src (get-orig #'a)
+                       #:msg (format "couldn't unify ~~a and ~~a\n  expected: ~a\n  given: ~a"
+                                     (string-join (map type->str (stx-map stx-car orig-cs)) ", ")
+                                     (string-join (map type->str (stx-map stx-cadr orig-cs)) ", "))
+                       #'a #'b)])])]))
+
+(define (lookup x substs)
+  (syntax-parse substs
+    [((y:id τ) . rst)
+     #:when (free-identifier=? #'y x)
+     #'τ]
+    [(_ . rst) (lookup x #'rst)]
+    [() #f]))
+
+;; lookup-Xs/keep-unsolved : (Stx-Listof Id) Constraints -> (Listof Type-Stx)
+;; looks up each X in the constraints, returning the X if it's unconstrained
+(define (lookup-Xs/keep-unsolved Xs cs)
+  (for/list ([X (in-list (stx->list Xs))])
+    (or (lookup X cs) X)))
+
+;; instantiate polymorphic types
+;; inst-type : (Listof Type) (Listof Id) Type -> Type
+;; Instantiates ty with the tys-solved substituted for the Xs, where the ith
+;; identifier in Xs is associated with the ith type in tys-solved
+(define (inst-type tys-solved Xs ty)
+  (substs tys-solved Xs ty))
+;; inst-type/orig : (Listof Type) (Listof Id) Type (Id Id -> Bool) -> Type
+;; like inst-type, but also substitutes within the orig property
+(define (inst-type/orig tys-solved Xs ty [var=? free-identifier=?])
+  (add-orig (inst-type tys-solved Xs ty)
+            (substs (stx-map get-orig tys-solved) Xs (get-orig ty) var=?)))
+
+;; inst-type/cs : (Stx-Listof Id) Constraints Type-Stx -> Type-Stx
+;; Instantiates ty, substituting each identifier in Xs with its mapping in cs.
+(define (inst-type/cs Xs cs ty)
+  (define tys-solved (lookup-Xs/keep-unsolved Xs cs))
+  (inst-type tys-solved Xs ty))
+;; inst-types/cs : (Stx-Listof Id) Constraints (Stx-Listof Type-Stx) -> (Listof Type-Stx)
+;; the plural version of inst-type/cs
+(define (inst-types/cs Xs cs tys)
+  (stx-map (lambda (t) (inst-type/cs Xs cs t)) tys))
+
+;; inst-type/cs/orig :
+;; (Stx-Listof Id) Constraints Type-Stx (Id Id -> Bool) -> Type-Stx
+;; like inst-type/cs, but also substitutes within the orig property
+(define (inst-type/cs/orig Xs cs ty [var=? free-identifier=?])
+  (define tys-solved (lookup-Xs/keep-unsolved Xs cs))
+  (inst-type/orig tys-solved Xs ty var=?))
+;; inst-types/cs/orig :
+;; (Stx-Listof Id) Constraints (Stx-Listof Type-Stx) (Id Id -> Bool) -> (Listof Type-Stx)
+;; the plural version of inst-type/cs/orig
+(define (inst-types/cs/orig Xs cs tys [var=? free-identifier=?])
+  (stx-map (lambda (t) (inst-type/cs/orig Xs cs t var=?)) tys))
+
