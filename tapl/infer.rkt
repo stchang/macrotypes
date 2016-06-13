@@ -6,6 +6,7 @@
 (require (only-in "stlc+cons.rkt" ~List))
 (reuse tup × proj #:from "stlc+tup.rkt")
 (reuse define-type-alias #:from "stlc+reco+var.rkt")
+(require (for-syntax "type-constraints.rkt"))
 (provide hd tl nil?)
 (provide →)
 
@@ -15,8 +16,8 @@
   (syntax-parser
     [(_ (~and Xs {X:id ...}) . rst)
      #:when (brace? #'Xs)
-     #'(∀ (X ...) (ext-stlc:→ . rst))]
-    [(_ . rst) #'(∀ () (ext-stlc:→ . rst))]))
+     (add-orig #'(∀ (X ...) (ext-stlc:→ . rst)) (get-orig this-syntax))]
+    [(_ . rst) (add-orig #'(∀ () (ext-stlc:→ . rst)) (get-orig this-syntax))]))
 
 (define-primop + : (→ Int Int Int))
 (define-primop - : (→ Int Int Int))
@@ -27,34 +28,6 @@
 (define-primop add1 : (→ Int Int))
 (define-primop not : (→ Bool Bool))
 (define-primop abs : (→ Int Int))
-
-(begin-for-syntax 
-  (define (compute-constraint τ1-τ2)
-    (syntax-parse τ1-τ2
-      [(X:id τ) #'((X τ))]
-      [((~List τ1) (~List τ2)) (compute-constraint #'(τ1 τ2))]
-      ; should only be monomorphic?
-      [((~∀ () (~ext-stlc:→ τ1 ...)) (~∀ () (~ext-stlc:→ τ2 ...)))
-       (compute-constraints #'((τ1 τ2) ...))]
-      [_ #'()]))
-  (define (compute-constraints τs)
-    ;(printf "constraints: ~a\n" (syntax->datum τs))
-    (stx-appendmap compute-constraint τs))
-
-  (define (solve-constraint x-τ)
-    (syntax-parse x-τ
-      [(X:id τ) #'((X τ))]
-      [_ #'()]))
-  (define (solve-constraints cs)
-    (stx-appendmap compute-constraint cs))
-  
-  (define (lookup x substs)
-    (syntax-parse substs
-      [((y:id τ) . rst)
-       #:when (free-identifier=? #'y x)
-       #'τ]
-      [(_ . rst) (lookup x #'rst)]
-      [() false])))
 
 (define-typed-syntax define
   [(_ x:id e)
@@ -68,7 +41,9 @@
    #:with g (generate-temporary #'f)
    #:with e_ann #'(add-expected e τ_out)
    #'(begin
-       (define-syntax f (make-rename-transformer (⊢ g : (∀ (X ...) (ext-stlc:→ τ ... τ_out)))))
+       (define-syntax f (make-rename-transformer
+                         (⊢ g : #,(add-orig #'(∀ (X ...) (ext-stlc:→ τ ... τ_out))
+                                            #'(→ τ ... τ_out)))))
        (define g (Λ (X ...) (ext-stlc:λ ([x : τ] ...) e_ann))))]
   [(_ (f:id [x:id (~datum :) τ] ... (~datum →) τ_out) e)
    #:with g (generate-temporary #'f)
@@ -86,7 +61,7 @@
                          (syntax->datum #'fn))
    #:with (τ_arg ...) #'given-τ-args
    #:with [λ- τ_λ] (infer+erase #'(ext-stlc:λ ([x : τ_arg] ...) e))
-   (⊢ λ- : (∀ () τ_λ))]
+   (⊢ λ- : #,(add-orig #'(∀ () τ_λ) (get-orig #'τ_λ)))]
   [(~and fn (_ (x:id ...) e) ~!) ; no annotations, couldnt infer from ctx (eg, unapplied lam), try to infer from body
    #:with (xs- e- τ_res) (infer/ctx+erase #'([x : x] ...) #'e)
    #:with env (get-env #'e-)
@@ -100,11 +75,12 @@
    ;; propagate up inferred types of variables
    #:with res (add-env #'(λ xs- e-) #'env)
 ;   #:with [λ- τ_λ] (infer+erase #'(ext-stlc:λ ([x : x] ...) e))
-   (⊢ res : (∀ () (ext-stlc:→ τ_arg ... τ_res)))]
+   (⊢ res : #,(add-orig #'(∀ () (ext-stlc:→ τ_arg ... τ_res))
+                        #`(→ #,@(stx-map get-orig #'(τ_arg ... τ_res)))))]
    ;(⊢ (λ xs- e-) : (∀ () (ext-stlc:→ τ_arg ... τ_res)))]
   [(_ . rst)
    #:with [λ- τ_λ] (infer+erase #'(ext-stlc:λ . rst))
-   (⊢ λ- : (∀ () τ_λ))])
+   (⊢ λ- : #,(add-orig #'(∀ () τ_λ) (get-orig #'τ_λ)))])
 
 (define-typed-syntax #%app
   [(_ e_fn e_arg ...) ; infer args first
@@ -131,9 +107,8 @@
                         (syntax->datum #'(e_arg ...))
                         (stx-map type->str #'(τ_arg ...)))
                    "\n")))
-   #:with cs (compute-constraints #'((τ_inX τ_arg) ...))
-   #:with (τ_solved ...) (stx-map (λ (y) (lookup y #'cs)) #'(X ...))
-   #:with (τ_in ... τ_out) (stx-map (λ (t) (substs #'(τ_solved ...) #'(X ...) t)) #'(τ_inX ... τ_outX))
+   #:with cs (add-constraints #'(X ...) '() #'([τ_inX τ_arg] ...))
+   #:with (τ_in ... τ_out) (inst-types/cs #'(X ...) #'cs #'(τ_inX ... τ_outX))
    ; some code duplication
    #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
                  (type-error #:src stx
@@ -186,14 +161,12 @@
               [else
                (define/with-syntax [e τ] (infer+erase e_arg))
   ;             (displayln #'(e τ))
-               (define/with-syntax (c ...) cs)
-               (define/with-syntax (new-c ...) (compute-constraint #`(#,τ_inX τ)))
-               (values #'(new-c ... c ...) (cons #'[e τ] e+τs))]))])
+               (define cs* (add-constraints #'(X ...) cs #`([#,τ_inX τ])))
+               (values cs* (cons #'[e τ] e+τs))]))])
             (define/with-syntax e+τs/stx e+τs)
             (list cs (reverse (syntax->list #'e+τs/stx))))
    #:with env (stx-flatten (filter (λ (x) x) (stx-map get-env #'(e_arg- ...))))
-   #:with (τ_solved ...) (stx-map (λ (y) (lookup y #'cs)) #'(X ...))
-   #:with (τ_in ... τ_out) (stx-map (λ (t) (substs #'(τ_solved ...) #'(X ...) t)) #'(τ_inX ... τ_outX))
+   #:with (τ_in ... τ_out) (inst-types/cs #'(X ...) #'cs #'(τ_inX ... τ_outX))
    ; some code duplication
    #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
                  (string-append

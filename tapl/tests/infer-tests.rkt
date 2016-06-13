@@ -36,7 +36,7 @@
 ; function polymorphic in list element
 (define {X} (g2 [lst : (List X)] → (List X)) lst)
 (check-type g2 : (→ {X} (List X) (List X)))
-(typecheck-fail (g2 1) #:with-msg "Expected.+arguments with type.+List") ; TODO: more precise err msg
+(typecheck-fail (g2 1) #:with-msg "expected: \\(List X\\)\n *given: Int") ; TODO: more precise err msg
 (check-type (g2 (nil {Int})) : (List Int) ⇒ (nil {Int}))
 (check-type (g2 (nil {Bool})) : (List Bool) ⇒ (nil {Bool}))
 (check-type (g2 (nil {(List Int)})) : (List (List Int)) ⇒ (nil {(List Int)}))
@@ -64,7 +64,7 @@
       (countdown (sub1 x))))
 (check-type (countdown 0) : Int ⇒ 0)
 (check-type (countdown 10) : Int ⇒ 0)
-(typecheck-fail (countdown "10") #:with-msg "Arguments.+have wrong type")
+(typecheck-fail (countdown "10") #:with-msg "expected: Int\n *given: String")
 
 ; list abbrv
 (check-type (list 1 2 3) : (List Int))
@@ -88,7 +88,11 @@
 (check-type (map add1 nil) : (List Int) ⇒ (nil {Int}))
 (check-type (map add1 (list)) : (List Int) ⇒ (nil {Int}))
 (check-type (map add1 (list 1 2 3)) : (List Int) ⇒ (list 2 3 4))
-(typecheck-fail (map add1 (list "1")) #:with-msg "Arguments.+have wrong type")
+(typecheck-fail (map add1 (list "1")) #:with-msg
+                (string-append
+                 "couldn't unify Int and String\n"
+                 " *expected: \\(→ X Y\\), \\(List X\\)\n"
+                 " *given: \\(→ Int Int\\), \\(List String\\)"))
 (check-type (map (λ ([x : Int]) (+ x 2)) (list 1 2 3)) : (List Int) ⇒ (list 3 4 5))
 ; doesnt work yet
 ;; 2015-12-18: dont need annotations on lambdas with concrete type
@@ -209,11 +213,11 @@
 (typecheck-fail
  ((λ ([x : Unit]) x) 2)
  #:with-msg
- "Arguments to function.+have wrong type.+Given:.+Int.+Expected:.+Unit")
+ "expected: Unit\n *given: Int")
 (typecheck-fail
  ((λ ([x : Unit]) x) void)
   #:with-msg
- "Arguments to function.+have wrong type.+Given:.+(→ Unit).+Expected:.+Unit")
+  "expected: Unit\n *given: \\(→ Unit\\)")
 
 (check-type ((λ ([x : Unit]) x) (void)) : Unit)
 
@@ -251,7 +255,7 @@
 (typecheck-fail
  (let ([x #f]) (+ x 1))
  #:with-msg
- "Arguments to function \\+.+have wrong type.+Given:.+Bool.+Int.+Expected:.+Int.+Int")
+ "expected: Int, Int\n *given: Bool, Int")
 (typecheck-fail (let ([x 10] [y (+ x 1)]) (+ x y))
                 #:with-msg "x: unbound identifier")
 
@@ -259,7 +263,7 @@
 (typecheck-fail
  (let* ([x #t] [y (+ x 1)]) 1)
   #:with-msg
- "Arguments to function \\+.+have wrong type.+Given:.+Bool.+Int.+Expected:.+Int.+Int")
+  "expected: Int, Int\n *given: Bool, Int")
 
 ; letrec
 (typecheck-fail
@@ -332,7 +336,7 @@
 (typecheck-fail
  ((λ ([x : Bool]) x) 1)
  #:with-msg
- "Arguments to function.+have wrong type.+Given:.+Int.+Expected:.+Bool")
+ "expected: Bool\n *given: Int")
 ;(typecheck-fail (λ ([x : Bool]) x)) ; Bool is now valid type
 (typecheck-fail
  (λ ([f : Int]) (f 1 2))
@@ -347,11 +351,11 @@
 (typecheck-fail
  (+ 1 (λ ([x : Int]) x))
  #:with-msg
- "Arguments to function \\+ have wrong type.+Given:\n  1 : Int.+(→ Int Int).+Expected: 2 arguments with type.+Int\\, Int")
+ "expected: Int, Int\n *given: Int, \\(→ Int Int\\)")
 (typecheck-fail
  (λ ([x : (→ Int Int)]) (+ x x))
   #:with-msg
- "Arguments to function \\+ have wrong type.+Given:.+(→ Int Int).+Expected: 2 arguments with type.+Int\\, Int")
+  "expected: Int, Int\n *given: \\(→ Int Int\\), \\(→ Int Int\\)")
 (typecheck-fail
  ((λ ([x : Int] [y : Int]) y) 1)
  #:with-msg "Wrong number of arguments")
