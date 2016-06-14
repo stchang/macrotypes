@@ -3,9 +3,7 @@
 
 (extends "ext-stlc.rkt" #:except #%app λ → + - void = zero? sub1 add1 not let let* and #%datum begin
           #:rename [~→ ~ext-stlc:→])
-;(reuse [inst sysf:inst] #:from "sysf.rkt") 
-(require (rename-in (only-in "sysf.rkt" inst) [inst sysf:inst]))
-(provide inst)
+(reuse inst  #:from "sysf.rkt")
 (require (only-in "ext-stlc.rkt" → →?))
 (require (only-in "sysf.rkt" ~∀ ∀ ∀? Λ))
 (reuse × tup proj define-type-alias #:from "stlc+rec-iso.rkt")
@@ -1323,13 +1321,6 @@
    #:with [e2- ty2] (infer+erase #'(add-expected e2 ty1))
    #:fail-unless (typecheck? #'ty1 #'ty2) "arguments to equal? have different types"
    (⊢ (equal? e1- e2-) : Bool)])
-
-(define-syntax (inst stx)
-  (syntax-parse stx
-    [(_ e ty ...)
-     #:with [ee tyty] (infer+erase #'e)
-     #:with [e- ty_e] (infer+erase #'(sysf:inst e ty ...))
-     (⊢ e- : ty_e)]))
 
 (define-typed-syntax read
   [(_)
