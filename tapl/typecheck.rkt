@@ -654,6 +654,7 @@
      #:with current-is-name? (format-id #'is-name? "current-~a" #'is-name?)
      #:with mk-name (format-id #'name "mk-~a" #'name)
      #:with define-base-name (format-id #'name "define-base-~a" #'name)
+     #:with define-base-names (format-id #'name "define-base-~as" #'name)
      #:with define-name-cons (format-id #'name "define-~a-constructor" #'name)
      #:with name-ann (format-id #'name "~a-ann" #'name)
      #:with name=? (format-id #'name "~a=?" #'name)
@@ -662,7 +663,7 @@
      #:with same-names? (format-id #'name "same-~as?" #'name)
      #'(begin
          (provide (for-syntax current-is-name? is-name? #%tag? mk-name name name-bind name-ann name-ctx same-names?)
-                  #%tag define-base-name define-name-cons)
+                  #%tag define-base-name define-base-names define-name-cons)
          (define #%tag void)
          (begin-for-syntax
            (define (#%tag? t) (and (identifier? t) (free-identifier=? t #'#%tag)))
@@ -728,6 +729,9 @@
          (define-syntax define-base-name
            (syntax-parser
              [(_ (~var x id)) #'(define-basic-checked-id-stx x : name)]))
+         (define-syntax define-base-names
+           (syntax-parser
+             [(_ (~var x id) (... ...)) #'(begin (define-base-name x) (... ...))]))
          (define-syntax define-name-cons
            (syntax-parser
              [(_ (~var x id) . rst)  #'(define-basic-checked-stx x : name . rst)])))]))

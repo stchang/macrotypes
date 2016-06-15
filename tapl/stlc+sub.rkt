@@ -20,9 +20,7 @@
 ;; - also *
 ;; Other: sub? current-sub?
 
-(define-base-type Top)
-(define-base-type Num)
-(define-base-type Nat)
+(define-base-types Top Num Nat)
 
 (define-primop + : (→ Num Num Num))
 (define-primop * : (→ Num Num Num))
