@@ -12,11 +12,11 @@
      (local-expand
       #'(λ (x y)
           (let-syntax
-;              ([x (λ (sx) (syntax-parse sx [z:id (syntax-property #'y 'type 100)]))])
-              ([x (make-rename-transformer (syntax-property #'x 'type 100))])
+;              ([x (λ (sx) (syntax-parse sx [z:id (syntax-property #'y ': 100)]))])
+              ([x (make-rename-transformer (syntax-property #'x ': 100))])
             e))
       'expression
       null)
      #:when (printf "~a\n" #'e+)
-     #:when (printf "~a\n" (syntax-property #'e+ 'type))
+     #:when (printf "~a\n" (syntax-property #'e+ ':))
      #'(λ xs e+)]))

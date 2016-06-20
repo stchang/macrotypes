@@ -26,7 +26,7 @@
 ;; type checking functions/forms
 
 ;; General type checking strategy:
-;; - Each (expanded) syntax object has a 'type syntax property that is the type
+;; - Each (expanded) syntax object has a ': syntax property that is the type
 ;;   of the surface form.
 ;; - To typecheck a surface form, it local-expands each subterm in order to get
 ;;   their types.
@@ -167,7 +167,7 @@
   ;; - eval here so all types are stored in canonical form
   ;; - syntax-local-introduce fixes marks on types
   ;;   which didnt get marked bc they were syntax properties
-  (define (assign-type e τ #:tag [tag 'type])
+  (define (assign-type e τ #:tag [tag ':])
     (set-stx-prop/preserved e tag (syntax-local-introduce ((current-type-eval) τ))))
 
   (define (add-expected-type e τ)
@@ -181,7 +181,7 @@
   
   ;; typeof : Syntax -> Type or #f
   ;; Retrieves type of given stx, or #f if input has not been assigned a type.
-  (define (typeof stx #:tag [tag 'type])
+  (define (typeof stx #:tag [tag ':])
     (define ty (syntax-property stx tag))
     (if (cons? ty) (car ty) ty))
   
@@ -276,12 +276,10 @@
   ;; tvctx = tyvars and their kinds
   ;; octx + tag = some other context (and an associated tag)
   ;; eg bounded quantification in Fsub
-  (define (infer es #:ctx [ctx null] #:tvctx [tvctx null]
-                 #:octx [octx tvctx] #:tag [tag 'unused])
+  (define (infer es #:ctx [ctx null] #:tvctx [tvctx null])
     (syntax-parse ctx #:datum-literals (:)
       [([x : τ] ...) ; dont expand yet bc τ may have references to tvs
-       #:with ([tv : k] ...) tvctx
-       #:with ([_ : ok] ...) octx
+       #:with ([tv (~seq sep:id tvk) ...] ...) tvctx
        #:with (e ...) es
        #:with
        ; old expander pattern
@@ -302,9 +300,10 @@
         #`(λ (tv ...)
             (let-syntax ([tv (make-rename-transformer
                               (set-stx-prop/preserved
-                               (assign-type
-                                (assign-type #'tv #'k)
-                                #'ok #:tag '#,tag)
+                               (for/fold ([tv-id #'tv])
+                                         ([s (in-list (list 'sep ...))]
+                                          [k (in-list (list #'tvk ...))])
+                                 (assign-type tv-id k #:tag s))
                                'tyvar #t))] ...)
               (λ (x ...)
                 (let-syntax 
@@ -380,7 +379,7 @@
   ;; term expansion
   ;; expand/df : Syntax -> Syntax
   ;; Local expands the given syntax object. 
-  ;; The result always has a type (ie, a 'type stx-prop).
+  ;; The result always has a type (ie, a ': stx-prop).
   ;; Note: 
   ;; local-expand must expand all the way down, ie stop-ids == null
   ;; If stop-ids is #f, then subexpressions won't get expanded and thus won't
@@ -598,11 +597,10 @@
                                   #'τ #'any))))])))
            (define arg-variances arg-variances-stx)
            (define (τ? t)
-             (and (stx-pair? t)
-                  (syntax-parse t
-                    [((~literal #%plain-app) (~literal τ-internal) . _)
-                     #t]
-                    [_ #f]))))
+             (syntax-parse t
+               [(~Any/bvs (~literal τ-internal) _ . _)
+                #t]
+               [_ #f])))
          (define τ-internal
            (λ _ (raise (exn:fail:type:runtime
                         (format "~a: Cannot use ~a at run time" 'τ 'kind)
@@ -747,9 +745,12 @@
     (pattern-expander
      (syntax-parser
        [(_ tycons bvs . rst)
-        #'((~literal #%plain-app) tycons
-            ((~literal #%plain-lambda) bvs 
-             skipped-extra-info . rst))])))
+        #'(~and ty
+                (~parse
+                 ((~literal #%plain-app) tycons
+                  ((~literal #%plain-lambda) bvs 
+                   skipped-extra-info . rst))
+                 ((current-promote) #'ty)))])))
   (define-syntax ~Any
     (pattern-expander
      (syntax-parser
@@ -766,11 +767,11 @@
                         fail-msg)
                  stx))])))
   (define (merge-type-tags stx)
-    (define t (syntax-property stx 'type))
+    (define t (syntax-property stx ':))
     (or (and (pair? t)
              (identifier? (car t)) (identifier? (cdr t))
              (free-identifier=? (car t) (cdr t))
-             (set-stx-prop/preserved stx 'type (car t)))
+             (set-stx-prop/preserved stx ': (car t)))
         stx))
   ; subst τ for y in e, if (bound-id=? x y)
   (define (subst τ x e [cmp bound-identifier=?])
