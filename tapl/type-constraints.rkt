@@ -73,7 +73,7 @@
         ;; a base type. We also know #'b is not a var, so #'b has
         ;; to be the same "identifier base type" as #'a.
         (unless (and (identifier? #'b) (free-identifier=? #'a #'b))
-          (type-error #:src (get-orig #'a)
+          (type-error #:src (get-orig #'b)
                       #:msg (format "couldn't unify ~~a and ~~a\n  expected: ~a\n  given: ~a"
                                     (string-join (map type->str (stx-map stx-car orig-cs)) ", ")
                                     (string-join (map type->str (stx-map stx-cadr orig-cs)) ", "))
@@ -92,12 +92,13 @@
                             orig-cs)]
           [((~Any tycons1 τ1 ...) (~Any tycons2 τ2 ...))
            #:when (typecheck? #'tycons1 #'tycons2)
+           #:when (stx-length=? #'[τ1 ...] #'[τ2 ...])
            (add-constraints Xs
                             substs
                             #'((τ1 τ2) ... . rst)
                             orig-cs)]
           [else
-           (type-error #:src (get-orig #'a)
+           (type-error #:src (get-orig #'b)
                        #:msg (format "couldn't unify ~~a and ~~a\n  expected: ~a\n  given: ~a"
                                      (string-join (map type->str (stx-map stx-car orig-cs)) ", ")
                                      (string-join (map type->str (stx-map stx-cadr orig-cs)) ", "))
