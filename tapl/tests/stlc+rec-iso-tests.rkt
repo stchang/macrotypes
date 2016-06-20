@@ -1,4 +1,4 @@
-#lang s-exp "../stlc+rec-iso.rkt"
+#lang s-exp "../typed-lang-builder/stlc+rec-iso.rkt"
 (require "rackunit-typechecking.rkt")
 
 (define-type-alias IntList (μ (X) (∨ [nil : Unit] [cons : (× Int X)])))
@@ -157,7 +157,7 @@
 (typecheck-fail
  (proj 1 2)
  #:with-msg
- "Expected expression 1 to have × type, got: Int")
+ "Expected × type, got: Int")
 
 ;; ext-stlc.rkt tests ---------------------------------------------------------
 ;; should still pass

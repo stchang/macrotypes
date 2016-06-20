@@ -1,4 +1,4 @@
-#lang s-exp "../exist.rkt"
+#lang s-exp "../typed-lang-builder/exist.rkt"
 (require "rackunit-typechecking.rkt")
 
 (check-type (pack (Int 0) as (∃ (X) X)) : (∃ (X) X))
@@ -18,12 +18,12 @@
                 : (∃ (X) (∃ (X) (→ X X Int))))
 
 ; cant typecheck bc X has local scope, and no X elimination form
-;(check-type (open ([(X x) <= (pack (Int 0) as (∃ (X) X))]) x) : X) 
+;(check-type (open [x <= (pack (Int 0) as (∃ (X) X)) with X] x) : X) 
 
 (check-type 0 : Int)
 (check-type (+ 0 1) : Int ⇒ 1)
 (check-type ((λ ([x : Int]) (+ x 1)) 0) : Int ⇒ 1)
-(typecheck-fail (open ([(X x) <= (pack (Int 0) as (∃ (X) X))]) (+ x 1))) ; can't use as Int
+(typecheck-fail (open [x <= (pack (Int 0) as (∃ (X) X)) with] (+ x 1))) ; can't use as Int
 
 (check-type (λ ([x : (∃ (X) X)]) x) : (→ (∃ (X) X) (∃ (Y) Y)))
 (check-type ((λ ([x : (∃ (X) X)]) x) (pack (Int 0) as (∃ (Z) Z)))
@@ -32,7 +32,7 @@
             : (∃ (X) X) ⇒ #t)
 
 ;; example where the two binding X's are conflated, see exist.rkt for explanation
-(check-type (open ([(X x) <= (pack (Int 0) as (∃ (X) X))]) ((λ ([y : X]) 1) x))
+(check-type (open [x <= (pack (Int 0) as (∃ (X) X)) with X] ((λ ([y : X]) 1) x))
             : Int ⇒ 1)
             
 (check-type
@@ -45,15 +45,15 @@
         as (∃ (X) (× [a : X] [f : (→ X Int)]))))
 (check-type p4 : (∃ (X) (× [a : X] [f : (→ X Int)])))
 
-(check-not-type (open ([(X x) <= p4]) (proj x a)) : Int) ; type is X, not Int
+(check-not-type (open [x <= p4 with X] (proj x a)) : Int) ; type is X, not Int
 ; type is (→ X X), not (→ Int Int)
-(check-not-type (open ([(X x) <= p4]) (proj x f)) : (→ Int Int))
-(typecheck-fail (open ([(X x) <= p4]) (+ 1 (proj x a))))
-(check-type (open ([(X x) <= p4]) ((proj x f) (proj x a))) : Int ⇒ 6)
-(check-type (open ([(X x) <= p4]) ((λ ([y : X]) ((proj x f) y)) (proj x a))) : Int ⇒ 6)
+(check-not-type (open [x <= p4 with X] (proj x f)) : (→ Int Int))
+(typecheck-fail (open [x <= p4 with X] (+ 1 (proj x a))))
+(check-type (open [x <= p4 with X] ((proj x f) (proj x a))) : Int ⇒ 6)
+(check-type (open [x <= p4 with X] ((λ ([y : X]) ((proj x f) y)) (proj x a))) : Int ⇒ 6)
 
 (check-type
- (open ([(X x) <= (pack (Int 0) as (∃ (Y) Y))])
+ (open [x <= (pack (Int 0) as (∃ (Y) Y)) with X]
        ((λ ([y : X]) 1) x))
  : Int ⇒ 1)
 
@@ -87,20 +87,20 @@
                             [get : (→ Counter Int)]
                             [inc : (→ Counter Counter)])))
 (typecheck-fail
- (open ([(Counter counter) <= counterADT])
+ (open [counter <= counterADT with Counter]
        (+ (proj counter new) 1))
- #:with-msg (expected "Int, Int" #:given "Counter, Int"))
+ #:with-msg "expected: +Int, Int\n *given: +Counter, Int\n *expressions: +\\(proj counter new\\), 1")
 (typecheck-fail
- (open ([(Counter counter) <= counterADT])
+ (open [counter <= counterADT with Counter]
        ((λ ([x : Int]) x) (proj counter new)))
- #:with-msg (expected "Int" #:given "Counter"))
+ #:with-msg "expected: +Int\n *given: +Counter\n *expressions: +\\(proj counter new\\)")
 (check-type
- (open ([(Counter counter) <= counterADT])
+ (open [counter <= counterADT with Counter]
        ((proj counter get) ((proj counter inc) (proj counter new))))
  : Int ⇒ 2)
 
  (check-type
-  (open ([(Counter counter) <= counterADT])
+  (open [counter <= counterADT with Counter]
         (let ([inc (proj counter inc)]
               [get (proj counter get)])
           (let ([add3 (λ ([c : Counter]) (inc (inc (inc c))))])
@@ -108,7 +108,7 @@
   : Int ⇒ 4)
 
 (check-type
- (open ([(Counter counter) <= counterADT])
+ (open [counter <= counterADT with Counter]
        (let ([get (proj counter get)]
              [inc (proj counter inc)]
              [new (λ () (proj counter new))])
@@ -120,15 +120,16 @@
                    (λ ([n : Int])
                      (and (not (zero? n))
                           (is-even? (sub1 n))))])
-           (open ([(FlipFlop flipflop) <=
-                   (pack (Counter (tup [new = (new)]
-                                       [read = (λ ([c : Counter]) (is-even? (get c)))]
-                                       [toggle = (λ ([c : Counter]) (inc c))]
-                                       [reset = (λ ([c : Counter]) (new))]))
-                         as (∃ (FlipFlop) (× [new : FlipFlop]
-                                             [read : (→ FlipFlop Bool)]
-                                             [toggle : (→ FlipFlop FlipFlop)]
-                                             [reset : (→ FlipFlop FlipFlop)])))])
+           (open [flipflop <=
+                  (pack (Counter (tup [new = (new)]
+                                      [read = (λ ([c : Counter]) (is-even? (get c)))]
+                                      [toggle = (λ ([c : Counter]) (inc c))]
+                                      [reset = (λ ([c : Counter]) (new))]))
+                        as (∃ (FlipFlop) (× [new : FlipFlop]
+                                            [read : (→ FlipFlop Bool)]
+                                            [toggle : (→ FlipFlop FlipFlop)]
+                                            [reset : (→ FlipFlop FlipFlop)])))
+                  with FlipFlop]
                  (let ([read (proj flipflop read)]
                        [togg (proj flipflop toggle)])
                    (read (togg (togg (togg (togg (proj flipflop new)))))))))))
@@ -149,7 +150,7 @@
 
 ;; same as above, but with different internal counter representation
 (check-type
- (open ([(Counter counter) <= counterADT2])
+ (open [counter <= counterADT2 with Counter]
        (let ([get (proj counter get)]
              [inc (proj counter inc)]
              [new (λ () (proj counter new))])
@@ -161,15 +162,17 @@
                    (λ ([n : Int])
                      (and (not (zero? n))
                           (is-even? (sub1 n))))])
-           (open ([(FlipFlop flipflop) <=
-                   (pack (Counter (tup [new = (new)]
-                                       [read = (λ ([c : Counter]) (is-even? (get c)))]
-                                       [toggle = (λ ([c : Counter]) (inc c))]
-                                       [reset = (λ ([c : Counter]) (new))]))
-                         as (∃ (FlipFlop) (× [new : FlipFlop]
-                                             [read : (→ FlipFlop Bool)]
-                                             [toggle : (→ FlipFlop FlipFlop)]
-                                             [reset : (→ FlipFlop FlipFlop)])))])
+           (open [flipflop <=
+                  (pack (Counter (tup [new = (new)]
+                                      [read = (λ ([c : Counter]) (is-even? (get c)))]
+                                      [toggle = (λ ([c : Counter]) (inc c))]
+                                      [reset = (λ ([c : Counter]) (new))]))
+                        as (∃ (FlipFlop) (× [new : FlipFlop]
+                                            [read : (→ FlipFlop Bool)]
+                                            [toggle : (→ FlipFlop FlipFlop)]
+                                            [reset : (→ FlipFlop FlipFlop)])))
+                  with
+                  FlipFlop]
                  (let ([read (proj flipflop read)]
                        [togg (proj flipflop toggle)])
                    (read (togg (togg (togg (togg (proj flipflop new)))))))))))
@@ -181,9 +184,9 @@
  #:with-msg
  "Expected ∃ type, got: Int")
 (typecheck-fail
- (open ([(X x) <= 2]) 3)
+ (open [x <= 2 with X] 3)
  #:with-msg
- "Expected expression 2 to have ∃ type, got: Int")
+ "Expected ∃ type, got: Int")
 
 ;; previous tets from stlc+reco+var-tests.rkt ---------------------------------
 ;; define-type-alias
