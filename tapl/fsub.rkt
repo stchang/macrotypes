@@ -44,7 +44,7 @@
 ;; 2) instantiation of ∀
 ;; Problem: need type annotations, even in expanded form
 ;; Solution: store type annotations in a (quasi) kind <:
-(define-typed-syntax ∀ #:export-as ∀ #:datum-literals (<:)
+(define-typed-syntax ∀ #:datum-literals (<:)
   [(_ ([tv:id <: τ:type] ...) τ_body)
    ; eval first to overwrite the old #%type
    (⊢ #,((current-type-eval) #'(sysf:∀ (tv ...) τ_body)) : (<: τ.norm ...))])
@@ -73,7 +73,7 @@
                        #:msg "Expected ∀ type, got: ~a" #'any))))]))))
 
 (define-typed-syntax Λ #:datum-literals (<:)
-  [(_ ([tv:id <: τsub:type] ...) e)
+  [(Λ ([tv:id <: τsub:type] ...) e)
    ;; NOTE: store the subtyping relation of tv and τsub in another
    ;; "environment", ie, a syntax property with another tag: 'sub
    ;; The "expose" function looks for this tag to enforce the bound,
@@ -82,7 +82,7 @@
                                                 #:octx  #'([tv : τsub] ...) #:tag 'sub)
    (⊢ e- : (∀ ([tv- <: τsub] ...) τ_e))])
 (define-typed-syntax inst
-  [(_ e τ:type ...)
+  [(inst e τ:type ...)
    #:with (e- (([tv τ_sub] ...) τ_body)) (⇑ e as ∀)
    #:when (typechecks? #'(τ.norm ...) #'(τ_sub ...))
    (⊢ e- : #,(substs #'(τ.norm ...) #'(tv ...) #'τ_body))])

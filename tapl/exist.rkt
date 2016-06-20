@@ -15,14 +15,14 @@
 (define-type-constructor ∃ #:bvs = 1)
 
 (define-typed-syntax pack
-  [(_ (τ:type e) as ∃τ:type)
+  [(pack (τ:type e) as ∃τ:type)
    #:with (~∃* (τ_abstract) τ_body) #'∃τ.norm
    #:with [e- τ_e] (infer+erase #'e)
    #:when (typecheck? #'τ_e  (subst #'τ.norm #'τ_abstract #'τ_body))
    (⊢ e- : ∃τ.norm)])
 
 (define-typed-syntax open #:datum-literals (<=)
-  [(_ ([(tv:id x:id) <= e_packed]) e)
+  [(open ([(tv:id x:id) <= e_packed]) e)
    #:with [e_packed- ((τ_abstract) (τ_body))] (⇑ e_packed as ∃)
      ;; The subst below appears to be a hack, but it's not really.
      ;; It's the (TaPL) type rule itself that is fast and loose.
@@ -71,4 +71,4 @@
           (infer #'(e)
                  #:tvctx #'([tv : #%type])
                  #:ctx   #`([x : #,(subst #'tv #'τ_abstract #'τ_body)]))
-   (⊢ (let ([x- e_packed-]) e-) : τ_e)])
+   (⊢ (let- ([x- e_packed-]) e-) : τ_e)])

@@ -28,12 +28,12 @@
            [(_ x ...) #'ty]))]))
 
 (define-typed-syntax define
-  [(_ x:id e)
+  [(define x:id e)
    #:with (e- τ) (infer+erase #'e)
    #:with y (generate-temporary)
-   #'(begin
+   #'(begin-
        (define-syntax x (make-rename-transformer (⊢ y : τ)))
-       (define y e-))])
+       (define- y e-))])
 
 ; re-define tuples as records
 ; dont use define-type-constructor because I want the : literal syntax
@@ -63,14 +63,14 @@
 
 ;; records
 (define-typed-syntax tup #:datum-literals (=)
-  [(_ [l:id = e] ...)
+  [(tup [l:id = e] ...)
    #:with ([e- τ] ...) (infers+erase #'(e ...))
-   (⊢ (list (list 'l e-) ...) : (× [l : τ] ...))])
+   (⊢ (list- (list- 'l e-) ...) : (× [l : τ] ...))])
 (define-typed-syntax proj #:literals (quote)
-  [(_ e_rec l:id)
+  [(proj e_rec l:id)
    #:with (e_rec- ([l_τ τ] ...)) (⇑ e_rec as ×)
    #:with (_ τ_match) (stx-assoc #'l #'([l_τ τ] ...))
-   (⊢ (cadr (assoc 'l e_rec-)) : τ_match)])
+   (⊢ (cadr- (assoc- 'l e_rec-)) : τ_match)])
 
 (define-type-constructor ∨/internal #:arity >= 0)
 
@@ -108,7 +108,7 @@
                ~!)])))) ; dont backtrack here
 
 (define-typed-syntax var #:datum-literals (as =)
-  [(_ l:id = e as τ:type)
+  [(var l:id = e as τ:type)
    #:with (~∨* [l_τ : τ_l] ...) #'τ.norm
    #:with match_res (stx-assoc #'l #'((l_τ τ_l) ...))
    #:fail-unless (syntax-e #'match_res)
@@ -116,10 +116,10 @@
    #:with (_ τ_match) #'match_res
    #:with (e- τ_e) (infer+erase #'e)
    #:when (typecheck? #'τ_e #'τ_match)
-   (⊢ (list 'l e) : τ)])
+   (⊢ (list- 'l e) : τ)])
 (define-typed-syntax case
   #:datum-literals (of =>)
-  [(_ e [l:id x:id => e_l] ...)
+  [(case e [l:id x:id => e_l] ...)
    #:fail-when (null? (syntax->list #'(l ...))) "no clauses"
    #:with (e- ([l_x τ_x] ...)) (⇑ e as ∨)
    #:fail-unless (= (stx-length #'(l ...)) (stx-length #'(l_x ...))) "wrong number of case clauses"
@@ -127,6 +127,6 @@
    #:with (((x-) e_l- τ_el) ...)
           (stx-map (λ (bs e) (infer/ctx+erase bs e)) #'(([x : τ_x]) ...) #'(e_l ...))
    #:fail-unless (same-types? #'(τ_el ...)) "branches have different types"
-   (⊢ (let ([l_e (car e-)])
-        (cond [(symbol=? l_e 'l) (let ([x- (cadr e-)]) e_l-)] ...))
+   (⊢ (let- ([l_e (car- e-)])
+        (cond- [(symbol=?- l_e 'l) (let- ([x- (cadr- e-)]) e_l-)] ...))
       : #,(stx-car #'(τ_el ...)))])

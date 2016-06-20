@@ -45,7 +45,7 @@
       [else (set-union locs1 locs2)])))
 
 
-(define-typed-syntax #%app
+(define-typed-syntax effect:#%app #:export-as #%app
   [(_ efn e ...)
    #:with [e_fn- ty_fn fns fas fds] (infer+erase/eff #'efn)
    #:with tyns (get-new-effects #'ty_fn)
@@ -61,7 +61,7 @@
    #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
                  (mk-app-err-msg stx #:expected #'(τ_in ...) 
                                      #:given #'(τ_arg ...))
-  (assign-type/eff #'(#%app e_fn- e_arg- ...) #'τ_out
+  (assign-type/eff #'(#%app- e_fn- e_arg- ...) #'τ_out
                    (stx-flatten #'(fns tyns . (ns ...)))
                    (stx-flatten #'(fas tyas . (as ...)))
                    (stx-flatten #'(fds tyds . (ds ...))))
@@ -74,19 +74,19 @@
                   (foldl loc-union (set) φ-derefs)))])
 
 (define-typed-syntax λ
-  [(_ bvs:type-ctx e)
+  [(λ bvs:type-ctx e)
    #:with [xs- e- τ_res ns as ds] (infer/ctx+erase/eff #'bvs #'e)
-   (assign-type #'(λ xs- e-)
+   (assign-type #'(λ- xs- e-)
                 (add-effects #'(→ bvs.type ... τ_res) #'ns #'as #'ds))])                
 
 #;(define-typed-syntax λ
-  [(_ bvs:type-ctx e)
+  [(λ bvs:type-ctx e)
    #:with (xs- e- τ_res) (infer/ctx+erase #'bvs #'e)
    (let ([φ-news (get-new-effects #'e-)]
          [φ-assigns (get-assign-effects #'e-)]
          [φ-derefs (get-deref-effects #'e-)])
      (assign-type
-      #'(λ xs- e-)
+      #'(λ- xs- e-)
       (add-effects #'(→ bvs.type ... τ_res) φ-news φ-assigns φ-derefs)))])
 
 (define-type-constructor Ref)
@@ -107,22 +107,22 @@
     (assign-type (add-effects e news assigns derefs) ty)))
 
 (define-typed-syntax ref
-  [(_ e)
+  [(ref e)
    #:with (e- τ ns as ds) (infer+erase/eff #'e)
-   (assign-type/eff #'(box e-) #'(Ref τ)
+   (assign-type/eff #'(box- e-) #'(Ref τ)
                     (cons (syntax-position stx) #'ns) #'as #'ds)])
 (define-typed-syntax deref
-  [(_ e)
+  [(deref e)
    #:with (e- (~Ref ty) ns as ds) (infer+erase/eff #'e)
-   (assign-type/eff #'(unbox e-) #'ty
+   (assign-type/eff #'(unbox- e-) #'ty
                     #'ns #'as (cons (syntax-position stx) #'ds))])
-(define-typed-syntax :=
-  [(_ e_ref e)
+(define-typed-syntax := #:literals (:=)
+  [(:= e_ref e)
    ;#:with (e_ref- (τ1)) (⇑ e_ref as Ref)
    #:with [e_ref- (~Ref ty1) ns1 as1 ds1] (infer+erase/eff #'e_ref)
    #:with [e- ty2 ns2 as2 ds2] (infer+erase/eff #'e)
    #:when (typecheck? #'ty1 #'ty2)
-   (assign-type/eff #'(set-box! e_ref- e-) #'Unit
+   (assign-type/eff #'(set-box!- e_ref- e-) #'Unit
                     (stx-append #'ns1 #'ns2)
                     (cons (syntax-position stx) (stx-append #'as1 #'as2))
                     (stx-append #'ds1 #'ds2))])

@@ -16,7 +16,7 @@
                     (make-list (stx-length (stx-cdr stx)) covariant)))
 
 (define-typed-syntax tup
-  [(_ e ...)
+  [(tup e ...)
    #:with ty-expected (get-expected-type stx)
    #:with (e_ann ...) (if (syntax-e #'ty-expected)
                           (syntax-parse (local-expand #'ty-expected 'expression null)
@@ -24,10 +24,10 @@
                            [_ #'(e ...)])
                           #'(e ...))
    #:with ([e- τ] ...) (infers+erase #'(e_ann ...))
-   (⊢ (list e- ...) : (× τ ...))])
+   (⊢ (list- e- ...) : (× τ ...))])
 (define-typed-syntax proj
-  [(_ e_tup n:nat)
+  [(proj e_tup n:nat)
    #:with [e_tup- τs_tup] (⇑ e_tup as ×)
    #:fail-unless (< (syntax-e #'n) (stx-length #'τs_tup)) "index too large"
-   (⊢ (list-ref e_tup- n) : #,(stx-list-ref #'τs_tup (syntax-e #'n)))])
+   (⊢ (list-ref- e_tup- n) : #,(stx-list-ref #'τs_tup (syntax-e #'n)))])
    

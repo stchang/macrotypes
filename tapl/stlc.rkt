@@ -77,9 +77,9 @@
                         (list covariant))])))
 
 (define-typed-syntax λ
-  [(_ bvs:type-ctx e)
+  [(λ bvs:type-ctx e)
    #:with (xs- e- τ_res) (infer/ctx+erase #'bvs #'e)
-   (⊢ (λ xs- e-) : (→ bvs.type ... τ_res))])
+   (⊢ (λ- xs- e-) : (→ bvs.type ... τ_res))])
 
 (define-for-syntax (mk-app-err-msg stx #:expected [expected-τs #'()]
                                        #:given [given-τs #'()]
@@ -114,8 +114,8 @@
        "\n")
       "\n")]))
 
-(define-typed-syntax #%app
-  [(_ e_fn e_arg ...)
+(define-typed-syntax #%app #:literals (#%app)
+  [(#%app e_fn e_arg ...)
    #:with [e_fn- (τ_in ... τ_out)] (⇑ e_fn as →)
    #:with ([e_arg- τ_arg] ...) (infers+erase #'(e_arg ...))
    #:fail-unless (stx-length=? #'(τ_arg ...) #'(τ_in ...))
@@ -127,4 +127,4 @@
                  (type-error #:src stx
                   #:msg (mk-app-err-msg stx #:expected #'(τ_in ...) 
                                             #:given #'(τ_arg ...)))
-  (⊢ (#%app e_fn- e_arg- ...) : τ_out)])
+  (⊢ (#%app- e_fn- e_arg- ...) : τ_out)])

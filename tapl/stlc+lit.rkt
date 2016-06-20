@@ -32,8 +32,8 @@
 
 (define-primop + : (→ Int Int Int))
 
-(define-typed-syntax #%datum
-  [(_ . n:integer) (⊢ #,(syntax/loc stx (#%datum . n)) : Int)]
-  [(_ . x)
+(define-typed-syntax #%datum #:literals (#%datum)
+  [(#%datum . n:integer) (⊢ #,(syntax/loc stx (#%datum- . n)) : Int)]
+  [(#%datum . x)
    #:when (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)
-   #'(#%datum . x)])
+   #'(#%datum- . x)])

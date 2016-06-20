@@ -9,7 +9,7 @@
               (tup (number->string j 16) j)))])
     (for/sum ([i (in-range 1 (add1 n))]
                #:when 
-               (hash-ref hash (number->string i)))
+               (hash-has-key? hash (number->string i)))
       1)))
 
 (check-type (main (vector "2000")) : Int -> 799)

@@ -11,8 +11,8 @@
 (define-base-type Str)
 
 (define-typed-syntax #%datum
-  [(_ . n:str) (⊢ (#%datum . n) : Str)]
-  [(_ . x) #'(stlc+sub:#%datum . x)])
+  [(#%datum . n:str) (⊢ (#%datum- . n) : Str)]
+  [(#%datum . x) #'(stlc+sub:#%datum . x)])
 
 (define-for-syntax xerox syntax->datum)
 
@@ -105,26 +105,26 @@
 ;; === Overloaded signature environment
 
 (define-typed-syntax signature
-  [(_ (name:id α:id) τ)
+  [(signature (name:id α:id) τ)
    #:with ((α+) (~→ τ_α:id τ-cod) _) (infer/tyctx+erase #'([α : #%type]) #'τ)
    (define ℜ (ℜ-init #'name #'τ-cod))
    (⊢ (define-syntax name
         (syntax-parser
          [_:id
-          #'(quote #,ℜ)] ;; Is there a way to transmit ℜ directly?
+          #'(quote- #,ℜ)] ;; Is there a way to transmit ℜ directly?
          [(n e)
           #:with [e+ τ+] (infer+erase #'e)
           #:with n+ (#,ℜ #'τ+)
-          (⊢ (#%app n+ e+)
+          (⊢ (#%app- n+ e+)
              : τ-cod)]
          [(_ e* (... ...))
-          #'(raise-arity-error (syntax->datum name) 1 e* (... ...))]))
+          #'(raise-arity-error- (syntax->datum- name) 1 e* (... ...))]))
       : Bot)]
-  [(_ e* ...)
+  [(signature e* ...)
    (error 'signature (format "Expected (signature (NAME VAR) (→ VAR τ)), got ~a" (xerox #'(e* ...))))])
 
-(define-typed-syntax resolve/tc #:export-as resolve
-  [(_ name:id τ)
+(define-typed-syntax resolve
+  [(resolve name:id τ)
    #:with τ+ ((current-type-eval) #'τ)
    ;; Extract a resolver from the syntax object
    (define ℜ (syntax->ℜ #'name))
@@ -132,7 +132,7 @@
    (⊢ #,(ℜ #'τ+ #:exact? #t) : #,(ℜ->type ℜ #:subst #'τ+))])
 
 (define-typed-syntax instance
-  [(_ (name:id τ-stx) e)
+  [(instance (name:id τ-stx) e)
    #:with τ ((current-type-eval) #'τ-stx)
    #:with [e+ τ+] (infer+erase #'e)
    (define ℜ (syntax->ℜ #'name))
@@ -157,7 +157,7 @@
                                           )]))
    ;; Should we use syntax instead of e+ ?
    (ℜ-add! ℜ #'τ #'e+)
-   (⊢ (void) : Bot)]
+   (⊢ (void-) : Bot)]
   [_
    (error 'instance "Expected (instance (id τ) e).")])
        

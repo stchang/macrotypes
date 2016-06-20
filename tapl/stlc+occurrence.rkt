@@ -26,9 +26,9 @@
 (define-base-type Str)
 
 (define-typed-syntax #%datum
-  [(_ . n:boolean) (⊢ (#%datum . n) : Boolean)]
-  [(_ . n:str) (⊢ (#%datum . n) : Str)]
-  [(_ . x) #'(stlc+sub:#%datum . x)])
+  [(#%datum . n:boolean) (⊢ (#%datum- . n) : Boolean)]
+  [(#%datum . n:str) (⊢ (#%datum- . n) : Str)]
+  [(#%datum . x) #'(stlc+sub:#%datum . x)])
 
 (define-type-constructor ∪ #:arity >= 1)
 
@@ -205,21 +205,21 @@
   (define (simple-Π τ)
     (syntax-parse (τ-eval τ)
      [~Boolean
-      #'boolean?]
+      #'boolean?-]
      [~Int
-      #'integer?]
+      #'integer?-]
      [~Str
-      #'string?]
+      #'string?-]
      [~Num
-      #'number?]
+      #'number?-]
      [~Nat
-      #'(lambda (n) (and (integer? n) (not (negative? n))))]
+      #'(lambda- (n) (and- (integer?- n) (not- (negative?- n))))]
      [(~→ τ* ... τ)
       (define k (stx-length #'(τ* ...)))
-      #`(lambda (f) (and (procedure? f) (procedure-arity-includes? f #,k #f)))]
+      #`(lambda- (f) (and- (procedure?- f) (procedure-arity-includes?- f #,k #f)))]
      [(~∪ τ* ...)
       (define filter* (type*->filter* (syntax->list #'(τ* ...))))
-      #`(lambda (v) (for/or ([f (in-list (list #,@filter*))]) (f v)))]
+      #`(lambda- (v) (for/or- ([f (in-list- (list- #,@filter*))]) (f v)))]
      [_
       (error 'Π "Cannot make filter for type ~a\n" (syntax->datum τ))]))
    (current-Π simple-Π)
@@ -231,7 +231,7 @@
 ;; - allow x not identifier (1. does nothing 2. latent filters)
 (define-typed-syntax test #:datum-literals (?)
   ;; -- THIS CASE BELONGS IN A NEW FILE
-  [(_ [τ0+:type ? (unop x-stx:id n-stx:nat)] e1 e2)
+  [(test [τ0+:type ? (unop x-stx:id n-stx:nat)] e1 e2)
    ;; 1. Check that we're using a known eliminator
    #:when (free-identifier=? #'stlc+tup:proj #'unop)
    ;; 2. Make sure we're filtering with a valid type
@@ -249,23 +249,23 @@
    #:with [x1 e1+ τ1] (infer/ctx+erase #'([x-stx : τ+]) #'e1)
    #:with [x2 e2+ τ2] (infer/ctx+erase #'([x-stx : τ-]) #'e2)
    ;; 6. Desugar, replacing the filtered identifier
-   (⊢  (if (f e0+)
-           ((lambda x1 e1+) x-stx)
-           ((lambda x2 e2+) x-stx))
+   (⊢  (if- (f e0+)
+            ((lambda- x1 e1+) x-stx)
+            ((lambda- x2 e2+) x-stx))
       : (∪ τ1 τ2))]
   ;; TODO lists
   ;; For now, we can't express the type (List* A (U A B)), so our filters are too strong
   ;; -- THE ORIGINAL
-  [(_ [τ0+:type ? x-stx:id] e1 e2)
+  [(test [τ0+:type ? x-stx:id] e1 e2)
    #:with f (type->filter #'τ0+)
    #:with (x τ0) (infer+erase #'x-stx)
    #:with τ0- (∖ #'τ0 #'τ0+)
    #:with [x1 e1+ τ1] (infer/ctx+erase #'([x-stx : τ0+]) #'e1)
    #:with [x2 e2+ τ2] (infer/ctx+erase #'([x-stx : τ0-]) #'e2)
    ;; Expand to a conditional, using the runtime predicate
-   (⊢ (if (f x-stx)
-          ((lambda x1 e1+) x-stx)
-          ((lambda x2 e2+) x-stx))
+   (⊢ (if- (f x-stx)
+           ((lambda- x1 e1+) x-stx)
+           ((lambda- x2 e2+) x-stx))
       : (∪ τ1 τ2))])
 
 ;; =============================================================================
@@ -309,11 +309,11 @@
        (syntax-parse (τ-eval τ)
         [(~× τ* ...)
          (define filter* (type*->filter* (syntax->list #'(τ* ...))))
-         #`(lambda (v*)
-             (and (list? v*)
-                  (for/and ([v (in-list v*)]
-                            [f (in-list (list #,@filter*))])
-                    (f v))))]
+         #`(lambda- (v*)
+             (and- (list?- v*)
+                   (for/and- ([v (in-list- v*)]
+                              [f (in-list- (list- #,@filter*))])
+                     (f v))))]
         [_ ;; Fall back
          (Π τ)]))))
  (current-Π π-Π))
@@ -346,10 +346,10 @@
        (syntax-parse (τ-eval τ)
         [(~List τi)
          (define f ((current-Π) #'τi))
-         #`(lambda (v*)
-             (and (list? v*)
-                  (for/and ([v (in-list v*)])
-                    (#,f v))))]
+         #`(lambda- (v*)
+             (and- (list?- v*)
+                   (for/and- ([v (in-list- v*)])
+                     (#,f v))))]
         [_ ;; Fall back
          (Π τ)]))))
  (current-Π list-Π))

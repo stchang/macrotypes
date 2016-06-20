@@ -26,10 +26,10 @@
 (define-primop * : (→ Num Num Num))
 
 (define-typed-syntax #%datum
-  [(_ . n:nat) (⊢ (#%datum . n) : Nat)]
-  [(_ . n:integer) (⊢ (#%datum . n) : Int)]
-  [(_ . n:number) (⊢ (#%datum . n) : Num)]
-  [(_ . x) #'(ext:#%datum . x)])
+  [(#%datum . n:nat) (⊢ (#%datum- . n) : Nat)]
+  [(#%datum . n:integer) (⊢ (#%datum- . n) : Int)]
+  [(#%datum . n:number) (⊢ (#%datum- . n) : Num)]
+  [(#%datum . x) #'(ext:#%datum . x)])
 
 (begin-for-syntax
   (define (sub? t1 t2)

@@ -15,11 +15,11 @@
 (define-type-constructor ∀ #:bvs >= 0)
 
 (define-typed-syntax Λ
-  [(_ (tv:id ...) e)
+  [(Λ (tv:id ...) e)
    #:with ((tv- ...) e- τ) (infer/tyctx+erase #'([tv : #%type] ...) #'e)
    (⊢ e- : (∀ (tv- ...) τ))])
 (define-typed-syntax inst
-  [(_ e τ:type ...)
+  [(inst e τ:type ...)
    #:with (e- (tvs (τ_body))) (⇑ e as ∀)
    ;#:with [e- (~and t (~∀ tvs τ_body))] (infer+erase #'e)
    ;#:with (_ Xs τ_orig) (get-orig #'t) ; doesnt work with implicit lifted→

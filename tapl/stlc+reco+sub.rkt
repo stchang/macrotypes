@@ -14,8 +14,8 @@
 ;; - records and variants from stlc+reco+var
 
 (define-typed-syntax #%datum
-  [(_ . n:number) #'(stlc+sub:#%datum . n)]
-  [(_ . x) #'(stlc+reco+var:#%datum . x)])
+  [(#%datum . n:number) #'(stlc+sub:#%datum . n)]
+  [(#%datum . x) #'(stlc+reco+var:#%datum . x)])
 
 (begin-for-syntax
   (define old-sub? (current-sub?))

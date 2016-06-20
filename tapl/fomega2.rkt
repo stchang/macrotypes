@@ -45,18 +45,18 @@
 ; but then also need to normalize in current-promote
 (begin-for-syntax
   (define (normalize τ)
-    (syntax-parse τ
+    (syntax-parse τ #:literals (#%plain-app #%plain-lambda)
       [x:id #'x]
-      [((~literal #%plain-app) 
-        ((~literal #%plain-lambda) (tv ...) τ_body) τ_arg ...)
+      [(#%plain-app 
+        (#%plain-lambda (tv ...) τ_body) τ_arg ...)
        (normalize (substs #'(τ_arg ...) #'(tv ...) #'τ_body))]
-      [((~literal #%plain-lambda) (x ...) . bodys)
+      [(#%plain-lambda (x ...) . bodys)
        #:with bodys_norm (stx-map normalize #'bodys)
        (transfer-stx-props #'(#%plain-lambda (x ...) . bodys_norm) τ #:ctx τ)]
-      [((~literal #%plain-app) x:id . args)
+      [(#%plain-app x:id . args)
        #:with args_norm (stx-map normalize #'args)
        (transfer-stx-props #'(#%plain-app x . args_norm) τ #:ctx τ)]
-      [((~literal #%plain-app) . args)
+      [(#%plain-app . args)
        #:with args_norm (stx-map normalize #'args)
        (transfer-stx-props (normalize #'(#%plain-app . args_norm)) τ #:ctx τ)]
       [_ τ]))
@@ -79,13 +79,13 @@
   (current-typecheck-relation (current-type=?)))
 
 (define-typed-syntax Λ
-  [(_ bvs:kind-ctx e)
+  [(Λ bvs:kind-ctx e)
    #:with ((tv- ...) e- τ_e)
           (infer/ctx+erase #'bvs #'e)
    (⊢ e- : (∀ ([tv- : bvs.kind] ...) τ_e))])
 
 (define-typed-syntax inst
-  [(_ e τ ...)
+  [(inst e τ ...)
    #:with (e- (([tv k] ...) (τ_body))) (⇑ e as ∀)
    #:with ([τ- k_τ] ...) (infers+erase #'(τ ...))
    #:when (stx-andmap (λ (t k) (or ((current-kind?) k)

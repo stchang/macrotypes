@@ -14,10 +14,10 @@
 
 (define-syntax → ; wrapping →
   (syntax-parser
-    [(_ (~and Xs {X:id ...}) . rst)
+    [(→ (~and Xs {X:id ...}) . rst)
      #:when (brace? #'Xs)
      (add-orig #'(∀ (X ...) (ext-stlc:→ . rst)) (get-orig this-syntax))]
-    [(_ . rst) (add-orig #'(∀ () (ext-stlc:→ . rst)) (get-orig this-syntax))]))
+    [(→ . rst) (add-orig #'(∀ () (ext-stlc:→ . rst)) (get-orig this-syntax))]))
 
 (define-primop + : (→ Int Int Int))
 (define-primop - : (→ Int Int Int))
@@ -61,59 +61,59 @@
       (list cs (reverse (stx->list e+τs))))))
 
 (define-typed-syntax define
-  [(_ x:id e)
+  [(define x:id e)
    #:with (e- τ) (infer+erase #'e)
    #:with y (generate-temporary)
-   #'(begin
+   #'(begin-
        (define-syntax x (make-rename-transformer (⊢ y : τ)))
-       (define y e-))]
-  [(_ (~and Xs {X:id ...}) (f:id [x:id (~datum :) τ] ... (~datum →) τ_out) e)
+       (define- y e-))]
+  [(define (~and Xs {X:id ...}) (f:id [x:id (~datum :) τ] ... (~datum →) τ_out) e)
    #:when (brace? #'Xs)
    #:with g (generate-temporary #'f)
    #:with e_ann #'(add-expected e τ_out)
-   #'(begin
+   #'(begin-
        (define-syntax f (make-rename-transformer
                          (⊢ g : #,(add-orig #'(∀ (X ...) (ext-stlc:→ τ ... τ_out))
                                             #'(→ τ ... τ_out)))))
-       (define g (Λ (X ...) (ext-stlc:λ ([x : τ] ...) e_ann))))]
-  [(_ (f:id [x:id (~datum :) τ] ... (~datum →) τ_out) e)
+       (define- g (Λ (X ...) (ext-stlc:λ ([x : τ] ...) e_ann))))]
+  [(define (f:id [x:id (~datum :) τ] ... (~datum →) τ_out) e)
    #:with g (generate-temporary #'f)
    #:with e_ann #'(add-expected e τ_out)
-   #'(begin
+   #'(begin-
        (define-syntax f (make-rename-transformer (⊢ g : (→ τ ... τ_out))))
-       (define g (ext-stlc:λ ([x : τ] ...) e_ann)))])
+       (define- g (ext-stlc:λ ([x : τ] ...) e_ann)))])
 
 ; all λs have type (∀ (X ...) (→ τ_in ... τ_out))
 (define-typed-syntax λ #:datum-literals (:)
-  [(~and fn (_ (x:id ...) e)) ; no annotations, try to infer from outer ctx, ie an application
-   #:with given-τ-args (syntax-property #'fn 'given-τ-args)
+  [(λ (x:id ...) e) ; no annotations, try to infer from outer ctx, ie an application
+   #:with given-τ-args (syntax-property stx 'given-τ-args)
    #:fail-unless (syntax-e #'given-τ-args) ; no inferred types or annotations, so error
                  (format "input types for ~a could not be inferred; add annotations"
-                         (syntax->datum #'fn))
+                         (syntax->datum stx))
    #:with (τ_arg ...) #'given-τ-args
-   #:with [λ- τ_λ] (infer+erase #'(ext-stlc:λ ([x : τ_arg] ...) e))
-   (⊢ λ- : #,(add-orig #'(∀ () τ_λ) (get-orig #'τ_λ)))]
-  [(~and fn (_ (x:id ...) e) ~!) ; no annotations, couldnt infer from ctx (eg, unapplied lam), try to infer from body
+   #:with [fn- τ_fn] (infer+erase #'(ext-stlc:λ ([x : τ_arg] ...) e))
+   (⊢ fn- : #,(add-orig #'(∀ () τ_fn) (get-orig #'τ_fn)))]
+  [(_ (x:id ...) ~! e) ; no annotations, couldnt infer from ctx (eg, unapplied lam), try to infer from body
    #:with (xs- e- τ_res) (infer/ctx+erase #'([x : x] ...) #'e)
    #:with env (get-env #'e-)
    #:fail-unless (syntax-e #'env)
                  (format "input types for ~a could not be inferred; add annotations"
-                         (syntax->datum #'fn))
+                         (syntax->datum stx))
    #:with (τ_arg ...) (stx-map (λ (y) (lookup y #'env)) #'xs-)
    #:fail-unless (stx-andmap syntax-e #'(τ_arg ...))
                  (format "some input types for ~a could not be inferred; add annotations"
-                         (syntax->datum #'fn))
+                         (syntax->datum stx))
    ;; propagate up inferred types of variables
-   #:with res (add-env #'(λ xs- e-) #'env)
-;   #:with [λ- τ_λ] (infer+erase #'(ext-stlc:λ ([x : x] ...) e))
+   #:with res (add-env #'(λ- xs- e-) #'env)
+;   #:with [fn- τ_fn] (infer+erase #'(ext-stlc:λ ([x : x] ...) e))
    (⊢ res : #,(add-orig #'(∀ () (ext-stlc:→ τ_arg ... τ_res))
                         #`(→ #,@(stx-map get-orig #'(τ_arg ... τ_res)))))]
-   ;(⊢ (λ xs- e-) : (∀ () (ext-stlc:→ τ_arg ... τ_res)))]
-  [(_ . rst)
-   #:with [λ- τ_λ] (infer+erase #'(ext-stlc:λ . rst))
-   (⊢ λ- : #,(add-orig #'(∀ () τ_λ) (get-orig #'τ_λ)))])
+   ;(⊢ (λ- xs- e-) : (∀ () (ext-stlc:→ τ_arg ... τ_res)))]
+  [(λ . rst)
+   #:with [fn- τ_fn] (infer+erase #'(ext-stlc:λ . rst))
+   (⊢ fn- : #,(add-orig #'(∀ () τ_fn) (get-orig #'τ_fn)))])
 
-(define-typed-syntax #%app
+(define-typed-syntax infer:#%app #:export-as #%app
   [(_ e_fn e_arg ...) ; infer args first
  ;  #:when (printf "args first ~a\n" (syntax->datum stx))
    #:with maybe-inferred-τs (with-handlers ([exn:fail:type:infer? (λ _ #f)])
@@ -158,8 +158,8 @@
                   (string-join (stx-map type->str #'(τ_in ...)) ", ")))
    ; propagate inferred types for variables up
    #:with env (stx-flatten (filter (λ (x) x) (stx-map get-env #'(e_arg- ...))))
-   #:with result-app (add-env #'(#%app e_fn- e_arg- ...) #'env)
-   ;(⊢ (#%app e_fn- e_arg- ...) : τ_out)]
+   #:with result-app (add-env #'(#%app- e_fn- e_arg- ...) #'env)
+   ;(⊢ (#%app- e_fn- e_arg- ...) : τ_out)]
    (⊢ result-app : τ_out)]
   [(_ e_fn e_arg ...) ; infer fn first ------------------------- ; TODO: remove code dup
 ;   #:when (printf "fn first ~a\n" (syntax->datum stx))
@@ -195,6 +195,6 @@
                   (format "Expected: ~a arguments with type(s): "
                           (stx-length #'(τ_in ...)))
                   (string-join (stx-map type->str #'(τ_in ...)) ", "))
-  #:with result-app (add-env #'(#%app e_fn- e_arg- ...) #'env)
-  ;(⊢ (#%app e_fn- e_arg- ...) : τ_out)])
+  #:with result-app (add-env #'(#%app- e_fn- e_arg- ...) #'env)
+  ;(⊢ (#%app- e_fn- e_arg- ...) : τ_out)])
   (⊢ result-app : τ_out)])

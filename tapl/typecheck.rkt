@@ -1,5 +1,10 @@
 #lang racket/base
 (require
+  "postfix-in.rkt"
+  (postfix-in - racket/base)
+  (postfix-in - racket/bool)
+  (postfix-in - racket/match)
+  (postfix-in - racket/promise)
   (for-syntax (except-in racket extends)
               syntax/parse racket/syntax syntax/stx racket/stxparam syntax/parse/define
               "stx-utils.rkt")
@@ -7,7 +12,7 @@
   (for-meta 3 racket/base syntax/parse racket/syntax)
   racket/bool racket/provide racket/require racket/match racket/promise)
 (provide
- symbol=? match delay
+ symbol=?- match- delay-
  (except-out (all-from-out racket/base) #%module-begin)
  (for-syntax (all-defined-out)) (all-defined-out)
  (for-syntax
@@ -54,10 +59,10 @@
      #'(begin
          (provide (rename-out [name out-name]))
          (define-syntax (name syntx)
-           (syntax-parameterize ([stx (syntax-id-rules () [_ syntx])])
-             (syntax-parse syntx #:context #'out-name stx-parse-clause ...))))]
+           (syntax-parameterize ([stx (make-rename-transformer #'syntx)])
+             (syntax-parse syntx stx-parse-clause ...))))]
     [(_ name:id stx-parse-clause ...)
-     #`(define-typed-syntax #,(generate-temporary #'name) #:export-as name
+     #'(define-typed-syntax name #:export-as name
          stx-parse-clause ...)]))
 
 ;; need options for
