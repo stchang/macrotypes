@@ -1,13 +1,13 @@
-#lang s-exp "../stlc+cons.rkt"
+#lang s-exp "../typed-lang-builder/stlc+cons.rkt"
 (require "rackunit-typechecking.rkt")
 
 (typecheck-fail (cons 1 2)
-                #:with-msg "Expected expression 2 to have List type, got: Int")
+                #:with-msg "expected \\(List Int\\), given Int\n *expression: 2")
 ;(typecheck-fail (cons 1 nil)
 ;                #:with-msg "nil: requires type annotation")
 (check-type (cons 1 nil) : (List Int))
 (check-type (cons 1 (nil {Int})) : (List Int))
-(typecheck-fail nil #:with-msg "nil requires type annotation")
+(typecheck-fail nil #:with-msg "nil: no expected type, add annotations")
 (typecheck-fail
  (nil Int)
  #:with-msg
@@ -35,7 +35,7 @@
 (typecheck-fail
  (isnil (head fn-lst))
  #:with-msg
- "Expected expression \\(head fn-lst\\) to have List type, got: \\(→ Int Int\\)")
+ "Expected List type, got: \\(→ Int Int\\)")
 (check-type (isnil (tail fn-lst)) : Bool ⇒ #t)
 (check-type (head fn-lst) : (→ Int Int))
 (check-type ((head fn-lst) 25) : Int ⇒ 35)
@@ -45,7 +45,7 @@
 (typecheck-fail
  (cons 1 1)
  #:with-msg
- "Expected expression 1 to have List type, got: Int")
+ "expected \\(List Int\\), given Int\n *expression: 1")
 
 ;; previous tests: ------------------------------------------------------------
 ;; define-type-alias

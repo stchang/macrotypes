@@ -1,4 +1,4 @@
-#lang s-exp "../stlc+reco+var.rkt"
+#lang s-exp "../typed-lang-builder/stlc+reco+var.rkt"
 (require "rackunit-typechecking.rkt")
 
 ;; define-type-alias
@@ -49,8 +49,8 @@
 (check-not-type (var coffee = (void) as (∨ [coffee : Unit])) : (∨ [coffee : Unit] [tea : Unit]))
 (typecheck-fail ((λ ([x : (∨ [coffee : Unit] [tea : Unit])]) x)
                  (var coffee = (void) as (∨ [coffee : Unit])))
- #:with-msg (expected "(∨ [coffee : Unit] [tea : Unit])"
-              #:given "(∨ [coffee : Unit])"))
+ #:with-msg (string-append "expected: +\\(∨ \\(coffee : Unit\\) \\(tea : Unit\\)\\)\n"
+                           " *given: +\\(∨ \\(coffee : Unit\\)\\)"))
 (check-type (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit])) :
             (∨ [coffee : Unit] [tea : Unit]))
 (check-type (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit] [coke : Unit]))
@@ -75,7 +75,7 @@
  (case (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit]))
    [coffee x => "1"]
    [tea x => 2])
- #:with-msg "branches have different types")
+ #:with-msg "branches have incompatible types: String and Int")
 (check-type
  (case (var coffee = 1 as (∨ [coffee : Int] [tea : Unit]))
    [coffee x => x]
@@ -102,11 +102,11 @@
 (typecheck-fail
  (var name = "Steve" as Int)
  #:with-msg
- "Expected ∨ type, got: Int")
+ "Expected the expected type to be a ∨ type, got: Int")
 (typecheck-fail
  (case 1 [racket x => 1])
  #:with-msg
- "Expected expression 1 to have ∨ type, got: Int")
+ "Expected ∨ type, got: Int")
 (typecheck-fail
  (λ ([x : (∨)]) x)
  #:with-msg "Improper usage of type constructor ∨: \\(∨\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
