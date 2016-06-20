@@ -1,4 +1,4 @@
-#lang s-exp "../fsub.rkt"
+#lang s-exp "../typed-lang-builder/fsub.rkt"
 (require "rackunit-typechecking.rkt")
 
 ;; examples from tapl ch26, bounded quantification

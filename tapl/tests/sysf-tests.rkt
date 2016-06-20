@@ -1,4 +1,4 @@
-#lang s-exp "../sysf.rkt"
+#lang s-exp "../typed-lang-builder/sysf.rkt"
 (require "rackunit-typechecking.rkt")
 
 (check-type (Λ (X) (λ ([x : X]) x)) : (∀ (X) (→ X X)))
@@ -27,7 +27,7 @@
 (typecheck-fail
  (inst 1 Int)
  #:with-msg
- "Expected expression 1 to have ∀ type, got: Int")
+ "Expected ∀ type, got: Int")
 
 ;; polymorphic arguments
 (check-type (Λ (t) (λ ([x : t]) x)) : (∀ (t) (→ t t)))
