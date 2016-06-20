@@ -1,4 +1,4 @@
-#lang s-exp "../ext-stlc.rkt"
+#lang s-exp "../typed-lang-builder/ext-stlc.rkt"
 (require "rackunit-typechecking.rkt")
 
 ;; tests for stlc extensions
@@ -14,10 +14,10 @@
 
 (typecheck-fail
  ((λ ([x : Unit]) x) 2)
- #:with-msg (expected "Unit" #:given "Int"))
+ #:with-msg "expected: +Unit\n *given: +Int")
 (typecheck-fail
  ((λ ([x : Unit]) x) void)
-  #:with-msg (expected "Unit" #:given "(→ Unit)"))
+  #:with-msg "expected: +Unit\n *given: +\\(→ Unit\\)")
 
 (check-type ((λ ([x : Unit]) x) (void)) : Unit)
 
@@ -41,12 +41,14 @@
 ;;ascription
 (check-type (ann 1 : Int) : Int ⇒ 1)
 (check-type ((λ ([x : Int]) (ann x : Int)) 10) : Int ⇒ 10)
-(typecheck-fail (ann 1 : Bool) #:with-msg "ann: 1 does not have type Bool")
+(typecheck-fail (ann 1 : Bool)
+                #:with-msg "ann: type mismatch: expected Bool, given Int\n *expression: 1")
 ;ann errs
 (typecheck-fail (ann 1 : Complex) #:with-msg "unbound identifier")
 (typecheck-fail (ann 1 : 1) #:with-msg "not a valid type")
 (typecheck-fail (ann 1 : (λ ([x : Int]) x)) #:with-msg "not a valid type")
-(typecheck-fail (ann Int : Int) #:with-msg "does not have type Int")
+(typecheck-fail (ann Int : Int)
+                #:with-msg "ann: type mismatch: expected Int, given #%type\n *expression: Int")
 
 ; let
 (check-type (let () (+ 1 1)) : Int ⇒ 2)
@@ -54,24 +56,24 @@
 (check-type (let ([x 10] [y 20]) ((λ ([z : Int] [a : Int]) (+ a z)) x y)) : Int ⇒ 30)
 (typecheck-fail
  (let ([x #f]) (+ x 1))
- #:with-msg (expected "Int, Int" #:given "Bool, Int"))
+ #:with-msg "expected: +Int, Int\n *given: +Bool, Int\n *expressions: x, 1")
 (typecheck-fail (let ([x 10] [y (+ x 1)]) (+ x y))
                 #:with-msg "x: unbound identifier")
 
 (check-type (let* ([x 10] [y (+ x 1)]) (+ x y)) : Int ⇒ 21)
 (typecheck-fail
  (let* ([x #t] [y (+ x 1)]) 1)
-  #:with-msg (expected "Int, Int" #:given "Bool, Int"))
+  #:with-msg "expected: +Int, Int\n *given: +Bool, Int\n *expressions: x, 1")
 
 ; letrec
 (typecheck-fail
  (letrec ([(x : Int) #f] [(y : Int) 1]) y)
  #:with-msg
- "letrec: type check fail, args have wrong type:\n#f has type Bool, expected Int")
+ "letrec: type mismatch\n *expected: +Int, Int\n *given: +Bool, Int\n *expressions: #f, 1")
 (typecheck-fail
  (letrec ([(y : Int) 1] [(x : Int) #f]) x)
  #:with-msg
- "letrec: type check fail, args have wrong type:.+#f has type Bool, expected Int")
+ "letrec: type mismatch\n *expected: +Int, Int\n *given: +Int, Bool\n *expressions: 1, #f")
 
 (check-type (letrec ([(x : Int) 1] [(y : Int) (+ x 1)]) (+ x y)) : Int ⇒ 3)
 
@@ -99,19 +101,20 @@
 ;; check some more err msgs
 (typecheck-fail
  (and "1" #f)
- #:with-msg "Expected expression \"1\" to have Bool type, got: String")
+ #:with-msg
+ "and: type mismatch: expected Bool, given String\n *expression: \"1\"")
 (typecheck-fail
  (and #t "2")
  #:with-msg
- "Expected expression \"2\" to have Bool type, got: String")
+ "and: type mismatch: expected Bool, given String\n *expression: \"2\"")
 (typecheck-fail
  (or "1" #f)
  #:with-msg
- "Expected expression \"1\" to have Bool type, got: String")
+ "or: type mismatch\n *expected: +Bool, Bool\n *given: +String, Bool\n *expressions: \"1\", #f")
 (typecheck-fail
  (or #t "2")
  #:with-msg
- "Expected expression \"2\" to have Bool type, got: String")
+ "or: type mismatch\n *expected: +Bool, Bool\n *given: +Bool, String\n *expressions: #t, \"2\"")
 ;; 2016-03-10: change if to work with non-false vals
 (check-type (if "true" 1 2) : Int -> 1)
 (typecheck-fail
@@ -133,12 +136,12 @@
 
 (typecheck-fail
  ((λ ([x : Bool]) x) 1)
- #:with-msg (expected "Bool" #:given "Int"))
+ #:with-msg "expected: +Bool\n *given: +Int\n *expressions: +1")
 ;(typecheck-fail (λ ([x : Bool]) x)) ; Bool is now valid type
 (typecheck-fail
  (λ ([f : Int]) (f 1 2))
  #:with-msg
- "Expected expression f to have → type, got: Int")
+ "Expected → type, got: Int")
 
 (check-type (λ ([f : (→ Int Int Int)] [x : Int] [y : Int]) (f x y))
             : (→ (→ Int Int Int) Int Int Int))
@@ -147,14 +150,13 @@
 
 (typecheck-fail
  (+ 1 (λ ([x : Int]) x))
- #:with-msg (expected "Int, Int" #:given "Int, (→ Int Int)"))
+ #:with-msg "expected: +Int, Int\n *given: +Int, \\(→ Int Int\\)")
 (typecheck-fail
  (λ ([x : (→ Int Int)]) (+ x x))
-  #:with-msg (expected "Int, Int" #:given "(→ Int Int), (→ Int Int)"))
+  #:with-msg "expected: +Int, Int\n *given: +\\(→ Int Int\\), \\(→ Int Int\\)\n *expressions: x, x")
 (typecheck-fail
  ((λ ([x : Int] [y : Int]) y) 1)
- #:with-msg (expected "Int, Int" #:given "Int"
-                      #:note "Wrong number of arguments"))
+ #:with-msg "wrong number of arguments: expected 2, given 1")
 
 (check-type ((λ ([x : Int]) (+ x x)) 10) : Int ⇒ 20)
 

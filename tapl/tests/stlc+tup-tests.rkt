@@ -1,4 +1,4 @@
-#lang s-exp "../stlc+tup.rkt"
+#lang s-exp "../typed-lang-builder/stlc+tup.rkt"
 (require "rackunit-typechecking.rkt")
 
 ;; tests for tuples
@@ -17,7 +17,7 @@
 (typecheck-fail
  (proj 1 2)
  #:with-msg
- "Expected expression 1 to have × type, got: Int")
+ "proj: Expected × type, got: Int")
 
 ;; ext-stlc.rkt tests ---------------------------------------------------------
 ;; should still pass
