@@ -1,4 +1,4 @@
-#lang s-exp "../stlc.rkt"
+#lang s-exp "../typed-lang-builder/stlc.rkt"
 (require "rackunit-typechecking.rkt")
 
 ;; cannot write any terms without base types, but can check some errors

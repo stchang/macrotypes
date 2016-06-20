@@ -1,4 +1,4 @@
-#lang s-exp "../stlc+lit.rkt"
+#lang s-exp "../typed-lang-builder/stlc+lit.rkt"
 (require "rackunit-typechecking.rkt")
 
 ;; thunk
@@ -36,7 +36,7 @@
 (typecheck-fail
  (λ ([f : Int]) (f 1 2))
  #:with-msg
- "Expected expression f to have → type, got: Int")
+ "Expected → type, got: Int")
 
 (check-type (λ ([f : (→ Int Int Int)] [x : Int] [y : Int]) (f x y))
             : (→ (→ Int Int Int) Int Int Int))
@@ -44,14 +44,13 @@
 
 (typecheck-fail
  (+ 1 (λ ([x : Int]) x))
- #:with-msg (expected "Int, Int" #:given "Int, (→ Int Int)"))
+ #:with-msg "expected: +Int, Int\n *given: +Int, \\(→ Int Int\\)")
 (typecheck-fail
  (λ ([x : (→ Int Int)]) (+ x x))
-  #:with-msg (expected "Int, Int" #:given "(→ Int Int), (→ Int Int)"))
+  #:with-msg "expected: +Int, Int\n *given: +\\(→ Int Int\\), \\(→ Int Int\\)")
 (typecheck-fail
  ((λ ([x : Int] [y : Int]) y) 1)
- #:with-msg (expected "Int, Int" #:given "Int"
-                      #:note "Wrong number of arguments"))
+ #:with-msg "wrong number of arguments: expected 2, given 1")
 
 (check-type ((λ ([x : Int]) (+ x x)) 10) : Int ⇒ 20)
 
