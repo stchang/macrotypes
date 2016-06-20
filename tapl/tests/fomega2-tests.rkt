@@ -1,4 +1,4 @@
-#lang s-exp "../fomega2.rkt"
+#lang s-exp "../typed-lang-builder/fomega2.rkt"
 (require "rackunit-typechecking.rkt")
 
 (check-type Int : ★)

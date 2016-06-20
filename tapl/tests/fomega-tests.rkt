@@ -1,4 +1,4 @@
-#lang s-exp "../fomega.rkt"
+#lang s-exp "../typed-lang-builder/fomega.rkt"
 (require "rackunit-typechecking.rkt")
 
 (check-type Int : ★)
@@ -52,17 +52,17 @@
             : (→ (→ Int String) (→ Int String)))
 (typecheck-fail
  (inst (Λ ([X : ★]) (λ ([x : X]) x)) 1)
- #:with-msg "not a valid type: 1")
+ #:with-msg "inst: type mismatch\n *expected: +★\n *given: +Int\n *expressions: +1")
 
 (typecheck-fail
  (Λ ([tyf : (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) (f 1)))
- #:with-msg "Expected expression f to have → type")
+ #:with-msg "Expected → type, got: \\(tyapp tyf String\\)")
 ;; applied f too early
 (typecheck-fail
  (inst
   (Λ ([tyf : (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) (f 1)))
   (tyapp (tyλ ([arg : ★]) (tyλ ([res : ★]) (→ arg res))) Int))
- #:with-msg "Expected expression f to have → type")
+ #:with-msg "Expected → type, got: \\(tyapp tyf String\\)")
 (check-type ((inst
               (Λ ([tyf : (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) f))
               (tyapp (tyλ ([arg : ★]) (tyλ ([res : ★]) (→ arg res))) Int))
