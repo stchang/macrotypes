@@ -12,9 +12,9 @@
 ;; - ref deref :=
 
 (begin-for-syntax 
-  (define (add-news e locs) (syntax-property e 'new locs))
-  (define (add-assigns e locs) (syntax-property e 'assign locs))
-  (define (add-derefs e locs) (syntax-property e 'deref locs))
+  (define (add-news e locs) (syntax-property e 'ν locs))
+  (define (add-assigns e locs) (syntax-property e ':= locs))
+  (define (add-derefs e locs) (syntax-property e '! locs))
   (define (add-effects e new-locs assign-locs deref-locs)
     (add-derefs
      (add-assigns
@@ -27,16 +27,16 @@
          (local-expand (if (null? vs) e #`(stlc+box:λ #,vs #,e)) 'expression null)
          tag)
         null))
-  (define (get-new-effects e [vs '()]) (get-effects e 'new vs))
-  (define (get-assign-effects e [vs '()]) (get-effects e 'assign vs))
-  (define (get-deref-effects e [vs '()]) (get-effects e 'deref vs))
+  (define (get-new-effects e [vs '()]) (get-effects e 'ν vs))
+  (define (get-assign-effects e [vs '()]) (get-effects e ':= vs))
+  (define (get-deref-effects e [vs '()]) (get-effects e '! vs))
   
   (define (print-effects e)
     (printf "expr ~a\n" (syntax->datum e))
     (define e+ (local-expand e 'expression null))
-    (printf "new locs: ~a\n" (syntax-property e+ 'new))
-    (printf "deref locs: ~a\n" (syntax-property e+ 'deref))
-    (printf "assign locs: ~a\n" (syntax-property e+ 'assign)))
+    (printf "new locs: ~a\n" (syntax-property e+ 'ν))
+    (printf "deref locs: ~a\n" (syntax-property e+ '!))
+    (printf "assign locs: ~a\n" (syntax-property e+ ':=)))
   
   (define (loc-union locs1 locs2)
     (cond
@@ -128,11 +128,11 @@
                     (stx-append #'ds1 #'ds2))])
 ;(define-typed-syntax ref
 ;  [(_ e)
-;   (syntax-property #'(stlc+box:ref e) 'new (set (syntax-position stx)))])
+;   (syntax-property #'(stlc+box:ref e) 'ν (set (syntax-position stx)))])
 ;(define-typed-syntax deref
 ;  [(_ e)
-;   (syntax-property #'(stlc+box:deref e) 'deref (set (syntax-position stx)))])
+;   (syntax-property #'(stlc+box:deref e) '! (set (syntax-position stx)))])
 ;(define-typed-syntax :=
 ;  [(_ e_ref e)
-;   (syntax-property #'(stlc+box::= e_ref e) 'assign (set (syntax-position stx)))])
+;   (syntax-property #'(stlc+box::= e_ref e) ':= (set (syntax-position stx)))])
 

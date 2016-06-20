@@ -41,15 +41,15 @@
 ;; for checking properties other than types
 (define-syntax (check-props stx)
   (syntax-parse stx #:datum-literals (: ⇒ ->)
-    [(_ prop e : v ... (~optional (~seq (~or ⇒ ->) v2) #:defaults ([v2 #'e])))
+    [(_ prop e : v (~optional (~seq (~or ⇒ ->) v2) #:defaults ([v2 #'e])))
      #:with props (or (syntax-property (expand/df #'e) (syntax->datum #'prop))
                       #'())
-     #:fail-unless (set=? (apply set (syntax->datum #'(v ...)))
-                          (apply set (syntax->datum #'props)))
+     #:fail-unless (equal? (syntax->datum #'v)
+                           (syntax->datum #'props))
      (format
       "Expression ~a [loc ~a:~a:~a] does not have prop ~a, actual: ~a"
       (syntax->datum #'e) (syntax-line #'e) (syntax-column #'e) (syntax-position #'e)
-      (syntax->datum #'(v ...)) (syntax->datum #'props))
+      (syntax->datum #'v) (syntax->datum #'props))
      (syntax/loc stx (check-equal? e v2))]))
 
 (define-syntax (check-not-type stx)

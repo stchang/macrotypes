@@ -1,4 +1,4 @@
-#lang s-exp "../stlc+box.rkt"
+#lang s-exp "../typed-lang-builder/stlc+box.rkt"
 (require "rackunit-typechecking.rkt")
 
 (define x (ref 10))
@@ -26,11 +26,11 @@
 (typecheck-fail
  (deref 1)
  #:with-msg
- "Expected expression 1 to have Ref type, got: Int")
+ "Expected Ref type, got: Int")
 (typecheck-fail
  (:= 1 1)
  #:with-msg
- "Expected expression 1 to have Ref type, got: Int")
+ "Expected Ref type, got: Int")
 
 ;; previous tests: ------------------------------------------------------------
 (typecheck-fail (cons 1 2))
