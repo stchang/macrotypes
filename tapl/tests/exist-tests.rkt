@@ -89,11 +89,11 @@
 (typecheck-fail
  (open [counter <= counterADT with Counter]
        (+ (proj counter new) 1))
- #:with-msg "expected: +Int, Int\n *given: +Counter, Int\n *expressions: +\\(proj counter new\\), 1")
+ #:with-msg "expected Int, given Counter\n *expression: \\(proj counter new\\)")
 (typecheck-fail
  (open [counter <= counterADT with Counter]
        ((λ ([x : Int]) x) (proj counter new)))
- #:with-msg "expected: +Int\n *given: +Counter\n *expressions: +\\(proj counter new\\)")
+ #:with-msg "expected Int, given Counter\n *expression: \\(proj counter new\\)")
 (check-type
  (open [counter <= counterADT with Counter]
        ((proj counter get) ((proj counter inc) (proj counter new))))

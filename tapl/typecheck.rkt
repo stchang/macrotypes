@@ -175,15 +175,27 @@
         (set-stx-prop/preserved e 'expected-type τ) ; dont type-eval?, ie expand?
         e))
   (define (get-expected-type e)
-    (syntax-property e 'expected-type))
+    (get-stx-prop/cd*r e 'expected-type))
   (define (add-env e env) (set-stx-prop/preserved e 'env env))
   (define (get-env e) (syntax-property e 'env))
   
   ;; typeof : Syntax -> Type or #f
   ;; Retrieves type of given stx, or #f if input has not been assigned a type.
   (define (typeof stx #:tag [tag ':])
-    (define ty (syntax-property stx tag))
-    (if (cons? ty) (car ty) ty))
+    (get-stx-prop/car stx tag))
+
+  ;; get-stx-prop/car : Syntax Any -> Any
+  (define (get-stx-prop/car stx tag)
+    (define v (syntax-property stx tag))
+    (if (cons? v) (car v) v))
+  
+  ;; get-stx-prop/cd*r : Syntax Any -> Any
+  (define (get-stx-prop/cd*r stx tag)
+    (cd*r (syntax-property stx tag)))
+
+  ;; cd*r : Any -> Any
+  (define (cd*r v)
+    (if (cons? v) (cd*r (cdr v)) v))
   
   (define (tyvar? X) (syntax-property X 'tyvar))
   
@@ -411,6 +423,8 @@
     (set-stx-prop/preserved stx 'orig (cons orig origs)))
   (define (get-orig τ)
     (car (reverse (or (syntax-property τ 'orig) (list τ)))))
+  (define (pass-orig stx orig)
+    (add-orig stx (get-orig orig)))
   (define (has-orig? stx)
     (and (syntax-property stx 'orig) #true))
   (define (type->str ty)

@@ -44,10 +44,10 @@
 
 (typecheck-fail
  (+ 1 (λ ([x : Int]) x))
- #:with-msg "expected: +Int, Int\n *given: +Int, \\(→ Int Int\\)")
+ #:with-msg "expected Int, given \\(→ Int Int\\)\n *expression: \\(λ \\(\\(x : Int\\)\\) x\\)")
 (typecheck-fail
  (λ ([x : (→ Int Int)]) (+ x x))
-  #:with-msg "expected: +Int, Int\n *given: +\\(→ Int Int\\), \\(→ Int Int\\)")
+  #:with-msg "expected Int, given \\(→ Int Int\\)\n *expression: x")
 (typecheck-fail
  ((λ ([x : Int] [y : Int]) y) 1)
  #:with-msg "wrong number of arguments: expected 2, given 1")
@@ -58,3 +58,8 @@
 (typecheck-fail (λ ([x : 1]) x) #:with-msg "not a valid type")
 (typecheck-fail (λ ([x : (+ 1 2)]) x) #:with-msg "not a valid type")
 (typecheck-fail (λ ([x : (λ ([y : Int]) y)]) x) #:with-msg "not a valid type")
+
+(typecheck-fail
+ (ann (ann 5 : Int) : (→ Int))
+ #:with-msg "expected \\(→ Int\\), given Int\n *expression: \\(ann 5 : Int\\)")
+

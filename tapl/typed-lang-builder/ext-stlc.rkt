@@ -56,8 +56,7 @@
 
 (define-typed-syntax or
   [(or e ...) ▶
-   [#:with [Bool* ...] (make-list (stx-length #'[e ...]) #'Bool)]
-   [⊢ [[e ≫ e-] ⇐ (: Bool*)] ...]
+   [⊢ [[e ≫ e-] ⇐ (: Bool)] ...]
    --------
    [⊢ [[_ ≫ (or- e- ...)] ⇒ (: Bool)]]])
 

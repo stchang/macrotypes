@@ -258,18 +258,10 @@
  "expected: \\(List Int\\)\n *given: \\(List Bool\\)")
 (typecheck-fail (Cons {Bool} 1 (Nil {Int}))
  #:with-msg
- (string-append
-  "Cons: type mismatch\n"
-  " *expected: +Bool, \\(List Bool\\)\n"
-  " *given: +Int, \\(List Int\\)\n"
-  " *expressions: 1, \\(Nil \\(Int\\)\\)"))
+ "Cons: type mismatch: expected Bool, given Int\n *expression: 1")
 (typecheck-fail (Cons {Bool} 1 Nil)
  #:with-msg
- (string-append
-  "Cons: type mismatch\n"
-  " *expected: +Bool, \\(List Bool\\)\n"
-  " *given: +Int, \\(List Bool\\)\n"
-  " *expressions: 1, Nil"))
+ "Cons: type mismatch: expected Bool, given Int\n *expression: 1")
 
 (typecheck-fail (match Nil with [Cons x xs -> 2] [Nil -> 1])
                 #:with-msg "Nil: no expected type, add annotations")

@@ -1,5 +1,5 @@
 #lang macrotypes/tapl/typed-lang-builder
-(provide (for-syntax current-type=? types=?))
+(provide only-in (for-syntax current-type=? types=?))
 
 (begin-for-syntax
   ;; type eval
