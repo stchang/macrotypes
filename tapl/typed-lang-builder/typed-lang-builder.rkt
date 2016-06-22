@@ -9,9 +9,25 @@
           [define-typed-syntax -define-typed-syntax]
           ))
 
+(module typecheck+ racket/base
+  (provide (all-defined-out))
+  (require (for-meta -1 (except-in "../typecheck.rkt" #%module-begin)))
+  (define (raise-⇐-expected-type-error ⇐-stx body expected-type existing-type)
+    (raise-syntax-error
+     '⇐
+     (format (string-append "body already has a type other than the expected type\n"
+                            "  body: ~s\n"
+                            "  expected-type: ~a\n"
+                            "  existing-type: ~a\n")
+             (syntax->datum body)
+             (type->str expected-type)
+             (type->str existing-type))
+     ⇐-stx
+     body)))
 (module syntax-classes racket/base
   (provide (all-defined-out))
-  (require (for-meta -1 (except-in "../typecheck.rkt" #%module-begin))
+  (require (for-meta 0 (submod ".." typecheck+))
+           (for-meta -1 (submod ".." typecheck+) (except-in "../typecheck.rkt" #%module-begin))
            (for-meta -2 (except-in "../typecheck.rkt" #%module-begin)))
   (define-syntax-class ---
     [pattern (~datum --------)])
@@ -155,15 +171,16 @@
     )
   (define-syntax-class last-clause
     #:datum-literals (⊢ ≫ ≻ ⇒ ⇐ :)
-    #:attributes ([pat 0] [stuff 1])
+    #:attributes ([pat 0] [stuff 1] [body 0])
     [pattern [⊢ [[pat* ≫ e-stx] ⇒ k v]]
              #:with :last-clause #'[⊢ [[pat* ≫ e-stx] (⇒ k v)]]]
     [pattern [⊢ [[pat ≫ e-stx] (⇒ k:id v) ...]]
-             #:with [stuff ...]
-             #'[(for/fold ([result (quasisyntax/loc this-syntax e-stx)])
-                          ([tag (in-list (list 'k ...))]
-                           [τ (in-list (list #`v ...))])
-                  (assign-type result τ #:tag tag))]]
+             #:with [stuff ...] #'[]
+             #:with body:expr
+             #'(for/fold ([result (quasisyntax/loc this-syntax e-stx)])
+                         ([tag (in-list (list 'k ...))]
+                          [τ (in-list (list #`v ...))])
+                 (assign-type result τ #:tag tag))]
     [pattern [⊢ [[pat* ≫ e-stx] ⇐ : τ-pat]]
              #:with stx (generate-temporary 'stx)
              #:with τ (generate-temporary #'τ-pat)
@@ -174,38 +191,52 @@
                      (~post (~post (~fail #:unless (syntax-e #'τ)
                                           "no expected type, add annotations")))
                      (~parse τ-pat #'τ))
-             #:with [stuff ...]
-             #'[(assign-type (quasisyntax/loc this-syntax e-stx) #`τ)]]
+             #:with [stuff ...] #'[]
+             #:with body:expr
+             #'(assign-type (quasisyntax/loc this-syntax e-stx) #`τ)]
     [pattern [pat ≻ e-stx]
-             #:with [stuff ...]
-             #'[(quasisyntax/loc this-syntax e-stx)]]
+             #:with [stuff ...] #'[]
+             #:with body:expr
+             #'(quasisyntax/loc this-syntax e-stx)]
     [pattern [pat #:error msg:expr]
              #:with [stuff ...]
-             #'[#:fail-unless #f msg
-                ;; should never get here
-                (error msg)]])
+             #'[#:fail-unless #f msg]
+             #:with body:expr
+             ;; should never get here
+             #'(error msg)])
   (define-splicing-syntax-class pat #:datum-literals (⇐ :)
-    [pattern (~seq pat)]
-    [pattern (~seq pat* ⇐ : τ-pat)
+    [pattern (~seq pat)
+             #:attr transform-body identity]
+    [pattern (~seq pat* left:⇐ : τ-pat)
              #:with stx (generate-temporary 'stx)
              #:with τ (generate-temporary #'τ-pat)
+             #:with b (generate-temporary 'body)
              #:with pat
              #'(~and stx
                      pat*
                      (~parse τ (get-expected-type #'stx))
                      (~post (~post (~fail #:unless (syntax-e #'τ)
                                     "no expected type, add annotations")))
-                     (~parse τ-pat #'τ))])
+                     (~parse τ-pat #'τ))
+             #:attr transform-body
+             (lambda (body)
+               #`(let ([b #,body])
+                   (when (and (typeof b)
+                              (not (typecheck? (typeof b) #'τ)))
+                     (raise-⇐-expected-type-error #'left b #'τ (typeof b)))
+                   (assign-type b #'τ)))])
   (define-syntax-class rule #:datum-literals (▶)
     [pattern [pat:pat ▶
               clause:clause ...
               :---
               last-clause:last-clause]
+             #:with body:expr ((attribute pat.transform-body) #'last-clause.body)
              #:with norm
              #'[(~and pat.pat
                       last-clause.pat
                       clause.pat ... ...)
-                last-clause.stuff ...]])
+                last-clause.stuff ...
+                body]])
   (define-splicing-syntax-class stxparse-kws
     [pattern (~seq (~or (~seq :keyword _)
                         (~seq :keyword))
