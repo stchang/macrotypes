@@ -206,6 +206,10 @@
                       last-clause.pat
                       clause.pat ... ...)
                 last-clause.stuff ...]])
+  (define-splicing-syntax-class stxparse-kws
+    [pattern (~seq (~or (~seq :keyword _)
+                        (~seq :keyword))
+                   ...)])
   )
 (require (for-meta 1 'syntax-classes)
          (for-meta 2 'syntax-classes))
@@ -214,14 +218,12 @@
   (lambda (stx)
     (syntax-parse stx
       [(def name:id
-         (~and (~seq stuff ...) (~or (~seq :keyword _)
-                                     (~seq :keyword)))
-         ...
+         (~and (~seq kw-stuff ...) :stxparse-kws)
          rule:rule
          ...)
        #'(-define-typed-syntax
           name
-          stuff ... ...
+          kw-stuff ...
           rule.norm
           ...)])))
 
@@ -231,14 +233,12 @@
       (syntax-parse stx
         [(stxparse
           stx-id:id
-          (~and (~seq stuff ...) (~or (~seq :keyword _)
-                                      (~seq :keyword)))
-          ...
+          (~and (~seq kw-stuff ...) :stxparse-kws)
           rule:rule
           ...)
          #'(syntax-parse
                stx-id
-             stuff ... ...
+             kw-stuff ...
              rule.norm
              ...)]))))
 
