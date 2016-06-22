@@ -1,4 +1,4 @@
-#lang s-exp "../../../mlish.rkt"
+#lang s-exp "../../../typed-lang-builder/mlish-core.rkt"
 (require "../../rackunit-typechecking.rkt")
 
 (define-type (Option A)
