@@ -844,14 +844,26 @@
     ⊢ [[body ≫ body-] ⇐ : τ_out]]
    --------
    [⊢ [[_ ≫ (λ- (x- ...) body-)] ⇐ : _]]]
+  [(λ ([x : τ_x] ...) body) ⇐ : (~?∀ (V ...) (~ext-stlc:→ τ_in ... τ_out)) ▶
+   [#:with [X ...] (compute-tyvars #'(τ_x ...))]
+   [([X : #%type ≫ X-] ...) ()
+    ⊢ [[τ_x ≫ τ_x-] ⇐ : #%type] ...]
+   [τ_in τ⊑ τ_x-] ...
+   ;; TODO is there a way to have λs that refer to ids defined after them?
+   [([V : #%type ≫ V-] ... [X- : #%type ≫ X--] ...) ([x : τ_x- ≫ x-] ...)
+    ⊢ [[body ≫ body-] ⇐ : τ_out]]
+   --------
+   [⊢ [[_ ≫ (λ- (x- ...) body-)] ⇐ : _]]]
   [(λ ([x : τ_x] ...) body) ▶
    [#:with [X ...] (compute-tyvars #'(τ_x ...))]
    ;; TODO is there a way to have λs that refer to ids defined after them?
    [([X : #%type ≫ X-] ...) ([x : τ_x ≫ x-] ...)
     ⊢ [[body ≫ body-] ⇒ : τ_body]]
    [#:with [τ_x* ...] (inst-types/cs #'[X ...] #'([X X-] ...) #'[τ_x ...])]
+   [#:with τ_fn (add-orig #'(?∀ (X- ...) (ext-stlc:→ τ_x* ... τ_body))
+                          #`(→ #,@(stx-map get-orig #'[τ_x* ...]) #,(get-orig #'τ_body)))]
    --------
-   [⊢ [[_ ≫ (λ- (x- ...) body-)] ⇒ : (?∀ (X- ...) (ext-stlc:→ τ_x* ... τ_body))]]])
+   [⊢ [[_ ≫ (λ- (x- ...) body-)] ⇒ : τ_fn]]])
 
 
 ;; #%app --------------------------------------------------
