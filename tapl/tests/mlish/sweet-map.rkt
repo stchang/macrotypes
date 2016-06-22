@@ -1,4 +1,4 @@
-#lang sweet-exp "../../mlish.rkt"
+#lang sweet-exp "../../typed-lang-builder/mlish-core.rkt"
 
 define
   sum [lst : (List Int)] → Int
