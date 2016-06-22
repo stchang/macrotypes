@@ -58,23 +58,22 @@
 (define-typed-syntax effect:#%app #:export-as #%app
   [(_ efn e ...) ▶
    [⊢ [[efn ≫ e_fn-]
-       (⇒ : ty_fn
+       (⇒ : (~→ τ_in ... τ_out)
           (⇒ ν (~locs tyns ...))
           (⇒ := (~locs tyas ...))
           (⇒ ! (~locs tyds ...)))
        (⇒ ν (~locs fns ...))
        (⇒ := (~locs fas ...))
        (⇒ ! (~locs fds ...))]]
-   [#:with (~→ τ_in ... τ_out) #'ty_fn]
+   [#:fail-unless (stx-length=? #'[e ...] #'[τ_in ...])
+    (format "wrong number of arguments: expected ~a, given ~a"
+            (stx-length #'[τ_in ...] #'[e ...]))]
    [⊢ [[e ≫ e_arg-]
-       (⇒ : τ_arg)
+       (⇐ : τ_in)
        (⇒ ν (~locs ns ...))
        (⇒ := (~locs as ...))
        (⇒ ! (~locs ds ...))]
       ...]
-   [#:fail-unless (stx-length=? #'(τ_arg ...) #'(τ_in ...))
-    "wrong number of arguments"]
-   [τ_arg τ⊑ τ_in] ...
    --------
    [⊢ [[_ ≫ (#%app- e_fn- e_arg- ...)]
        (⇒ : τ_out)
@@ -128,16 +127,15 @@
 (define-typed-syntax := #:literals (:=)
   [(:= e_ref e) ▶
    [⊢ [[e_ref ≫ e_ref-]
-       (⇒ : (~Ref ty1))
+       (⇒ : (~Ref ty))
        (⇒ ν (~locs ns1 ...))
        (⇒ := (~locs as1 ...))
        (⇒ ! (~locs ds1 ...))]]
    [⊢ [[e ≫ e-]
-       (⇒ : ty2)
+       (⇐ : ty)
        (⇒ ν (~locs ns2 ...))
        (⇒ := (~locs as2 ...))
        (⇒ ! (~locs ds2 ...))]]
-   [ty1 τ⊑ ty2]
    --------
    [⊢ [[_ ≫ (set-box!- e_ref- e-)]
        (⇒ : Unit)

@@ -56,9 +56,9 @@
   (define-splicing-syntax-class ⇐-props
     #:attributes (τ-stx e-pat)
     [pattern (~seq :⇐-prop)]
-    [pattern (~seq (p:⇐-prop))
+    [pattern (~seq (p:⇐-prop) (p2:⇒-prop) ...)
              #:with τ-stx #'p.τ-stx
-             #:with e-pat #'p.e-pat])
+             #:with e-pat #'(~and p.e-pat p2.e-pat ...)])
   (define-splicing-syntax-class id+props+≫
     #:datum-literals (≫)
     #:attributes ([x- 1] [ctx 1])
