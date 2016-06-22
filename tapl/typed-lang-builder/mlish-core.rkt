@@ -893,16 +893,14 @@
                test)
           b ... body] ...+)
    ⇐ : τ_expected ▶
-   [#:with [[Bool* τ_expected* _] ...] #'[[Bool τ_expected test] ...]]
-   [⊢ [[test ≫ test-] ⇐ : Bool*] ...]
-   [⊢ [[(begin b ... body) ≫ body-] ⇐ : τ_expected*] ...]
+   [⊢ [[test ≫ test-] ⇐ : Bool] ...]
+   [⊢ [[(begin b ... body) ≫ body-] ⇐ : τ_expected] ...]
    --------
    [⊢ [[_ ≫ (cond- [test- body-] ...)] ⇐ : _]]]
   [(cond [(~or (~and (~datum else) (~parse test #'(ext-stlc:#%datum . #t)))
                test)
           b ... body] ...+) ▶
-   [#:with [[Bool* _] ...] #'[[Bool test] ...]]
-   [⊢ [[test ≫ test-] ⇐ : Bool*] ...]
+   [⊢ [[test ≫ test-] ⇐ : Bool] ...]
    [⊢ [[(begin b ... body) ≫ body-] ⇒ : τ_body] ...]
    --------
    [⊢ [[_ ≫ (cond- [test- body-] ...)] ⇒ : (⊔ τ_body ...)]]])
@@ -976,8 +974,7 @@
 
 (define-typed-syntax string-append
   [(string-append str ...) ▶
-   [#:with [[String* _] ...] #'[[String str] ...]]
-   [⊢ [[str ≫ str-] ⇐ : String*] ...]
+   [⊢ [[str ≫ str-] ⇐ : String] ...]
    --------
    [⊢ [[_ ≫ (string-append- str- ...)] ⇒ : String]]])
 
@@ -990,8 +987,7 @@
    --------
    [⊢ [[_ ≫ (vector-)] ⇒ : (Vector ty)]]]
   [(vector v ...) ⇐ : (Vector ty) ▶
-   [#:with [[ty* _] ...] #'[[ty v] ...]]
-   [⊢ [[v ≫ v-] ⇐ : ty*] ...]
+   [⊢ [[v ≫ v-] ⇐ : ty] ...]
    --------
    [⊢ [[_ ≫ (vector- v- ...)] ⇐ : _]]]
   [(vector v ...) ▶
