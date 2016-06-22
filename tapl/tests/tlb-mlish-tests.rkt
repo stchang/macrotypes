@@ -12,7 +12,7 @@
 
 ;; top-level defines
 (define (f [x : Int] → Int) x)
-(typecheck-fail (f 1 2) #:with-msg "Wrong number of arguments")
+(typecheck-fail (f 1 2) #:with-msg "f: wrong number of arguments: expected 1, given 2")
 (check-type f : (→ Int Int))
 (check-type (f 1) : Int ⇒ 1)
 (typecheck-fail (f (λ ([x : Int]) x)))
@@ -32,7 +32,7 @@
   (Cons X (List X)))
 
 ;; arity err
-(typecheck-fail (Cons 1) #:with-msg "Cons: Wrong number of arguments")
+(typecheck-fail (Cons 1) #:with-msg "Cons: wrong number of arguments: expected 2, given 1")
 
 ;; type err
 (typecheck-fail (Cons 1 1)

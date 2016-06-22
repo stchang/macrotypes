@@ -66,8 +66,7 @@
        (⇒ := (~locs fas ...))
        (⇒ ! (~locs fds ...))]]
    [#:fail-unless (stx-length=? #'[e ...] #'[τ_in ...])
-    (format "wrong number of arguments: expected ~a, given ~a"
-            (stx-length #'[τ_in ...] #'[e ...]))]
+    (num-args-fail-msg #'efn #'[τ_in ...] #'[e ...])]
    [⊢ [[e ≫ e_arg-]
        (⇐ : τ_in)
        (⇒ ν (~locs ns ...))

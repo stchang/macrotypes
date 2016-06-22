@@ -59,10 +59,7 @@
                       (~post
                        (~fail #:when (and (not (typecheck? #'τ-tmp #'τ-exp))
                                           (get-orig #'e-tmp))
-                              (format "type mismatch: expected ~a, given ~a\n  expression: ~s"
-                                      (type->str #'τ-exp)
-                                      (type->str #'τ-tmp)
-                                      (syntax->datum (get-orig #'e-tmp)))))
+                              (typecheck-fail-msg/1 #'τ-exp #'τ-tmp #'e-tmp)))
                       (get-orig #'e-tmp)))])
   (define-splicing-syntax-class ⇒-props
     #:attributes (e-pat)
@@ -147,18 +144,12 @@
              #:with [pat ...]
              #'[(~post
                  (~fail #:unless (typecheck? #'a #'b)
-                        (format "type mismatch: expected ~a, given ~a"
-                                (type->str #'b)
-                                (type->str #'a))))]]
+                        (typecheck-fail-msg/1/no-expr #'b #'a)))]]
     [pattern (~seq [a τ⊑ b] ooo:elipsis)
              #:with [pat ...]
              #'[(~post
                  (~fail #:unless (typechecks? #'[a ooo] #'[b ooo])
-                        (format (string-append "type mismatch\n"
-                                               "  expected:    ~a\n"
-                                               "  given:       ~a")
-                                (string-join (stx-map type->str #'[b ooo]) ", ")
-                                (string-join (stx-map type->str #'[a ooo]) ", "))))]]
+                        (typecheck-fail-msg/multi/no-exprs #'[b ooo] #'[a ooo])))]]
     [pattern [#:when condition:expr]
              #:with [pat ...]
              #'[(~fail #:unless condition)]]
@@ -189,7 +180,7 @@
                      pat*
                      (~parse τ (get-expected-type #'stx))
                      (~post (~post (~fail #:unless (syntax-e #'τ)
-                                          "no expected type, add annotations")))
+                                          (no-expected-type-fail-msg))))
                      (~parse τ-pat #'τ))
              #:with [stuff ...] #'[]
              #:with body:expr
@@ -216,7 +207,7 @@
                      pat*
                      (~parse τ (get-expected-type #'stx))
                      (~post (~post (~fail #:unless (syntax-e #'τ)
-                                    "no expected type, add annotations")))
+                                          (no-expected-type-fail-msg))))
                      (~parse τ-pat #'τ))
              #:attr transform-body
              (lambda (body)

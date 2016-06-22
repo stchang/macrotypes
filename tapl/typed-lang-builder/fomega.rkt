@@ -110,8 +110,7 @@
   [(tyapp τ_fn τ_arg ...) ▶
    [⊢ [[τ_fn ≫ τ_fn-] ⇒ : (~⇒ k_in ... k_out)]]
    [#:fail-unless (stx-length=? #'[k_in ...] #'[τ_arg ...])
-    (format "wrong number of arguments: expected ~a, given ~a"
-            (stx-length #'[k_in ...]) (stx-length #'[τ_arg ...]))]
+    (num-args-fail-msg #'τ_fn #'[k_in ...] #'[τ_arg ...])]
    [⊢ [[τ_arg ≫ τ_arg-] ⇐ : k_in] ...]
    --------
    [⊢ [[_ ≫ (#%app- τ_fn- τ_arg- ...)] ⇒ : k_out]]])

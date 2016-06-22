@@ -865,7 +865,7 @@
    [#:with (unsolved-X ...) (find-free-Xs #'Xs* #'τ_out)]
    ;; arity check
    [#:fail-unless (stx-length=? #'(τ_in ...) #'e_args)
-    (format "~s: Wrong number of arguments." (syntax->datum (get-orig #'e_fn)))]
+    (num-args-fail-msg #'e_fn #'[τ_in ...] #'e_args)]
    ;; compute argument types
    [#:with (τ_arg ...) (stx-map typeof #'(e_arg- ...))]
    ;; typecheck args

@@ -399,6 +399,41 @@
   (define (expand/df e)
     (local-expand e 'expression null))
 
+  ;; typecheck-fail-msg/1 : Type Type Stx -> String
+  (define (typecheck-fail-msg/1 τ_expected τ_given expression)
+    (format "type mismatch: expected ~a, given ~a\n  expression: ~s"
+            (type->str τ_expected)
+            (type->str τ_given)
+            (syntax->datum (get-orig expression))))
+
+  ;; typecheck-fail-msg/1/no-expr : Type Type Stx -> String
+  (define (typecheck-fail-msg/1/no-expr τ_expected τ_given)
+    (format "type mismatch: expected ~a, given ~a"
+            (type->str τ_expected)
+            (type->str τ_given)))
+
+  ;; typecheck-fail-msg/multi/no-exprs : (Stx-Listof Type) (Stx-Listof Type) -> String
+  (define (typecheck-fail-msg/multi/no-exprs τs_expected τs_given)
+    (format (string-append "type mismatch\n"
+                           "  expected:    ~a\n"
+                           "  given:       ~a")
+            (string-join (stx-map type->str τs_expected) ", ")
+            (string-join (stx-map type->str τs_given) ", ")))
+
+  ;; no-expected-type-fail-msg : -> String
+  (define (no-expected-type-fail-msg)
+    "no expected type, add annotations")
+
+  ;; num-args-fail-msg : Stx (Stx-Listof Type) (Stx-Listof Stx) -> String
+  (define (num-args-fail-msg fn τs_expected arguments)
+    (format (string-append "~s: wrong number of arguments: expected ~a, given ~a\n"
+                           "  expected:  ~a\n"
+                           "  arguments: ~a")
+            (syntax->datum (get-orig fn))
+            (stx-length τs_expected) (stx-length arguments)
+            (string-join (stx-map type->str τs_expected) ", ")
+            (string-join (map ~s (map syntax->datum (stx-map get-orig arguments))) ", ")))
+
   (struct exn:fail:type:check exn:fail:user ())
   (struct exn:fail:type:infer exn:fail:user ())
 
@@ -434,7 +469,7 @@
       [(stx-pair? τ) (string-join (stx-map type->str τ)
                                   #:before-first "("
                                   #:after-last ")")]
-      [else (format "~a" (syntax->datum τ))])))
+      [else (format "~s" (syntax->datum τ))])))
 
 (begin-for-syntax
   (define (mk-? id) (format-id id "~a?" id))

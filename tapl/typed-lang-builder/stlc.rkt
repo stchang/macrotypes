@@ -41,8 +41,7 @@
   [(_ e_fn e_arg ...) ▶
    [⊢ [[e_fn ≫ e_fn-] ⇒ : (~→ τ_in ... τ_out)]]
    [#:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
-    (format "wrong number of arguments: expected ~a, given ~a"
-            (stx-length #'[τ_in ...]) (stx-length #'[e_arg ...]))] 
+    (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])]
    [⊢ [[e_arg ≫ e_arg-] ⇐ : τ_in] ...]
    --------
    [⊢ [[_ ≫ (#%app- e_fn- e_arg- ...)] ⇒ : τ_out]]])
