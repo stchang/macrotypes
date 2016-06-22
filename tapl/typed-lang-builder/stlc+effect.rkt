@@ -1,8 +1,6 @@
 #lang macrotypes/tapl/typed-lang-builder
 (extends "stlc+box.rkt" #:except ref deref := #%app λ)
 
-(provide (for-syntax get-new-effects))
-
 ;; Simply-Typed Lambda Calculus, plus mutable references
 ;; Types:
 ;; - types from stlc+cons.rkt
@@ -23,31 +21,6 @@
                 (~parse ((~literal quote) (loc ...))
                         (stx-or #'tmp #'(quote ()))))])))
 
-  (define (add-news e locs) (assign-type e #:tag 'ν locs))
-  (define (add-assigns e locs) (assign-type e #:tag ':= locs))
-  (define (add-derefs e locs) (assign-type e #:tag '! locs))
-  (define (add-effects e new-locs assign-locs deref-locs)
-    (add-derefs
-     (add-assigns
-      (add-news e new-locs)
-      assign-locs)
-     deref-locs))
-     
-  (define (get-effects e tag)
-    (syntax-property e tag))
-  (define (get-new-effects e) (get-effects e 'ν))
-  (define (get-assign-effects e) (get-effects e ':=))
-  (define (get-deref-effects e) (get-effects e '!))
-  
-  (define (print-effects e)
-    (printf "expr ~a\n" (syntax->datum e))
-    (define e+ (local-expand e 'expression null))
-    (printf "new locs: ~a\n" (syntax-property e+ 'ν))
-    (printf "deref locs: ~a\n" (syntax-property e+ '!))
-    (printf "assign locs: ~a\n" (syntax-property e+ ':=)))
-
-  (define (stx-cons a b)
-    (datum->syntax #f (cons a b)))
   (define (stx-truth? a)
     (and a (not (and (syntax? a) (false? (syntax-e a))))))
   (define (stx-or a b)
@@ -90,10 +63,10 @@
         (⇒ ! (~locs ds ...))]]
    --------
    [⊢ [[_ ≫ (λ- (x- ...) e-)]
-       (⇒ : #,(add-effects #'(→ bvs.type ... τ_res)
-                           #'(locs ns ...)
-                           #'(locs as ...)
-                           #'(locs ds ...)))]]])
+       (⇒ : (→ bvs.type ... τ_res)
+          (⇒ ν (locs ns ...))
+          (⇒ := (locs as ...))
+          (⇒ ! (locs ds ...)))]]])
 
 (define-type-constructor Ref)
 

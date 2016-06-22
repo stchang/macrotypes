@@ -45,6 +45,16 @@
                      (~parse
                       (~and tag-prop.e-pat ... tag-pat)
                       (typeof #'e-tmp #:tag 'tag)))])
+  (define-splicing-syntax-class ⇒-prop/conclusion
+    #:datum-literals (⇒)
+    #:attributes (tag tag-expr)
+    [pattern (~seq ⇒ tag:id tag-stx (tag-prop:⇒-prop/conclusion) ...)
+             #:with tag-expr
+             (for/fold ([tag-expr #'#`tag-stx])
+                       ([k (in-list (syntax->list #'[tag-prop.tag ...]))]
+                        [v (in-list (syntax->list #'[tag-prop.tag-expr ...]))])
+               (with-syntax ([tag-expr tag-expr] [k k] [v v])
+                 #'(assign-type tag-expr #:tag 'k v)))])
   (define-splicing-syntax-class ⇐-prop
     #:datum-literals (⇐ :)
     [pattern (~seq ⇐ : τ-stx)
@@ -72,6 +82,12 @@
     [pattern (~seq (p:⇐-prop) (p2:⇒-prop) ...)
              #:with τ-stx #'p.τ-stx
              #:with e-pat #'(~and p.e-pat p2.e-pat ...)])
+  (define-splicing-syntax-class ⇒-props/conclusion
+    #:attributes ([tag 1] [tag-expr 1])
+    [pattern (~seq p:⇒-prop/conclusion)
+             #:with [tag ...] #'[p.tag]
+             #:with [tag-expr ...] #'[p.tag-expr]]
+    [pattern (~seq (:⇒-prop/conclusion) ...)])
   (define-splicing-syntax-class id+props+≫
     #:datum-literals (≫)
     #:attributes ([x- 1] [ctx 1])
@@ -165,13 +181,14 @@
     #:attributes ([pat 0] [stuff 1] [body 0])
     [pattern [⊢ [[pat* ≫ e-stx] ⇒ k v]]
              #:with :last-clause #'[⊢ [[pat* ≫ e-stx] (⇒ k v)]]]
-    [pattern [⊢ [[pat ≫ e-stx] (⇒ k:id v) ...]]
+    [pattern [⊢ [[pat ≫ e-stx] props:⇒-props/conclusion]]
              #:with [stuff ...] #'[]
              #:with body:expr
-             #'(for/fold ([result (quasisyntax/loc this-syntax e-stx)])
-                         ([tag (in-list (list 'k ...))]
-                          [τ (in-list (list #`v ...))])
-                 (assign-type result τ #:tag tag))]
+             (for/fold ([body #'(quasisyntax/loc this-syntax e-stx)])
+                       ([k (in-list (syntax->list #'[props.tag ...]))]
+                        [v (in-list (syntax->list #'[props.tag-expr ...]))])
+               (with-syntax ([body body] [k k] [v v])
+                 #'(assign-type body #:tag 'k v)))]
     [pattern [⊢ [[pat* ≫ e-stx] ⇐ : τ-pat]]
              #:with stx (generate-temporary 'stx)
              #:with τ (generate-temporary #'τ-pat)
