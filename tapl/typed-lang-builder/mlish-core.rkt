@@ -1200,9 +1200,9 @@
    [() ([name : (→ ty_e ... ty.norm) ≫ name-] [x : ty_e ≫ x-] ...)
     ⊢ [[b ≫ b-] ⇒ : _] ... [[body ≫ body-] ⇐ : ty.norm]]
    --------
-   [⊢ [[_ ≫ (letrec- ([name- (λ- xs- b- ... body-)])
+   [⊢ [[_ ≫ (letrec- ([name- (λ- (x- ...) b- ... body-)])
               (name- e- ...))]
-       ⇒ : ty_body]]]
+       ⇒ : ty.norm]]]
   [(let ([x:id e] ...) body ...) ▶
    --------
    [_ ≻ (ext-stlc:let ([x e] ...) (begin body ...))]])
@@ -1288,7 +1288,7 @@
 (define-typed-syntax write-string
  [(write-string str out) ▶
   --------
-  [_ ≻ (write-string str out (ext-stlc:#%datum . 0) (string-length/tc str))]]
+  [_ ≻ (write-string str out (ext-stlc:#%datum . 0) (string-length str))]]
  [(write-string str out start end) ▶
   [⊢ [[str ≫ str-] ⇐ : String]]
   [⊢ [[out ≫ out-] ⇐ : String-Port]]

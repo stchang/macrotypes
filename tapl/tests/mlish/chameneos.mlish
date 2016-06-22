@@ -1,4 +1,4 @@
-#lang s-exp "../../mlish.rkt"
+#lang s-exp "../../typed-lang-builder/mlish-core.rkt"
 (require "../rackunit-typechecking.rkt")
 
 (define-type Color Red Yellow Blue)
@@ -15,7 +15,7 @@
 (define-type-alias ResultChan (Channel Result))
 
 (typecheck-fail (channel-put (make-channel {Bool}) 1)
- #:with-msg "Cannot send Int value on Bool channel")
+ #:with-msg "channel-put: type mismatch: expected Bool, given Int\n *expression: 1")
 
 (define (change [c1 : Color] [c2 : Color] -> Color)
   (match c1 with

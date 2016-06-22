@@ -1,5 +1,5 @@
-#lang s-exp "../../mlish.rkt"
-(require "../rackunit-typechecking.rkt" "../../mlish-do.rkt")
+#lang s-exp "../../typed-lang-builder/mlish-core.rkt"
+(require "../rackunit-typechecking.rkt" "../../typed-lang-builder/mlish-do.rkt")
 
 (define-type (Result A B)
   (Ok A)
@@ -82,18 +82,15 @@
     (let ([do-ok (inst ok Unit String)]
           [do-error (inst error String Unit)])
       (do result-bind
-          [tree1+str : (× (Tree Int) (List Char))
-                     <- (read-tree (tail str))]
+        [tree1+str <- (read-tree (tail str))]
         [(cond [(equal? (head (proj tree1+str 1)) #\space)
                 (do-ok (void))]
                [else (do-error "expected a space")])]
-        [int+str : (× Int (List Char))
-                 <- (read-int (tail (proj tree1+str 1)) nil)]
+        [int+str <- (read-int (tail (proj tree1+str 1)) nil)]
         [(cond [(equal? (head (proj int+str 1)) #\space)
                 (do-ok (void))]
                [else (do-error "expected a space")])]
-        [tree2+str : (× (Tree Int) (List Char))
-                   <- (read-tree (tail (proj int+str 1)))]
+        [tree2+str <- (read-tree (tail (proj int+str 1)))]
         [(cond [(equal? (head (proj tree2+str 1)) #\) )
                 (do-ok (void))]
                [else (do-error "expected a `)`")])]
@@ -104,8 +101,7 @@
               (tail (proj tree2+str 1))))))]
    [(digit? (head str))
     (do result-bind
-        [int+str : (× Int (List Char))
-                 <- (read-int str nil)]
+      [int+str <- (read-int str nil)]
       (ok
        (tup (Leaf (proj int+str 0))
             (proj int+str 1))))]
