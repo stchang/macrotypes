@@ -17,8 +17,8 @@
 (define-typed-syntax pack
   [(pack (τ:type e) as ∃τ:type) ▶
    [#:with (~∃* (τ_abstract) τ_body) #'∃τ.norm]
-   [⊢ [[e ≫ e-] ⇒ : τ_e]]
-   [#:when (typecheck? #'τ_e  (subst #'τ.norm #'τ_abstract #'τ_body))]
+   [#:with τ_e (subst #'τ.norm #'τ_abstract #'τ_body)]
+   [⊢ [[e ≫ e-] ⇐ : τ_e]]
    --------
    [⊢ [[_ ≫ e-] ⇒ : ∃τ.norm]]])
 

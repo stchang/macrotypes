@@ -676,25 +676,23 @@
     (stx-map (lambda (p) (list (get-ctx p ty) (compile-pat p ty))) pats))
   )
 
-(define-syntax (match2 stx)
- (syntax-parse stx #:datum-literals (with)
-   [(match2 e with . clauses)
-    #:fail-when (null? (syntax->list #'clauses)) "no clauses"
-    #:with [e- τ_e] (infer+erase #'e)
-    (syntax-parse #'clauses #:datum-literals (->)
-     [([(~seq p ...) -> e_body] ...)
-      #:with (pat ...) (stx-map ; use brace to indicate root pattern
-                         (lambda (ps) (syntax-parse ps [(pp ...) (syntax/loc stx {pp ...})]))
-                         #'((p ...) ...)) 
-      #:with ([(~and ctx ([x ty] ...)) pat-] ...) (compile-pats #'(pat ...) #'τ_e)
-      #:with ty-expected (get-expected-type stx)
-      #:with ([(x- ...) e_body- ty_body] ...) 
-             (stx-map 
-               infer/ctx+erase 
-               #'(ctx ...) #'((add-expected e_body ty-expected) ...))
-      #:when (check-exhaust #'(pat- ...) #'τ_e)
-      (⊢ (match- e- [pat- (let- ([x- x] ...) e_body-)] ...) : (⊔ ty_body ...))
-      ])]))
+(define-typed-syntax match2 #:datum-literals (with ->)
+  [(match2 e with . clauses) ▶
+   [#:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"]
+   [⊢ [[e ≫ e-] ⇒ : τ_e]]
+   [#:with ([(~seq p ...) -> e_body] ...) #'clauses]
+   [#:with (pat ...) (stx-map ; use brace to indicate root pattern
+                      (lambda (ps) (syntax-parse ps [(pp ...) (syntax/loc stx {pp ...})]))
+                      #'((p ...) ...)) ]
+   [#:with ([(~and ctx ([x ty] ...)) pat-] ...) (compile-pats #'(pat ...) #'τ_e)]
+   [#:with ty-expected (get-expected-type stx)]
+   [() ([x : ty ≫ x-] ...)
+    ⊢ [[(add-expected e_body ty-expected) ≫ e_body-] ⇒ : ty_body]]
+   ...
+   [#:when (check-exhaust #'(pat- ...) #'τ_e)]
+   --------
+   [⊢ [[_ ≫ (match- e- [pat- (let- ([x- x] ...) e_body-)] ...)]
+       ⇒ : (⊔ ty_body ...)]]])
 
 (define-typed-syntax match #:datum-literals (with -> ::)
   ;; e is a tuple
@@ -707,8 +705,8 @@
    [#:with (~× ty ...) #'τ_e]
    [#:fail-unless (stx-length=? #'(ty ...) #'(x ...))
                   "match clause pattern not compatible with given tuple"]
-   [#:with [(x- ...) e_body- ty_body] (infer/ctx+erase #'([x ty] ...) 
-                                                       #'(add-expected e_body t_expect))]
+   [() ([x : ty ≫ x-] ...)
+    ⊢ [[(add-expected e_body t_expect) ≫ e_body-] ⇒ : ty_body]]
    [#:with (acc ...) (for/list ([(a i) (in-indexed (syntax->list #'(x ...)))])
                        #`(lambda (s) (list-ref s #,(datum->syntax #'here i))))]
    [#:with z (generate-temporary)]
@@ -734,9 +732,9 @@
                             (= 1 (stx-length #'(xs ...)))))
     "match: missing non-empty list case"]
    [#:with (~List ty) #'τ_e]
-   [#:with ([(x- ... rst-) e_body- ty_body] ...)
-    (stx-map (lambda (ctx e) (infer/ctx+erase ctx e)) 
-             #'(([x ty] ... [rst (List ty)]) ...) #'((add-expected e_body t_expect) ...))]
+   [() ([x : ty ≫ x-] ... [rst : (List ty) ≫ rst-])
+    ⊢ [[(add-expected e_body t_expect) ≫ e_body-] ⇒ : ty_body]]
+   ...
    [#:with (len ...) (stx-map (lambda (p) #`#,(stx-length p)) #'((x ...) ...))]
    [#:with (lenop ...) (stx-map (lambda (p) (if (brack? p) #'=- #'>=-)) #'(xs ...))]
    [#:with (pred? ...) (stx-map
@@ -792,17 +790,9 @@
    ;;                             #`(lambda (s) (unsafe-struct*-ref s #,(datum->syntax #'here i)))))
    ;;                          #'((acc-fn ...) ...))]
    [#:with (e_c ...+) (stx-map (lambda (ec) (add-expected-ty ec #'t_expect)) #'(e_c_un ...))]
-   ;TODO: get this working
-   ;[() ([x : τ ≫ x-] ...)
-   ; ⊢ [[e_guard ≫ e_guard-] ⇐ : Bool] [[e_c ≫ e_c-] ⇒ : τ_ec]]
-   ;...
-   [#:with (((x- ...) (e_guard- e_c-) (τ_guard τ_ec)) ...)
-    (stx-map 
-     (λ (bs eg+ec) (infers/ctx+erase bs eg+ec)) 
-     #'(([x : τ] ...) ...) #'((e_guard e_c) ...))]
-   [#:fail-unless (and (same-types? #'(τ_guard ...))
-                       (Bool? (stx-car #'(τ_guard ...))))
-    "guard expression(s) must have type bool"]
+   [() ([x : τ ≫ x-] ...)
+    ⊢ [[e_guard ≫ e_guard-] ⇐ : Bool] [[e_c ≫ e_c-] ⇒ : τ_ec]]
+   ...
    [#:with z (generate-temporary)] ; dont duplicate eval of test expr
    --------
    [⊢ [[_ ≫ (let- ([z e-])
