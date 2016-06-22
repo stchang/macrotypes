@@ -756,6 +756,7 @@
   [(match e with . clauses) ▶
    [#:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"]
    [⊢ [[e ≫ e-] ⇒ : τ_e]]
+   [#:when (and (not (×? #'τ_e)) (not (List? #'τ_e)))]
    [#:with t_expect (get-expected-type stx)] ; propagate inferred type
    [#:with ([Clause:id x:id ... 
                        (~optional (~seq #:when e_guard) #:defaults ([e_guard #'(ext-stlc:#%datum . #t)]))

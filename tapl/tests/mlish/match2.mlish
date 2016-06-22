@@ -1,4 +1,4 @@
-#lang s-exp "../../mlish.rkt"
+#lang s-exp "../../typed-lang-builder/mlish-core.rkt"
 (require "../rackunit-typechecking.rkt")
 
 ;; alternate match that supports nested patterns
@@ -17,14 +17,14 @@
   (match2 (B (tup 2 3)) with
    [A x -> x]
    [C (x,y) -> y]
-   [B x -> x]) #:with-msg "branches have incompatible types: \\(× Int Int\\) and Int")
+   [B x -> x]) #:with-msg "branches have incompatible types: Int and \\(× Int Int\\)")
 
 (typecheck-fail
   (match2 (B (tup 2 3)) with
    [A x -> (tup x x)]
    [C x -> x]
    [B x -> x])
-  #:with-msg "branches have incompatible types: \\(× Int \\(× Int Int\\)\\) and \\(× Int Int\\)")
+  #:with-msg "branches have incompatible types: \\(× Int Int\\) and \\(× Int \\(× Int Int\\)\\)")
 
 (check-type
   (match2 (B (tup 2 3)) with
@@ -241,7 +241,7 @@
     (match2 (list (list #t #f)) with
       [nil -> -1]
       [(list x y) :: tl -> (+ x y)])
-  #:with-msg "Type error applying function \\+")
+  #:with-msg "expected: Int\n *given: Bool")
 
 ;; comma tup pattern syntax
 
