@@ -80,15 +80,15 @@
 
 (define-typed-syntax Λ
   [(Λ bvs:kind-ctx e) ▶
-   [() ([bvs.x : bvs.kind ≫ tv-] ...) ⊢ [[e ≫ e-] ⇒ (: τ_e)]]
+   [() ([bvs.x : bvs.kind ≫ tv-] ...) ⊢ [[e ≫ e-] ⇒ : τ_e]]
    --------
-   [⊢ [[_ ≫ e-] ⇒ (: (∀ ([tv- : bvs.kind] ...) τ_e))]]])
+   [⊢ [[_ ≫ e-] ⇒ : (∀ ([tv- : bvs.kind] ...) τ_e)]]])
 
 (define-typed-syntax inst
   [(inst e τ ...) ▶
-   [⊢ [[e ≫ e-] ⇒ (: (~∀ (tv ...) τ_body)) ⇒ (: (~∀★ k ...))]]
-   [⊢ [[τ ≫ τ-] ⇐ (: k)] ...]
+   [⊢ [[e ≫ e-] ⇒ : (~∀ (tv ...) τ_body) (⇒ : (~∀★ k ...))]]
+   [⊢ [[τ ≫ τ-] ⇐ : k] ...]
    [#:with τ-inst (substs #'(τ- ...) #'(tv ...) #'τ_body)]
    --------
-   [⊢ [[_ ≫ e-] ⇒ (: τ-inst)]]])
+   [⊢ [[_ ≫ e-] ⇒ : τ-inst]]])
 

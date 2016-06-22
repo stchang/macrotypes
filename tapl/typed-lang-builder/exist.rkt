@@ -17,10 +17,10 @@
 (define-typed-syntax pack
   [(pack (τ:type e) as ∃τ:type) ▶
    [#:with (~∃* (τ_abstract) τ_body) #'∃τ.norm]
-   [⊢ [[e ≫ e-] ⇒ (: τ_e)]]
+   [⊢ [[e ≫ e-] ⇒ : τ_e]]
    [#:when (typecheck? #'τ_e  (subst #'τ.norm #'τ_abstract #'τ_body))]
    --------
-   [⊢ [[_ ≫ e-] ⇒ (: ∃τ.norm)]]])
+   [⊢ [[_ ≫ e-] ⇒ : ∃τ.norm]]])
 
 (define-typed-syntax open #:datum-literals (<= with)
   [(open [x:id <= e_packed with X:id] e)
@@ -68,8 +68,8 @@
    ;; ------------------------------
    ;; Γ ⊢ (open [x <= e_packed with X_2] e) : τ_e
    ;;
-   [⊢ [[e_packed ≫ e_packed-] ⇒ (: (~∃ (Y) τ_body))]]
+   [⊢ [[e_packed ≫ e_packed-] ⇒ : (~∃ (Y) τ_body)]]
    [#:with τ_x (subst #'X #'Y #'τ_body)]
-   [([X : #%type ≫ X-]) ([x : τ_x ≫ x-]) ⊢ [[e ≫ e-] ⇒ (: τ_e)]]
+   [([X : #%type ≫ X-]) ([x : τ_x ≫ x-]) ⊢ [[e ≫ e-] ⇒ : τ_e]]
    --------
-   [⊢ [[_ ≫ (let- ([x- e_packed-]) e-)] ⇒ (: τ_e)]]])
+   [⊢ [[_ ≫ (let- ([x- e_packed-]) e-)] ⇒ : τ_e]]])

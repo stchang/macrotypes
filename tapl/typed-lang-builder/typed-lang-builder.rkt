@@ -19,6 +19,46 @@
     [pattern (~literal ...)])
   (define-splicing-syntax-class props
     [pattern (~and (~seq stuff ...) (~seq (~seq k:id v) ...))])
+  (define-splicing-syntax-class ⇒-prop
+    #:datum-literals (⇒)
+    #:attributes (e-pat)
+    [pattern (~seq ⇒ tag:id tag-pat (tag-prop:⇒-prop) ...)
+             #:with e-tmp (generate-temporary)
+             #:with e-pat
+             #'(~and e-tmp
+                     (~parse
+                      (~and tag-prop.e-pat ... tag-pat)
+                      (typeof #'e-tmp #:tag 'tag)))])
+  (define-splicing-syntax-class ⇐-prop
+    #:datum-literals (⇐ :)
+    [pattern (~seq ⇐ : τ-stx)
+             #:with e-tmp (generate-temporary)
+             #:with τ-tmp (generate-temporary)
+             #:with τ-exp (generate-temporary)
+             #:with e-pat
+             #'(~and e-tmp
+                     (~parse τ-exp (get-expected-type #'e-tmp))
+                     (~parse τ-tmp (typeof #'e-tmp))
+                     (~parse
+                      (~post
+                       (~fail #:when (and (not (typecheck? #'τ-tmp #'τ-exp))
+                                          (get-orig #'e-tmp))
+                              (format "type mismatch: expected ~a, given ~a\n  expression: ~s"
+                                      (type->str #'τ-exp)
+                                      (type->str #'τ-tmp)
+                                      (syntax->datum (get-orig #'e-tmp)))))
+                      (get-orig #'e-tmp)))])
+  (define-splicing-syntax-class ⇒-props
+    #:attributes (e-pat)
+    [pattern (~seq :⇒-prop)]
+    [pattern (~seq (p:⇒-prop) ...)
+             #:with e-pat #'(~and p.e-pat ...)])
+  (define-splicing-syntax-class ⇐-props
+    #:attributes (τ-stx e-pat)
+    [pattern (~seq :⇐-prop)]
+    [pattern (~seq (p:⇐-prop))
+             #:with τ-stx #'p.τ-stx
+             #:with e-pat #'p.e-pat])
   (define-splicing-syntax-class id+props+≫
     #:datum-literals (≫)
     #:attributes ([x- 1] [ctx 1])
@@ -36,9 +76,7 @@
   (define-splicing-syntax-class inf
     #:datum-literals (⊢ ⇒ ⇐ ≫ :)
     #:attributes ([e-stx 1] [e-stx-orig 1] [e-pat 1])
-    [pattern (~seq [[e-stx* ≫ e-pat*] ⇒ τ-props*] ooo:elipsis ...)
-             #:with [:inf] #'[[[e-stx* ≫ e-pat*] ⇒ τ-props* ⇒ ()] ooo ...]]
-    [pattern (~seq [[e-stx* ≫ e-pat*] ⇒ (τ-props:props) ⇒ (k-props:props)] ooo:elipsis ...)
+    [pattern (~seq [[e-stx* ≫ e-pat*] props:⇒-props] ooo:elipsis ...)
              #:with e-tmp (generate-temporary #'e-pat*)
              #:with τ-tmp (generate-temporary 'τ)
              #:with [e-stx ...] #'[e-stx* ooo ...]
@@ -46,35 +84,19 @@
              #:with [e-pat ...]
              #'[(~post
                  (~seq
-                  (~and e-tmp
-                        (~parse τ-tmp (typeof #'e-tmp))
-                        (~parse τ-props.v (typeof #'e-tmp #:tag 'τ-props.k))
-                        ...
-                        (~parse k-props.v (typeof #'τ-tmp #:tag 'k-props.k))
-                        ...
+                  (~and props.e-pat
                         e-pat*)
                   ooo ...))]]
-    [pattern (~seq [[e-stx* ≫ e-pat*] ⇐ (: τ-stx*)] ooo:elipsis ...)
+    [pattern (~seq [[e-stx* ≫ e-pat*] props:⇐-props] ooo:elipsis ...)
              #:with e-tmp (generate-temporary #'e-pat*)
              #:with τ-tmp (generate-temporary 'τ)
              #:with τ-exp-tmp (generate-temporary 'τ_expected)
-             #:with [e-stx ...] #'[(add-expected e-stx* τ-stx*) ooo ...]
+             #:with [e-stx ...] #'[(add-expected e-stx* props.τ-stx) ooo ...]
              #:with [e-stx-orig ...] #'[e-stx* ooo ...]
              #:with [e-pat ...]
              #'[(~post
                  (~seq
-                  (~and e-tmp
-                        (~parse τ-exp-tmp (get-expected-type #'e-tmp))
-                        (~parse τ-tmp (typeof #'e-tmp))
-                        (~parse
-                         (~post
-                          (~fail #:when (and (not (typecheck? #'τ-tmp #'τ-exp-tmp))
-                                             (get-orig #'e-tmp))
-                                 (format "type mismatch: expected ~a, given ~a\n  expression: ~s"
-                                         (type->str #'τ-exp-tmp)
-                                         (type->str #'τ-tmp)
-                                         (syntax->datum (get-orig #'e-tmp)))))
-                         (get-orig #'e-tmp))
+                  (~and props.e-pat
                         e-pat*)
                   ooo ...))]]
     )
@@ -133,13 +155,16 @@
     )
   (define-syntax-class last-clause
     #:datum-literals (⊢ ≫ ≻ ⇒ ⇐ :)
-    [pattern [⊢ [[pat ≫ e-stx] ⇒ (τ-props:props)]]
+    #:attributes ([pat 0] [stuff 1])
+    [pattern [⊢ [[pat* ≫ e-stx] ⇒ k v]]
+             #:with :last-clause #'[⊢ [[pat* ≫ e-stx] (⇒ k v)]]]
+    [pattern [⊢ [[pat ≫ e-stx] (⇒ k:id v) ...]]
              #:with [stuff ...]
              #'[(for/fold ([result (quasisyntax/loc this-syntax e-stx)])
-                          ([tag (in-list (list 'τ-props.k ...))]
-                           [τ (in-list (list #`τ-props.v ...))])
+                          ([tag (in-list (list 'k ...))]
+                           [τ (in-list (list #`v ...))])
                   (assign-type result τ #:tag tag))]]
-    [pattern [⊢ [[pat* ≫ e-stx] ⇐ (: τ-pat)]]
+    [pattern [⊢ [[pat* ≫ e-stx] ⇐ : τ-pat]]
              #:with stx (generate-temporary 'stx)
              #:with τ (generate-temporary #'τ-pat)
              #:with pat
@@ -161,7 +186,7 @@
                 (error msg)]])
   (define-splicing-syntax-class pat #:datum-literals (⇐ :)
     [pattern (~seq pat)]
-    [pattern (~seq pat* ⇐ (: τ-pat))
+    [pattern (~seq pat* ⇐ : τ-pat)
              #:with stx (generate-temporary 'stx)
              #:with τ (generate-temporary #'τ-pat)
              #:with pat

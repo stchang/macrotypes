@@ -84,34 +84,34 @@
 
 (define-typed-syntax Λ
   [(Λ bvs:kind-ctx e) ▶
-   [([bvs.x : bvs.kind ≫ tv-] ...) () ⊢ [[e ≫ e-] ⇒ (: τ_e)]]
+   [([bvs.x : bvs.kind ≫ tv-] ...) () ⊢ [[e ≫ e-] ⇒ : τ_e]]
    --------
-   [⊢ [[_ ≫ e-] ⇒ (: (∀ ([tv- : bvs.kind] ...) τ_e))]]])
+   [⊢ [[_ ≫ e-] ⇒ : (∀ ([tv- : bvs.kind] ...) τ_e)]]])
 
 (define-typed-syntax inst
   [(inst e τ ...) ▶
-   [⊢ [[e ≫ e-] ⇒ (: (~∀ (tv ...) τ_body)) ⇒ (: (~∀★ k ...))]]
-   [⊢ [[τ ≫ τ-] ⇐ (: k)] ...]
+   [⊢ [[e ≫ e-] ⇒ : (~∀ (tv ...) τ_body) (⇒ : (~∀★ k ...))]]
+   [⊢ [[τ ≫ τ-] ⇐ : k] ...]
    [#:with τ-inst (substs #'(τ- ...) #'(tv ...) #'τ_body)]
    --------
-   [⊢ [[_ ≫ e-] ⇒ (: τ-inst)]]])
+   [⊢ [[_ ≫ e-] ⇒ : τ-inst]]])
 
 ;; TODO: merge with regular λ and app?
 ;; - see fomega2.rkt
 (define-typed-syntax tyλ
   [(tyλ bvs:kind-ctx τ_body) ▶
-   [() ([bvs.x : bvs.kind ≫ tv-] ...) ⊢ [[τ_body ≫ τ_body-] ⇒ (: k_body)]]
+   [() ([bvs.x : bvs.kind ≫ tv-] ...) ⊢ [[τ_body ≫ τ_body-] ⇒ : k_body]]
    [#:fail-unless ((current-kind?) #'k_body)
     (format "not a valid type: ~a\n" (type->str #'τ_body))]
    --------
-   [⊢ [[_ ≫ (λ- (tv- ...) τ_body-)] ⇒ (: (⇒ bvs.kind ... k_body))]]])
+   [⊢ [[_ ≫ (λ- (tv- ...) τ_body-)] ⇒ : (⇒ bvs.kind ... k_body)]]])
 
 (define-typed-syntax tyapp
   [(tyapp τ_fn τ_arg ...) ▶
-   [⊢ [[τ_fn ≫ τ_fn-] ⇒ (: (~⇒ k_in ... k_out))]]
+   [⊢ [[τ_fn ≫ τ_fn-] ⇒ : (~⇒ k_in ... k_out)]]
    [#:fail-unless (stx-length=? #'[k_in ...] #'[τ_arg ...])
     (format "wrong number of arguments: expected ~a, given ~a"
             (stx-length #'[k_in ...]) (stx-length #'[τ_arg ...]))]
-   [⊢ [[τ_arg ≫ τ_arg-] ⇐ (: k_in)] ...]
+   [⊢ [[τ_arg ≫ τ_arg-] ⇐ : k_in] ...]
    --------
-   [⊢ [[_ ≫ (#%app- τ_fn- τ_arg- ...)] ⇒ (: k_out)]]])
+   [⊢ [[_ ≫ (#%app- τ_fn- τ_arg- ...)] ⇒ : k_out]]])

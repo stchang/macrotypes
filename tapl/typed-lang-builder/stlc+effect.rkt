@@ -58,28 +58,41 @@
 (define-typed-syntax effect:#%app #:export-as #%app
   [(_ efn e ...) ▶
    [⊢ [[efn ≫ e_fn-]
-       ⇒ (: ty_fn ν (~locs fns ...) := (~locs fas ...) ! (~locs fds ...))
-       ⇒ (ν (~locs tyns ...) := (~locs tyas ...) ! (~locs tyds ...))]]
+       (⇒ : ty_fn
+          (⇒ ν (~locs tyns ...))
+          (⇒ := (~locs tyas ...))
+          (⇒ ! (~locs tyds ...)))
+       (⇒ ν (~locs fns ...))
+       (⇒ := (~locs fas ...))
+       (⇒ ! (~locs fds ...))]]
    [#:with (~→ τ_in ... τ_out) #'ty_fn]
-   [⊢ [[e ≫ e_arg-] ⇒ (: τ_arg ν (~locs ns ...) := (~locs as ...) ! (~locs ds ...))] ...]
+   [⊢ [[e ≫ e_arg-]
+       (⇒ : τ_arg)
+       (⇒ ν (~locs ns ...))
+       (⇒ := (~locs as ...))
+       (⇒ ! (~locs ds ...))]
+      ...]
    [#:fail-unless (stx-length=? #'(τ_arg ...) #'(τ_in ...))
     "wrong number of arguments"]
    [τ_arg τ⊑ τ_in] ...
    --------
    [⊢ [[_ ≫ (#%app- e_fn- e_arg- ...)]
-       ⇒ (: τ_out
-            ν (locs fns ... tyns ... ns ... ...)
-            := (locs fas ... tyas ... as ... ...)
-            ! (locs fds ... tyds ... ds ... ...))]]])
+       (⇒ : τ_out)
+       (⇒ ν (locs fns ... tyns ... ns ... ...))
+       (⇒ := (locs fas ... tyas ... as ... ...))
+       (⇒ ! (locs fds ... tyds ... ds ... ...))]]])
 
 (define-typed-syntax λ
   [(λ bvs:type-ctx e) ▶
    [() ([bvs.x : bvs.type ≫ x-] ...) ⊢
        [[e ≫ e-]
-        ⇒ (: τ_res ν (~locs ns ...) := (~locs as ...) ! (~locs ds ...))]]
+        (⇒ : τ_res)
+        (⇒ ν (~locs ns ...))
+        (⇒ := (~locs as ...))
+        (⇒ ! (~locs ds ...))]]
    --------
    [⊢ [[_ ≫ (λ- (x- ...) e-)]
-       ⇒ (: #,(add-effects #'(→ bvs.type ... τ_res)
+       (⇒ : #,(add-effects #'(→ bvs.type ... τ_res)
                            #'(locs ns ...)
                            #'(locs as ...)
                            #'(locs ds ...)))]]])
@@ -88,31 +101,47 @@
 
 (define-typed-syntax ref
   [(ref e) ▶
-   [⊢ [[e ≫ e-] ⇒ (: τ ν (~locs ns ...) := (~locs as ...) ! (~locs ds ...))]]
+   [⊢ [[e ≫ e-]
+       (⇒ : τ)
+       (⇒ ν (~locs ns ...))
+       (⇒ := (~locs as ...))
+       (⇒ ! (~locs ds ...))]]
    --------
    [⊢ [[_ ≫ (box- e-)]
-       ⇒ (: (Ref τ)
-            ν (locs #,(syntax-position stx) ns ...)
-            := (locs as ...)
-            ! (locs ds ...))]]])
+       (⇒ : (Ref τ))
+       (⇒ ν (locs #,(syntax-position stx) ns ...))
+       (⇒ := (locs as ...))
+       (⇒ ! (locs ds ...))]]])
 (define-typed-syntax deref
   [(deref e) ▶
-   [⊢ [[e ≫ e-] ⇒ (: (~Ref ty) ν (~locs ns ...) := (~locs as ...) ! (~locs ds ...))]]
+   [⊢ [[e ≫ e-]
+       (⇒ : (~Ref ty))
+       (⇒ ν (~locs ns ...))
+       (⇒ := (~locs as ...))
+       (⇒ ! (~locs ds ...))]]
    --------
    [⊢ [[_ ≫ (unbox- e-)]
-       ⇒ (: ty
-            ν (locs ns ...)
-            := (locs as ...)
-            ! (locs #,(syntax-position stx) ds ...))]]])
+       (⇒ : ty)
+       (⇒ ν (locs ns ...))
+       (⇒ := (locs as ...))
+       (⇒ ! (locs #,(syntax-position stx) ds ...))]]])
 (define-typed-syntax := #:literals (:=)
   [(:= e_ref e) ▶
-   [⊢ [[e_ref ≫ e_ref-] ⇒ (: (~Ref ty1) ν (~locs ns1 ...) := (~locs as1 ...) ! (~locs ds1 ...))]]
-   [⊢ [[e ≫ e-] ⇒ (: ty2 ν (~locs ns2 ...) := (~locs as2 ...) ! (~locs ds2 ...))]]
+   [⊢ [[e_ref ≫ e_ref-]
+       (⇒ : (~Ref ty1))
+       (⇒ ν (~locs ns1 ...))
+       (⇒ := (~locs as1 ...))
+       (⇒ ! (~locs ds1 ...))]]
+   [⊢ [[e ≫ e-]
+       (⇒ : ty2)
+       (⇒ ν (~locs ns2 ...))
+       (⇒ := (~locs as2 ...))
+       (⇒ ! (~locs ds2 ...))]]
    [ty1 τ⊑ ty2]
    --------
    [⊢ [[_ ≫ (set-box!- e_ref- e-)]
-       ⇒ (: Unit
-            ν (locs ns1 ... ns2 ...)
-            := (locs #,(syntax-position stx) as1 ... as2 ...)
-            ! (locs ds1 ... ds2 ...))]]])
+       (⇒ : Unit)
+       (⇒ ν (locs ns1 ... ns2 ...))
+       (⇒ := (locs #,(syntax-position stx) as1 ... as2 ...))
+       (⇒ ! (locs ds1 ... ds2 ...))]]])
 
