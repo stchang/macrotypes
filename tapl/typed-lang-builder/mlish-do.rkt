@@ -2,7 +2,7 @@
 
 (provide do)
 
-(require (only-in "mlish-core.rkt" #%app λ Unit)
+(require (only-in "mlish.rkt" #%app λ Unit)
          (for-syntax racket/base
                      syntax/parse))
 

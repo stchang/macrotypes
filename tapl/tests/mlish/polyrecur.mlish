@@ -1,4 +1,4 @@
-#lang s-exp "../../typed-lang-builder/mlish-core.rkt"
+#lang s-exp "../../typed-lang-builder/mlish.rkt"
 (require "../rackunit-typechecking.rkt")
 
 ;; tests of polymorphic recursion
