@@ -43,6 +43,7 @@
 (define-primop zero? : (→ Int Bool))
 (define-primop = : (→ Int Int Bool))
 (define-primop - : (→ Int Int Int))
+(define-primop * : (→ Int Int Int))
 (define-primop add1 : (→ Int Int))
 (define-primop sub1 : (→ Int Int))
 (define-primop not : (→ Bool Bool))

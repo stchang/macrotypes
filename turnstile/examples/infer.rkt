@@ -1,5 +1,6 @@
 #lang turnstile
 (extends "ext-stlc.rkt" #:except #%app λ)
+(reuse inst #:from "sysf.rkt")
 (require (only-in "sysf.rkt" ∀ ~∀ ∀? Λ))
 (reuse cons [head hd] [tail tl] nil [isnil nil?] List list #:from "stlc+cons.rkt")
 (require (only-in "stlc+cons.rkt" ~List))
@@ -29,6 +30,16 @@
     (syntax-parse cs
       [([a b] ...)
        #'(Constraints (Constraint a b) ...)]))
+  (define-syntax ~?∀
+    (pattern-expander
+     (syntax-parser
+       [(?∀ Xs-pat τ-pat)
+        #:with τ (generate-temporary)
+        #'(~and τ
+                (~parse (~∀ Xs-pat τ-pat)
+                        (if (∀? #'τ)
+                            #'τ
+                            ((current-type-eval) #'(∀ () τ)))))])))
   (define-syntax ~?Some
     (pattern-expander
      (syntax-parser
@@ -121,6 +132,15 @@
       ((current-type-eval) #`(∀ (X ...) (#,id X ...))))
     (inst-type/cs #'[X- ...] #'([X- arg] ...) #'body))
 
+  (define old-join (current-join))
+
+  (define (new-join a b)
+    (syntax-parse (list a b)
+      [[(~?Some [X ...] A (~Cs [τ_1 τ_2] ...))
+        (~?Some [Y ...] B (~Cs [τ_3 τ_4] ...))]
+       (define AB (old-join #'A #'B))
+       (?Some #'[X ... Y ...] AB #'([τ_1 τ_2] ... [τ_3 τ_4] ...))]))
+  (current-join new-join)
   )
 
 (define-typed-syntax λ
@@ -142,12 +162,13 @@
    [#:with [A ...] (generate-temporaries #'[e_arg ...])]
    [#:with B (generate-temporary 'result)]
    [⊢ [[e_fn ≫ e_fn-] ⇒ : τ_fn*]]
-   [#:with (~?Some [V1 ...] τ_fn (~Cs [τ_3 τ_4] ...)) (syntax-local-introduce #'τ_fn*)]
+   [#:with (~?Some [V1 ...] τ_fn (~Cs [τ_3 τ_4] ...))
+    (syntax-local-introduce #'τ_fn*)]
    [#:with τ_fn-expected (tycons #'→ #'[A ... B])]
    [⊢ [[e_arg ≫ e_arg-] ⇒ : τ_arg*] ...]
-   [#:with [(~?Some [V2 ...] τ_arg (~Cs [τ_5 τ_6] ...)) ...]
+   [#:with [(~?Some [V3 ...] τ_arg (~Cs [τ_5 τ_6] ...)) ...]
     (syntax-local-introduce #'[τ_arg* ...])]
-   [#:with τ_out (some/inst/generalize #'[A ... B V1 ... V2 ... ...]
+   [#:with τ_out (some/inst/generalize #'[A ... B V1 ... V3 ... ...]
                                        #'B
                                        #'([τ_fn-expected τ_fn]
                                           [τ_3 τ_4] ...
@@ -155,6 +176,15 @@
                                           [τ_5 τ_6] ... ...))]
    --------
    [⊢ [[_ ≫ (#%app- e_fn- e_arg- ...)] ⇒ : τ_out]]])
+
+(define-typed-syntax define
+  [(define x:id e:expr) ≫
+   [⊢ [[e ≫ e-] ⇒ : τ_e]]
+   [#:with tmp (generate-temporary #'x)]
+   --------
+   [_ ≻ (begin-
+          (define-syntax- x (make-rename-transformer (⊢ tmp : τ_e)))
+          (define- tmp e-))]])
 
 
 

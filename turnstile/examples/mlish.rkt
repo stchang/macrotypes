@@ -2,7 +2,7 @@
 (require racket/fixnum racket/flonum
          (for-syntax macrotypes/type-constraints macrotypes/variance-constraints))
 
-(extends "ext-stlc.rkt" #:except #%app λ → + - void = zero? sub1 add1 not let let* and #%datum begin
+(extends "ext-stlc.rkt" #:except #%app λ → + - * void = zero? sub1 add1 not let let* and #%datum begin
           #:rename [~→ ~ext-stlc:→])
 (reuse inst #:from "sysf.rkt") 
 (require (only-in "ext-stlc.rkt" → →?))
