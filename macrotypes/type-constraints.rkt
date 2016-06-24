@@ -1,6 +1,7 @@
 #lang racket/base
 
 (provide add-constraints
+         add-constraints/var?
          lookup
          lookup-Xs/keep-unsolved
          inst-type
@@ -23,9 +24,15 @@
 ;; unification algorithm for local type inference.
 (define (add-constraints Xs substs new-cs [orig-cs new-cs])
   (define Xs* (stx->list Xs))
+  (define (X? X)
+    (member X Xs* free-identifier=?))
+  (add-constraints/var? Xs* X? substs new-cs orig-cs))
+
+(define (add-constraints/var? Xs* var? substs new-cs [orig-cs new-cs])
+  (define Xs (stx->list Xs*))
   (define Ys (stx-map stx-car substs))
   (define-syntax-class var
-    [pattern x:id #:when (member #'x Xs* free-identifier=?)])
+    [pattern x:id #:when (var? #'x)])
   (syntax-parse new-cs
     [() substs]
     [([a:var b] . rst)
@@ -36,26 +43,29 @@
         ;; or #'a already maps to a type that conflicts with #'b.
         ;; In either case, whatever #'a maps to must be equivalent
         ;; to #'b, so add that to the constraints.
-        (add-constraints
+        (add-constraints/var?
          Xs
+         var?
          substs
          (cons (list (lookup #'a substs) #'b)
                #'rst)
          orig-cs)]
        [else
         (define entry (list #'a #'b))
-        (add-constraints
-         Xs*
+        (add-constraints/var?
+         Xs
+         var?
          ;; Add the mapping #'a -> #'b to the substitution,
          (add-substitution-entry entry substs)
          ;; and substitute that in each of the constraints.
          (cs-substitute-entry entry #'rst)
          orig-cs)])]
     [([a b:var] . rst)
-     (add-constraints Xs*
-                      substs
-                      #'([b a] . rst)
-                      orig-cs)]
+     (add-constraints/var? Xs
+                           var?
+                           substs
+                           #'([b a] . rst)
+                           orig-cs)]
     [([a b] . rst)
      ;; If #'a and #'b are base types, check that they're equal.
      ;; Identifers not within Xs count as base types.
@@ -74,25 +84,28 @@
                                     (string-join (map type->str (stx-map stx-car orig-cs)) ", ")
                                     (string-join (map type->str (stx-map stx-cadr orig-cs)) ", "))
                       #'a #'b))
-        (add-constraints Xs*
-                         substs
-                         #'rst
-                         orig-cs)]
+        (add-constraints/var? Xs
+                              var?
+                              substs
+                              #'rst
+                              orig-cs)]
        [else
         (syntax-parse #'[a b]
           [_
            #:when (typecheck? #'a #'b)
-           (add-constraints Xs
-                            substs
-                            #'rst
-                            orig-cs)]
+           (add-constraints/var? Xs
+                                 var?
+                                 substs
+                                 #'rst
+                                 orig-cs)]
           [((~Any tycons1 τ1 ...) (~Any tycons2 τ2 ...))
            #:when (typecheck? #'tycons1 #'tycons2)
            #:when (stx-length=? #'[τ1 ...] #'[τ2 ...])
-           (add-constraints Xs
-                            substs
-                            #'((τ1 τ2) ... . rst)
-                            orig-cs)]
+           (add-constraints/var? Xs
+                                 var?
+                                 substs
+                                 #'((τ1 τ2) ... . rst)
+                                 orig-cs)]
           [else
            (type-error #:src (get-orig #'b)
                        #:msg (format "couldn't unify ~~a and ~~a\n  expected: ~a\n  given: ~a"

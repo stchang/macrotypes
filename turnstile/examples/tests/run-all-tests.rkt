@@ -32,6 +32,7 @@
 
 ;; type inference
 (require macrotypes/examples/tests/infer-tests)
+(require "tlb-infer-tests.rkt")
 
 ;; type and effects
 (require "stlc+effect-tests.rkt")
