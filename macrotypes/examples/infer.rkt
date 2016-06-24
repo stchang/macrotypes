@@ -47,7 +47,7 @@
   (define (solve Xs args expected-τs)
     (let-values
         ([(cs e+τs)
-          (for/fold ([cs #'()] [e+τs #'()])
+          (for/fold ([cs '()] [e+τs #'()])
                     ([e_arg (syntax->list args)]
                      [τ_inX (syntax->list expected-τs)])
             (define τ_in (inst-type/cs Xs cs τ_inX))

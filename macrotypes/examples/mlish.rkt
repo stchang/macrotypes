@@ -90,7 +90,7 @@
        (define initial-cs
          (if (and (syntax-e #'expected-ty) (stx-null? #'Vs))
              (add-constraints Xs '() (list (list #'expected-ty #'τ_outX)))
-             #'()))
+             '()))
        (syntax-parse stx
          [(_ e_fn . args)
           (define-values (as- cs)

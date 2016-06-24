@@ -43,17 +43,13 @@
                #'rst)
          orig-cs)]
        [else
+        (define entry (list #'a #'b))
         (add-constraints
          Xs*
          ;; Add the mapping #'a -> #'b to the substitution,
-         (cons (list #'a #'b)
-               (for/list ([subst (in-list (stx->list substs))])
-                 (list (stx-car subst)
-                       (inst-type (list #'b) (list #'a) (stx-cadr subst)))))
+         (add-substitution-entry entry substs)
          ;; and substitute that in each of the constraints.
-         (for/list ([c (in-list (syntax->list #'rst))])
-           (list (inst-type (list #'b) (list #'a) (stx-car c))
-                 (inst-type (list #'b) (list #'a) (stx-cadr c))))
+         (cs-substitute-entry entry #'rst)
          orig-cs)])]
     [([a b:var] . rst)
      (add-constraints Xs*
@@ -103,6 +99,23 @@
                                      (string-join (map type->str (stx-map stx-car orig-cs)) ", ")
                                      (string-join (map type->str (stx-map stx-cadr orig-cs)) ", "))
                        #'a #'b)])])]))
+
+;; add-substitution-entry : (List Id Type) (Listof (List Id Type)) -> (Listof (List Id Type))
+;; Adds the mapping a -> b to the substitution and substitutes for it in the other entries
+(define (add-substitution-entry entry substs)
+  (match-define (list a b) entry)
+  (cons entry
+        (for/list ([subst (in-list substs)])
+          (list (first subst)
+                (inst-type (list b) (list a) (second subst))))))
+
+;; cs-substitute-entry : (List Id Type) (Stx-Listof (Stx-List Stx Stx)) -> (Listof (List Stx Stx))
+;; substitute a -> b in each of the constraints
+(define (cs-substitute-entry entry cs)
+  (match-define (list a b) entry)
+  (for/list ([c (in-list (stx->list cs))])
+    (list (inst-type (list b) (list a) (stx-car c))
+          (inst-type (list b) (list a) (stx-cadr c)))))
 
 (define (lookup x substs)
   (syntax-parse substs
