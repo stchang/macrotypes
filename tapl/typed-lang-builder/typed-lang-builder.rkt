@@ -189,8 +189,6 @@
   (define-syntax-class last-clause
     #:datum-literals (⊢ ≫ ≻ ⇒ ⇐ :)
     #:attributes ([pat 0] [stuff 1] [body 0])
-    [pattern [⊢ [[pat* ≫ e-stx] ⇒ k v]]
-             #:with :last-clause #'[⊢ [[pat* ≫ e-stx] (⇒ k v)]]]
     [pattern [⊢ [[pat ≫ e-stx] props:⇒-props/conclusion]]
              #:with [stuff ...] #'[]
              #:with body:expr
@@ -199,6 +197,8 @@
                         [v (in-list (syntax->list #'[props.tag-expr ...]))])
                (with-syntax ([body body] [k k] [v v])
                  #'(assign-type body #:tag 'k v)))]
+    [pattern [⊢ [[e-stx]]]
+             #:with :last-clause #'[⊢ [[_ ≫ e-stx] ⇐ : _]]]
     [pattern [⊢ [[pat* ≫ e-stx] ⇐ : τ-pat]]
              #:with stx (generate-temporary 'stx)
              #:with τ (generate-temporary #'τ-pat)
@@ -212,10 +212,14 @@
              #:with [stuff ...] #'[]
              #:with body:expr
              #'(assign-type (quasisyntax/loc this-syntax e-stx) #`τ)]
+    [pattern [≻ e-stx]
+             #:with :last-clause #'[_ ≻ e-stx]]
     [pattern [pat ≻ e-stx]
              #:with [stuff ...] #'[]
              #:with body:expr
              #'(quasisyntax/loc this-syntax e-stx)]
+    [pattern [#:error msg:expr]
+             #:with :last-clause #'[_ #:error msg]]
     [pattern [pat #:error msg:expr]
              #:with [stuff ...]
              #'[#:fail-unless #f msg]
