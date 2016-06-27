@@ -64,7 +64,7 @@
 
 (check-type fact-builder : (→ (→ Int Int) (→ Int Int)))
 
-(define fact~ (fact-builder (fact-builder (fact-builder (fact-builder (fact-builder (inst (λ (n) 1) Int)))))))
+(define fact~ (fact-builder (fact-builder (fact-builder (fact-builder (fact-builder (λ (n) 1)))))))
 (check-type fact~ : (→ Int Int))
 (check-type (fact~ 0) : Int -> 1)
 (check-type (fact~ 1) : Int -> 1)
@@ -76,20 +76,19 @@
 ;(check-type (fact~ 7) : Int -> 5040)  ; fails, produces 2520
 ;(check-type (fact~ 8) : Int -> 40320) ; fails, produces 6720
 
-;(define Y
-;  (λ (f)
-;    ((λ (g) (f (λ (x) ((g g) x))))
-;     (λ (g) (f (λ (x) ((g g) x)))))))
-;(check-type Y : (∀ (A B) (→ (→ (→ A B) (→ A B)) (→ A B))))
-;
-;(define fact (Y fact-builder))
-;(check-type fact : (→ Int Int))
-;(check-type (fact 0) : Int -> 1)
-;(check-type (fact 1) : Int -> 1)
-;(check-type (fact 2) : Int -> 2)
-;(check-type (fact 3) : Int -> 6)
-;(check-type (fact 4) : Int -> 24)
-;(check-type (fact 5) : Int -> 120)
-;(check-type (fact 6) : Int -> 720)
-;(check-type (fact 7) : Int -> 5040)
-;(check-type (fact 8) : Int -> 40320)
+(define/rec Y : (∀ (A B) (→ (→ (→ A B) (→ A B)) (→ A B)))
+  (λ (f)
+    (f (λ (x) ((Y f) x)))))
+(check-type Y : (∀ (A B) (→ (→ (→ A B) (→ A B)) (→ A B))))
+
+(define fact (Y fact-builder))
+(check-type fact : (→ Int Int))
+(check-type (fact 0) : Int -> 1)
+(check-type (fact 1) : Int -> 1)
+(check-type (fact 2) : Int -> 2)
+(check-type (fact 3) : Int -> 6)
+(check-type (fact 4) : Int -> 24)
+(check-type (fact 5) : Int -> 120)
+(check-type (fact 6) : Int -> 720)
+(check-type (fact 7) : Int -> 5040)
+(check-type (fact 8) : Int -> 40320)

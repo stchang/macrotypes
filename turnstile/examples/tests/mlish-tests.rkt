@@ -198,6 +198,12 @@
    [Nil -> lst2]
    [Cons x xs -> (Cons x (append xs lst2))]))
 
+(check-type (λ (a f g) (g (f a) (+ (f 1) (f 2))))
+            : (→/test Int (→ Int Int) (→ Int Int C) C))
+
+(check-type ((λ ([a : A] [f : (→ Int A)]) a) 4 (λ (x) x))
+            : Int)
+
 ;; end infer.rkt tests --------------------------------------------------
 
 ;; algebraic data types

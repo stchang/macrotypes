@@ -34,22 +34,19 @@
     (pattern-expander
      (syntax-parser
        [(?∀ Xs-pat τ-pat)
-        #:with τ (generate-temporary)
-        #'(~and τ
-                (~parse (~∀ Xs-pat τ-pat)
-                        (if (∀? #'τ)
-                            #'τ
-                            ((current-type-eval) #'(∀ () τ)))))])))
+        #'(~or (~∀ Xs-pat τ-pat)
+               (~and (~not (~∀ _ _))
+                     (~parse Xs-pat #'())
+                     τ-pat))])))
   (define-syntax ~?Some
     (pattern-expander
      (syntax-parser
        [(?Some Xs-pat τ-pat Cs-pat)
-        #:with τ (generate-temporary)
-        #'(~and τ
-                (~parse (~Some Xs-pat τ-pat Cs-pat)
-                        (if (Some? #'τ)
-                            #'τ
-                            ((current-type-eval) #'(Some [] τ (Cs))))))])))
+        #'(~or (~Some Xs-pat τ-pat Cs-pat)
+               (~and (~not (~Some _ _ _))
+                     (~parse Xs-pat #'[])
+                     (~parse Cs-pat ((current-type-eval) #'(Cs)))
+                     τ-pat))])))
   (define-syntax ~Cs
     (pattern-expander
      (syntax-parser #:literals (...)
@@ -72,8 +69,8 @@
   ;; constrainable-X? : Id Solved-Constraints (Stx-Listof Id) -> Boolean
   (define (constrainable-X? X cs Vs)
     (for/or ([c (in-list (stx->list cs))])
-      (or (bound-identifier=? X (stx-car c))
-          (and (member (stx-car c) Vs bound-identifier=?)
+      (or (free-identifier=? X (stx-car c))
+          (and (member (stx-car c) Vs free-identifier=?)
                (stx-contains-id? (stx-cadr c) X)
                ))))
 
@@ -85,12 +82,12 @@
   ;; set-minus/Xs : (Listof Id) (Listof Id) -> (Listof Id)
   (define (set-minus/Xs Xs Ys)
     (for/list ([X (in-list Xs)]
-               #:when (not (member X Ys bound-identifier=?)))
+               #:when (not (member X Ys free-identifier=?)))
       X))
   ;; set-intersect/Xs : (Listof Id) (Listof Id) -> (Listof Id)
   (define (set-intersect/Xs Xs Ys)
     (for/list ([X (in-list Xs)]
-               #:when (member X Ys bound-identifier=?))
+               #:when (member X Ys free-identifier=?))
       X))
 
   ;; some/inst/generalize : (Stx-Listof Id) Type-Stx Constraints -> Type-Stx
@@ -108,7 +105,7 @@
         X))
     (define unconstrainable-Xs
       (set-minus/Xs Xs constrainable-Xs))
-    (define ty (inst-type/cs/orig constrainable-vars cs2 ty*))
+    (define ty (inst-type/cs/orig constrainable-vars cs2 ty* datum=?))
     ;; pruning constraints that are useless now
     (define concrete-constrainable-Xs
       (for/list ([X (in-list constrainable-Xs)]
@@ -116,12 +113,15 @@
         X))
     (define cs3
       (for/list ([c (in-list cs2)]
-                 #:when (not (member (stx-car c) concrete-constrainable-Xs bound-identifier=?)))
+                 #:when (not (member (stx-car c) concrete-constrainable-Xs free-identifier=?)))
         c))
     (?Some
      (set-minus/Xs constrainable-Xs concrete-constrainable-Xs)
      (?∀ (find-free-Xs unconstrainable-Xs ty) ty)
      cs3))
+
+  (define (datum=? a b)
+    (equal? (syntax->datum a) (syntax->datum b)))
 
   (define (tycons id args)
     (define/syntax-parse [X ...]
@@ -166,9 +166,9 @@
     (syntax-local-introduce #'τ_fn*)]
    [#:with τ_fn-expected (tycons #'→ #'[A ... B])]
    [⊢ [[e_arg ≫ e_arg-] ⇒ : τ_arg*] ...]
-   [#:with [(~?Some [V3 ...] τ_arg (~Cs [τ_5 τ_6] ...)) ...]
+   [#:with [(~?Some [V3 ...] (~?∀ (V4 ...) τ_arg) (~Cs [τ_5 τ_6] ...)) ...]
     (syntax-local-introduce #'[τ_arg* ...])]
-   [#:with τ_out (some/inst/generalize #'[A ... B V1 ... V2 ... V3 ... ...]
+   [#:with τ_out (some/inst/generalize #'[A ... B V1 ... V2 ... V3 ... ... V4 ... ...]
                                        #'B
                                        #'([τ_fn-expected τ_fn]
                                           [τ_3 τ_4] ...
@@ -176,6 +176,20 @@
                                           [τ_5 τ_6] ... ...))]
    --------
    [⊢ [[_ ≫ (#%app- e_fn- e_arg- ...)] ⇒ : τ_out]]])
+
+(define-typed-syntax ann #:datum-literals (:)
+  [(ann e:expr : τ:type) ≫
+   [⊢ [[e ≫ e-] ⇒ : τ_e]]
+   [#:with (~?Some [V1 ...] (~?∀ (V2 ...) τ_fn) (~Cs [τ_1 τ_2] ...))
+    (syntax-local-introduce #'τ_e)]
+   [#:with τ_e* (some/inst/generalize #'[V1 ... V2 ...]
+                                      #'τ.norm
+                                      #'([τ.norm τ_e]
+                                         [τ_1 τ_2]
+                                         ...))]
+   [τ_e* τ⊑ τ.norm #:for e]
+   --------
+   [⊢ [[_ ≫ e-] ⇒ : τ.norm]]])
 
 (define-typed-syntax define
   [(define x:id e:expr) ≫
@@ -185,6 +199,14 @@
    [_ ≻ (begin-
           (define-syntax- x (make-rename-transformer (⊢ tmp : τ_e)))
           (define- tmp e-))]])
+
+(define-typed-syntax define/rec #:datum-literals (:)
+  [(define/rec x:id : τ_x:type e:expr) ≫
+   [#:with tmp (generate-temporary #'x)]
+   --------
+   [_ ≻ (begin-
+          (define-syntax- x (make-rename-transformer (⊢ tmp : τ_x.norm)))
+          (define- tmp (ann e : τ_x.norm)))]])
 
 
 
