@@ -233,8 +233,8 @@
                               (not (typecheck? (typeof b) #'τ)))
                      (raise-⇐-expected-type-error #'left b #'τ (typeof b)))
                    (assign-type b #'τ)))])
-  (define-syntax-class rule #:datum-literals (▶)
-    [pattern [pat:pat ▶
+  (define-syntax-class rule #:datum-literals (≫)
+    [pattern [pat:pat ≫
               clause:clause ...
               :---
               last-clause:last-clause]

@@ -45,7 +45,7 @@
 ;; Problem: need type annotations, even in expanded form
 ;; Solution: store type annotations in a (quasi) kind <:
 (define-typed-syntax ∀ #:datum-literals (<:)
-  [(∀ ([tv:id <: τ:type] ...) τ_body) ▶
+  [(∀ ([tv:id <: τ:type] ...) τ_body) ≫
    --------
    ; eval first to overwrite the old #%type
    [⊢ [[_ ≫ #,((current-type-eval) #'(sysf:∀ (tv ...) τ_body))] ⇒ : (<: τ.norm ...)]]])
@@ -74,7 +74,7 @@
                        #:msg "Expected ∀ type, got: ~a" #'any))))]))))
 
 (define-typed-syntax Λ #:datum-literals (<:)
-  [(Λ ([tv:id <: τsub:type] ...) e) ▶
+  [(Λ ([tv:id <: τsub:type] ...) e) ≫
    ;; NOTE: store the subtyping relation of tv and τsub in the
    ;; environment with a syntax property using another tag: '<:
    ;; The "expose" function looks for this tag to enforce the bound,
@@ -83,7 +83,7 @@
    --------
    [⊢ [[_ ≫ e-] ⇒ : (∀ ([tv- <: τsub] ...) τ_e)]]])
 (define-typed-syntax inst
-  [(inst e τ:type ...) ▶
+  [(inst e τ:type ...) ≫
    [⊢ [[e ≫ e-] ⇒ : (~∀ ([tv <: τ_sub] ...) τ_body)]]
    [τ.norm τ⊑ τ_sub] ...
    [#:with τ_inst (substs #'(τ.norm ...) #'(tv ...) #'τ_body)]

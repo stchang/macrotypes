@@ -29,7 +29,7 @@
 
 
 (define-typed-syntax effect:#%app #:export-as #%app
-  [(_ efn e ...) ▶
+  [(_ efn e ...) ≫
    [⊢ [[efn ≫ e_fn-]
        (⇒ : (~→ τ_in ... τ_out)
           (⇒ ν (~locs tyns ...))
@@ -54,7 +54,7 @@
        (⇒ ! (locs fds ... tyds ... ds ... ...))]]])
 
 (define-typed-syntax λ
-  [(λ bvs:type-ctx e) ▶
+  [(λ bvs:type-ctx e) ≫
    [() ([bvs.x : bvs.type ≫ x-] ...) ⊢
        [[e ≫ e-]
         (⇒ : τ_res)
@@ -71,7 +71,7 @@
 (define-type-constructor Ref)
 
 (define-typed-syntax ref
-  [(ref e) ▶
+  [(ref e) ≫
    [⊢ [[e ≫ e-]
        (⇒ : τ)
        (⇒ ν (~locs ns ...))
@@ -84,7 +84,7 @@
        (⇒ := (locs as ...))
        (⇒ ! (locs ds ...))]]])
 (define-typed-syntax deref
-  [(deref e) ▶
+  [(deref e) ≫
    [⊢ [[e ≫ e-]
        (⇒ : (~Ref ty))
        (⇒ ν (~locs ns ...))
@@ -97,7 +97,7 @@
        (⇒ := (locs as ...))
        (⇒ ! (locs #,(syntax-position stx) ds ...))]]])
 (define-typed-syntax := #:literals (:=)
-  [(:= e_ref e) ▶
+  [(:= e_ref e) ≫
    [⊢ [[e_ref ≫ e_ref-]
        (⇒ : (~Ref ty))
        (⇒ ν (~locs ns1 ...))

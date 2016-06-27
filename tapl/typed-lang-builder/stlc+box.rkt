@@ -12,19 +12,19 @@
 (define-type-constructor Ref)
 
 (define-typed-syntax ref
-  [(ref e) ▶
+  [(ref e) ≫
    [⊢ [[e ≫ e-] ⇒ : τ]]
    --------
    [⊢ [[_ ≫ (box- e-)] ⇒ : (Ref τ)]]])
 
 (define-typed-syntax deref
-  [(deref e) ▶
+  [(deref e) ≫
    [⊢ [[e ≫ e-] ⇒ : (~Ref τ)]]
    --------
    [⊢ [[_ ≫ (unbox- e-)] ⇒ : τ]]])
 
 (define-typed-syntax := #:literals (:=)
-  [(:= e_ref e) ▶
+  [(:= e_ref e) ≫
    [⊢ [[e_ref ≫ e_ref-] ⇒ : (~Ref τ)]]
    [⊢ [[e ≫ e-] ⇐ : τ]]
    --------

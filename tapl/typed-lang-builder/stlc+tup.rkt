@@ -16,18 +16,18 @@
                     (make-list (stx-length (stx-cdr stx)) covariant)))
 
 (define-typed-syntax tup
-  [(tup e ...) ⇐ : (~× τ ...) ▶
+  [(tup e ...) ⇐ : (~× τ ...) ≫
    [#:when (stx-length=? #'[e ...] #'[τ ...])]
    [⊢ [[e ≫ e-] ⇐ : τ] ...]
    --------
    [⊢ [[_ ≫ (list- e- ...)] ⇐ : _]]]
-  [(tup e ...) ▶
+  [(tup e ...) ≫
    [⊢ [[e ≫ e-] ⇒ : τ] ...]
    --------
    [⊢ [[_ ≫ (list- e- ...)] ⇒ : (× τ ...)]]])
 
 (define-typed-syntax proj
-  [(proj e_tup n:nat) ▶
+  [(proj e_tup n:nat) ≫
    [⊢ [[e_tup ≫ e_tup-] ⇒ : (~× τ ...)]]
    [#:fail-unless (< (syntax-e #'n) (stx-length #'[τ ...])) "index too large"]
    --------

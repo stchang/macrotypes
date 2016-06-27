@@ -28,16 +28,16 @@
 (define-primop * : (→ Num Num Num))
 
 (define-typed-syntax #%datum
-  [(#%datum . n:nat) ▶
+  [(#%datum . n:nat) ≫
    --------
    [⊢ [[_ ≫ (#%datum- . n)] ⇒ : Nat]]]
-  [(#%datum . n:integer) ▶
+  [(#%datum . n:integer) ≫
    --------
    [⊢ [[_ ≫ (#%datum- . n)] ⇒ : Int]]]
-  [(#%datum . n:number) ▶
+  [(#%datum . n:number) ≫
    --------
    [⊢ [[_ ≫ (#%datum- . n)] ⇒ : Num]]]
-  [(#%datum . x) ▶
+  [(#%datum . x) ≫
    --------
    [_ ≻ (ext:#%datum . x)]])
 

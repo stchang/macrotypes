@@ -28,7 +28,7 @@
            [(_ x ...) #'ty]))]))
 
 (define-typed-syntax define
-  [(define x:id : τ:type e:expr) ▶
+  [(define x:id : τ:type e:expr) ≫
    ;This wouldn't work with mutually recursive definitions
    ;[⊢ [[e ≫ e-] ⇐ τ.norm]]
    ;So expand to an ann form instead.
@@ -36,7 +36,7 @@
    [_ ≻ (begin-
           (define-syntax x (make-rename-transformer (⊢ y : τ.norm)))
           (define- y (ann e : τ.norm)))]]
-  [(define x:id e) ▶
+  [(define x:id e) ≫
    [⊢ [[e ≫ e-] ⇒ : τ]]
    [#:with y (generate-temporary #'x)]
    --------
@@ -87,12 +87,12 @@
 
 ;; records
 (define-typed-syntax tup #:datum-literals (=)
-  [(tup [l:id = e] ...) ▶
+  [(tup [l:id = e] ...) ≫
    [⊢ [[e ≫ e-] ⇒ : τ] ...]
    --------
    [⊢ [[_ ≫ (list- (list- 'l e-) ...)] ⇒ : (× [l : τ] ...)]]])
 (define-typed-syntax proj #:literals (quote)
-  [(proj e_rec l:id) ▶
+  [(proj e_rec l:id) ≫
    [⊢ [[e_rec ≫ e_rec-] ⇒ : τ_e]]
    [#:fail-unless (×? #'τ_e)
     (format "Expected expression ~s to have × type, got: ~a"
@@ -145,10 +145,10 @@
        (add-orig res (get-orig res))])))
 
 (define-typed-syntax var #:datum-literals (as =)
-  [(var l:id = e as τ:type) ▶
+  [(var l:id = e as τ:type) ≫
    --------
    [_ ≻ (ann (var l = e) : τ.norm)]]
-  [(var l:id = e) ⇐ : τ ▶
+  [(var l:id = e) ⇐ : τ ≫
    [#:fail-unless (∨? #'τ)
     (format "Expected the expected type to be a ∨ type, got: ~a" (type->str #'τ))]
    [#:with τ_e
@@ -162,7 +162,7 @@
 
 (define-typed-syntax case
   #:datum-literals (of =>)
-  [(case e [l:id x:id => e_l] ...) ▶
+  [(case e [l:id x:id => e_l] ...) ≫
    [#:fail-unless (not (null? (syntax->list #'(l ...)))) "no clauses"]
    [⊢ [[e ≫ e-] ⇒ : (~∨* [l_x : τ_x] ...)]]
    [#:fail-unless (stx-length=? #'(l ...) #'(l_x ...)) "wrong number of case clauses"]

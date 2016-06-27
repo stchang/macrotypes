@@ -15,7 +15,7 @@
 (define-type-constructor ∃ #:bvs = 1)
 
 (define-typed-syntax pack
-  [(pack (τ:type e) as ∃τ:type) ▶
+  [(pack (τ:type e) as ∃τ:type) ≫
    [#:with (~∃* (τ_abstract) τ_body) #'∃τ.norm]
    [#:with τ_e (subst #'τ.norm #'τ_abstract #'τ_body)]
    [⊢ [[e ≫ e-] ⇐ : τ_e]]
@@ -24,7 +24,7 @@
 
 (define-typed-syntax open #:datum-literals (<= with)
   [(open [x:id <= e_packed with X:id] e)
-   ▶
+   ≫
    ;; The subst below appears to be a hack, but it's not really.
    ;; It's the (TaPL) type rule itself that is fast and loose.
    ;; Leveraging the macro system's management of binding reveals this.

@@ -14,10 +14,10 @@
 ;; - records and variants from stlc+reco+var
 
 (define-typed-syntax #%datum
-  [(#%datum . n:number) ▶
+  [(#%datum . n:number) ≫
    --------
    [_ ≻ (stlc+sub:#%datum . n)]]
-  [(#%datum . x) ▶
+  [(#%datum . x) ≫
    --------
    [_ ≻ (stlc+reco+var:#%datum . x)]])
 
