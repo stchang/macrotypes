@@ -161,11 +161,21 @@
              #'[(~post
                  (~fail #:unless (typecheck? #'a #'b)
                         (typecheck-fail-msg/1/no-expr #'b #'a)))]]
+    [pattern [a τ⊑ b #:for e]
+             #:with [pat ...]
+             #'[(~post
+                 (~fail #:unless (typecheck? #'a #'b)
+                        (typecheck-fail-msg/1 #'b #'a #'e)))]]
     [pattern (~seq [a τ⊑ b] ooo:elipsis)
              #:with [pat ...]
              #'[(~post
                  (~fail #:unless (typechecks? #'[a ooo] #'[b ooo])
                         (typecheck-fail-msg/multi/no-exprs #'[b ooo] #'[a ooo])))]]
+    [pattern (~seq [a τ⊑ b #:for e] ooo:elipsis)
+             #:with [pat ...]
+             #'[(~post
+                 (~fail #:unless (typechecks? #'[a ooo] #'[b ooo])
+                        (typecheck-fail-msg/multi #'[b ooo] #'[a ooo] #'[e ooo])))]]
     [pattern [#:when condition:expr]
              #:with [pat ...]
              #'[(~fail #:unless condition)]]

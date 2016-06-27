@@ -412,6 +412,16 @@
             (type->str τ_expected)
             (type->str τ_given)))
 
+  ;; typecheck-fail-msg/multi : (Stx-Listof Type) (Stx-Listof Type) (Stx-Listof Stx) -> String
+  (define (typecheck-fail-msg/multi τs_expected τs_given expressions)
+    (format (string-append "type mismatch\n"
+                           "  expected:    ~a\n"
+                           "  given:       ~a\n"
+                           "  expressions: ~a")
+            (string-join (stx-map type->str τs_expected) ", ")
+            (string-join (stx-map type->str τs_given) ", ")
+            (string-join (map ~s (stx-map syntax->datum expressions)) ", ")))
+
   ;; typecheck-fail-msg/multi/no-exprs : (Stx-Listof Type) (Stx-Listof Type) -> String
   (define (typecheck-fail-msg/multi/no-exprs τs_expected τs_given)
     (format (string-append "type mismatch\n"

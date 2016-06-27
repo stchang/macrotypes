@@ -848,7 +848,7 @@
    [#:with [X ...] (compute-tyvars #'(τ_x ...))]
    [([X : #%type ≫ X-] ...) ()
     ⊢ [[τ_x ≫ τ_x-] ⇐ : #%type] ...]
-   [τ_in τ⊑ τ_x-] ...
+   [τ_in τ⊑ τ_x- #:for x] ...
    ;; TODO is there a way to have λs that refer to ids defined after them?
    [([V : #%type ≫ V-] ... [X- : #%type ≫ X--] ...) ([x : τ_x- ≫ x-] ...)
     ⊢ [[body ≫ body-] ⇐ : τ_out]]
@@ -868,7 +868,7 @@
 
 ;; #%app --------------------------------------------------
 (define-typed-syntax mlish:#%app #:export-as #%app
-  [(_ e_fn . e_args) ≫
+  [(_ e_fn e_arg ...) ≫
    ;; compute fn type (ie ∀ and →)
    [⊢ [[e_fn ≫ e_fn-] ⇒ : (~?∀ Xs (~ext-stlc:→ . tyX_args))]]
    ;; solve for type variables Xs
@@ -877,12 +877,12 @@
    [#:with [τ_in ... τ_out] (inst-types/cs #'Xs* #'cs #'tyX_args)]
    [#:with (unsolved-X ...) (find-free-Xs #'Xs* #'τ_out)]
    ;; arity check
-   [#:fail-unless (stx-length=? #'(τ_in ...) #'e_args)
-    (num-args-fail-msg #'e_fn #'[τ_in ...] #'e_args)]
+   [#:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
+    (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])]
    ;; compute argument types
    [#:with (τ_arg ...) (stx-map typeof #'(e_arg- ...))]
    ;; typecheck args
-   [τ_arg τ⊑ τ_in] ...
+   [τ_arg τ⊑ τ_in #:for e_arg] ...
    [#:with τ_out* (if (stx-null? #'(unsolved-X ...))
                       #'τ_out
                       (syntax-parse #'τ_out

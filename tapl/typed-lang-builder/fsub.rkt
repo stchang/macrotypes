@@ -85,7 +85,7 @@
 (define-typed-syntax inst
   [(inst e τ:type ...) ≫
    [⊢ [[e ≫ e-] ⇒ : (~∀ ([tv <: τ_sub] ...) τ_body)]]
-   [τ.norm τ⊑ τ_sub] ...
+   [τ.norm τ⊑ τ_sub #:for τ] ...
    [#:with τ_inst (substs #'(τ.norm ...) #'(tv ...) #'τ_body)]
    --------
    [⊢ [[_ ≫ e-] ⇒ : τ_inst]]])
