@@ -3,6 +3,8 @@
 
 (check-type (λ (x) 5) : (∀ (X) (→ X Int)))
 (check-type (λ (x) x) : (∀ (X) (→ X X)))
+(check-type ((λ (x) x) 5) : Int)
+(check-type ((λ (x) x) (λ (y) y)) : (∀ (Y) (→ Y Y)))
 
 (check-type (λ (x) (λ (y) 6)) : (∀ (X) (→ X (∀ (Y) (→ Y Int)))))
 (check-type (λ (x) (λ (y) x)) : (∀ (X) (→ X (∀ (Y) (→ Y X)))))

@@ -162,13 +162,13 @@
    [#:with [A ...] (generate-temporaries #'[e_arg ...])]
    [#:with B (generate-temporary 'result)]
    [⊢ [[e_fn ≫ e_fn-] ⇒ : τ_fn*]]
-   [#:with (~?Some [V1 ...] τ_fn (~Cs [τ_3 τ_4] ...))
+   [#:with (~?Some [V1 ...] (~?∀ (V2 ...) τ_fn) (~Cs [τ_3 τ_4] ...))
     (syntax-local-introduce #'τ_fn*)]
    [#:with τ_fn-expected (tycons #'→ #'[A ... B])]
    [⊢ [[e_arg ≫ e_arg-] ⇒ : τ_arg*] ...]
    [#:with [(~?Some [V3 ...] τ_arg (~Cs [τ_5 τ_6] ...)) ...]
     (syntax-local-introduce #'[τ_arg* ...])]
-   [#:with τ_out (some/inst/generalize #'[A ... B V1 ... V3 ... ...]
+   [#:with τ_out (some/inst/generalize #'[A ... B V1 ... V2 ... V3 ... ...]
                                        #'B
                                        #'([τ_fn-expected τ_fn]
                                           [τ_3 τ_4] ...
