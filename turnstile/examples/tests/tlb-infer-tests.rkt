@@ -43,6 +43,16 @@
 (check-type (λ (a f g) (g (λ () (f a)) (+ (f 1) (f 2))))
             : (∀ (C) (→ Int (→ Int Int) (→ (→ Int) Int C) C)))
 
+(typecheck-fail
+ (λ (f) (f f))
+ #:with-msg "couldn't unify f[0-9]+ and \\(→ f[0-9]+ result[0-9]+\\) because one contains the other")
+
+(typecheck-fail
+ (λ (f)
+   ((λ (g) (f (λ (x) ((g g) x))))
+    (λ (g) (f (λ (x) ((g g) x))))))
+ #:with-msg "couldn't unify g[0-9]+ and \\(→ g[0-9]+ result[0-9]+\\) because one contains the other")
+
 (define fact-builder
   (λ (fact)
     (λ (n)

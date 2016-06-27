@@ -51,7 +51,7 @@
                #'rst)
          orig-cs)]
        [else
-        (define entry (list #'a #'b))
+        (define entry (occurs-check (list #'a #'b) orig-cs))
         (add-constraints/var?
          Xs
          var?
@@ -113,6 +113,9 @@
                                      (string-join (map type->str (stx-map stx-cadr orig-cs)) ", "))
                        #'a #'b)])])]))
 
+(define (datum=? x y)
+  (equal? (syntax->datum x) (syntax->datum y)))
+
 ;; add-substitution-entry : (List Id Type) (Listof (List Id Type)) -> (Listof (List Id Type))
 ;; Adds the mapping a -> b to the substitution and substitutes for it in the other entries
 (define (add-substitution-entry entry substs)
@@ -120,15 +123,29 @@
   (cons entry
         (for/list ([subst (in-list substs)])
           (list (first subst)
-                (inst-type (list b) (list a) (second subst))))))
+                (inst-type/orig (list b) (list a) (second subst) datum=?)))))
 
 ;; cs-substitute-entry : (List Id Type) (Stx-Listof (Stx-List Stx Stx)) -> (Listof (List Stx Stx))
 ;; substitute a -> b in each of the constraints
 (define (cs-substitute-entry entry cs)
   (match-define (list a b) entry)
   (for/list ([c (in-list (stx->list cs))])
-    (list (inst-type (list b) (list a) (stx-car c))
-          (inst-type (list b) (list a) (stx-cadr c)))))
+    (list (inst-type/orig (list b) (list a) (stx-car c) datum=?)
+          (inst-type/orig (list b) (list a) (stx-cadr c) datum=?))))
+
+;; occurs-check : (List Id Type) (Stx-Listof (Stx-List Stx Stx)) -> (List Id Type)
+(define (occurs-check entry orig-cs)
+  (match-define (list a b) entry)
+  (cond [(stx-contains-id? b a)
+         (type-error #:src (get-orig b)
+                     #:msg (format (string-append
+                                    "couldn't unify ~~a and ~~a because one contains the other\n"
+                                    "  expected: ~a\n"
+                                    "  given: ~a")
+                                   (string-join (map type->str (stx-map stx-car orig-cs)) ", ")
+                                   (string-join (map type->str (stx-map stx-cadr orig-cs)) ", "))
+                     a b)]
+        [else entry]))
 
 (define (lookup x substs)
   (syntax-parse substs
