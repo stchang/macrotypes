@@ -1,0 +1,22 @@
+#lang s-exp "../../mlish.rkt"
+(require "../rackunit-typechecking.rkt")
+
+(define (fib [n : Int] -> Int)
+  (cond 
+   [(< n 2) 1]
+   [else 
+    (+ (fib (- n 2)) (fib (sub1 n)))]))
+
+(define (main [args : (Vector String)] -> Int)
+  (let ([n (if (= (vector-length args) 0)
+               1
+               (string->number (vector-ref args 0)))])
+    (fib n)))
+
+(check-type (main (vector "0")) : Int -> 1)
+
+(check-type (main (vector "1")) : Int -> 1)
+
+(check-type (main (vector "2")) : Int -> 2)
+
+(check-type (main (vector "22")) : Int -> 28657)

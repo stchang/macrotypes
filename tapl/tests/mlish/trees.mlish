@@ -1,8 +1,0 @@
-#lang s-exp "../../typed-lang-builder/mlish.rkt"
-(require "../rackunit-typechecking.rkt")
-
-(define-type (Tree X)
-  (Leaf X)
-  (Node (Tree X) X (Tree X)))
-
-(provide-type Tree Leaf Node)

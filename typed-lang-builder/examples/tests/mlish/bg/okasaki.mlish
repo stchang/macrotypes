@@ -1,0 +1,1654 @@
+#lang s-exp "../../../mlish.rkt"
+(require "../../rackunit-typechecking.rkt")
+
+;; TODO
+;; - cannot inst polymorphic function `bq-empty`
+;; - cannot inst `(BQ (Nil {A}) (Nil {A}))`
+;; - cannot use bq-snoc directly in a foldl (need wrapper λ)
+
+;; -----------------------------------------------------------------------------
+
+(define-type (Option A)
+  [None]
+  [Some A])
+
+;; -----------------------------------------------------------------------------
+
+(define (div (n1 : Int) (n2 : Int) → Int)
+  (if (< n1 n2)
+    0
+    (+ 1 (div (- n1 n2) n2))))
+
+(define (mod (n1 : Int) (n2 : Int) → Int)
+  (if (< n1 n2)
+    n1
+    (mod (- n1 n2) n2)))
+
+;; -----------------------------------------------------------------------------
+
+(define-type (List a)
+  [Nil]
+  [∷ a (List a)])
+
+(define (foldl [f : (→ A B A)] [acc : A] [x* : (List B)] → A)
+  (match x* with
+   [Nil -> acc]
+   [∷ h t -> (foldl f (f acc h) t)]))
+
+(define (reverse [x* : (List A)] → (List A))
+  (foldl (λ ([acc : (List A)] [x : A]) (∷ x acc)) Nil x*))
+
+(define (append [x* : (List A)] [y* : (List A)] → (List A))
+  (match x* with
+   [Nil -> y*]
+   [∷ x x* ->
+    (∷ x (append x* y*))]))
+
+(define (take [i : Int] [x* : (List A)] → (List A))
+  (if (<= i 0)
+    Nil
+    (match x* with
+     [Nil -> Nil]
+     [∷ h t -> (∷ h (take (- i 1) t))])))
+
+(define (drop [i : Int] [x* : (List A)] → (List A))
+  (if (<= i 0)
+    x*
+    (match x* with
+     [Nil -> Nil]
+     [∷ h t -> (drop (- i 1) t)])))
+
+;; =============================================================================
+;; === BatchedQueue
+
+(define-type (BatchedQueue A)
+  [BQ (List A) (List A)])
+
+(define (bq-check [f : (List A)] [r : (List A)] → (BatchedQueue A))
+  (match f with
+   [Nil -> (BQ (reverse r) Nil)]
+   [∷ h t -> (BQ f r)]))
+
+(define (bq-empty → (BatchedQueue A))
+  (BQ Nil Nil))
+
+(define (bq-isEmpty [bq : (BatchedQueue A)] → Bool)
+  (match bq with
+   [BQ f r ->
+    (match f with
+     [Nil -> #t]
+     [∷ h t -> #f])]))
+
+(define (bq-snoc [bq : (BatchedQueue A)] [x : A] → (BatchedQueue A))
+  (match bq with
+   [BQ f r -> (bq-check f (∷ x r))]))
+
+(define (bq-head [bq : (BatchedQueue A)] → (Option A))
+  (match bq with
+   [BQ f r ->
+    (match f with
+     [Nil -> None]
+     [∷ h t -> (Some h)])]))
+
+(define (bq-tail [bq : (BatchedQueue A)] → (Option (BatchedQueue A)))
+  (match bq with
+   [BQ f* r* ->
+    (match f* with
+     [Nil -> None]
+     [∷ x f* ->
+      (Some (bq-check f* r*))])]))
+
+(define (list->bq [x* : (List A)] → (BatchedQueue A))
+  (foldl
+    ;bq-snoc ;; TODO
+    (λ ([q : (BatchedQueue A)] [x : A]) (bq-snoc q x))
+    (bq-empty) x*))
+
+;; -----------------------------------------------------------------------------
+
+(define digit*
+  (∷ 1 (∷ 2 (∷ 3 (∷ 4 (∷ 5 (∷ 6 (∷ 7 (∷ 8 (∷ 9 Nil))))))))))
+
+(define abc
+  (∷ "A" (∷ "B" (∷ "C" Nil))))
+
+(define def
+  (∷ "D" (∷ "E" (∷ "F" Nil))))
+
+(define sample-bq (list->bq digit*))
+
+(check-type
+  (bq-isEmpty (BQ (Nil {Bool}) (Nil {Bool})))
+  ;(bq-isEmpty (bq-empty {Bool}))
+  ;(bq-isEmpty (BQ (Nil {Bool}) (Nil {Bool}))) ;; TODO
+  : Bool
+  ⇒ #t)
+
+(check-type
+  (bq-isEmpty sample-bq)
+  : Bool
+  ⇒ #f)
+
+(check-type
+  (bq-head sample-bq)
+  : (Option Int)
+  ⇒ (Some 1))
+
+(check-type
+  (bq-head (bq-snoc sample-bq 10))
+  : (Option Int)
+  ⇒ (Some 1))
+
+(define (>> [f : (→ A (Option A))] [x : (Option A)] → (Option A))
+  (match x with
+   [None -> None]
+   [Some y -> (f y)]))
+
+(check-type
+  (match (bq-tail sample-bq) with
+   [None -> None]
+   [Some bq -> (bq-head bq)])
+  : (Option Int)
+  ⇒ (Some 2))
+
+;; TODO
+;(check-type
+;  (>> bq-head (>> bq-tail (>> bq-tail (>> bq-tail (Some sample-bq)))))
+;  : (Option Int)
+;  ⇒ (Some 4))
+
+;; =============================================================================
+;; === Bankers Queue
+
+(define-type (BankersQueue A)
+  (Bank Int (List A) Int (List A)))
+
+(define (bank-check [lenf : Int] [f : (List A)] [lenr : Int] [r : (List A)] → (BankersQueue A))
+  (if (<= lenr lenf)
+    (Bank lenf f lenr r)
+    (Bank (+ lenf lenr) (append f (reverse r)) 0 Nil)))
+
+(define (bank-empty → (BankersQueue A))
+  (Bank 0 Nil 0 Nil))
+
+(define (bank-isEmpty [bq : (BankersQueue A)] → Bool)
+  (match bq with
+   [Bank lenf f lenr r -> (= 0 lenf)]))
+
+(define (bank-snoc [bq : (BankersQueue A)] [x : A] → (BankersQueue A))
+  (match bq with
+   [Bank lenf f lenr r -> (bank-check lenf f (+ 1 lenr) (∷ x r))]))
+
+(define (bank-head [bq : (BankersQueue A)] → (Option A))
+  (match bq with
+   [Bank lenf f lenr r ->
+    (match f with
+     [Nil -> None]
+     [∷ h t -> (Some h)])]))
+
+(define (bank-tail [bq : (BankersQueue A)] → (Option (BankersQueue A)))
+  (match bq with
+   [Bank lenf f lenr r ->
+    (match f with
+     [Nil -> None]
+     [∷ h t -> (Some (bank-check (- lenf 1) t lenr r))])]))
+
+;; -----------------------------------------------------------------------------
+
+(define sample-bank
+  (foldl (λ ([acc : (BankersQueue Int)] [x : Int]) (bank-snoc acc x)) (bank-empty) digit*))
+
+(check-type
+  (bank-isEmpty (Bank 0 (Nil {Int}) 0 (Nil {Int})))
+  : Bool
+  ⇒ #t)
+
+(check-type
+  (bank-isEmpty sample-bank)
+  : Bool
+  ⇒ #f)
+
+(check-type
+  (bank-head sample-bank)
+  : (Option Int)
+  ⇒ (Some 1))
+
+(check-type
+  (bank-head (bank-snoc sample-bank 10))
+  : (Option Int)
+  ⇒ (Some 1))
+
+(check-type
+  (match (bank-tail sample-bank) with
+   [None -> None]
+   [Some bank -> (bank-head bank)])
+  : (Option Int)
+  ⇒ (Some 2))
+
+;; =============================================================================
+;; === Physicists Queue
+
+(define-type (PhysicistsQueue A)
+  (PQ (List A) Int (List A) Int (List A)))
+
+(define (pq-check [w : (List A)] [lenf : Int] [f : (List A)] [lenr : Int] [r : (List A)] → (PhysicistsQueue A))
+  (if (<= lenr lenf)
+    (pq-checkw w lenf f lenr r)
+    (pq-checkw f (+ lenf lenr) (append f (reverse r)) 0 Nil)))
+
+(define (pq-checkw [w : (List A)] [lenf : Int] [f : (List A)] [lenr : Int] [r : (List A)] → (PhysicistsQueue A))
+  (match w with
+   [Nil -> (PQ f lenf f lenr r)]
+   [∷ h t -> (PQ w lenf f lenr r)]))
+
+(define (pq-empty → (PhysicistsQueue A))
+  (PQ Nil 0 Nil 0 Nil))
+
+(define (pq-isEmpty [pq : (PhysicistsQueue A)] → Bool)
+  (match pq with
+   [PQ w lenf f lenr r ->
+    (= lenf 0)]))
+
+(define (pq-snoc [pq : (PhysicistsQueue A)] [x : A] → (PhysicistsQueue A))
+  (match pq with
+   [PQ w lenf f lenr r -> (pq-check w lenf f (+ 1 lenr) (∷ x r))]))
+
+(define (pq-head [pq : (PhysicistsQueue A)] → (Option A))
+  (match pq with
+   [PQ w lenf f lenr r ->
+    (match w with
+     [Nil -> None]
+     [∷ w w* -> (Some w)])]))
+
+(define (pq-tail [pq : (PhysicistsQueue A)] → (Option (PhysicistsQueue A)))
+  (match pq with
+   [PQ w lenf f lenr r ->
+    (match w with
+     [Nil -> None]
+     [∷ x w* ->
+      (match f with
+       [Nil -> None] ;; Never happens
+       [∷ f f* -> (Some (pq-check w* (- lenf 1) f* lenr r))])])]))
+
+;; -----------------------------------------------------------------------------
+
+(define sample-pq
+  (foldl (λ ([acc : (PhysicistsQueue Int)] [x : Int]) (pq-snoc acc x)) (pq-empty) digit*))
+
+(check-type
+  (pq-isEmpty (PQ (Nil {Int}) 0 (Nil {Int}) 0 (Nil {Int})))
+  : Bool
+  ⇒ #t)
+
+(check-type
+  (pq-isEmpty sample-pq)
+  : Bool
+  ⇒ #f)
+
+(check-type
+  (pq-head sample-pq)
+  : (Option Int)
+  ⇒ (Some 1))
+
+(check-type
+  (pq-head (pq-snoc sample-pq 10))
+  : (Option Int)
+  ⇒ (Some 1))
+
+(check-type
+  (match (pq-tail sample-pq) with
+   [None -> None]
+   [Some pq -> (pq-head pq)])
+  : (Option Int)
+  ⇒ (Some 2))
+
+;; =============================================================================
+;; === Hood-Melville Queue
+
+(define-type (RotationState A)
+  [Idle]
+  [Reversing Int (List A) (List A) (List A) (List A)]
+  [Appending Int (List A) (List A)]
+  [Done (List A)])
+
+(define-type (HoodMelvilleQueue A)
+  [HM Int (List A) (RotationState A) Int (List A)])
+
+(define (hm-exec [rs : (RotationState A)] → (RotationState A))
+  (match rs with
+   [Idle -> rs]
+   [Done x -> rs]
+   [Appending ok f* r* ->
+    (if (= ok 0)
+      (Done r*)
+      (match f* with
+       [Nil -> rs]
+       [∷ x f* ->
+        (Appending (- ok 1) f* (∷ x r*))]))]
+   [Reversing ok f1* f2* r1* r2* ->
+    (match f1* with
+     [Nil ->
+      (match r1* with
+       [Nil -> rs]
+       [∷ y r1* ->
+        (match r1* with
+         [Nil -> (Appending ok f2* (∷ y r2*))]
+         [∷ a b -> rs])])]
+     [∷ x f1* ->
+      (match r1* with
+       [Nil -> rs]
+       [∷ y r1* ->
+        (Reversing (+ ok 1) f1* (∷ x f2*) r1* (∷ y r2*))])])]))
+
+(define (hm-invalidate [rs : (RotationState A)] → (RotationState A))
+  (match rs with
+   [Reversing ok f1* f2* r1* r2* ->
+    (Reversing (- ok 1) f1* f2* r1* r2*)]
+   [Appending ok f* r* ->
+     (if (= 0 ok)
+       (match r* with
+        [Nil -> rs]
+        [∷ x r* -> (Done r*)])
+       (Appending (- ok 1) f* r*))]
+   [Done x -> rs]
+   [Idle -> rs]))
+
+(define (hm-exec2 [lenf : Int] [f* : (List A)] [state : (RotationState A)] [lenr : Int] [r : (List A)] → (HoodMelvilleQueue A))
+  ((λ ([newstate : (RotationState A)])
+     (match newstate with
+      [Done newf -> (HM lenf newf Idle lenr r)]
+      [Idle                -> (HM lenf f* newstate lenr r)]
+      [Appending a b c     -> (HM lenf f* newstate lenr r)]
+      [Reversing a b c d e -> (HM lenf f* newstate lenr r)]))
+  (hm-exec (hm-exec state))))
+
+(define (hm-check [lenf : Int] [f* : (List A)] [state : (RotationState A)] [lenr : Int] [r* : (List A)] → (HoodMelvilleQueue A))
+  (if (<= lenr lenf)
+    (hm-exec2 lenf f* state lenr r*)
+    (hm-exec2 (+ lenf lenr) f* (Reversing 0 f* Nil r* Nil) 0 Nil)))
+
+(define (hm-empty → (HoodMelvilleQueue A))
+  (HM 0 Nil Idle 0 Nil))
+
+(define (hm-isEmpty [hm : (HoodMelvilleQueue A)] → Bool)
+  (match hm with
+   [HM lenf b c d e ->
+    (= lenf 0)]))
+
+(define (hm-snoc [hm : (HoodMelvilleQueue A)] [x : A] → (HoodMelvilleQueue A))
+  (match hm with
+   [HM lenf f state lenr r -> (hm-check lenf f state (+ lenr 1) (∷ x r))]))
+
+(define (hm-head [hm : (HoodMelvilleQueue A)] → (Option A))
+  (match hm with
+   [HM a f b c d ->
+    (match f with
+     [Nil -> None]
+     [∷ x f* -> (Some x)])]))
+
+(define (hm-tail [hm : (HoodMelvilleQueue A)] → (Option (HoodMelvilleQueue A)))
+  (match hm with
+   [HM lenf f state lenr r ->
+    (match f with
+     [Nil -> None]
+     [∷ x f* -> (Some (hm-check (- lenf 1) f* (hm-invalidate state) lenr r))])]))
+
+;; -----------------------------------------------------------------------------
+
+(define sample-hm
+  (foldl (λ ([acc : (HoodMelvilleQueue Int)] [x : Int]) (hm-snoc acc x)) (hm-empty) digit*))
+
+(check-type
+  (hm-isEmpty (HM 0 (Nil {Int}) Idle 0 (Nil {Int})))
+  : Bool
+  ⇒ #t)
+
+(check-type
+  (hm-isEmpty sample-hm)
+  : Bool
+  ⇒ #f)
+
+(check-type
+  (hm-head sample-hm)
+  : (Option Int)
+  ⇒ (Some 1))
+
+(check-type
+  (hm-head (hm-snoc sample-hm 10))
+  : (Option Int)
+  ⇒ (Some 1))
+
+(check-type
+  (match (hm-tail sample-hm) with
+   [None -> None]
+   [Some hm -> (hm-head hm)])
+  : (Option Int)
+  ⇒ (Some 2))
+
+;; =============================================================================
+;; === Bootstrapped Queue
+
+(define-type (BootstrappedQueue a)
+  [E]
+  [Q Int (List a) (BootstrappedQueue (List a)) Int (List a)])
+
+(define (bs-checkQ [lenfm : Int] [f : (List A)] [m : (BootstrappedQueue (List A))] [lenr : Int] [r : (List A)] → (BootstrappedQueue A))
+  (if (<= lenr lenfm)
+    (bs-checkF lenfm f m lenr r)
+    (bs-checkF (+ lenfm lenr) f (bs-snoc m (reverse r)) 0 Nil)))
+
+(define (bs-checkF [lenfm : Int] [f : (List A)] [m : (BootstrappedQueue (List A))] [lenr : Int] [r : (List A)] → (BootstrappedQueue A))
+  (match f with
+   [Nil ->
+    (match m with
+     [E -> E]
+     [Q _a _b _c _d _e ->
+      (match (bs-head m) with
+       [None -> E]
+       [Some hd ->
+        (match (bs-tail m) with
+         [None -> E]
+         [Some tl ->
+          (Q lenfm hd tl lenr r)])])])]
+   [∷ _f _f* ->
+    (Q lenfm f m lenr r)]))
+
+(define (bs-empty → (BootstrappedQueue A))
+  (Q 0 Nil E 0 Nil))
+
+(define (bs-isEmpty [m : (BootstrappedQueue A)] → Bool)
+  (match m with
+   [E -> #t]
+   [Q a b c d e -> #f]))
+
+(define (bs-snoc [m : (BootstrappedQueue A)] [x : A] → (BootstrappedQueue A))
+  (match m with
+   [E -> (Q 1 (∷ x Nil) E 0 Nil)]
+   [Q lenfm f m lenr r -> (bs-checkQ lenfm f m (+ 1 lenr) (∷ x r))]))
+
+(define (bs-head [m : (BootstrappedQueue A)] → (Option A))
+  (match m with
+   [E -> None]
+   [Q lenfm f m lenr r ->
+    (match f with
+     [Nil -> None]
+     [∷ x f* -> (Some x)])]))
+
+(define (bs-tail [m : (BootstrappedQueue A)] → (Option (BootstrappedQueue A)))
+  (match m with
+   [E -> None]
+   [Q lenfm f m lenr r ->
+    (match f with
+     [Nil -> None]
+     [∷ _x f* -> (Some (bs-checkQ (- lenfm 1) f* m lenr r))])]))
+
+;; -----------------------------------------------------------------------------
+
+(define sample-bs
+  (foldl (λ ([acc : (BootstrappedQueue Int)] [x : Int]) (bs-snoc acc x)) (bs-empty) digit*))
+
+(check-type
+  (bs-isEmpty (E {Int}))
+  : Bool
+  ⇒ #t)
+
+(check-type
+  (bs-isEmpty sample-bs)
+  : Bool
+  ⇒ #f)
+
+(check-type
+  (bs-head sample-bs)
+  : (Option Int)
+  ⇒ (Some 1))
+
+(check-type
+  (bs-head (bs-snoc sample-bs 10))
+  : (Option Int)
+  ⇒ (Some 1))
+
+(check-type
+  (match (bs-tail sample-bs) with
+   [None -> None]
+   [Some bs -> (bs-head bs)])
+  : (Option Int)
+  ⇒ (Some 2))
+
+;; =============================================================================
+;; === Implicit Queue
+
+(define-type (Digit A)
+  [Zero]
+  [One A]
+  [Two A A])
+
+(define-type (ImplicitQueue A)
+  [Shallow (Digit A)]
+  [Deep (Digit A) (ImplicitQueue (× A A)) (Digit A)])
+
+(define (iq-empty → (ImplicitQueue A))
+  (Shallow Zero))
+
+(define (iq-isEmpty [iq : (ImplicitQueue A)] → Bool)
+  (match iq with
+   [Shallow d ->
+    (match d with
+     [Zero -> #t]
+     [One x -> #f]
+     [Two x y -> #f])]
+   [Deep a b c -> #f]))
+
+(define (iq-snoc [iq : (ImplicitQueue A)] [y : A] → (ImplicitQueue A))
+  (match iq with
+   [Shallow d ->
+    (match d with
+     [Zero -> (Shallow (One y))]
+     [One x -> (Deep (Two x y) (Shallow Zero) Zero)]
+     [Two x y -> ;; Error
+      (Shallow Zero)])]
+   [Deep f m d ->
+    (match d with
+     [Zero -> (Deep f m (One y))]
+     [One x -> (Deep f (iq-snoc m (tup x y)) Zero)]
+     [Two x y -> (Shallow Zero)])])) ;; Error
+
+(define (iq-head [iq : (ImplicitQueue A)] → (Option A))
+  (match iq with
+   [Shallow d ->
+    (match d with
+     [Zero -> None]
+     [One x -> (Some x)]
+     [Two x y -> (Some x)])] ;; Error
+   [Deep d m r ->
+    (match d with
+     [Zero -> None] ;; Error
+     [One x -> (Some x)]
+     [Two x y -> (Some x)])]))
+
+(define (iq-tail [iq : (ImplicitQueue A)] → (Option (ImplicitQueue A)))
+  (match iq with
+   [Shallow d ->
+    (match d with
+     [Zero -> None]
+     [One x -> (Some (Shallow Zero))]
+     [Two x y -> None])] ;; Error
+   [Deep d m r ->
+    (match d with
+     [Zero -> None] ;; Error
+     [One x ->
+      (match (iq-head m) with
+       [None -> (Some (Shallow r))]
+       [Some yz ->
+        (match yz with
+         [y z ->
+          (match (iq-tail m) with
+           [None -> None]
+           [Some tl ->
+            (Some (Deep (Two y z) tl r))])])])]
+     [Two x y -> (Some (Deep (One y) m r))])]))
+
+;; -----------------------------------------------------------------------------
+
+(define sample-iq
+  (foldl (λ ([acc : (ImplicitQueue Int)] [x : Int]) (iq-snoc acc x)) (iq-empty) digit*))
+
+(check-type
+  (iq-isEmpty (Shallow (Zero {Int})))
+  : Bool
+  ⇒ #t)
+
+(check-type
+  (iq-isEmpty sample-iq)
+  : Bool
+  ⇒ #f)
+
+(check-type
+  (iq-head sample-iq)
+  : (Option Int)
+  ⇒ (Some 1))
+
+(check-type
+  (iq-head (iq-snoc sample-iq 10))
+  : (Option Int)
+  ⇒ (Some 1))
+
+(check-type
+  (match (iq-tail sample-iq) with
+   [None -> None]
+   [Some iq -> (iq-head iq)])
+  : (Option Int)
+  ⇒ (Some 2))
+
+;; =============================================================================
+;; === Bankers Deque
+
+(define-type (BankersDeque A)
+  [BD Int (List A) Int (List A)])
+
+(define c 3)
+
+(define (bd-check [lenf : Int] [f : (List A)] [lenr : Int] [r : (List A)] → (BankersDeque A))
+  (if (> lenf (+ c (+ lenr 1)))
+    (let* ([i (div (+ lenf lenr) 2)]
+           [j (- (+ lenf lenr) i)]
+           [r2 (take j r)]
+           [f2 (append f (reverse (drop j r)))])
+      (BD i f2 j r2))
+    (if (> lenr (+ 1 (* c lenf)))
+      (let* ([j (div (+ lenf lenr) 2)]
+             [i (- (+ lenr lenf) j)]
+             [r2 (take j r)]
+             [f2 (append f (reverse (drop j r)))])
+        (BD i f2 j r2))
+      (BD lenf f lenr r))))
+
+(define (bd-empty → (BankersDeque A))
+  (BD 0 Nil 0 Nil))
+
+(define (bd-isEmpty [bd : (BankersDeque A)] → Bool)
+  (match bd with
+   [BD lenf f lenr r -> (= 0 (+ lenf lenr))]))
+
+(define (bd-cons [x : A] [bd : (BankersDeque A)] → (BankersDeque A))
+  (match bd with
+   [BD lenf f lenr r -> (bd-check (+ lenf 1) (∷ x f) lenr r)]))
+
+(define (bd-head [bd : (BankersDeque A)] → (Option A))
+  (match bd with
+   [BD lenf f lenr r ->
+    (match f with
+     [Nil -> None]
+     [∷ x f2 -> (Some x)])]))
+
+(define (bd-tail [bd : (BankersDeque A)] → (Option (BankersDeque A)))
+  (match bd with
+   [BD lenf f lenr r ->
+    (match f with
+     [Nil -> None]
+     [∷ x f2 -> (Some (bd-check (- lenf 1) f2 lenr r))])]))
+
+(define (bd-snoc [bd : (BankersDeque A)] [x : A] → (BankersDeque A))
+  (match bd with
+   [BD lenf f lenr r -> (bd-check lenf f (+ lenr 1) (∷ x r))]))
+
+(define (bd-last [bd : (BankersDeque A)] → (Option A))
+  (match bd with
+   [BD lenf f lenr r ->
+    (match r with
+     [Nil -> None]
+     [∷ x r2 -> (Some x)])]))
+
+(define (bd-init [bd : (BankersDeque A)] → (Option (BankersDeque A)))
+  (match bd with
+   [BD lenf f lenr r ->
+    (match r with
+     [Nil -> None]
+     [∷ x r -> (Some (bd-check lenf f (- lenr 1) r))])]))
+
+;; -----------------------------------------------------------------------------
+
+(define sample-bd
+  (foldl (λ ([acc : (BankersDeque Int)] [x : Int]) (bd-snoc acc x)) (bd-empty) digit*))
+
+(check-type
+  (bd-isEmpty (BD 0 (Nil {Int}) 0 (Nil {Int})))
+  : Bool
+  ⇒ #t)
+
+(check-type
+  (bd-isEmpty sample-bd)
+  : Bool
+  ⇒ #f)
+
+(check-type
+  (bd-head sample-bd)
+  : (Option Int)
+  ⇒ (Some 1))
+
+(check-type
+  (bd-last sample-bd)
+  : (Option Int)
+  ⇒ (Some 9))
+
+(check-type
+  (bd-head (bd-snoc sample-bd 10))
+  : (Option Int)
+  ⇒ (Some 1))
+
+(check-type
+  (bd-head (bd-cons 10 sample-bd))
+  : (Option Int)
+  ⇒ (Some 10))
+
+(check-type
+  (match (bd-tail sample-bd) with
+   [None -> None]
+   [Some bd -> (bd-head bd)])
+  : (Option Int)
+  ⇒ (Some 2))
+
+(check-type
+  (match (bd-init sample-bd) with
+   [None -> None]
+   [Some bd -> (bd-last bd)])
+  : (Option Int)
+  ⇒ (Some 8))
+
+;; =============================================================================
+;; === Simple Catenable Deque
+
+(define-type (SimpleCatDeque a)
+  [SShallow (BankersDeque a)]
+  [SDeep (BankersDeque a) (SimpleCatDeque (BankersDeque a)) (BankersDeque a)])
+
+(define (bd-tooSmall [d : (BankersDeque A)] → Bool)
+  (if (bd-isEmpty d)
+    #t
+    (match (bd-tail d) with
+     [None -> #t]
+     [Some d -> (bd-isEmpty d)])))
+
+(define (bd-dappendL [d1 : (BankersDeque A)] [d2 : (BankersDeque A)] → (BankersDeque A))
+  (match (bd-head d1) with
+   [None -> d2]
+   [Some h -> (bd-cons h d2)]))
+
+(define (bd-dappendR [d1 : (BankersDeque A)] [d2 : (BankersDeque A)] → (BankersDeque A))
+  (match (bd-head d2) with
+   [None -> d1]
+   [Some h -> (bd-snoc d1 h)]))
+
+(define (scd-empty → (SimpleCatDeque A))
+  (SShallow (bd-empty)))
+
+(define (scd-isEmpty [scd : (SimpleCatDeque A)] → Bool)
+  (match scd with
+   [SShallow d -> (bd-isEmpty d)]
+   [SDeep a b c -> #f]))
+
+(define (scd-cons [x : A] [scd : (SimpleCatDeque A)] → (SimpleCatDeque A))
+  (match scd with
+   [SShallow d -> (SShallow (bd-cons x d))]
+   [SDeep f m r -> (SDeep (bd-cons x f) m r)]))
+
+(define (scd-snoc [scd : (SimpleCatDeque A)] [x : A] → (SimpleCatDeque A))
+  (match scd with
+   [SShallow d -> (SShallow (bd-snoc d x))]
+   [SDeep f m r -> (SDeep f m (bd-snoc f x))]))
+
+(define (scd-head [scd : (SimpleCatDeque A)] → (Option A))
+  (match scd with
+   [SShallow d -> (bd-head d)]
+   [SDeep f m r -> (bd-head f)]))
+
+(define (scd-last [scd : (SimpleCatDeque A)] → (Option A))
+  (match scd with
+   [SShallow d -> (bd-last d)]
+   [SDeep f m r -> (bd-last r)]))
+
+(define (scd-tail [scd : (SimpleCatDeque A)] → (Option (SimpleCatDeque A)))
+  (match scd with
+   [SShallow d ->
+    (match (bd-tail d) with
+     [None -> None]
+     [Some t -> (Some (SShallow t))])]
+   [SDeep f m r ->
+    (match (bd-tail f) with
+     [None -> None]
+     [Some f2 ->
+      (if (not (bd-tooSmall f2))
+        (Some (SDeep f2 m r))
+        (if (scd-isEmpty m)
+          (Some (SShallow (bd-dappendL f2 r)))
+          (match (scd-head m) with
+           [None -> None]
+           [Some hm ->
+            (match (scd-tail m) with
+             [None -> None]
+             [Some tm ->
+              (Some (SDeep (bd-dappendL f2 hm) tm r))])])))])]))
+
+(define (scd-init [scd : (SimpleCatDeque A)] → (Option (SimpleCatDeque A)))
+  (match scd with
+   [SShallow d ->
+    (match (bd-init d) with
+     [None -> None]
+     [Some t -> (Some (SShallow t))])]
+   [SDeep f m r ->
+    (match (bd-init r) with
+     [None -> None]
+     [Some r2 ->
+      (if (not (bd-tooSmall r2))
+        (Some (SDeep f m r2))
+        (if (scd-isEmpty m)
+          (Some (SShallow (bd-dappendR r r2)))
+          (match (scd-last m) with
+           [None -> None]
+           [Some lm ->
+            (match (scd-init m) with
+             [None -> None]
+             [Some im ->
+              (Some (SDeep f im (bd-dappendR lm r2)))])])))])]))
+
+(define (scd-++ [scd1 : (SimpleCatDeque A)] [scd2 : (SimpleCatDeque A)] → (SimpleCatDeque A))
+  (match scd1 with
+   [SShallow d1 ->
+    (match scd2 with
+     [SShallow d2 ->
+      (if (bd-tooSmall d1)
+        (SShallow (bd-dappendL d1 d2))
+        (if (bd-tooSmall d2)
+          (SShallow (bd-dappendR d1 d2))
+          (SDeep d1 (scd-empty) d2)))]
+     [SDeep f m r ->
+      (if (bd-tooSmall d1)
+        (SDeep (bd-dappendL d1 f) m r)
+        (SDeep d1 (scd-cons f m) r))])]
+   [SDeep f1 m1 r1 ->
+    (match scd2 with
+     [SShallow d2 ->
+      (if (bd-tooSmall d2)
+        (SDeep f1 m1 (bd-dappendR r1 d2))
+        (SDeep f1 (scd-snoc m1 r1) d2))]
+     [SDeep f2 m2 r2 ->
+      (SDeep f1 (scd-++ (scd-snoc m1 f1) (scd-cons r1 m2)) r2)])]))
+
+(define (scd->list [scd : (SimpleCatDeque A)] → (List A))
+  (match (scd-head scd) with
+   [None -> Nil]
+   [Some hd ->
+    (match (scd-tail scd) with
+     [None -> (∷ hd Nil)]
+     [Some tl -> (∷ hd (scd->list tl))])]))
+
+;; -----------------------------------------------------------------------------
+
+(define sample-scd
+  (foldl (λ ([acc : (SimpleCatDeque Int)] [x : Int]) (scd-snoc acc x)) (scd-empty) digit*))
+
+(define (empty-sample → (SimpleCatDeque Int))
+  (scd-empty))
+
+(check-type
+  (scd-isEmpty (SShallow (BD 0 (Nil {Int}) 0 (Nil {Int}))))
+  : Bool
+  ⇒ #t)
+
+(check-type
+  (scd-isEmpty sample-scd)
+  : Bool
+  ⇒ #f)
+
+(check-type
+  (scd-head sample-scd)
+  : (Option Int)
+  ⇒ (Some 1))
+
+(check-type
+  (scd-head (empty-sample))
+  : (Option Int)
+  ⇒ None)
+
+(check-type
+  (scd-last sample-scd)
+  : (Option Int)
+  ⇒ (Some 9))
+
+(check-type
+  (scd-last (empty-sample))
+  : (Option Int)
+  ⇒ None)
+
+(check-type
+  (scd-head (scd-snoc sample-scd 10))
+  : (Option Int)
+  ⇒ (Some 1))
+
+(check-type
+  (scd-head (scd-cons 10 sample-scd))
+  : (Option Int)
+  ⇒ (Some 10))
+
+(check-type
+  (match (scd-tail sample-scd) with
+   [None -> None]
+   [Some scd -> (scd-head scd)])
+  : (Option Int)
+  ⇒ (Some 2))
+
+(check-type
+  (scd-tail (empty-sample))
+  : (Option (SimpleCatDeque Int))
+  ⇒ None)
+
+(check-type
+  (match (scd-init sample-scd) with
+   [None -> None]
+   [Some scd -> (scd-last scd)])
+  : (Option Int)
+  ⇒ (Some 8))
+
+(check-type
+  (scd-init (empty-sample))
+  : (Option (SimpleCatDeque Int))
+  ⇒ None)
+
+(check-type
+  (match (scd-head (scd-++ (scd-cons 1 (scd-empty)) (empty-sample))) with
+   [None -> None]
+   [Some i -> (Some i)])
+  : (Option Int)
+  ⇒ (Some 1))
+
+(check-type
+  (match (scd-head (scd-++ (empty-sample) (scd-cons 2 (scd-empty)))) with
+   [None -> None]
+   [Some scd -> (Some scd)])
+  : (Option Int)
+  ⇒ (Some 2))
+
+(check-type
+  (match (scd-tail (scd-++ (scd-cons 1 (scd-empty)) (scd-cons 2 (scd-empty)))) with
+   [None -> None]
+   [Some scd -> (scd-head scd)])
+  : (Option Int)
+  ⇒ (Some 2))
+
+(define (scd-ref [n : Int] [scd : (SimpleCatDeque A)] → (Option A))
+  (if (< n 1)
+    (scd-head scd)
+    (match (scd-tail scd) with
+     [None -> None]
+     [Some tl -> (scd-ref (- n 1) tl)])))
+
+(check-type
+  (scd-ref 2
+    (scd-++
+      (scd-++ (scd-cons 1 (scd-empty)) (scd-cons 2 (scd-empty)))
+      (scd-++ (scd-cons 3 (scd-empty)) (scd-cons 4 (scd-empty)))))
+  : (Option Int)
+  ⇒ (Some 3))
+
+(check-type
+  (scd-ref 0
+    (scd-++
+      (scd-++ (scd-cons 1 (scd-empty)) (scd-cons 2 (scd-empty)))
+      (scd-++ (scd-cons 3 (scd-empty)) (scd-cons 4 (scd-empty)))))
+  : (Option Int)
+  ⇒ (Some 1))
+
+(check-type
+  (scd->list
+    (scd-++
+      (scd-++ (scd-cons 1 (scd-empty)) (scd-cons 2 (scd-empty)))
+      (scd-++ (scd-cons 3 (scd-empty)) (scd-cons 4 (scd-empty)))))
+  : (List Int)
+  ⇒ (∷ 1 (∷ 2 (∷ 3 (∷ 4 Nil)))))
+
+(check-type
+  (scd-ref 1
+    (scd-++
+      (scd-++
+        (scd-++ (scd-cons 1 (scd-empty)) (scd-cons 2 (scd-empty)))
+        (scd-++ (scd-cons 3 (scd-empty)) (scd-cons 4 (scd-empty))))
+      (scd-++
+        (scd-++ (scd-cons 5 (scd-empty)) (scd-cons 6 (scd-empty)))
+        (scd-++ (scd-cons 7 (scd-empty)) (scd-cons 8 (scd-empty))))))
+  : (Option Int)
+  ⇒ (Some 2))
+
+(check-type
+  (scd-ref 3
+    (scd-++
+      (scd-++
+        (scd-++ (scd-cons 1 (scd-empty)) (scd-cons 2 (scd-empty)))
+        (scd-++ (scd-cons 3 (scd-empty)) (scd-cons 4 (scd-empty))))
+      (scd-++
+        (scd-++ (scd-cons 5 (scd-empty)) (scd-cons 6 (scd-empty)))
+        (scd-++ (scd-cons 7 (scd-empty)) (scd-cons 8 (scd-empty))))))
+  : (Option Int)
+  ⇒ (Some 4))
+
+;; TODO this is a bug, but at least we have the right types in MLish
+;(check-type
+;  (scd->list
+;    (scd-++
+;      (scd-++
+;        (scd-++ (scd-cons 1 (scd-empty)) (scd-cons 2 (scd-empty)))
+;        (scd-++ (scd-cons 3 (scd-empty)) (scd-cons 4 (scd-empty))))
+;      (scd-++
+;        (scd-++ (scd-cons 5 (scd-empty)) (scd-cons 6 (scd-empty)))
+;        (scd-++ (scd-cons 7 (scd-empty)) (scd-cons 8 (scd-empty))))))
+;  : (List Int)
+;  ⇒ (∷ 1 (∷ 2 (∷ 3 (∷ 4 (∷ 5 (∷ 6 (∷ 7 (∷ 8 Nil)))))))))
+
+;; =============================================================================
+;; === Binary Random Access List
+
+(define-type (Tree A)
+  (Leaf A)
+  (Node Int (Tree A) (Tree A)))
+
+(define-type (BLDigit A)
+  (BLZero)
+  (BLOne (Tree A)))
+
+(define-type (BinaryList A)
+  (BL (List (BLDigit A))))
+
+(define (size (t : (Tree A)) → Int)
+  (match t with
+   (Leaf x -> 1)
+   (Node w t1 t2 -> w)))
+
+(define (link (t1 : (Tree A)) (t2 : (Tree A)) → (Tree A))
+  (Node (+ (size t1) (size t2)) t1 t2))
+
+(define (consTree (t : (Tree A)) (x* : (List (BLDigit A))) → (List (BLDigit A)))
+  (match x* with
+   (Nil -> (∷ (BLOne t) Nil))
+   (∷ h ts ->
+    (match h with
+     (BLZero -> (∷ (BLOne t) ts))
+     (BLOne t2 -> (∷ BLZero (consTree (link t t2) ts)))))))
+
+
+;; TODO τ_e bad syntax when using `match2`
+(define (unconsTree (d* : (List (BLDigit A))) → (Option (× (Tree A) (List (BLDigit A)))))
+  (match d* with
+   (Nil -> None)
+   (∷ d*-hd d*-tl ->
+    (match d*-hd with
+     (BLOne t ->
+      (match d*-tl with
+       (Nil -> (Some (tup t Nil)))
+       (∷ a b -> (Some (tup t (∷ BLZero d*-tl))))))
+     (BLZero ->
+      (match (unconsTree d*-tl) with
+       (None -> None)
+       (Some udt ->
+        (match udt with
+         (a ts ->
+          (match a with
+           (Leaf x -> None)
+           (Node x t1 t2 ->
+            (Some (tup t1 (∷ (BLOne t2) ts))))))))))))))
+
+(define (bl-empty → (BinaryList A))
+  (BL Nil))
+
+(define (bl-isEmpty (b : (BinaryList A)) → Bool)
+  (match b with
+   (BL x* ->
+    (match x* with
+     (Nil -> #t)
+     (∷ a b -> #f)))))
+
+(define (bl-cons (x : A) (b : (BinaryList A)) → (BinaryList A))
+  (match b with
+   (BL ts -> (BL (consTree (Leaf x) ts)))))
+
+(define (bl-head (b : (BinaryList A)) → (Option A))
+  (match b with
+   (BL ts ->
+    (match (unconsTree ts) with
+     (None -> None)
+     (Some xy ->
+      (match xy with
+       (x y ->
+        (match x with
+         (Leaf x -> (Some x))
+         (Node a b c -> None)))))))))
+
+(define (bl-tail (b : (BinaryList A)) → (Option (BinaryList A)))
+  (match b with
+   (BL ts ->
+    (match (unconsTree ts) with
+     (None -> None)
+     (Some xy ->
+      (match xy with
+       (x ts2 -> (Some (BL ts2)))))))))
+
+(define (bl-lookup (i : Int) (b : (BinaryList A)) → (Option A))
+  (match b with
+   [BL ts ->
+    (look i ts)]))
+
+(define (look [i : Int] [ts : (List (BLDigit A))] → (Option A))
+  (match ts with
+   [Nil -> None]
+   [∷ h ts ->
+    (match h with
+     [BLZero ->
+      (look i ts)]
+     [BLOne t ->
+      (let ((size-t (size t)))
+        (if (< i size-t)
+          (lookTree i t)
+          (look (- i size-t) ts)))])]))
+
+(define (lookTree (i : Int) (t : (Tree A)) → (Option A))
+  (match t with
+   [Leaf x ->
+    (if (= 0 i)
+      (Some x)
+      None)]
+   [Node w t1 t2 ->
+    (let ((w/2 (div w 2)))
+      (if (< i w/2)
+        (lookTree i t1)
+        (lookTree (- i w/2) t2)))]))
+
+(define (bl-update (i : Int) (y : A) (b : (BinaryList A)) → (Option (BinaryList A)))
+  (match b with
+   [BL ts ->
+    (match (upd i y ts) with
+     (None -> None)
+     (Some x -> (Some (BL x))))]))
+
+(define (upd (i : Int) (y : A) (b : (List (BLDigit A))) → (Option (List (BLDigit A))))
+  (match b with
+   [Nil -> None]
+   [∷ h ts ->
+    (match h with
+     [BLZero ->
+      (match (upd i y ts) with
+       (None -> None)
+       (Some x -> (Some (∷ BLZero x))))]
+     [BLOne t ->
+      (let ((size-t (size t)))
+        (if (< i size-t)
+          (match (updTree i y t) with
+           (None -> None)
+           (Some x -> (Some (∷ (BLOne x) ts))))
+          (match (upd (- i size-t) y ts) with
+           (None -> None)
+           (Some x -> (Some (∷ (BLOne t) x))))))])]))
+
+(define (updTree (i : Int) (y : A) (t : (Tree A)) → (Option (Tree A)))
+  (match t with
+   (Leaf x ->
+    (if (= 0 i)
+      (Some (Leaf y))
+      None))
+   (Node w t1 t2 ->
+    (let ((w/2 (div w 2)))
+      (if (< i w/2)
+        (match (updTree i y t1) with
+         (None -> None)
+         (Some x -> (Some (Node w x t2))))
+        (match (updTree (- i w/2) y t2) with
+         (None -> None)
+         (Some x -> (Some (Node w t1 x)))))))))
+
+(define (list->bl-list (x* : (List A)) → (BinaryList A))
+  (match x* with
+   (Nil -> (bl-empty))
+   (∷ x x* -> (bl-cons x (list->bl-list x*)))))
+
+;; =============================================================================
+
+(define bl-digit*
+  (list->bl-list (∷ 1 (∷ 2 (∷ 3 (∷ 4 (∷ 5 (∷ 6 (∷ 7 (∷ 8 (∷ 9 Nil)))))))))))
+
+(define (bl-nil → (BinaryList Int))
+  (list->bl-list Nil))
+
+(check-type
+  (bl-isEmpty (bl-nil))
+  : Bool
+  ⇒ #t)
+
+(check-type
+  (bl-isEmpty bl-digit*)
+  : Bool
+  ⇒ #f)
+
+(check-type
+  (match (bl-head bl-digit*) with
+   (None -> 0)
+   (Some x -> x))
+  : Int
+  ⇒ 1)
+
+(check-type
+  (match (bl-tail bl-digit*) with
+   (None -> 0)
+   (Some x ->
+    (match (bl-head x) with
+     (None -> 0)
+     (Some y -> y))))
+  : Int
+  ⇒ 2)
+
+(check-type
+  (match (bl-lookup 7 bl-digit*) with
+   (None -> 0)
+   (Some x -> x))
+  : Int
+  ⇒ 8)
+
+(check-type
+  (match (bl-lookup 8 bl-digit*) with
+   (None -> 0)
+   (Some x -> x))
+  : Int
+  ⇒ 9)
+
+(check-type
+  (bl-lookup -111 bl-digit*)
+  : (Option Int)
+  ⇒ None)
+
+(check-type
+  (match (bl-update 3 99 bl-digit*) with
+   (None -> None)
+   (Some x -> (bl-lookup 3 x)))
+  : (Option Int)
+  ⇒ (Some 99))
+
+(check-type
+  (match (bl-update 0 222 bl-digit*) with
+   (None -> None)
+   (Some x -> (bl-head x)))
+  : (Option Int)
+  ⇒ (Some 222))
+
+(check-type
+  (bl-update 83 1 bl-digit*)
+  : (Option (BinaryList Int))
+  ⇒ None)
+
+;; =============================================================================
+;; === Skew Binary Random Access Lists
+
+(define-type (ATree A)
+  (ALeaf A)
+  (ANode A (ATree A) (ATree A)))
+
+(define-type (SkewList A)
+  (SL (List (× Int (ATree A)))))
+
+(define (sb-empty → (SkewList A))
+  (SL Nil))
+
+(define (sb-isEmpty (sl : (SkewList A)) → Bool)
+  (match sl with
+   (SL xs ->
+    (match xs with
+     (Nil -> #t)
+     (∷ a b -> #f)))))
+
+(define (sb-cons (x : A) (sl : (SkewList A)) → (SkewList A))
+  (match sl with
+   (SL ts ->
+    (let ((base-case (SL (∷ (tup 1 (ALeaf x)) ts))))
+      (match ts with
+       (Nil -> base-case)
+       (∷ w1t1 ts ->
+        (match ts with
+         (Nil -> base-case)
+         (∷ w2t2 ts ->
+          (match w1t1 with
+           (w1 t1 ->
+            (match w2t2 with
+             (w2 t2 ->
+              (if (= w1 w2)
+                (SL (∷ (tup (+ 1 (+ w1 w2)) (ANode x t1 t2)) ts))
+                base-case)))))))))))))
+
+(define (sb-head (sl : (SkewList A)) → (Option A))
+  (match sl with
+   (SL ts ->
+    (match ts with
+     (Nil -> None)
+     (∷ w1t1 ts ->
+      (match w1t1 with
+       (w1 t1 ->
+        (match t1 with
+         (ALeaf x ->
+          (if (= w1 1)
+            (Some x)
+            None)) ;; Invariant error
+         (ANode x t1 t2 ->
+          (Some x))))))))))
+
+(define (sb-tail (sl : (SkewList A)) → (Option (SkewList A)))
+  (match sl with
+   (SL ts ->
+    (match ts with
+     (Nil -> None)
+     (∷ w1t1 ts ->
+      (match w1t1 with
+       (w1 t1 ->
+        (match t1 with
+         (ALeaf x ->
+          (if (= 1 w1)
+            (Some (SL ts))
+            None)) ;; Invariant
+         (ANode x t1 t2 ->
+           (let ((w1/2 (div w1 2)))
+             (Some (SL (∷ (tup w1/2 t1) (∷ (tup w1/2 t2) ts))))))))))))))
+
+(define (sb-lookup (i : Int) (sl : (SkewList A)) → (Option A))
+  (match sl with
+   (SL ts ->
+    (sb-look i ts))))
+
+(define (sb-look (i : Int) (ts : (List (× Int (ATree A)))) → (Option A))
+  (match ts with
+   (Nil -> None) ;; Bad subscript
+   (∷ wt ts ->
+    (match wt with
+     (w t ->
+      (if (< i w)
+        (sb-lookTree w i t)
+        (sb-look (- i w) ts)))))))
+
+(define (sb-lookTree (w : Int) (i : Int) (t : (ATree A)) → (Option A))
+  (match t with
+   (ALeaf x ->
+    (if (and (= w 1) (= i 0))
+      (Some x)
+      None))
+   (ANode x t1 t2 ->
+    (if (= 0 i)
+      (Some x)
+      (let ((w/2 (div w 2)))
+        (if (<= i w/2)
+          (sb-lookTree w/2 (- i 1) t1)
+          (sb-lookTree w/2 (- (- i 1) w/2) t2)))))))
+
+(define (sb-update (i : Int) (y : A) (sl : (SkewList A)) → (Option (SkewList A)))
+  (match sl with
+   (SL ts ->
+    (match (sb-upd i y ts) with
+     (None -> None)
+     (Some ts -> (Some (SL ts)))))))
+
+(define (sb-upd (i : Int) (y : A) (ts : (List (× Int (ATree A)))) → (Option (List (× Int (ATree A)))))
+  (match ts with
+   (Nil -> None)
+   (∷ wt ts ->
+    (match wt with
+     (w t ->
+      (if (< i w)
+        (match (sb-updTree w i y t) with
+         (None -> None)
+         (Some x -> (Some (∷ (tup w x) ts))))
+        (match (sb-upd (- i w) y ts) with
+         (None -> None)
+         (Some x -> (Some (∷ (tup w t) x))))))))))
+
+(define (sb-updTree (w : Int) (i : Int) (y : A) (t : (ATree A)) → (Option (ATree A)))
+  (match t with
+   (ALeaf x ->
+    (if (and (= 1 w) (= 0 i))
+      (Some (ALeaf y))
+      None)) ;; Invariant error
+   (ANode x t1 t2 ->
+    (if (= 0 i)
+      (Some (ANode y t1 t2))
+      (let ((w/2 (div w 2)))
+        (if (<= i w/2)
+          (match (sb-updTree w/2 (- i 1) y t1) with
+           (None -> None)
+           (Some z -> (Some (ANode x z t2))))
+          (match (sb-updTree w/2 (- (- i 1) w/2) y t2) with
+           (None -> None)
+           (Some z -> (Some (ANode x t1 z))))))))))
+
+(define (list->sb-list (x* : (List A)) → (SkewList A))
+  (match x* with
+   (Nil -> (sb-empty))
+   (∷ h t -> (sb-cons h (list->sb-list t)))))
+
+;; =============================================================================
+
+(define sb-digit*
+  (list->sb-list (∷ 1 (∷ 2 (∷ 3 (∷ 4 (∷ 5 (∷ 6 (∷ 7 (∷ 8 (∷ 9 Nil)))))))))))
+
+(define (sb-nil → (SkewList Int))
+  (list->sb-list Nil))
+
+(check-type
+  (sb-isEmpty (sb-nil))
+  : Bool
+  ⇒ #t)
+
+(check-type
+  (sb-isEmpty sb-digit*)
+  : Bool
+  ⇒ #f)
+
+(check-type
+  (match (sb-head sb-digit*) with
+   (None -> 0)
+   (Some x -> x))
+  : Int
+  ⇒ 1)
+
+(check-type
+  (match (sb-tail sb-digit*) with
+   (None -> 0)
+   (Some x ->
+    (match (sb-head x) with
+     (None -> 0)
+     (Some y -> y))))
+  : Int
+  ⇒ 2)
+
+(check-type
+  (match (sb-lookup 7 sb-digit*) with
+   (None -> 0)
+   (Some x -> x))
+  : Int
+  ⇒ 8)
+
+(check-type
+  (match (sb-lookup 8 sb-digit*) with
+   (None -> 0)
+   (Some x -> x))
+  : Int
+  ⇒ 9)
+
+(check-type
+  (sb-lookup -111 sb-digit*)
+  : (Option Int)
+  ⇒ None)
+
+(check-type
+  (match (sb-update 3 99 sb-digit*) with
+   (None -> None)
+   (Some x -> (sb-lookup 3 x)))
+  : (Option Int)
+  ⇒ (Some 99))
+
+(check-type
+  (match (sb-update 0 222 sb-digit*) with
+   (None -> None)
+   (Some x -> (sb-head x)))
+  : (Option Int)
+  ⇒ (Some 222))
+
+(check-type
+  (sb-update 83 1 sb-digit*)
+  : (Option (SkewList Int))
+  ⇒ None)
+
+;; =============================================================================
+;; === Alt Binary Random Access List
+
+(define-type (BinaryRAList A)
+  (ABLNil)
+  (ABLZero (BinaryRAList (× A A)))
+  (ABLOne A (BinaryRAList (× A A))))
+
+(define (abl-uncons (bl : (BinaryRAList A)) → (Option (× A (BinaryRAList A))))
+  (match bl with
+   (ABLNil -> None)
+   (ABLOne x ps ->
+    (Some (match ps with
+     (ABLNil -> (tup x ABLNil))
+     (ABLOne y ps2 -> (tup x (ABLZero ps)))
+     (ABLZero ps2 -> (tup x (ABLZero ps))))))
+   (ABLZero ps ->
+    (match (abl-uncons ps) with
+     (None -> None)
+     (Some xyps2 ->
+      (match xyps2 with
+       (xy ps2 ->
+        (match xy with
+         (x y -> (Some (tup x (ABLOne y ps2))))))))))))
+
+(define (abl-fupdate (f : (→ A A)) (i : Int) (bl : (BinaryRAList A)) → (Option (BinaryRAList A)))
+  (match bl with
+   (ABLNil -> None)
+   (ABLOne x ps ->
+    (if (= 0 i)
+      (Some (ABLOne (f x) ps))
+      (match (abl-fupdate f (- i 1) (ABLZero ps)) with
+       (None -> None)
+       (Some z -> (Some (abl-cons x z))))))
+   (ABLZero ps ->
+     (let ((f2 (if (= 0 (mod i 2))
+                 (λ ([xy : (× A A)])
+                   (match xy with (x y -> (tup (f x) y))))
+                 (λ ([xy : (× A A)])
+                   (match xy with (x y -> (tup x (f y))))))))
+      (match (abl-fupdate f2 (div i 2) ps) with
+        (None -> None)
+        (Some z -> (Some (ABLZero z))))))))
+
+(define (aabl-empty → (BinaryRAList A))
+  ABLNil)
+
+(define (abl-isEmpty (bl : (BinaryRAList A)) → Bool)
+  (match bl with
+   (ABLNil -> #t)
+   (ABLOne a b -> #f)
+   (ABLZero a -> #f)))
+
+(define (abl-cons (x : A) (bl : (BinaryRAList A)) → (BinaryRAList A))
+  (match bl with
+   (ABLNil -> (ABLOne x ABLNil))
+   (ABLZero ps -> (ABLOne x ps))
+   (ABLOne y ps -> (ABLZero (abl-cons (tup x y) ps)))))
+
+(define (abl-head (bl : (BinaryRAList A)) → (Option A))
+  (match (abl-uncons bl) with
+   (None -> None)
+   (Some xy ->
+    (match xy with
+     (x y -> (Some x))))))
+
+(define (abl-tail (bl : (BinaryRAList A)) → (Option (BinaryRAList A)))
+  (match (abl-uncons bl) with
+   (None -> None)
+   (Some xy ->
+    (match xy with
+     (x y -> (Some y))))))
+
+(define (abl-lookup (i : Int) (bl : (BinaryRAList A)) → (Option A))
+  (if (< i 0)
+    None
+    (abl-lookup/natural i bl)))
+
+(define (abl-lookup/natural (i : Int) (bl : (BinaryRAList A)) → (Option A))
+  (match bl with
+   (ABLNil -> None)
+   (ABLOne x ps ->
+    (if (= 0 i)
+      (Some x)
+      (abl-lookup/natural (- i 1) (ABLZero ps))))
+   (ABLZero ps ->
+    (match (abl-lookup/natural (div i 2) ps) with
+     (None -> None)
+     (Some xy ->
+      (match xy with
+       (x y ->
+        (if (= 0 (mod i 2))
+          (Some x)
+          (Some y)))))))))
+
+(define (abl-update (i : Int) (y : A) (bl : (BinaryRAList A)) → (Option (BinaryRAList A)))
+  (abl-fupdate (λ ([x : A]) y) i bl))
+
+(define (list->abl-list (xs : (List A)) → (BinaryRAList A))
+  (match xs with
+   (Nil -> (aabl-empty))
+   (∷ a b -> (abl-cons a (list->abl-list b)))))
+
+;; =============================================================================
+
+(define abl-digit*
+  (list->abl-list (∷ 1 (∷ 2 (∷ 3 (∷ 4 (∷ 5 (∷ 6 (∷ 7 (∷ 8 (∷ 9 Nil)))))))))))
+
+(define (abl-nil → (BinaryRAList Int))
+  (list->abl-list Nil))
+
+(check-type
+  (abl-isEmpty (abl-nil))
+  : Bool
+  ⇒ #t)
+
+(check-type
+  (abl-isEmpty abl-digit*)
+  : Bool
+  ⇒ #f)
+
+(check-type
+  (match (abl-head abl-digit*) with
+   (None -> 0)
+   (Some x -> x))
+  : Int
+  ⇒ 1)
+
+(check-type
+  (match (abl-tail abl-digit*) with
+   (None -> 0)
+   (Some x ->
+    (match (abl-head x) with
+     (None -> 0)
+     (Some y -> y))))
+  : Int
+  ⇒ 2)
+
+(check-type
+  (match (abl-lookup 7 abl-digit*) with
+   (None -> 0)
+   (Some x -> x))
+  : Int
+  ⇒ 8)
+
+(check-type
+  (match (abl-lookup 8 abl-digit*) with
+   (None -> 0)
+   (Some x -> x))
+  : Int
+  ⇒ 9)
+
+(check-type
+  (abl-lookup -111 abl-digit*)
+  : (Option Int)
+  ⇒ None)
+
+(check-type
+  (match (abl-update 3 99 abl-digit*) with
+   (None -> None)
+   (Some x -> (abl-lookup 3 x)))
+  : (Option Int)
+  ⇒ (Some 99))
+
+(check-type
+  (match (abl-update 0 222 abl-digit*) with
+   (None -> None)
+   (Some x -> (abl-head x)))
+  : (Option Int)
+  ⇒ (Some 222))
+
+(check-type
+  (abl-update 83 1 abl-digit*)
+  : (Option (BinaryRAList Int))
+  ⇒ None)
+

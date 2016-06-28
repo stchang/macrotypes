@@ -1,0 +1,191 @@
+#lang s-exp "../../mlish.rkt"
+(require "../rackunit-typechecking.rkt")
+
+(define +alu+
+  (string-append "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"
+                 "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA"
+                 "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT"
+                 "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA"
+                 "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG"
+                 "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC"
+                 "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"))
+
+(check-type +alu+ : String)
+
+(define IUB
+  (hash #\a 0.27 #\c 0.12 #\g 0.12 #\t 0.27 #\B 0.02
+        #\D 0.02 #\H 0.02 #\K 0.02 #\M 0.02 #\N 0.02
+        #\R 0.02 #\S 0.02 #\V 0.02 #\W 0.02 #\Y 0.02))
+
+(check-type IUB : (Hash Char Float))
+
+(define HOMOSAPIEN
+  (hash #\a 0.3029549426680 #\c 0.1979883004921
+        #\g 0.1975473066391 #\t 0.3015094502008))
+
+(check-type HOMOSAPIEN : (Hash Char Float))
+
+(define line-length 60)
+
+(check-type line-length : Int)
+
+(define (repeat-fasta [header : String] [N : Int] [sequence : String] -> String)
+  (let* ([out (open-output-string)]
+         [len (string-length sequence)]
+         [buf (make-string (+ len line-length))])
+  (string-copy! buf 0 sequence)
+  (string-copy! buf len sequence 0 line-length)
+  (write-string header out)
+  (let loop : String ([n N] [start 0])
+    (if (> n 0)
+      (let ([end (+ start (min n line-length))])
+        (write-string buf out start end)
+        (write-string "\n" out)
+        (loop (- n line-length) (if (> end len) (- end len) end)))
+      (get-output-string out)))))
+
+(define IA 3877)
+(define IC 29573)
+(define IM 139968)
+(define IM.0 (fx->fl IM))
+
+(define V 
+  (for/vector ([id (in-range IM)])
+    (modulo (+ IC (* id IA)) IM)))
+
+(check-type V : (Vector Int))
+
+(define (random-next [cur : Int] -> Int) (vector-ref V cur))
+
+(check-type (tup 0 0.0) : (× Int Float))
+
+(check-type (in-hash IUB) : (Sequence (× Char Float)))
+
+(define (make-lookup-table [frequency-table : (Hash Char Float)] -> String)
+  (let ([v (make-string IM)])
+    (for/fold ([cs (tup 0 0.0)])
+              ([k+v (in-hash frequency-table)])
+      (match cs with
+       [c c. ->
+        (match k+v with
+         [key val ->
+          (let* ([c1. (fl+ c. (fl* IM.0 val))]
+                 [c1 (inexact->exact (flceiling c1.))]
+                 #;[b (char->integer key)])
+            (for ([i (in-range c c1)]) (string-set! v i key))
+            (tup c1 c1.))])]))
+    v))
+
+(define (n-randoms [buf : String][out : String-Port][lookup : String]
+                   [to : Int][R : Int] -> Int)
+  (let loop : Int ([n 0] [R R])
+    (if (< n to)
+        (let ([R (random-next R)])
+          (string-set! buf n (string-ref lookup R))
+          (loop (add1 n) R))
+        (begin (write-string buf out 0 (add1 to)) R))))
+
+(define LF #\newline)
+
+(define (make-line! [buf : String] [lookup : String]
+                    [start : Int] [R : Int] -> Int)
+  (let ([end (+ start line-length)])
+    (string-set! buf end LF)
+    (let loop : Int ([n start] [R R])
+      (if (< n end)
+          (let ([R (random-next R)])
+            (string-set! buf n (string-ref lookup R))
+            (loop (add1 n) R))
+          R))))
+
+(define (random-fasta [header : String] [N : Int]
+                      [table : (Hash Char Float)] [R : Int] 
+                      -> (× Int String))
+  (let* ([buf (make-string (add1 line-length))]
+         [out (open-output-string)]
+         [lookup-str (make-lookup-table table)]
+         [full-lines+last (quotient+remainder N line-length)]
+         [C
+          (let* ([len+1 (add1 line-length)]
+                 [buflen (* len+1 IM)]
+                 [buf2 (make-string buflen)])
+            (let loop : String ([R R] [i 0])
+              (if (< i buflen)
+                  (loop (make-line! buf2 lookup-str i R) (+ i len+1))
+                  buf2)))])
+  (string-set! buf line-length LF)
+  (write-string header out)
+  (tup
+  (match full-lines+last with
+   [full-lines last ->
+   (let loop : Int ([i full-lines] [R R])
+     (if (> i IM)
+         (begin (write-string C out) (loop (- i IM) R))
+         (let loop : Int ([i i] [R R])
+              (cond 
+               [(> i 0) 
+                (loop 
+                 (sub1 i) 
+                 (n-randoms buf out lookup-str line-length R))]
+               [(> last 0) 
+                (string-set! buf last LF) 
+                (n-randoms buf out lookup-str last R)]
+               [else R]))))])
+  (get-output-string out))))
+
+(define n 10)
+
+(check-type (repeat-fasta ">ONE Homo sapiens alu\n" (* n 2) +alu+) : String
+ -> ">ONE Homo sapiens alu\nGGCCGGGCGCGGTGGCTCAC\n")
+
+(define res1
+  (random-fasta ">TWO IUB ambiguity codes\n" (* n 3) IUB 42))
+
+(define res2
+  (match res1 with
+   [R str ->   
+    (random-fasta ">THREE Homo sapiens frequency\n" (* n 5) HOMOSAPIEN R)]))
+
+(check-type (proj res1 1) : String
+ -> ">TWO IUB ambiguity codes\nattRtBtaDtatVataKatgaatcccgDtY\n")
+
+(check-type (proj res2 1) : String
+ -> (string-append ">THREE Homo sapiens frequency\n"
+      "atttgcggaaacgacaaatattaacacatcatcagagtaccataaaggga\n"))
+
+(define (mk-fasta [n : Int] -> String)
+  (let 
+   ([res1 (repeat-fasta ">ONE Homo sapiens alu\n" (* n 2) +alu+)]
+    [res2 (random-fasta ">TWO IUB ambiguity codes\n" (* n 3) IUB 42)]
+    [res3
+     (match res2 with
+      [R str ->   
+       (random-fasta ">THREE Homo sapiens frequency\n" (* n 5) HOMOSAPIEN R)])])
+   (string-append res1 (proj res2 1) (proj res3 1))))
+
+(provide mk-fasta)
+
+(check-type (mk-fasta 100) 
+  : String
+  -> (string-append  
+      ">ONE Homo sapiens alu\n"
+      "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGGCGGGCGGA\n"
+      "TCACCTGAGGTCAGGAGTTCGAGACCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACT\n"
+      "AAAAATACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCAGCTACTCGGGAG\n"
+      "GCTGAGGCAGGAGAATCGCT\n"
+      ">TWO IUB ambiguity codes\n"
+      "attRtBtaDtatVataKatgaatcccgDtYtcccNaNgtRttNtatttatcctSaRataW\n"
+      "taatNtNctaatctttggMtMttKtYtMHagBttagcMKMttttcWaactgcSttgaaac\n"
+      "gtcatHagHtgtaHVgtcattatgRcaVcaatctcWgaNtttVaaYcaaaataYtgWgtt\n"
+      "acttMgtHHgagtattaaaKSgtBgacaaggSaaRttVaVDHttRgctagtaaacgaaac\n"
+      "ttcRNtgcatttSagBtHttNRaatgtctattcaSaRYcgtatSattttttttgaBgagD\n"
+      ">THREE Homo sapiens frequency\n"
+      "gaagacaggtgtaacgtgggaaaatctctagtaaagctttgatcagcggagacgcgatca\n"
+      "acagatcctttatatcgcgaaacttctctctatcagcgaactaaggagggcgacaatccg\n"
+      "agctgttccggaccaaaccctgaaagtacgactctgctctaataaagtcaaaacgtagaa\n"
+      "gactagatacaattatactgacaacaaaaaaaagttgcgtgcacaagagtacgatgtttg\n"
+      "accgccagttattatgacgagggtgagaacaagtcaggctaaagtagaagagcaccatag\n"
+      "gtatcagtttaactgagtaaatgcgaatgcgtgactttaaataagcctgcgtgtgtcaaa\n"
+      "actctacaatatctttgttatattattgaatcattctggatttgaggcagtggagcatac\n"
+      "tgtataaaataatttttcggtgggtcaaaaataaatttcaattaagacgttaaggataat\n"
+      "gaaatgactcaatctaaggt\n"))

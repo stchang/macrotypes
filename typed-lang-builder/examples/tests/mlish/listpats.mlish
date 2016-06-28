@@ -1,0 +1,70 @@
+#lang s-exp "../../mlish.rkt"
+(require "../rackunit-typechecking.rkt")
+
+;; pattern matching for built-in lists
+
+(check-type
+  (match (list 1 2) with
+   [[] -> 0]
+   [[x y] -> (+ x y)]) : Int -> 3)
+
+(typecheck-fail
+  (match (list 1 2) with
+   [[x y] -> (+ x y)]) #:with-msg "missing empty list case")
+
+(typecheck-fail
+  (match (list 1 2) with
+   [[] -> 0]) #:with-msg "missing non\\-empty list case")
+
+(check-type
+  (match (list 1 2) with
+   [[] -> 0]
+   [[x y] -> (+ x y)]) : Int -> 3)
+
+(check-type
+  (match (list 1 2) with
+   [[x y] -> (+ x y)]
+   [[] -> 0]) : Int -> 3)
+
+(check-type
+  (match (nil {Int}) with
+   [[x y] -> (+ x y)]
+   [[] -> 0]) : Int -> 0)
+
+(check-type
+  (match (list 1 2 3) with
+   [[] -> nil]
+   [x :: rst -> rst]) : (List Int) -> (list 2 3))
+
+(check-type
+  (match (list 1 2 3) with
+   [[] -> nil]
+   [x :: y :: rst -> rst]) : (List Int) -> (list 3))
+
+(check-type
+  (match (nil {Int}) with
+   [[] -> nil]
+   [x :: y :: rst -> rst]) : (List Int) -> nil)
+
+(check-type
+  (match (list 1 2 3) with
+   [[] -> 0]
+   [x :: y :: rst -> (+ x y)]) : Int -> 3)
+
+(check-type
+  (match (list 1 2 3) with
+   [[] -> 0]
+   [[x] -> 2]
+   [x :: rst -> 3]) : Int -> 3)
+
+(check-type
+  (match (list 1) with
+   [[] -> 0]
+   [[x] -> 2]
+   [x :: rst -> 3]) : Int -> 2)
+
+(check-type
+  (match (list 1) with
+   [[] -> 0]
+   [x :: rst -> 3]
+   [[x] -> 2]) : Int -> 3)
