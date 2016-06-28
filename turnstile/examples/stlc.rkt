@@ -1,4 +1,4 @@
-#lang typed-lang-builder
+#lang turnstile
 (provide only-in (for-syntax current-type=? types=?))
 
 (begin-for-syntax

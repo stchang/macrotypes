@@ -1,4 +1,4 @@
-#lang typed-lang-builder
+#lang turnstile
 (extends "stlc+lit.rkt")
 (reuse #:from "stlc+rec-iso.rkt") ; want this type=?
 

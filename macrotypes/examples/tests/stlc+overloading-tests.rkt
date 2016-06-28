@@ -1,5 +1,5 @@
 #lang s-exp "../stlc+overloading.rkt"
-(require typed-lang-builder/examples/tests/rackunit-typechecking)
+(require turnstile/examples/tests/rackunit-typechecking)
 
 ;; -----------------------------------------------------------------------------
 ;; --- syntax for ψ types

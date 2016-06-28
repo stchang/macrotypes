@@ -1,4 +1,4 @@
-#lang typed-lang-builder
+#lang turnstile
 (extends "ext-stlc.rkt")
 
 (require (for-syntax racket/list))

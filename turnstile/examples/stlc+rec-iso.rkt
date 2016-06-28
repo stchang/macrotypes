@@ -1,4 +1,4 @@
-#lang typed-lang-builder
+#lang turnstile
 (extends "stlc+tup.rkt")
 (reuse ∨ var case define-type-alias define #:from "stlc+reco+var.rkt")
 

@@ -1,5 +1,5 @@
 #lang s-exp "../stlc+occurrence.rkt"
-(require typed-lang-builder/examples/tests/rackunit-typechecking)
+(require turnstile/examples/tests/rackunit-typechecking)
 
 ;; -----------------------------------------------------------------------------
 ;; basic types & syntax

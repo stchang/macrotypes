@@ -1,4 +1,4 @@
-#lang typed-lang-builder
+#lang turnstile
 (extends "stlc+reco+var.rkt")
 (reuse #:from "stlc+rec-iso.rkt") ; want type=?, but only need to load current-type=?
 

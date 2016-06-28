@@ -1,4 +1,4 @@
-#lang typed-lang-builder
+#lang turnstile
 (extends "stlc+reco+sub.rkt" #:except +)
 (require (rename-in (only-in "sysf.rkt" ∀? ∀ ~∀) [~∀ ~sysf:∀] [∀ sysf:∀]))
  

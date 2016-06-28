@@ -1,5 +1,5 @@
 #lang s-exp "../infer.rkt"
-(require typed-lang-builder/examples/tests/rackunit-typechecking)
+(require turnstile/examples/tests/rackunit-typechecking)
 
 (typecheck-fail (λ (x) x) #:with-msg "could not infer type of x; add annotation\\(s\\)")
 

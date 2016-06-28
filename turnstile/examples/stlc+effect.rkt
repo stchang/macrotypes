@@ -1,4 +1,4 @@
-#lang typed-lang-builder
+#lang turnstile
 (extends "stlc+box.rkt" #:except ref deref := #%app λ)
 
 ;; Simply-Typed Lambda Calculus, plus mutable references

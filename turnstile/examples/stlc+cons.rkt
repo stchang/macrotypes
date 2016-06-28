@@ -1,4 +1,4 @@
-#lang typed-lang-builder
+#lang turnstile
 (extends "stlc+reco+var.rkt")
 
 ;; Simply-Typed Lambda Calculus, plus cons

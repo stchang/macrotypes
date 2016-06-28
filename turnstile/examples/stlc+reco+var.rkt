@@ -1,4 +1,4 @@
-#lang typed-lang-builder
+#lang turnstile
 (extends "stlc+tup.rkt" #:except × ×? tup proj
                         #:rename [~× ~stlc:×])
 (provide × ∨ (for-syntax ~× ~×* ~∨ ~∨*))

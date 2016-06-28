@@ -1,4 +1,4 @@
-#lang typed-lang-builder
+#lang turnstile
 (extends "stlc+sub.rkt" #:except #%app #%datum)
 (extends "stlc+reco+var.rkt" #:except #%datum +)
 ;;use type=? and eval-type from stlc+reco+var.rkt, not stlc+sub.rkt
