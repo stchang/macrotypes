@@ -8,7 +8,7 @@
   (syntax-parse stx
     [(_ (x y) e)
      #:with
-     (lam xs (lr bs1 vs1 (lr2 bs2 vs2 e+)))
+     (lam xs (lr vs1 (lr2 vs2 e+)))
      (local-expand
       #'(λ (x y)
           (let-syntax
