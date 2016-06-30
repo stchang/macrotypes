@@ -89,14 +89,14 @@
 
 (define-typed-syntax inst
   [(inst e τ ...)
-   #:with (e- (([tv k] ...) (τ_body))) (⇑ e as ∀)
+   #:with [e- τ_e] (infer+erase #'e)
+   #:with (~∀ (tv ...) τ_body) #'τ_e
+   #:with (~∀★ k ...) (typeof #'τ_e)
    #:with ([τ- k_τ] ...) (infers+erase #'(τ ...))
-   #:when (stx-andmap
-           (λ (t k) (or ((current-kind?) k)
-                        (type-error #:src t #:msg "not a valid type: ~a" t)))
-           #'(τ ...) #'(k_τ ...))
-   #:when (typechecks? #'(k_τ ...) #'(k ...))
-   (⊢ e- : #,(substs #'(τ- ...) #'(tv ...) #'τ_body))])
+   #:fail-unless (typechecks? #'(k_τ ...) #'(k ...))
+   (typecheck-fail-msg/multi #'(k ...) #'(k_τ ...) #'(τ ...))
+   #:with τ_inst (substs #'(τ- ...) #'(tv ...) #'τ_body)
+   (⊢ e- : τ_inst)])
 
 ;; TODO: merge with regular λ and app?
 ;; - see fomega2.rkt

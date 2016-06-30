@@ -22,26 +22,25 @@
    (⊢ e- : ∃τ.norm)])
 
 (define-typed-syntax open #:datum-literals (<=)
-  [(open ([(tv:id x:id) <= e_packed]) e)
-   #:with [e_packed- ((τ_abstract) (τ_body))] (⇑ e_packed as ∃)
+  [(open [x:id <= e_packed with X:id] e)
      ;; The subst below appears to be a hack, but it's not really.
      ;; It's the (TaPL) type rule itself that is fast and loose.
      ;; Leveraging the macro system's management of binding reveals this.
      ;; 
      ;; Specifically, here is the TaPL Unpack type rule, fig24-1, p366:
-     ;; Γ ⊢ t_1 : {∃X,T_12}
-     ;; Γ,X,x:T_12 ⊢ t_2 : T_2
+     ;; Γ ⊢ e_packed : {∃X,τ_body}
+     ;; Γ,X,x:τ_body ⊢ e : τ_e
      ;; ------------------------------
-     ;; Γ ⊢ let {X,x}=t_1 in t_2 : T_2
+     ;; Γ ⊢ (open [x <= e_packed with X] e) : τ_e
      ;;
      ;; There's *two* separate binders, the ∃ and the let,
      ;; which the rule conflates.
      ;;
      ;; Here's the rule rewritten to distinguish the two binding positions:
-     ;; Γ ⊢ t_1 : {∃X_1,T_12}
-     ;; Γ,X_???,x:T_12 ⊢ t_2 : T_2
+     ;; Γ ⊢ e_packed : {∃X_1,τ_body}
+     ;; Γ,X_???,x:τ_body ⊢ e : τ_e
      ;; ------------------------------
-     ;; Γ ⊢ let {X_2,x}=t_1 in t_2 : T_2
+     ;; Γ ⊢ (open [x <= e_packed with X_2] e) : τ_e
      ;;
      ;; The X_1 binds references to X in T_12.
      ;; The X_2 binds references to X in t_2.
@@ -49,26 +48,28 @@
      ;;
      ;; A first guess might be to replace X_??? with both X_1 and X_2,
      ;; so all the potentially referenced type vars are bound.
-     ;; Γ ⊢ t_1 : {∃X_1,T_12}
-     ;; Γ,X_1,X_2,x:T_12 ⊢ t_2 : T_2
+     ;; Γ ⊢ e_packed : {∃X_1,τ_body}
+     ;; Γ,X_1,X_2,x:τ_body ⊢ e : τ_e
      ;; ------------------------------
-     ;; Γ ⊢ let {X_2,x}=t_1 in t_2 : T_2
+     ;; Γ ⊢ (open [x <= e_packed with X_2] e) : τ_e
      ;;
      ;; But this example demonstrates that the rule above doesnt work:
-     ;; (open ([x : X_2 (pack (Int 0) as (∃ (X_1) X_1))])
+     ;; (open [x <= (pack (Int 0) as (∃ (X_1) X_1)) with X_2]
      ;;   ((λ ([y : X_2]) y) x)
      ;; Here, x has type X_1, y has type X_2, but they should be the same thing,
      ;; so we need to replace all X_1's with X_2
      ;;
      ;; Here's the fixed rule, which is implemented here
      ;;
-     ;; Γ ⊢ t_1 : {∃X_1,T_12}
-     ;; Γ,X_2,x:[X_2/X_1]T_12 ⊢ t_2 : T_2
+     ;; Γ ⊢ e_packed : {∃X_1,τ_body}
+     ;; Γ,X_2:#%type,x:[X_2/X_1]τ_body ⊢ e : τ_e
      ;; ------------------------------
-     ;; Γ ⊢ let {X_2,x}=t_1 in t_2 : T_2
+     ;; Γ ⊢ (open [x <= e_packed with X_2] e) : τ_e
      ;;
-   #:with [_ (x-) (e-) (τ_e)]
+   #:with [e_packed- (~∃ (Y) τ_body)] (infer+erase #'e_packed)
+   #:with τ_x (subst #'X #'Y #'τ_body)
+   #:with [(X-) (x-) (e-) (τ_e)]
           (infer #'(e)
-                 #:tvctx #'([tv : #%type])
-                 #:ctx   #`([x : #,(subst #'tv #'τ_abstract #'τ_body)]))
+                 #:tvctx #'([X : #%type])
+                 #:ctx   #`([x : τ_x]))
    (⊢ (let- ([x- e_packed-]) e-) : τ_e)])
