@@ -61,6 +61,20 @@
                                #:src #'any
                                #:msg "Expected × type, got: ~a" #'any))))]))))
 
+(begin-for-syntax
+  (define (stx-assoc-ref stx-lst lookup-k #:else [fail (λ () #f)])
+    (define match_res (stx-assoc lookup-k stx-lst))
+    (cond [match_res
+           (stx-cadr match_res)]
+          [else
+           (fail)]))
+  (define (×-ref ×-type l)
+    (syntax-parse ×-type
+      [(~× [l_τ : τ] ...)
+       (define res
+         (stx-assoc-ref #'([l_τ τ] ...) l #:else (λ () (error 'X-ref "bad!"))))
+       (add-orig res (get-orig res))])))
+
 ;; records
 (define-typed-syntax tup #:datum-literals (=)
   [(tup [l:id = e] ...)
@@ -68,9 +82,12 @@
    (⊢ (list- (list- 'l e-) ...) : (× [l : τ] ...))])
 (define-typed-syntax proj #:literals (quote)
   [(proj e_rec l:id)
-   #:with (e_rec- ([l_τ τ] ...)) (⇑ e_rec as ×)
-   #:with (_ τ_match) (stx-assoc #'l #'([l_τ τ] ...))
-   (⊢ (cadr- (assoc- 'l e_rec-)) : τ_match)])
+   #:with [e_rec- τ_e] (infer+erase #'e_rec)
+   #:fail-unless (×? #'τ_e)
+   (format "Expected expression ~s to have × type, got: ~a"
+           (syntax->datum #'e_rec) (type->str #'τ_e))
+   #:with τ_l (×-ref #'τ_e #'l)
+   (⊢ (cadr- (assoc- 'l e_rec-)) : τ_l)])
 
 (define-type-constructor ∨/internal #:arity >= 0)
 
@@ -107,26 +124,36 @@
                                     #:msg "Expected ∨ type, got: ~a" #'any))))
                ~!)])))) ; dont backtrack here
 
+(begin-for-syntax
+  (define (∨-ref ∨-type l #:else [fail (λ () #f)])
+    (syntax-parse ∨-type
+      [(~∨ [l_τ : τ] ...)
+       (define res
+         (stx-assoc-ref #'([l_τ τ] ...) l #:else fail))
+       (add-orig res (get-orig res))])))
+
 (define-typed-syntax var #:datum-literals (as =)
   [(var l:id = e as τ:type)
-   #:with (~∨* [l_τ : τ_l] ...) #'τ.norm
-   #:with match_res (stx-assoc #'l #'((l_τ τ_l) ...))
-   #:fail-unless (syntax-e #'match_res)
-                 (format "~a field does not exist" (syntax->datum #'l))
-   #:with (_ τ_match) #'match_res
-   #:with (e- τ_e) (infer+erase #'e)
-   #:when (typecheck? #'τ_e #'τ_match)
-   (⊢ (list- 'l e) : τ)])
+   #:fail-unless (∨? #'τ.norm)
+   (format "Expected the expected type to be a ∨ type, got: ~a" (type->str #'τ.norm))
+   #:with τ_match
+   (∨-ref #'τ.norm #'l #:else
+          (λ () (raise-syntax-error #f
+                   (format "~a field does not exist" (syntax->datum #'l))
+                   stx)))
+   #:with [e- τ_e] (infer+erase #'e)
+   #:fail-unless (typecheck? #'τ_e #'τ_match)
+   (typecheck-fail-msg/1 #'τ_match #'τ_e #'e)
+   (⊢ (list- 'l e) : τ.norm)])
 (define-typed-syntax case
   #:datum-literals (of =>)
   [(case e [l:id x:id => e_l] ...)
    #:fail-when (null? (syntax->list #'(l ...))) "no clauses"
-   #:with (e- ([l_x τ_x] ...)) (⇑ e as ∨)
+   #:with [e- (~∨* [l_x : τ_x] ...)] (infer+erase #'e)
    #:fail-unless (= (stx-length #'(l ...)) (stx-length #'(l_x ...))) "wrong number of case clauses"
    #:fail-unless (typechecks? #'(l ...) #'(l_x ...)) "case clauses not exhaustive"
    #:with (((x-) e_l- τ_el) ...)
           (stx-map (λ (bs e) (infer/ctx+erase bs e)) #'(([x : τ_x]) ...) #'(e_l ...))
-   #:fail-unless (same-types? #'(τ_el ...)) "branches have different types"
    (⊢ (let- ([l_e (car- e-)])
         (cond- [(symbol=?- l_e 'l) (let- ([x- (cadr- e-)]) e_l-)] ...))
-      : #,(stx-car #'(τ_el ...)))])
+      : (⊔ τ_el ...))])

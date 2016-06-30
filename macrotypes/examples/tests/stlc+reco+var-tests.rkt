@@ -1,73 +1,10 @@
-#lang s-exp "../stlc+effect.rkt"
+#lang s-exp "../stlc+reco+var.rkt"
 (require "rackunit-typechecking.rkt")
 
-(check-props ν (ref 11) : '(88))
-(check-props ! (deref (ref 11)) : '(121))
-(check-props ν (deref (ref 11)) : '(170))
-(check-props ν ((λ ([x : Int]) (ref x)) 21) : '(221))
-             
-(define x (ref 10))
-(check-type x : (Ref Int))
-(check-type (deref x) : Int ⇒ 10)
-(check-type (:= x 20) : Unit) ; x still 10 because check-type does not evaluate
-(check-type (begin (:= x 20) (deref x)) : Int ⇒ 20)
-(check-type x : (Ref Int))
-(check-type (deref (ref 20)) : Int ⇒ 20)
-(check-type (deref x) : Int ⇒ 20)
-
-(check-type ((λ ([b : (Ref Int)]) (deref b)) (ref 10)) : Int ⇒ 10)
-(check-type ((λ ([x : Int]) x) ((λ ([b : (Ref Int)]) (deref b)) (ref 10))) : Int ⇒ 10)
-(check-type ((λ ([b : (Ref Int)]) (begin (begin (:= b 20) (deref b)))) (ref 10)) : Int ⇒ 20)
-
-;; Ref err msgs
-; wrong arity
-(typecheck-fail
- (λ ([lst : (Ref Int Int)]) lst)
- #:with-msg
- "Improper usage of type constructor Ref: \\(Ref Int Int\\), expected = 1 arguments")
-(typecheck-fail
- (λ ([lst : (Ref)]) lst)
- #:with-msg
- "Improper usage of type constructor Ref: \\(Ref\\), expected = 1 arguments")
-(typecheck-fail
- (deref 1)
- #:with-msg
- "Expected Ref type, got: Int")
-(typecheck-fail
- (:= 1 1)
- #:with-msg
- "Expected Ref type, got: Int")
-(typecheck-fail
- (:= (ref 1) "hi")
- #:with-msg
- ":=: type mismatch: expected Int, given String\n *expression: \"hi\"")
-
-;; previous tests: ------------------------------------------------------------
-(typecheck-fail (cons 1 2))
-;(typecheck-fail (cons 1 nil)) ; works now
-(check-type (cons 1 nil) : (List Int))
-(check-type (cons 1 (nil {Int})) : (List Int))
-(typecheck-fail nil)
-(typecheck-fail (nil Int))
-(typecheck-fail (nil (Int)))
-; passes bc ⇒-rhs is only used for its runtime value
-(check-type (nil {Int}) : (List Int) ⇒ (nil {Bool}))
-(check-not-type (nil {Bool}) : (List Int))
-(check-type (nil {Bool}) : (List Bool))
-(check-type (nil {(→ Int Int)}) : (List (→ Int Int)))
-(define fn-lst (cons (λ ([x : Int]) (+ 10 x)) (nil {(→ Int Int)})))
-(check-type fn-lst : (List (→ Int Int)))
-(check-type (isnil fn-lst) : Bool ⇒ #f)
-(typecheck-fail (isnil (head fn-lst))) ; head lst is not List
-(check-type (isnil (tail fn-lst)) : Bool ⇒ #t)
-(check-type (head fn-lst) : (→ Int Int))
-(check-type ((head fn-lst) 25) : Int ⇒ 35)
-(check-type (tail fn-lst) : (List (→ Int Int)) ⇒ (nil {(→ Int Int)}))
-
-;; previous tests: ------------------------------------------------------------
 ;; define-type-alias
 (define-type-alias Integer Int)
 (define-type-alias ArithBinOp (→ Int Int Int))
+;(define-type-alias C Complex) ; error, Complex undefined
 
 (check-type ((λ ([x : Int]) (+ x 2)) 3) : Integer)
 (check-type ((λ ([x : Integer]) (+ x 2)) 3) : Int)
@@ -75,7 +12,11 @@
 (check-type + : ArithBinOp)
 (check-type (λ ([f : ArithBinOp]) (f 1 2)) : (→ (→ Int Int Int) Int))
 
+; records (ie labeled tuples)
 (check-type "Stephen" : String)
+(check-type (tup) : (×))
+(check-type (tup [name = "Stephen"]) : (× [name : String]))
+(check-type (proj (tup [name = "Stephen"]) name) : String ⇒ "Stephen")
 (check-type (tup [name = "Stephen"] [phone = 781] [male? = #t]) :
             (× [name : String] [phone : Int] [male? : Bool]))
 (check-type (proj (tup [name = "Stephen"] [phone = 781] [male? = #t]) name)
@@ -93,32 +34,48 @@
 (check-not-type (tup [name = "Stephen"] [phone = 781] [male? = #t]) :
                 (× [name : String] [phone : Int] [is-male? : Bool]))
 
+;; record errors
+(typecheck-fail
+ (proj 1 "a")
+ #:with-msg
+ "expected identifier")
+(typecheck-fail
+ (proj 1 a)
+ #:with-msg
+ "Expected expression 1 to have × type, got: Int")
 
+;; variants
 (check-type (var coffee = (void) as (∨ [coffee : Unit])) : (∨ [coffee : Unit]))
 (check-not-type (var coffee = (void) as (∨ [coffee : Unit])) : (∨ [coffee : Unit] [tea : Unit]))
 (typecheck-fail ((λ ([x : (∨ [coffee : Unit] [tea : Unit])]) x)
-                 (var coffee = (void) as (∨ [coffee : Unit]))))
-(check-type (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit]))
-            : (∨ [coffee : Unit] [tea : Unit]))
+                 (var coffee = (void) as (∨ [coffee : Unit])))
+ #:with-msg
+ "expected: +\\(∨ \\(coffee : Unit\\) \\(tea : Unit\\)\\)\n *given: +\\(∨ \\(coffee : Unit\\)\\)")
+(check-type (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit])) :
+            (∨ [coffee : Unit] [tea : Unit]))
 (check-type (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit] [coke : Unit]))
             : (∨ [coffee : Unit] [tea : Unit] [coke : Unit]))
 
 (typecheck-fail
  (case (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit]))
-   [coffee x => 1])) ; not enough clauses
+   [coffee x => 1])
+ #:with-msg "wrong number of case clauses")
 (typecheck-fail
  (case (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit]))
    [coffee x => 1]
-   [teaaaaaa x => 2])) ; wrong clause
+   [teaaaaaa x => 2])
+ #:with-msg "case clauses not exhaustive")
 (typecheck-fail
  (case (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit]))
    [coffee x => 1]
    [tea x => 2]
-   [coke x => 3])) ; too many clauses
+   [coke x => 3])
+ #:with-msg "wrong number of case clauses")
 (typecheck-fail
  (case (var coffee = (void) as (∨ [coffee : Unit] [tea : Unit]))
    [coffee x => "1"]
-   [tea x => 2])) ; mismatched branch types
+   [tea x => 2])
+ #:with-msg "branches have incompatible types: String and Int")
 (check-type
  (case (var coffee = 1 as (∨ [coffee : Int] [tea : Unit]))
    [coffee x => x]
@@ -141,21 +98,51 @@
    [coke y => 3])
  : Int ⇒ 4)
 
-;; previous tests: ------------------------------------------------------------
-;; tests for tuples -----------------------------------------------------------
-; fail bc tuple changed syntax
-;(check-type (tup 1 2 3) : (× Int Int Int))
-;(check-type (tup 1 "1" #f +) : (× Int String Bool (→ Int Int Int)))
-;(check-not-type (tup 1 "1" #f +) : (× Unit String Bool (→ Int Int Int)))
-;(check-not-type (tup 1 "1" #f +) : (× Int Unit Bool (→ Int Int Int)))
-;(check-not-type (tup 1 "1" #f +) : (× Int String Unit (→ Int Int Int)))
-;(check-not-type (tup 1 "1" #f +) : (× Int String Bool (→ Int Int Unit)))
-;
-;(check-type (proj (tup 1 "2" #f) 0) : Int ⇒ 1)
-;(check-type (proj (tup 1 "2" #f) 1) : String ⇒ "2")
-;(check-type (proj (tup 1 "2" #f) 2) : Bool ⇒ #f)
-;(typecheck-fail (proj (tup 1 "2" #f) 3)) ; index too large
-;(typecheck-fail (proj 1 2)) ; not tuple
+;; variant errors
+(typecheck-fail
+ (var name = "Steve" as Int)
+ #:with-msg
+ "Expected the expected type to be a ∨ type, got: Int")
+(typecheck-fail
+ (case 1 [racket x => 1])
+ #:with-msg
+ "Expected ∨ type, got: Int")
+(typecheck-fail
+ (λ ([x : (∨)]) x)
+ #:with-msg "Improper usage of type constructor ∨: \\(∨\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
+(typecheck-fail
+ (λ ([x : (∨ 1)]) x)
+ #:with-msg "Improper usage of type constructor ∨: \\(∨ 1\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
+(typecheck-fail
+ (λ ([x : (∨ [1 2])]) x)
+ #:with-msg "Improper usage of type constructor ∨: \\(∨ \\(1 2\\)\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
+(typecheck-fail
+ (λ ([x : (∨ [a 2])]) x)
+ #:with-msg "Improper usage of type constructor ∨: \\(∨ \\(a 2\\)\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
+(typecheck-fail
+ (λ ([x : (∨ [a Int])]) x)
+ #:with-msg "Improper usage of type constructor ∨: \\(∨ \\(a Int\\)\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
+(typecheck-fail
+ (λ ([x : (∨ [1 : Int])]) x)
+ #:with-msg "Improper usage of type constructor ∨: \\(∨ \\(1 : Int\\)\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
+(typecheck-fail
+ (λ ([x : (∨ [a : 1])]) x)
+ #:with-msg "Improper usage of type constructor ∨: \\(∨ \\(a : 1\\)\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
+
+;; previous tuple tests: ------------------------------------------------------------
+;; wont work anymore
+;;(check-type (tup 1 2 3) : (× Int Int Int))
+;;(check-type (tup 1 "1" #f +) : (× Int String Bool (→ Int Int Int)))
+;;(check-not-type (tup 1 "1" #f +) : (× Unit String Bool (→ Int Int Int)))
+;;(check-not-type (tup 1 "1" #f +) : (× Int Unit Bool (→ Int Int Int)))
+;;(check-not-type (tup 1 "1" #f +) : (× Int String Unit (→ Int Int Int)))
+;;(check-not-type (tup 1 "1" #f +) : (× Int String Bool (→ Int Int Unit)))
+;;
+;;(check-type (proj (tup 1 "2" #f) 0) : Int ⇒ 1)
+;;(check-type (proj (tup 1 "2" #f) 1) : String ⇒ "2")
+;;(check-type (proj (tup 1 "2" #f) 2) : Bool ⇒ #f)
+;;(typecheck-fail (proj (tup 1 "2" #f) 3)) ; index too large
+;;(typecheck-fail (proj 1 2)) ; not tuple
 
 ;; ext-stlc.rkt tests ---------------------------------------------------------
 ;; should still pass
@@ -184,7 +171,7 @@
 (check-type (ann 1 : Int) : Int ⇒ 1)
 (check-type ((λ ([x : Int]) (ann x : Int)) 10) : Int ⇒ 10)
 
-; let
+;; let
 (check-type (let () (+ 1 1)) : Int ⇒ 2)
 (check-type (let ([x 10]) (+ 1 2)) : Int)
 (typecheck-fail (let ([x #f]) (+ x 1)))
@@ -194,7 +181,7 @@
 (check-type (let* ([x 10] [y (+ x 1)]) (+ x y)) : Int ⇒ 21)
 (typecheck-fail (let* ([x #t] [y (+ x 1)]) 1))
 
-; letrec
+;; letrec
 (typecheck-fail (letrec ([(x : Int) #f] [(y : Int) 1]) y))
 (typecheck-fail (letrec ([(y : Int) 1] [(x : Int) #f]) x))
 
@@ -222,9 +209,9 @@
    (is-odd? 11)) : Bool ⇒ #t)
 
 ;; tests from stlc+lit-tests.rkt --------------------------
-; most should pass, some failing may now pass due to added types/forms
+;; most should pass, some failing may now pass due to added types/forms
 (check-type 1 : Int)
-;(check-not-type 1 : (Int → Int))
+(check-not-type 1 : (→ Int Int))
 ;(typecheck-fail "one") ; literal now supported
 ;(typecheck-fail #f) ; literal now supported
 (check-type (λ ([x : Int] [y : Int]) x) : (→ Int Int Int))
@@ -232,7 +219,7 @@
 (check-type (λ ([x : Int]) x) : (→ Int Int))
 (check-type (λ ([f : (→ Int Int)]) 1) : (→ (→ Int Int) Int))
 (check-type ((λ ([x : Int]) x) 1) : Int ⇒ 1)
-(typecheck-fail ((λ ([x : Bool]) x) 1)) ; Bool now valid type, but arg has wrong type
+;(typecheck-fail ((λ ([x : Bool]) x) 1)) ; Bool now valid type, but arg has wrong type
 ;(typecheck-fail (λ ([x : Bool]) x)) ; Bool is now valid type
 (typecheck-fail (λ ([f : Int]) (f 1 2))) ; applying f with non-fn type
 (check-type (λ ([f : (→ Int Int Int)] [x : Int] [y : Int]) (f x y))

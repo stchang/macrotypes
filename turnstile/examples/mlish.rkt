@@ -118,7 +118,7 @@
     (format (string-append
              "Could not infer instantiation of polymorphic function ~s.\n"
              "  expected: ~a\n"
-             "  given: ~a")
+             "  given:    ~a")
             (syntax->datum (get-orig e_fn))
             (string-join (stx-map type->str expected-tys) ", ")
             (string-join (stx-map type->str given-tys) ", ")))

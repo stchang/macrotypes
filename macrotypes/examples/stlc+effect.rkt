@@ -53,14 +53,10 @@
    #:with tyds (get-deref-effects #'ty_fn)
    #:with (~→ τ_in ... τ_out) #'ty_fn
    #:with ([e_arg- τ_arg ns as ds] ...) (infers+erase/eff #'(e ...))
-;   #:with [e_fn- (τ_in ... τ_out)] (⇑ e_fn as →)
    #:fail-unless (stx-length=? #'(τ_arg ...) #'(τ_in ...))
-                 (mk-app-err-msg stx #:expected #'(τ_in ...) 
-                                     #:given #'(τ_arg ...)
-                  #:note "Wrong number of arguments.")
+   (num-args-fail-msg #'efn #'(τ_in ...) #'(e ...))
    #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
-                 (mk-app-err-msg stx #:expected #'(τ_in ...) 
-                                     #:given #'(τ_arg ...))
+   (typecheck-fail-msg/multi #'(τ_in ...) #'(τ_arg ...) #'(e ...))
   (assign-type/eff #'(#%app- e_fn- e_arg- ...) #'τ_out
                    (stx-flatten #'(fns tyns . (ns ...)))
                    (stx-flatten #'(fas tyas . (as ...)))
@@ -108,20 +104,20 @@
 
 (define-typed-syntax ref
   [(ref e)
-   #:with (e- τ ns as ds) (infer+erase/eff #'e)
+   #:with [e- τ ns as ds] (infer+erase/eff #'e)
    (assign-type/eff #'(box- e-) #'(Ref τ)
                     (cons (syntax-position stx) #'ns) #'as #'ds)])
 (define-typed-syntax deref
   [(deref e)
-   #:with (e- (~Ref ty) ns as ds) (infer+erase/eff #'e)
+   #:with [e- (~Ref ty) ns as ds] (infer+erase/eff #'e)
    (assign-type/eff #'(unbox- e-) #'ty
                     #'ns #'as (cons (syntax-position stx) #'ds))])
 (define-typed-syntax := #:literals (:=)
   [(:= e_ref e)
-   ;#:with (e_ref- (τ1)) (⇑ e_ref as Ref)
    #:with [e_ref- (~Ref ty1) ns1 as1 ds1] (infer+erase/eff #'e_ref)
    #:with [e- ty2 ns2 as2 ds2] (infer+erase/eff #'e)
-   #:when (typecheck? #'ty1 #'ty2)
+   #:fail-unless (typecheck? #'ty1 #'ty2)
+   (typecheck-fail-msg/1 #'ty1 #'ty2 #'e)
    (assign-type/eff #'(set-box!- e_ref- e-) #'Unit
                     (stx-append #'ns1 #'ns2)
                     (cons (syntax-position stx) (stx-append #'as1 #'as2))

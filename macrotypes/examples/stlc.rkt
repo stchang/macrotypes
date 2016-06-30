@@ -1,6 +1,5 @@
 #lang s-exp macrotypes/typecheck
 (provide (for-syntax current-type=? types=?))
-(provide (for-syntax mk-app-err-msg))
  
 (require (for-syntax racket/list))
 
@@ -81,50 +80,12 @@
    #:with (xs- e- τ_res) (infer/ctx+erase #'bvs #'e)
    (⊢ (λ- xs- e-) : (→ bvs.type ... τ_res))])
 
-(define-for-syntax (mk-app-err-msg stx #:expected [expected-τs #'()]
-                                       #:given [given-τs #'()]
-                                       #:note [note ""]
-                                       #:name [name #f])
-  (syntax-parse stx
-    #;[(app . rst)
-     #:when (not (equal? '#%app (syntax->datum #'app)))
-     (mk-app-err-msg (syntax/loc stx (#%app app . rst))
-       #:expected expected-τs
-       #:given given-τs
-       #:note note
-       #:name name)]
-    [(app e_fn e_arg ...)
-     (define fn-name
-       (if name name
-           (format "function ~a"
-                   (syntax->datum (or (get-orig #'e_fn) #'e_fn)))))
-     (string-append
-      (format "~a (~a:~a):\nType error applying "
-              (syntax-source stx) (syntax-line stx) (syntax-column stx))
-      fn-name ". " note "\n"
-      (format "  Expected: ~a argument(s) with type(s): " (stx-length expected-τs))
-      (string-join (stx-map type->str expected-τs) ", " #:after-last "\n")
-      "  Given:\n"
-      (string-join
-       (map (λ (e t) (format "    ~a : ~a" e t)) ; indent each line
-            (syntax->datum #'(e_arg ...))
-            (if (stx-length=? #'(e_arg ...) given-τs)
-                (stx-map type->str given-τs)
-                (stx-map (lambda (e) "?") #'(e_arg ...))))
-       "\n")
-      "\n")]))
-
 (define-typed-syntax #%app #:literals (#%app)
   [(#%app e_fn e_arg ...)
-   #:with [e_fn- (τ_in ... τ_out)] (⇑ e_fn as →)
+   #:with [e_fn- (~→ τ_in ... τ_out)] (infer+erase #'e_fn)
    #:with ([e_arg- τ_arg] ...) (infers+erase #'(e_arg ...))
    #:fail-unless (stx-length=? #'(τ_arg ...) #'(τ_in ...))
-                 (type-error #:src stx
-                  #:msg (mk-app-err-msg stx #:expected #'(τ_in ...) 
-                                            #:given #'(τ_arg ...)
-                                            #:note "Wrong number of arguments."))
+   (num-args-fail-msg #'e_fn #'(τ_in ...) #'(e_arg ...))
    #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
-                 (type-error #:src stx
-                  #:msg (mk-app-err-msg stx #:expected #'(τ_in ...) 
-                                            #:given #'(τ_arg ...)))
-  (⊢ (#%app- e_fn- e_arg- ...) : τ_out)])
+   (typecheck-fail-msg/multi #'(τ_in ...) #'(τ_arg ...) #'(e_arg ...))
+   (⊢ (#%app- e_fn- e_arg- ...) : τ_out)])

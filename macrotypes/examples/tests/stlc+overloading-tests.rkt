@@ -75,7 +75,7 @@
 
 (typecheck-fail
  ((resolve to-string Num) "hello")
- #:with-msg (expected "Num" #:given "Str"))
+ #:with-msg "expected: +Num\n *given: +Str\n *expressions: \"hello\"")
 
 ;; -- instances are type-checked. They must match
 (typecheck-fail

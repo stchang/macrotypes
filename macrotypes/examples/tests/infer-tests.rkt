@@ -69,7 +69,7 @@
 ; list abbrv
 (check-type (list 1 2 3) : (List Int))
 (typecheck-fail (list 1 "3")
- #:with-msg "cons expression.+with type Int to list.+with type \\(List String\\)")
+ #:with-msg "expected \\(List Int\\), given \\(List String\\)\n *expression: \\(list \"3\"\\)")
 
 
 (define {X Y} (map [f : (→ X Y)] [lst : (List X)] → (List Y))
@@ -241,12 +241,12 @@
 ;;ascription
 (check-type (ann 1 : Int) : Int ⇒ 1)
 (check-type ((λ ([x : Int]) (ann x : Int)) 10) : Int ⇒ 10)
-(typecheck-fail (ann 1 : Bool) #:with-msg "ann: 1 does not have type Bool")
+(typecheck-fail (ann 1 : Bool) #:with-msg "expected Bool, given Int\n *expression: 1")
 ;ann errs
 (typecheck-fail (ann 1 : Complex) #:with-msg "unbound identifier")
 (typecheck-fail (ann 1 : 1) #:with-msg "not a valid type")
 (typecheck-fail (ann 1 : (λ ([x : Int]) x)) #:with-msg "not a valid type")
-(typecheck-fail (ann Int : Int) #:with-msg "does not have type Int")
+(typecheck-fail (ann Int : Int) #:with-msg "expected Int, given #%type\n *expression: Int")
 
 ; let
 (check-type (let () (+ 1 1)) : Int ⇒ 2)
@@ -269,11 +269,11 @@
 (typecheck-fail
  (letrec ([(x : Int) #f] [(y : Int) 1]) y)
  #:with-msg
- "letrec: type check fail, args have wrong type:\n#f has type Bool, expected Int")
+ "letrec: type mismatch\n *expected: +Int, Int\n *given: +Bool, Int\n *expressions: #f, 1")
 (typecheck-fail
  (letrec ([(y : Int) 1] [(x : Int) #f]) x)
  #:with-msg
- "letrec: type check fail, args have wrong type:.+#f has type Bool, expected Int")
+ "letrec: type mismatch\n *expected: +Int, Int\n *given: +Int, Bool\n *expressions: 1, #f")
 
 (check-type (letrec ([(x : Int) 1] [(y : Int) (+ x 1)]) (+ x y)) : Int ⇒ 3)
 
@@ -301,19 +301,19 @@
 ;; check some more err msgs
 (typecheck-fail
  (and "1" #f)
- #:with-msg "Expected expression \"1\" to have Bool type, got: String")
+ #:with-msg "and: type mismatch: expected Bool, given String\n *expression: \"1\"")
 (typecheck-fail
  (and #t "2")
  #:with-msg
- "Expected expression \"2\" to have Bool type, got: String")
+ "and: type mismatch: expected Bool, given String\n *expression: \"2\"")
 (typecheck-fail
  (or "1" #f)
  #:with-msg
- "Expected expression \"1\" to have Bool type, got: String")
+ "or: type mismatch\n  expected: +Bool, Bool\n *given: +String, Bool\n *expressions: \"1\", #f")
 (typecheck-fail
  (or #t "2")
  #:with-msg
- "Expected expression \"2\" to have Bool type, got: String")
+ "or: type mismatch\n  expected: +Bool, Bool\n *given: +Bool, String\n *expressions: #t, \"2\"")
 ;; 2016-03-10: change if to work with non-false vals
 (check-type (if "true" 1 2) : Int -> 1)
 (typecheck-fail

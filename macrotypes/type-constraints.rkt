@@ -50,6 +50,9 @@
          (cons (list (lookup #'a substs) #'b)
                #'rst)
          orig-cs)]
+       [(and (identifier? #'b) (var? #'b) (free-identifier=? #'a #'b))
+        ;; #'a and #'b are equal, drop this constraint
+        (add-constraints/var? Xs var? substs #'rst orig-cs)]
        [else
         (define entry (occurs-check (list #'a #'b) orig-cs))
         (add-constraints/var?
