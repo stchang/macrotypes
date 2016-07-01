@@ -1,0 +1,129 @@
+#lang s-exp "../../mlish.rkt"
+(require "../rackunit-typechecking.rkt" "../../mlish-do.rkt")
+
+(define-type (Result A B)
+  (Ok A)
+  (Error B))
+
+(define (ok [a : A] → (Result A B))
+  (Ok a))
+(define (error [b : B] → (Result A B))
+  (Error b))
+
+(provide-type Result)
+(provide ok)
+(provide error)
+
+(check-type ok : (→/test A (Result A B)))
+(check-type error : (→/test B (Result A B)))
+(check-type (inst ok Int String) : (→ Int (Result Int String)))
+(check-type (inst error String Int) : (→ String (Result Int String)))
+
+(check-type
+ (list (Ok 3) (Error "abject failure") (Ok 4))
+ : (List (Result Int String))
+ -> (list (Ok 3) (Error "abject failure") (Ok 4)))
+
+(define (result-bind [a : (Result A Er)] [f : (→ A (Result B Er))] 
+                     → (Result B Er))
+  (match a with
+    [Ok v -> (f v)]
+    [Error er -> (Error er)]))
+
+(provide result-bind)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; read-tree, a function that parses a tree and uses the result monad.
+
+(require "trees.mlish")
+
+;; Parsing 42 in base 10: (rev-list->int 10 (list 2 4) 1 0) yields 42.
+(define (rev-list->int [base : Int] [rev-list : (List Int)] [place : Int] [accum : Int] → Int)
+  (cond
+    [(isnil rev-list) accum]
+    [else (rev-list->int base
+                         (tail rev-list)
+                         (* base place)
+                         (+ accum (* place (head rev-list))))]))
+
+(define (digit? [c : Char] → Bool)
+  (or (equal? c #\0)
+      (equal? c #\1)
+      (equal? c #\2)
+      (equal? c #\3)
+      (equal? c #\4)
+      (equal? c #\5)
+      (equal? c #\6)
+      (equal? c #\7)
+      (equal? c #\8)
+      (equal? c #\9)))
+
+(define (digit->int [c : Char] → Int)
+  (string->number (string c)))
+
+(define-type-alias (Read-Result A) (Result (× A (List Char)) String))
+
+(define (read-int [str : (List Char)] [accum : (List Int)] → (Read-Result Int))
+  (cond
+    [(isnil str)
+     (cond [(isnil accum) (error "expected an int, given nothing")]
+           [else (ok (tup (rev-list->int 10 accum 1 0) str))])]
+    [(digit? (head str))
+     (read-int (tail str) (cons (digit->int (head str)) accum))]
+    [else
+     (ok (tup (rev-list->int 10 accum 1 0) str))]))
+
+(define (read-tree [str : (List Char)] → (Read-Result (Tree Int)))
+  (cond
+   [(isnil str)
+    (error "expected a tree of integers, given nothing")]
+   [(equal? (head str) #\( )
+    (let ([do-ok (inst ok Unit String)]
+          [do-error (inst error String Unit)])
+      (do result-bind
+        [tree1+str <- (read-tree (tail str))]
+        [(cond [(equal? (head (proj tree1+str 1)) #\space)
+                (do-ok (void))]
+               [else (do-error "expected a space")])]
+        [int+str <- (read-int (tail (proj tree1+str 1)) nil)]
+        [(cond [(equal? (head (proj int+str 1)) #\space)
+                (do-ok (void))]
+               [else (do-error "expected a space")])]
+        [tree2+str <- (read-tree (tail (proj int+str 1)))]
+        [(cond [(equal? (head (proj tree2+str 1)) #\) )
+                (do-ok (void))]
+               [else (do-error "expected a `)`")])]
+        (ok
+         (tup (Node (proj tree1+str 0)
+                    (proj int+str 0)
+                    (proj tree2+str 0))
+              (tail (proj tree2+str 1))))))]
+   [(digit? (head str))
+    (do result-bind
+      [int+str <- (read-int str nil)]
+      (ok
+       (tup (Leaf (proj int+str 0))
+            (proj int+str 1))))]
+   [else
+    (error "expected either a `(` or a digit")]))
+
+(check-type
+ (read-tree (string->list "42"))
+ : (Read-Result (Tree Int))
+ -> (ok
+     (tup (Leaf 42) nil)))
+
+(check-type
+ (read-tree (string->list "x"))
+ : (Read-Result (Tree Int))
+ -> (error
+     "expected either a `(` or a digit"))
+
+(check-type
+ (read-tree (string->list "(42 43 (44 45 46))"))
+ : (Read-Result (Tree Int))
+ -> (ok
+     (tup (Node (Leaf 42) 43 (Node (Leaf 44) 45 (Leaf 46))) nil)))
+
+

@@ -12,13 +12,12 @@
     [(do bind:id body:expr)
      #'body]
     [(do bind:id
-       [x1:id : t1:expr
-              <- m1:expr]
+       [x1:id <- m1:expr]
        rst ...
        body:expr)
      #'(bind
         m1
-        (λ ([x1 : t1])
+        (λ (x1)
           (do bind rst ... body)))]
     [(do bind:id
        [m1:expr]
@@ -26,7 +25,7 @@
        body:expr)
      #'(bind
         m1
-        (λ ([dummy : Unit])
+        (λ (dummy)
           (do bind rst ... body)))]
     ))
 

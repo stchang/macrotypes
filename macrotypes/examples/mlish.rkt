@@ -696,8 +696,7 @@
                infer/ctx+erase 
                #'(ctx ...) #'((add-expected e_body ty-expected) ...))
       #:when (check-exhaust #'(pat- ...) #'τ_e)
-      #:with τ_out (stx-foldr (current-join) (stx-car #'(ty_body ...)) (stx-cdr #'(ty_body ...)))
-      (⊢ (match- e- [pat- (let- ([x- x] ...) e_body-)] ...) : τ_out)
+      (⊢ (match- e- [pat- (let- ([x- x] ...) e_body-)] ...) : (⊔ ty_body ...))
       ])]))
 
 (define-typed-syntax match #:datum-literals (with)
@@ -736,7 +735,6 @@
         #:with ([(x- ... rst-) e_body- ty_body] ...)
                (stx-map (lambda (ctx e) (infer/ctx+erase ctx e)) 
                  #'(([x ty] ... [rst (List ty)]) ...) #'((add-expected e_body t_expect) ...))
-        #:with τ_out (stx-foldr (current-join) (stx-car #'(ty_body ...)) (stx-cdr #'(ty_body ...)))
         #:with (len ...) (stx-map (lambda (p) #`#,(stx-length p)) #'((x ...) ...))
         #:with (lenop ...) (stx-map (lambda (p) (if (brack? p) #'=- #'>=-)) #'(xs ...))
         #:with (pred? ...) (stx-map
@@ -752,7 +750,7 @@
              (cond-
               [(pred? z)
                (let- ([x- (acc1 z)] ... [rst- (acc2 z)]) e_body-)] ...))
-           : τ_out)])]
+           : (⊔ ty_body ...))])]
      [else  ;; e is variant
       (syntax-parse #'clauses #:datum-literals (->)
        [([Clause:id x:id ... 
@@ -794,14 +792,13 @@
         #:fail-unless (and (same-types? #'(τ_guard ...))
                            (Bool? (stx-car #'(τ_guard ...))))
                       "guard expression(s) must have type bool"
-        #:with τ_out (stx-foldr (current-join) (stx-car #'(τ_ec ...)) (stx-cdr #'(τ_ec ...)))
         #:with z (generate-temporary) ; dont duplicate eval of test expr
         (⊢ (let- ([z e-])
              (cond-
               [(and- (Cons? z) 
                      (let- ([x- (acc z)] ...) e_guard-))
                (let- ([x- (acc z)] ...) e_c-)] ...))
-           : τ_out)])])])
+           : (⊔ τ_ec ...))])])])
 
 ; special arrow that computes free vars; for use with tests
 ; (because we can't write explicit forall
@@ -894,20 +891,19 @@
    #:with ty-expected (get-expected-type stx)
    #:with ([body- ty_body] ...) (infers+erase #'((add-expected body ty-expected) ...))
    #:with (([b- ty_b] ...) ...) (stx-map infers+erase #'((b ...) ...))
-   #:with τ_out (stx-foldr (current-join) (stx-car #'(ty_body ...)) (stx-cdr #'(ty_body ...)))
-   (⊢ (cond- [test- b- ... body-] ...) : τ_out)])
+   (⊢ (cond- [test- b- ... body-] ...) : (⊔ ty_body ...))])
 (define-typed-syntax when
   [(when test body ...)
 ;   #:with test- (⇑ test as Bool)
    #:with [test- _] (infer+erase #'test)
    #:with [(body- _) ...] (infers+erase #'(body ...))
-   (⊢ (when- test- body- ...) : Unit)])
+   (⊢ (when- test- body- ... (void-)) : Unit)])
 (define-typed-syntax unless
   [(unless test body ...)
 ;   #:with test- (⇑ test as Bool)
    #:with [test- _] (infer+erase #'test)
    #:with [(body- _) ...] (infers+erase #'(body ...))
-   (⊢ (unless- test- body- ...) : Unit)])
+   (⊢ (unless- test- body- ... (void-)) : Unit)])
 
 ;; sync channels and threads
 (define-type-constructor Channel)
@@ -918,15 +914,14 @@
    (⊢ (make-channel-) : (Channel ty))])
 (define-typed-syntax channel-get
   [(channel-get c)
-   #:with (c- (ty)) (⇑ c as Channel)
+   #:with [c- (~Channel ty)] (infer+erase #'c)
    (⊢ (channel-get- c-) : ty)])
 (define-typed-syntax channel-put
   [(channel-put c v)
-   #:with (c- (ty)) (⇑ c as Channel)
+   #:with [c- (~Channel ty)] (infer+erase #'c)
    #:with [v- ty_v] (infer+erase #'v)
    #:fail-unless (typechecks? #'ty_v #'ty)
-                 (format "Cannot send ~a value on ~a channel."
-                         (type->str #'ty_v) (type->str #'ty))
+   (typecheck-fail-msg/1 #'ty #'ty_v #'v)
    (⊢ (channel-put- c- v-) : Unit)])
 
 (define-base-type Thread)
@@ -989,16 +984,18 @@
 (define-typed-syntax vector-set!
   [(vector-set! e n v)
    #:with n- (⇑ n as Int)
-   #:with [e- (ty)] (⇑ e as Vector)
+   #:with [e- (~Vector ty)] (infer+erase #'e)
    #:with [v- ty_v] (infer+erase #'v)
-   #:when (typecheck? #'ty_v #'ty)
+   #:fail-unless (typecheck? #'ty_v #'ty)
+   (typecheck-fail-msg/1 #'ty #'ty_v #'v)
    (⊢ (vector-set!- e- n- v-) : Unit)])
 (define-typed-syntax vector-copy!
   [(vector-copy! dest start src)
    #:with start- (⇑ start as Int)
-   #:with [dest- (ty_dest)] (⇑ dest as Vector)
-   #:with [src- (ty_src)] (⇑ src as Vector)
-   #:when (typecheck? #'ty_dest #'ty_src)
+   #:with [dest- (~Vector ty_dest)] (infer+erase #'dest)
+   #:with [src- (~Vector ty_src)] (infer+erase #'src)
+   #:fail-unless (typecheck? #'ty_dest #'ty_src)
+   (typecheck-fail-msg/1 #'(Vector ty_src) #'(Vector ty_dest) #'dest)
    (⊢ (vector-copy!- dest- start- src-) : Unit)])
 
 
@@ -1173,30 +1170,34 @@
    (⊢ (make-hash- (list- (cons- k- v-) ...)) : (Hash ty_key ty_val))])
 (define-typed-syntax hash-set!
   [(hash-set! h k v)
-   #:with [h- (ty_key ty_val)] (⇑ h as Hash)
+   #:with [h- (~Hash ty_key ty_val)] (infer+erase #'h)
    #:with [k- ty_k] (infer+erase #'k)
    #:with [v- ty_v] (infer+erase #'v)
-   #:when (typecheck? #'ty_k #'ty_key)
-   #:when (typecheck? #'ty_v #'ty_val)
+   #:fail-unless (typecheck? #'ty_k #'ty_key) (typecheck-fail-msg/1 #'ty_key #'ty_k #'k)
+   #:fail-unless (typecheck? #'ty_v #'ty_val) (typecheck-fail-msg/1 #'ty_val #'ty_v #'v)
    (⊢ (hash-set!- h- k- v-) : Unit)])
 (define-typed-syntax hash-ref
   [(hash-ref h k)
-   #:with [h- (ty_key ty_val)] (⇑ h as Hash)
+   #:with [h- (~Hash ty_key ty_val)] (infer+erase #'h)
    #:with [k- ty_k] (infer+erase #'k)
-   #:when (typecheck? #'ty_k #'ty_key)
+   #:fail-unless (typecheck? #'ty_k #'ty_key)
+   (typecheck-fail-msg/1 #'ty_key #'ty_k #'k)
    (⊢ (hash-ref- h- k-) : ty_val)]
   [(hash-ref h k fail)
-   #:with [h- (ty_key ty_val)] (⇑ h as Hash)
+   #:with [h- (~Hash ty_key ty_val)] (infer+erase #'h)
    #:with [k- ty_k] (infer+erase #'k)
-   #:when (typecheck? #'ty_k #'ty_key)
+   #:fail-unless (typecheck? #'ty_k #'ty_key)
+   (typecheck-fail-msg/1 #'ty_key #'ty_k #'k)
    #:with [fail- (~?∀ () (~ext-stlc:→ ty_fail))] (infer+erase #'fail)
-   #:when (typecheck? #'ty_fail #'ty_val)
+   #:fail-unless (typecheck? #'ty_fail #'ty_val)
+   (typecheck-fail-msg/1 #'(→ ty_val) #'(→ ty_fail) #'fail)
    (⊢ (hash-ref- h- k- fail-) : ty_val)])
 (define-typed-syntax hash-has-key?
   [(hash-has-key? h k)
-   #:with [h- (ty_key _)] (⇑ h as Hash)
+   #:with [h- (~Hash ty_key _)] (infer+erase #'h)
    #:with [k- ty_k] (infer+erase #'k)
-   #:when (typecheck? #'ty_k #'ty_key)
+   #:fail-unless (typecheck? #'ty_k #'ty_key)
+   (typecheck-fail-msg/1 #'ty_key #'ty_k #'k)
    (⊢ (hash-has-key?- h- k-) : Bool)])
 
 (define-typed-syntax hash-count
@@ -1218,7 +1219,7 @@
    #:with out- (⇑ out as String-Port)
    #:with start- (⇑ start as Int)
    #:with end- (⇑ end as Int)
-   (⊢ (write-string- str- out- start- end-) : Unit)])
+   (⊢ (begin- (write-string- str- out- start- end-) (void-)) : Unit)])
 
 (define-typed-syntax string-length
  [(string-length str) 
@@ -1263,7 +1264,8 @@
  [(set! x:id e)
   #:with [x- ty_x] (infer+erase #'x)
   #:with [e- ty_e] (infer+erase #'e)
-  #:when (typecheck? #'ty_e #'ty_x)
+  #:fail-unless (typecheck? #'ty_e #'ty_x)
+  (typecheck-fail-msg/1 #'ty_x #'ty_e #'e)
   (⊢ (set!- x e-) : Unit)])
 
 (define-typed-syntax provide-type [(provide-type ty ...) #'(provide- ty ...)])

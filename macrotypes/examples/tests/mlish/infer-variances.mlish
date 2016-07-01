@@ -1,0 +1,243 @@
+#lang s-exp "../../mlish.rkt"
+(require "../rackunit-typechecking.rkt")
+
+(define-type T1 t1)
+;; No type arguments to determine variance for.
+
+(check-type t1 : T1 -> t1)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Non-Recursive Types
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define-type (T2 X) t2)
+;; X should be inferred to be irrelevant within (T2 X).
+;; That means it should be both covariant and contravariant.
+
+;; This checks that X is covariant within (T2 X).
+(define (t2* → (T2 X)) t2)
+(define (t2** → (→ (T2 X))) (inst t2* X))
+(check-type (t2**) : (→/test (T2 X)))
+
+;; This checks that X is contravariant within (T2 X),
+;; by checking that X is covariant within (→ (T2 X) Int).
+(define (t2->int [t2 : (T2 X)] → Int) 0)
+(define (t2->int* → (→ (T2 X) Int)) (inst t2->int X))
+(check-type (t2->int*) : (→/test (T2 X) Int))
+
+;; This checks that X is irrelevant, even within a Ref type,
+;; by checking that X is covariant within (Ref (T2 X)).
+;; This is still sound because a value of type (Ref (T2 X)) will never
+;; contain anything of type X anyway. X is irrelevant within it.
+(define (ref-t2* → (Ref (T2 X))) (ref (t2 {X})))
+(define (ref-t2** → (→ (Ref (T2 X)))) (inst ref-t2* X))
+(check-type (ref-t2**) : (→/test (Ref (T2 X))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define-type (T3 X) t3-none (t3-some X))
+;; X should be inferred to be covariant within (T3 X).
+
+;; This checks that X is covariant within (T3 X).
+(define (t3-none* → (T3 X)) t3-none)
+(define (t3-none** → (→ (T3 X))) (inst t3-none* X))
+(check-type (t3-none**) : (→/test (T3 X)))
+
+;; This checks that X is not contravariant within (T3 X),
+;; by checking that X is not covariant within (→ (T3 X) Int).
+(define (t3->int [t3 : (T3 X)] → Int) 0)
+(define (t3->int* → (→ (T3 X) Int)) (inst t3->int X))
+(typecheck-fail (t3->int*))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define-type (T4 X) t4-none (t4-some (→ X Int)))
+;; X should be inferred to be contravariant within (T4 X).
+
+;; This checks that X is not covariant within (T4 X).
+(define (t4-none* → (T4 X)) t4-none)
+(define (t4-none** → (→ (T4 X))) (inst t4-none* X))
+(typecheck-fail (t4-none**))
+
+;; This checks that X is contravariant within (T4 X),
+;; by checking that X is covariant within (→ (T4 X) Int).
+(define (t4->int [t4 : (T4 X)] → Int) 0)
+(define (t4->int* → (→ (T4 X) Int)) (inst t4->int X))
+(check-type (t4->int*) : (→/test (T4 X) Int))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define-type (T5 X) t5-none (t5-some+ X) (t5-some- (→ X Int)))
+;; X should be inferred to be invariant within (T5 X).
+
+;; This checks that X is not covariant within (T5 X).
+(define (t5-none* → (T5 X)) t5-none)
+(define (t5-none** → (→ (T5 X))) (inst t5-none* X))
+(typecheck-fail (t5-none**))
+
+;; This checks that X is not contravariant within (T5 X),
+;; by checking that X is not covariant within (→ (T5 X) Int).
+(define (t5->int [t5 : (T5 X)] → Int) 0)
+(define (t5->int* → (→ (T5 X) Int)) (inst t5->int X))
+(typecheck-fail (t5->int*))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Recursive Types
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define-type (T6 X) t6-none (t6-same (T6 X)))
+;; X should be inferred to be irrelevant within (T6 X).
+
+;; This checks that X is covariant within (T6 X).
+(define (t6-none* → (T6 X)) t6-none)
+(define (t6-none** → (→ (T6 X))) (inst t6-none* X))
+(check-type (t6-none**) : (→/test (T6 X)))
+
+;; This checks that X is contravariant within (T6 X),
+;; by checking that X is covariant within (→ (T6 X) Int).
+(define (t6->int [t6 : (T6 X)] → Int) 0)
+(define (t6->int* → (→ (T6 X) Int)) (inst t6->int X))
+(check-type (t6->int*) : (→/test (T6 X) Int))
+
+;; This checks that X is irrelevant, even within a Ref type,
+;; by checking that X is covariant within (Ref (T6 X)).
+;; This is still sound because a value of type (Ref (T6 X)) will never
+;; contain anything of type X anyway. X is irrelevant within it.
+(define (ref-t6* → (Ref (T6 X))) (ref (t6-none {X})))
+(define (ref-t6** → (→ (Ref (T6 X)))) (inst ref-t6* X))
+(check-type (ref-t6**) : (→/test (Ref (T6 X))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define-type (T7 X) t7-none (t7-weird (→ (T7 X) Int)))
+(define-type (T8 X) t8-none (t8-weird (T8 (→ X Int))))
+(define-type (T9 X) t9-none (t9-weird (→ (T9 (→ X Int)) Int)))
+;; X should be inferred to be irrelevant within (T7 X), (T8 X), and
+;; (T9 X). None of these types could contain or recieve an actual X.
+
+(define-type (T10 X) (t10 (T7 X) (T8 X) (T9 X)))
+;; So because of that, X should be irrelevant within (T10 X).
+
+;; This checks that X is covariant within (T10 X).
+(define (t10-none* → (T10 X)) (t10 t7-none t8-none t9-none))
+(define (t10-none** → (→ (T10 X))) (inst t10-none* X))
+(check-type (t10-none**) : (→/test (T10 X)))
+
+;; This checks that X is contravariant within (T10 X),
+;; by checking that X is covariant within (→ (T10 X) Int).
+(define (t10->int [t10 : (T10 X)] → Int) 0)
+(define (t10->int* → (→ (T10 X) Int)) (inst t10->int X))
+(check-type (t10->int*) : (→/test (T10 X) Int))
+
+;; This checks that X is irrelevant, even within a Ref type,
+;; by checking that X is covariant within (Ref (T10 X)).
+;; This is still sound because a value of type (Ref (T10 X)) will never
+;; contain anything of type X anyway. X is irrelevant within it.
+(define (ref-t10* → (Ref (T10 X))) (ref (t10 (t7-none {X}) (t8-none {X}) (t9-none {X}))))
+(define (ref-t10** → (→ (Ref (T10 X)))) (inst ref-t10* X))
+(check-type (ref-t10**) : (→/test (Ref (T10 X))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define-type (T11 X) t11-none (t11+ X) (t11-weird (→ (T11 X) Int)))
+(define-type (T12 X) t12-none (t12+ X) (t12-weird (T12 (→ X Int))))
+(define-type (T13 X) t13-none (t13+ X)
+  (t13-weird (→ (T13 (→ X Int)) Int)))
+(define-type (T14 X) t14-none (t14- (→ X Int))
+  (t14-weird (→ (T14 (→ X Int)) Int)))
+;; X should be inferred to be invariant within (T11 X) and (T12 X),
+;; but covariant within (T13 X), and contravariant within (T14 X).
+
+;; This checks that X is covariant within (T13 X), but not any of the
+;; others.
+(define (t11-none* → (T11 X)) t11-none)
+(define (t12-none* → (T12 X)) t12-none)
+(define (t13-none* → (T13 X)) t13-none)
+(define (t14-none* → (T14 X)) t14-none)
+(define (t11-none** → (→ (T11 X))) (inst t11-none* X))
+(define (t12-none** → (→ (T12 X))) (inst t12-none* X))
+(define (t13-none** → (→ (T13 X))) (inst t13-none* X))
+(define (t14-none** → (→ (T14 X))) (inst t14-none* X))
+(typecheck-fail (t11-none**))
+(typecheck-fail (t12-none**))
+(check-type (t13-none**) : (→/test (T13 X)))
+(typecheck-fail (t14-none**))
+
+;; This checks that X is contravariant within (T14 X), but not any of
+;; the others.
+(define (t11->int [t11 : (T11 X)] → Int) 0)
+(define (t12->int [t12 : (T12 X)] → Int) 0)
+(define (t13->int [t13 : (T13 X)] → Int) 0)
+(define (t14->int [t14 : (T14 X)] → Int) 0)
+(define (t11->int* → (→ (T11 X) Int)) (inst t11->int X))
+(define (t12->int* → (→ (T12 X) Int)) (inst t12->int X))
+(define (t13->int* → (→ (T13 X) Int)) (inst t13->int X))
+(define (t14->int* → (→ (T14 X) Int)) (inst t14->int X))
+(typecheck-fail (t11->int*))
+(typecheck-fail (t12->int*))
+(typecheck-fail (t13->int*))
+(check-type (t14->int*) : (→/test (T14 X) Int))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define-type (T15 X) t15-none (t15-cons+ X (T15 X)))
+(define-type (T16 X) t16-none (t16-cons- (→ X Int) (T16 X)))
+;; X should be inferred to be covariant within (T15 X), and
+;; contravariant within (T16 X). (T15 X) is just like a (List X) type,
+;; and (T16 X) is just like a (List (→ X Int)).
+
+;; This checks that X is covariant within (T15 X).
+(define (t15-none* → (T15 X)) t15-none)
+(define (t15-none** → (→ (T15 X))) (inst t15-none* X))
+(check-type (t15-none**) : (→/test (T15 X)))
+;; This checks that X is not covariant within (T16 X).
+(define (t16-none* → (T16 X)) t16-none)
+(define (t16-none** → (→ (T16 X))) (inst t16-none* X))
+(typecheck-fail (t16-none**))
+
+;; This checks that X is not contravariant within (T15 X),
+;; by checking that X is not covariant within (→ (T15 X) Int).
+(define (t15->int [t15 : (T15 X)] → Int) 0)
+(define (t15->int* → (→ (T15 X) Int)) (inst t15->int X))
+(typecheck-fail (t15->int*))
+;; This checks that X is contravariant within (T16 X),
+;; by checking that X is covariant within (→ (T16 X) Int).
+(define (t16->int [t16 : (T16 X)] → Int) 0)
+(define (t16->int* → (→ (T16 X) Int)) (inst t16->int X))
+(check-type (t16->int*) : (→/test (T16 X) Int))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Mutually Recursive Types
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define-type (T17 X) (t17-some X) (t18 (T18 X)))
+(define-type (T18 X) t18-none (t18-cons (T17 X) (T18 X)))
+;; X should be inferred to be covariant in both (T17 X) and (T18 X).
+;; This is similar to an arbitrary-arity tree type.
+
+;; This checks that X is covariant within (T17 X).
+(define (t17-none* → (T17 X)) (t18 t18-none))
+(define (t17-none** → (→ (T17 X))) (inst t17-none* X))
+(check-type (t17-none**) : (→/test (T17 X)))
+;; This checks that X is covariant within (T18 X).
+(define (t18-none* → (T18 X)) t18-none)
+(define (t18-none** → (→ (T18 X))) (inst t18-none* X))
+(check-type (t18-none**) : (→/test (T18 X)))
+
+;; This checks that X is not contravariant within (T17 X),
+;; by checking that X is not covariant within (→ (T17 X) Int).
+(define (t17->int [t17 : (T17 X)] → Int) 0)
+(define (t17->int* → (→ (T17 X) Int)) (inst t17->int X))
+(typecheck-fail (t17->int*))
+;; This checks that X is not contravariant within (T18 X),
+;; by checking that X is not covariant within (→ (T18 X) Int).
+(define (t18->int [t18 : (T18 X)] → Int) 0)
+(define (t18->int* → (→ (T18 X) Int)) (inst t18->int X))
+(typecheck-fail (t18->int*))
+

@@ -1,0 +1,74 @@
+#lang s-exp "../../mlish.rkt"
+(require "../rackunit-typechecking.rkt")
+
+;; tests for instantiation of polymorphic functions and constructors
+
+(define-type (Result A B)
+  (Ok A)
+  (Error B))
+
+(define (ok [a : A] -> (Result A B))
+  (Ok a))
+
+(check-type ok : (→/test A (Result A B))) ; test inferred
+(check-type (inst ok Int String) : (→/test Int (Result Int String)))
+
+(define (f -> (Result Int String))
+  (ok 1))
+
+(check-type f : (→/test (Result Int String)))
+
+(define (g -> (Result Int String))
+  (Ok 1))
+
+(check-type g : (→/test (Result Int String)))
+
+(define (h -> (Result Int Y))
+  (Ok 1))
+
+(check-type h : (→/test (Result Int Y)))
+
+(define (i -> (Result Int String))
+  (h))
+
+(check-type i : (→/test (Result Int String)))
+
+(define (f/cond [b : Bool] -> (Result Int String))
+  (cond [b (ok 1)]
+        [else (ok 0)]))
+
+(check-type f/cond : (→/test Bool (Result Int String)))
+
+(define-type-alias (Read-Result A) (Result (× A (List Char)) String))
+
+(define (alias-test -> (Read-Result A))
+  (Error "asd"))
+
+(check-type alias-test : (→/test (Result (× A (List Char)) String)))
+(check-type alias-test : (→/test (Read-Result A)))
+
+(define (alias-test2 [in : A] -> (Read-Result A))
+  (ok (tup in nil)))
+(define (alias-test3 [in : A] -> (Read-Result A))
+  (ok (tup in (list #\a #\b #\c))))
+
+(check-type alias-test2 : (→/test A (Result (× A (List Char)) String)))
+(check-type alias-test2 : (→/test A (Read-Result A)))
+(check-type alias-test3 : (→/test A (Result (× A (List Char)) String)))
+(check-type alias-test3 : (→/test A (Read-Result A)))
+
+(check-type alias-test2 : (→/test B (Result (× B (List Char)) String)))
+(check-type alias-test2 : (→/test B (Read-Result B)))
+(check-type alias-test3 : (→/test B (Result (× B (List Char)) String)))
+(check-type alias-test3 : (→/test B (Read-Result B)))
+
+(define (expect-listof-int [loi : (List Int)] → Int)
+  0)
+
+(check-type (expect-listof-int nil) : Int -> 0)
+
+(define (expect-→listof-int [f : (→ (List Int))] → Int)
+  0)
+
+(check-type (expect-→listof-int (λ () nil)) : Int -> 0)
+

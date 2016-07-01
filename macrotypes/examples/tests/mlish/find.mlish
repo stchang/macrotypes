@@ -1,0 +1,87 @@
+#lang s-exp "../../mlish.rkt"
+(require "../rackunit-typechecking.rkt")
+
+(define-type (List X)
+  Nil
+  (Cons X (List X)))
+
+(define-type (Option X)
+  None
+  (Some X))
+
+(define (find [lst : (List X)] [pred : (→ X Bool)] → (Option X))
+  (match lst with
+   [Nil -> None]
+   [Cons fst rst ->
+         (cond [(pred fst) (Some fst)]
+               [else (find rst pred)])]))
+
+(check-type
+ (find (Cons 1 (Cons 2 (Cons 3 Nil))) (λ ([x : Int]) (<= 2 x)))
+ : (Option Int)
+ -> (Some 2))
+
+(check-type
+ (find (Cons 1 (Cons 0 (Cons -1 Nil))) (λ ([x : Int]) (<= 2 x)))
+ : (Option Int)
+ -> None)
+
+;; args inferred in order, L-to-R, currently no backtracking
+(check-type
+ (find Nil (λ ([x : Int]) (<= 2 x)))
+ : (Option Int)
+ -> None)
+
+;; reversing arg order leads to successful inference
+(define (find2 [pred : (→ X Bool)] [lst : (List X)] → (Option X))
+  (match lst with
+   [Nil -> None]
+   [Cons fst rst ->
+         (cond [(pred fst) (Some fst)]
+               [else (find2 pred rst)])]))
+
+(check-type
+ (find2 (λ ([x : Int]) (<= 2 x)) Nil)
+ : (Option Int)
+ -> None)
+
+(define (find-min/max [lst : (List X)] [<? : (→ Y Y Bool)] [extract-key : (→ X Y)]
+                      → (Option (× X X)))
+  (match lst with
+   [Nil -> None]
+   [Cons x1 rst ->
+         (let ([y1 (extract-key x1)])
+           (Some (find-min/max-accum rst <? extract-key x1 y1 x1 y1)))]))
+
+(define (find-min/max-accum [lst : (List X)] [<? : (→ Y Y Bool)] [extract-key : (→ X Y)]
+                            [x-min : X] [y-min : Y] [x-max : X] [y-max : Y]
+                            → (× X X))
+  (match lst with
+   [Nil -> (tup x-min x-max)]
+   [Cons x2 rst ->
+         (let ([y2 (extract-key x2)])
+           (cond [(<? y2 y-min)
+                  (find-min/max-accum rst <? extract-key x2 y2 x-max y-max)]
+                 [(<? y-max y2)
+                  (find-min/max-accum rst <? extract-key x-min y-min x2 y2)]
+                 [else
+                  (find-min/max-accum rst <? extract-key x-min y-min x-max y-max)]))]))
+
+(check-type
+ (find-min/max (Nil {Int})
+               (λ ([x : Int] [y : Int])
+                 (< x y))
+               (λ ([x : Int])
+                 x))
+ : (Option (× Int Int))
+ -> None)
+
+(check-type
+ (find-min/max (Cons 1 (Cons 2 (Cons 3 Nil)))
+               (λ ([x : Int] [y : Int])
+                 (< x y))
+               (λ ([x : Int])
+                 x))
+ : (Option (× Int Int))
+ -> (Some (tup 1 3)))
+
