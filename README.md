@@ -1,13 +1,9 @@
-- all languages from the paper are in `tapl/` directory
+- all languages from the paper are in implemented with both Racket syntax (in `macrotypes/examples/`) and Turnstile syntax (in `turnstile/examples/`)
 
-- see `tapl/README.md` for language reuse information
+- see `macrotypes/examples/README.md` for language reuse information
 
-- tests are in `tapl/tests/` directory
+- tests are in `macrotypes/examples/tests/` and `turnstile/examples/tests/` directories
 
-- run all calculi tests with `racket tapl/tests/run-all-tests.rkt`
+- run all tests (from test directory) with `racket run-all-tests.rkt`
 
-- mlish language is in `tapl/mlish.rkt`, to make it easier to reuse other langs
- - mlish tests are in `tapl/tests/mlish/`
- - run all mlish tests with `racket tapl/tests/run-all-mlish-tests.rkt`
-
-- alternate syntax implementations is in `define-typed-syntax` branch
+- run just mlish tests (from test directory) with `racket run-all-mlish-tests.rkt`
