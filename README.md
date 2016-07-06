@@ -7,3 +7,5 @@
 - run all tests (from test directory) with `racket run-all-tests.rkt`
 
 - run just mlish tests (from test directory) with `racket run-all-mlish-tests.rkt`
+
+- running tests require Racket v6.5 or later
