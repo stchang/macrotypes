@@ -12,6 +12,7 @@
   (for-meta 3 racket/base syntax/parse racket/syntax)
   racket/bool racket/provide racket/require racket/match racket/promise)
 (provide
+ postfix-in
  symbol=?- match- delay-
  (except-out (all-from-out racket/base) #%module-begin)
  (for-syntax (all-defined-out)) (all-defined-out)
