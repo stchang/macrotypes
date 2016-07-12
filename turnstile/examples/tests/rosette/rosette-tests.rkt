@@ -1,4 +1,4 @@
-#lang s-exp "../../rosette/bv.rkt"
+#lang s-exp "../../rosette/rosette.rkt"
 (require "../rackunit-typechecking.rkt")
 
 ;(check-type bv : (→ Int BVPred BV))
