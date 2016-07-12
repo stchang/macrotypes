@@ -28,6 +28,11 @@
           (define-syntax- x (make-rename-transformer (⊢ y : ty.norm))) ...
           (ro:define-symbolic y ... pred-))]])
 
+;; ----------------------------------------------------------------------------
+;; Racket stuff
+
+(define-type-constructor Param #:arity = 1)
+
 (define-rosette-primop boolean? : (→ Bool Bool))
 (define-rosette-primop integer? : (→ Int Bool))
 (define-rosette-primop string? : (→ String Bool))
@@ -45,6 +50,16 @@
    [⊢ [[e2 ≫ e2-] ⇒ : τ2]]
    --------
    [⊢ [[_ ≫ (ro:if e_tst- e1- e2-)] ⇒ : (⊔ τ1 τ2)]]])
+
+(define-typed-syntax make-parameter
+  [(_ e) ⇐ : (~Param τ_expected) ≫
+   [⊢ [[e ≫ e-] ⇐ : τ_expected]]
+   --------
+   [⊢ [[_ ≫ (ro:make-parameter e-)]]]]
+  [(_ e) ≫
+   [⊢ [[e ≫ e-] ⇒ : τ]]
+   --------
+   [⊢ [[_ ≫ (ro:make-parameter e-)] ⇒ : (Param τ)]]])
 
 ;; ----------------------------------------------------------------------------
 ;; BV stuff
