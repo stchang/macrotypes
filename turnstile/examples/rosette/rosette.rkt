@@ -1,8 +1,9 @@
 #lang turnstile
 ;(require (only-in rosette bv bitvector))
 ;(require (only-in rosette [exact-integer? integer?]))
-(require syntax/parse/define)
 (extends "../ext-stlc.rkt" #:except if)
+(reuse equal? #:from "../mlish.rkt")
+(require (prefix-in stlc: (only-in "../stlc+reco+var.rkt" define λ)))
 (require (only-in "../stlc+reco+var.rkt" define-type-alias))
 (require (prefix-in ro: rosette))
 (provide BVPred)
@@ -51,8 +52,10 @@
    --------
    [⊢ [[_ ≫ (ro:if e_tst- e1- e2-)] ⇒ : (⊔ τ1 τ2)]]])
 
+;; TODO: fix this to support Racket parameter usage patterns?
+;; eg, this wont work if applied since it's not a function type
 (define-typed-syntax make-parameter
-  [(_ e) ⇐ : (~Param τ_expected) ≫
+  #;[(_ e) ⇐ : (~Param τ_expected) ≫
    [⊢ [[e ≫ e-] ⇐ : τ_expected]]
    --------
    [⊢ [[_ ≫ (ro:make-parameter e-)]]]]
@@ -60,6 +63,25 @@
    [⊢ [[e ≫ e-] ⇒ : τ]]
    --------
    [⊢ [[_ ≫ (ro:make-parameter e-)] ⇒ : (Param τ)]]])
+
+(define-typed-syntax define #:datum-literals (: -> →)
+  [(_ x:id e) ≫
+   --------
+   [_ ≻ (stlc:define x e)]]
+  [(_ (f [x : ty] ... (~or → ->) ty_out) e) ≫
+;   [⊢ [[e ≫ e-] ⇒ : ty_e]]
+   [#:with f- (generate-temporary #'f)]
+   --------
+   [_ ≻ (begin-
+          (define-syntax- f (make-rename-transformer (⊢ f- : (→ ty ... ty_out))))
+          (stlc:define f- (stlc:λ ([x : ty] ...) e)))]])
+
+(define-base-type Stx)
+
+#;(define-typed-syntax syntax
+  [(_ template) ≫
+   --------
+   [⊢ [[_ ≫ (syntax- template)] ⇒ : Stx]]])
 
 ;; ----------------------------------------------------------------------------
 ;; BV stuff
@@ -92,6 +114,8 @@
 (define-rosette-primop bitvector? : (→ BVPred Bool))
 (define-rosette-primop* bitvector bvpred : (→ Nat BVPred))
 (define-rosette-primop* bitvector? bvpred? : (→ BVPred Bool))
+(define-rosette-primop bitvector-size : (→ BVPred Int))
+(define-rosette-primop* bitvector-size bvpred-size : (→ BVPred Int))
 
 (define-rosette-primop bveq : (→ BV BV Bool))
 (define-rosette-primop bvslt : (→ BV BV Bool))
@@ -107,16 +131,25 @@
 
 
 (define-typed-syntax bvand
+  [f:id ≫ ; TODO: implement variable arity types
+   --------
+   [⊢ [[_ ≫ ro:bvand] ⇒ : (→ BV BV BV)]]]
   [(_ e ...+) ≫
    [⊢ [[e ≫ e-] ⇐ : BV] ...]
    --------
    [⊢ [[_ ≫ (ro:bvand e- ...)] ⇒ : BV]]])
 (define-typed-syntax bvor
+  [f:id ≫ ; TODO: implement variable arity types
+   --------
+   [⊢ [[_ ≫ ro:bvor] ⇒ : (→ BV BV BV)]]]
   [(_ e ...+) ≫
    [⊢ [[e ≫ e-] ⇐ : BV] ...]
    --------
    [⊢ [[_ ≫ (ro:bvor e- ...)] ⇒ : BV]]])
 (define-typed-syntax bvxor
+  [f:id ≫ ; TODO: implement variable arity types
+   --------
+   [⊢ [[_ ≫ ro:bvxor] ⇒ : (→ BV BV BV)]]]
   [(_ e ...+) ≫
    [⊢ [[e ≫ e-] ⇐ : BV] ...]
    --------
@@ -128,16 +161,25 @@
 (define-rosette-primop bvneg : (→ BV BV))
 
 (define-typed-syntax bvadd
+  [f:id ≫ ; TODO: implement variable arity types
+   --------
+   [⊢ [[_ ≫ ro:bvadd] ⇒ : (→ BV BV BV)]]]
   [(_ e ...+) ≫
    [⊢ [[e ≫ e-] ⇐ : BV] ...]
    --------
    [⊢ [[_ ≫ (ro:bvadd e- ...)] ⇒ : BV]]])
 (define-typed-syntax bvsub
+  [f:id ≫ ; TODO: implement variable arity types
+   --------
+   [⊢ [[_ ≫ ro:bvsub] ⇒ : (→ BV BV BV)]]]
   [(_ e ...+) ≫
    [⊢ [[e ≫ e-] ⇐ : BV] ...]
    --------
    [⊢ [[_ ≫ (ro:bvsub e- ...)] ⇒ : BV]]])
 (define-typed-syntax bvmul
+  [f:id ≫ ; TODO: implement variable arity types
+   --------
+   [⊢ [[_ ≫ ro:bvmul] ⇒ : (→ BV BV BV)]]]
   [(_ e ...+) ≫
    [⊢ [[e ≫ e-] ⇐ : BV] ...]
    --------

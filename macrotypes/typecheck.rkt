@@ -10,11 +10,12 @@
               "stx-utils.rkt")
   (for-meta 2 racket/base syntax/parse racket/syntax syntax/stx "stx-utils.rkt")
   (for-meta 3 racket/base syntax/parse racket/syntax)
-  racket/bool racket/provide racket/require racket/match racket/promise)
+  racket/bool racket/provide racket/require racket/match racket/promise syntax/parse/define)
 (provide
  postfix-in
  symbol=?- match- delay-
  (except-out (all-from-out racket/base) #%module-begin)
+ (all-from-out syntax/parse/define)
  (for-syntax (all-defined-out)) (all-defined-out)
  (for-syntax
   (all-from-out racket syntax/parse racket/syntax syntax/stx
