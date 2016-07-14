@@ -2,7 +2,6 @@
 ;(require (only-in rosette bv bitvector))
 ;(require (only-in rosette [exact-integer? integer?]))
 (extends "../ext-stlc.rkt" #:except if)
-(reuse equal? #:from "../mlish.rkt")
 (require (prefix-in stlc: (only-in "../stlc+reco+var.rkt" define λ)))
 (require (only-in "../stlc+reco+var.rkt" define-type-alias))
 (require (prefix-in ro: rosette))
@@ -37,6 +36,13 @@
 (define-rosette-primop boolean? : (→ Bool Bool))
 (define-rosette-primop integer? : (→ Int Bool))
 (define-rosette-primop string? : (→ String Bool))
+
+(define-typed-syntax equal?
+  [(equal? e1 e2) ≫
+   [⊢ [[e1 ≫ e1-] ⇒ : ty1]]
+   [⊢ [[e2 ≫ e2-] ⇐ : ty1]]
+   --------
+   [⊢ [[_ ≫ (ro:equal? e1- e2-)] ⇒ : Bool]]])
 
 (define-typed-syntax if
   [(if e_tst e1 e2) ⇐ : τ-expected ≫

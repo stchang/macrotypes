@@ -1,4 +1,6 @@
 #lang s-exp "../../rosette/bv.rkt"
+(require syntax/parse/define 
+         (only-in racket/base for-syntax) (for-syntax racket/base))
 (require "../rackunit-typechecking.rkt")
 
 ; The 25 Hacker's Delight benchmarks from the following paper:
@@ -253,65 +255,94 @@
          [o16 (bvadd o15 o8)])
     o16))
 
+ (define-simple-macro (check-equal/rand/bv f)
+  #:with out (syntax/loc this-syntax 
+               (check-equal/rand f #:process (λ ([x : Int]) (bv x))))
+  out)
+
 ;; Mask off the rightmost 1-bit. < 1 sec.
 (define-fragment (p1* x) 
   #:implements p1
   #:library (bvlib [{bv1 bvand bvsub} 1]))
+
+(check-equal/rand/bv p1)
 
 ; Test whether an unsigned integer is of the form 2^n-1. < 1 sec.
 (define-fragment (p2* x) 
   #:implements p2
   #:library (bvlib [{bv1 bvand bvadd} 1]))
 
+(check-equal/rand/bv p2)
+
 ; Isolate the right most 1-bit. < 1 sec.
 (define-fragment (p3* x) 
   #:implements p3
   #:library (bvlib [{bvand bvneg} 1]))
 
-; Form a mask that identifies the rightmost 1-bit and trailing 0s. < 1 sec.
+(check-equal/rand/bv p3)
+
+;; Form a mask that identifies the rightmost 1-bit and trailing 0s. < 1 sec.
 (define-fragment (p4* x) 
   #:implements p4
   #:library (bvlib [{bv1 bvsub bvxor} 1]))
+
+(check-equal/rand/bv p4)
 
 ; Right propagate rightmost 1-bit. < 1 sec.
 (define-fragment (p5* x) 
   #:implements p5 
   #:library (bvlib [{bv1 bvsub bvor} 1]))
 
+(check-equal/rand/bv p5)
+
 ; Turn on the right-most 0-bit in a word. < 1 sec.
 (define-fragment (p6* x) 
   #:implements p6
   #:library (bvlib [{bv1 bvor bvadd} 1]))
+
+(check-equal/rand/bv p6)
 
 ; Isolate the right most 0 bit of a given bitvector. < 1 sec.
 (define-fragment (p7* x) 
   #:implements p7
   #:library (bvlib [{bvand bvadd bvnot bv1} 1]))
 
+(check-equal/rand/bv p7)
+
 ; Form a mask that identifies the trailing 0s. < 1 sec.
 (define-fragment (p8* x) 
   #:implements p8
   #:library (bvlib [{bv1 bvsub bvand bvnot} 1]))
+
+(check-equal/rand/bv p8)
 
 ; Absolute value function. ~ 1 sec.
 (define-fragment (p9* x) 
   #:implements p9
   #:library (bvlib [{bvsz bvsub bvxor bvashr} 1]))
 
+(check-equal/rand/bv p9)
+
 ; Test if nlz(x) == nlz(y) where nlz is number of leading zeroes. < 1 sec.
 (define-fragment (p10* x y) 
   #:implements p10
   #:library (bvlib [{bvand bvxor bvule} 1]))
+
+(check-equal/rand/bv p10)
 
 ; Test if nlz(x) < nlz(y) where nlz is number of leading zeroes. < 1 sec.
 (define-fragment (p11* x y) 
   #:implements p11
   #:library (bvlib [{bvnot bvand bvugt} 1]))
 
+(check-equal/rand/bv p11)
+
 ; Test if nlz(x) <= nlz(y) where nlz is number of leading zeroes. < 1 sec.
 (define-fragment (p12* x y) 
   #:implements p12
   #:library (bvlib [{bvand bvnot bvule} 1]))
+
+(check-equal/rand/bv p12)
 
 ; Sign function. ~ 1.4 sec.
 (define-fragment (p13* x) 
@@ -319,15 +350,21 @@
   #:library (bvlib [{bvsz bvneg bvlshr bvashr bvor} 1])
   #:minbv 32)
 
+(check-equal/rand/bv p13)
+
 ; Floor of average of two integers without over-flowing. ~ 2.5 sec.
 (define-fragment (p14* x y) 
   #:implements p14
   #:library (bvlib [{bv1 bvand bvlshr bvxor bvadd} 1]))
 
+(check-equal/rand/bv p14)
+
 ; Ceil of average of two integers without over-flowing. ~ 1 sec.
 (define-fragment (p15* x y) 
   #:implements p15
   #:library (bvlib [{bv1 bvor bvlshr bvxor bvsub} 1]))
+
+(check-equal/rand/bv p15)
 
 ; Compute max of two integers. Bug in the PLDI'11 paper: bvuge should be bvge.  
 ; ~ 1.3 sec.
@@ -335,15 +372,21 @@
   #:implements p16
   #:library (bvlib [{bvneg bvsge bvand} 1] [{bvxor} 2]))
 
+(check-equal/rand/bv p16)
+
 ; Turn-off the rightmost contiguous string of 1 bits. ~ 1.8 sec.
 (define-fragment (p17* x) 
   #:implements p17
   #:library (bvlib [{bv1 bvand bvor bvadd bvsub} 1]))
 
+(check-equal/rand/bv p17)
+
 ; Test whether an unsigned integer is of the form 2^n. ~ 1.6 sec.
 (define-fragment (p18* x) 
   #:implements p18
   #:library (bvlib [{bvand bvredor} 2] [{bvsub bvnot bv1} 1]))
+
+(check-equal/rand/bv p18)
 
 ; x where m is mask which identifies field B and k 
 ; is number of bits from end of A to start of B. ~ 3.5 sec.
@@ -351,7 +394,11 @@
   #:implements p19
   #:library (bvlib [{bvlshr bvshl bvand} 1] [{bvxor} 3]))
 
+(check-equal/rand/bv p19)
+
 ; Next higher unsigned number with the same number of 1 bits. ~ 600 sec.
 (define-fragment (p20* x) 
   #:implements p20
   #:library (bvlib [{bv2 bvneg bvand bvadd bvxor bvlshr bvudiv bvor} 1]))
+
+(check-equal/rand/bv p20)
