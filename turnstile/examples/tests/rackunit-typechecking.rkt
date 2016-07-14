@@ -1,6 +1,7 @@
 #lang racket/base
 (require (for-syntax rackunit syntax/srcloc) rackunit macrotypes/typecheck)
-(provide check-type typecheck-fail check-not-type check-props check-runtime-exn)
+(provide check-type typecheck-fail check-not-type check-props check-runtime-exn
+         check-equal/rand)
 
 (begin-for-syntax
   (define (add-esc s) (string-append "\\" s))
@@ -90,3 +91,15 @@
     [(_ e)
      #:with e- (expand/df #'e)
      (syntax/loc stx (check-exn exn:fail? (lambda () e-)))]))
+
+(define-simple-macro (check-equal/rand f (~optional (~seq #:process p)
+                                           #:defaults ([p #'(lambda (x) x)])))
+  #:with f* (format-id #'f "~a*" #'f)
+  #:with out (syntax/loc this-syntax (check-equal/rand-fn f f* p))
+  out)
+(define-check (check-equal/rand-fn f f* process)
+  (for ([i 100000])
+    (let ([ks (for/list ([n (procedure-arity f)]) (random 4294967087))])
+      (with-check-info (['f f] ['inputs ks])
+        (check-equal? (apply f (map process ks)) 
+                      (apply f* (map process ks)))))))
