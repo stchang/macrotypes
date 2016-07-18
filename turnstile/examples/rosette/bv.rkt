@@ -1,5 +1,5 @@
 #lang turnstile
-(extends "rosette.rkt" #:except bv)
+(extends "rosette.rkt" #:except bv) ; extends typed rosette
 (require (prefix-in ro: rosette)) ; untyped 
 (require (except-in "rosette.rkt" #%app define)) ; typed
 (require (only-in sdsl/bv/lang/bvops bvredand bvredor)

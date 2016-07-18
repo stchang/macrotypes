@@ -99,7 +99,7 @@
 (define-type-alias BVPred (→ BV Bool))
 
 ;; TODO: fix me --- need subtyping?
-(define-type-alias Nat Int)
+(define-syntax Nat (make-rename-transformer #'Int))
 
 ;; TODO: support higher order case --- need intersect types?
 ;(define-rosette-primop bv : (→ Int BVPred BV)
