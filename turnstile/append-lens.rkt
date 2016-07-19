@@ -1,8 +1,8 @@
 #lang racket/base
 
-(provide append*-lens append*n-lens)
+(provide append*-lens append*n-lens stx-append*-lens)
 
-(require lens racket/match racket/list)
+(require lens unstable/lens racket/match racket/list syntax/stx)
 
 (module+ test
   (require rackunit syntax/parse lens/private/test-util/test-lens))
@@ -33,6 +33,17 @@
 
 (define (append*n-lens n)
   (apply lens-thrush (make-list n append*-lens)))
+
+(define stx->lol-lens
+  (make-lens
+   (lambda (stx) (stx-map stx->list stx))
+   datum->syntax)) ; orig stx is 1st ctx arg
+(define l->stx-lens
+  (make-lens
+   (lambda (x) x)
+   (lambda (l stx) (stx->list stx))))
+(define stx-append*-lens
+  (lens-thrush stx->lol-lens append*-lens l->stx-lens))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
