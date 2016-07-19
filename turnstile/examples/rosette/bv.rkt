@@ -1,13 +1,12 @@
 #lang turnstile
-(extends "rosette.rkt" #:except bv) ; extends typed rosette
+(extends "rosette.rkt" #:except bv bveq bvslt bvult bvsle bvule bvsgt bvugt bvsge bvuge) ; extends typed rosette
 (require (prefix-in ro: rosette)) ; untyped 
-(require (except-in "rosette.rkt" #%app define)) ; typed
+;(require (except-in "rosette.rkt" #%app define)) ; typed
 (require (only-in sdsl/bv/lang/bvops bvredand bvredor)
          (prefix-in bv: (only-in sdsl/bv/lang/bvops BV)))
 (require sdsl/bv/lang/core (prefix-in bv: sdsl/bv/lang/form))
 (provide bool->bv thunk)
 
-;(define current-bvpred-internal (ro:make-parameter (ro:bitvector 4)))
 ;; this must be a macro in order to support Racket's overloaded set/get 
 ;; parameter patterns
 (define-typed-syntax current-bvpred
@@ -39,15 +38,10 @@
    --------
    [⊢ [[_ ≫ ((lambda- () (ro:define-symbolic* b e_size-) b))] ⇒ : BV]]])
 
-(define-syntax-rule (bool->bv b) (if b (bv 1) (bv 0)))
-#;(define-typed-syntax bool->bv
-  [(_ e) ≫
-   [⊢ [[e ≫ e-] ⇐ : Bool]]
-   --------
-   [⊢ [[_ ≫ (if- e- (bv 1) (bv 0))] ⇒ : BV]]])
-
-;; (define- (bvredor x)  (ro:bveq (ro:bveq x (bv 0)) (bv 0)))
-;; (define- (bvredand x) (ro:bveq x (bv -1)))
+(define-syntax-rule (bool->bv b) 
+  (rosette:if b 
+              (bv (rosette:#%datum . 1)) 
+              (bv (rosette:#%datum . 0))))
 (define-primop bvredor : (→ BV BV))
 (define-primop bvredand : (→ BV BV))
 
@@ -64,7 +58,7 @@
 (define-typed-syntax define-fragment
   [(_ (id param ...) #:implements spec #:library lib-expr) ≫
    --------
-   [_ ≻ (define-fragment (id param ...) #:implements spec #:library lib-expr #:minbv 4)]]
+   [_ ≻ (define-fragment (id param ...) #:implements spec #:library lib-expr #:minbv (rosette:#%datum . 4))]]
   [(_ (id param ...) #:implements spec #:library lib-expr #:minbv minbv) ≫
    [⊢ [[spec ≫ spec-] ⇒ : ty_spec]]
    [#:fail-unless (→? #'ty_spec) "spec must be a function"]
@@ -96,18 +90,4 @@
    --------
    [⊢ [[_ ≫ (bv:bvlib [{id- ...} n-] ...)] ⇒ : Lib]]])
 
-
-#;(define-typed-syntax synthesize-fragment
-  [(_ (id param ...) #:implements spec #:library lib-expr)
-   --------
-   [_ ≻ (synthesize-fragment (id param ...) #:implements spec #:library lib-expr #:minbv 4)]]
-  [(_ (id param ...) #:implements spec #:library lib-expr #:minbv minbv)
-   [⊢ [[spec ≫ spec-] ⇐ : Spec]]
-   [⊢ [[lib-expr ≫ lib-expr-] ⇐ : Lib]]
-   [⊢ [[minbv ≫ minbv-] ⇐ : Int]]]
-   --------
-   [⊢ [[_ ≫ (bv:synthesize-fragment (id param) #:implements spec- 
-                                                #:library lib-expr- 
-                                                #:minbv minbv-)] ⇒ : BV]])
-
-(define-syntax-rule (thunk e) (λ () e))
+(define-syntax-rule (thunk e) (rosette:λ () e))

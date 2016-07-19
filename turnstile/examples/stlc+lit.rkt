@@ -19,8 +19,8 @@
   (syntax-parser #:datum-literals (:)
     [(define-primop op:id : τ:type)
      #:with op/tc (generate-temporary #'op)
-     #'(begin-
-         (provide- (rename-out- [op/tc op]))
+     #`(begin-
+         (provide- #,(syntax/loc this-syntax (rename-out- [op/tc op])))
          (define-primop op/tc op : τ))]
     [(define-primop op/tc op : τ)
      #'(begin-

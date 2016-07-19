@@ -22,8 +22,8 @@
 (check-type (bool->bv i) : BV -> (bv 1))
 (check-type (bool->bv b) : BV -> (if b (bv 1) (bv 0)))
 
-(check-type (bvredor (bv 1)) : Bool)
-(check-type (bvredand (bv 1)) : Bool)
+(check-type (bvredor (bv 1)) : BV)
+(check-type (bvredand (bv 1)) : BV)
 
 (check-type bveq : (→ BV BV BV))
 (check-type (bveq (bv 1) (bv 1)) : BV -> (bv 1))

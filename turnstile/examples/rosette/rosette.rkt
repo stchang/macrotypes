@@ -2,8 +2,9 @@
 ;(require (only-in rosette bv bitvector))
 ;(require (only-in rosette [exact-integer? integer?]))
 (extends "../ext-stlc.rkt" #:except if)
+(reuse List #:from "../stlc+cons.rkt")
 (require (prefix-in stlc: (only-in "../stlc+reco+var.rkt" define λ)))
-(require (only-in "../stlc+reco+var.rkt" define-type-alias))
+(require (only-in "../stlc+reco+var.rkt" define-type-alias Int Bool →))
 (require (prefix-in ro: rosette))
 (provide BVPred)
 
@@ -30,6 +31,16 @@
 
 ;; ----------------------------------------------------------------------------
 ;; Racket stuff
+
+(define-base-type Symbol)
+
+(define-typed-syntax quote
+  [(_ x:id) ≫
+   --------
+   [⊢ [[_ ≫ (quote- x)] ⇒ : Symbol]]]
+  [(_ (x:id ...)) ≫
+   --------
+   [⊢ [[_ ≫ (quote- (x ...))] ⇒ : (stlc+cons:List Symbol)]]])
 
 (define-type-constructor Param #:arity = 1)
 
