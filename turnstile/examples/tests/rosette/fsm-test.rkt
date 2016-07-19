@@ -23,10 +23,11 @@
            (r → (? s1 s2 end reject))]
    [end  : ]))
 
-;; ; example commands 
-;; (m '(c a r)) 
-;; (m '(c d r))
-;; (m '(c a d a r))
+; example commands 
+(check-type (apply-FSM m '(c a r)) : Bool -> #t)
+(check-type (apply-FSM m '(c d r)) : Bool -> #t)
+(check-type (apply-FSM m '(c a d a r)) : Bool -> #t)
+(check-type (apply-FSM m '(c a d a)) : Bool -> #f)
 ;; (verify-automaton m #px"^c[ad]+r$")
 ;; (debug-automaton m #px"^c[ad]+r$" '(c r))
 ;; (synthesize-automaton M #px"^c[ad]+r$")

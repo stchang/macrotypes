@@ -5,9 +5,12 @@
 ;; (require (except-in "rosette.rkt" #%app define)) ; typed
 ;; (require (only-in sdsl/bv/lang/bvops bvredand bvredor)
 (require (prefix-in fsm: sdsl/fsm/fsm))
+(require (only-in sdsl/fsm/fsm reject))
 ;(require (prefix-in fsm: (only-in sdsl/fsm/automaton automaton)))
 ;; ;(require (only-in sdsl/fsm/fsm automaton))
 ;; ;; (require sdsl/bv/lang/core (prefix-in bv: sdsl/bv/lang/form))
+
+(require (for-syntax lens "../../append-lens.rkt"))
 
 (define-base-types FSM Regexp State)
 
@@ -16,8 +19,6 @@
    [⊢ [[s ≫ s-] ⇐ : String]]
    --------
    [⊢ [[_ ≫ (pregexp- s-)] ⇒ : Regexp]]])
-
-
 
 (define-typed-syntax automaton #:datum-literals (: →)
   [(_ init-state:id
@@ -32,17 +33,26 @@
                       (member t states)))
                   (format "transition to unknown state")]
    [#:with arr (datum->syntax #f '→)]
+   [#:with (t ...) 
+           (lens-view stx-append*-lens #'((target ...) ...))]
    [() ([state : State ≫ state-] ...) ⊢ 
-     [[init-state ≫ init-state-] ⇐ : State]
-     [[target ≫ target-] ⇐ : State] ... ...]
+    [[init-state ≫ init-state-] ⇐ : State]
+;     [[target ≫ target-] ⇐ : State] ... ...]
+    [[t ≫ t-] ⇐ : State] ...]
+   [#:with ((target- ...) ...) 
+           (lens-set stx-append*-lens #'((target ...) ...) #'(t- ...))]
    --------
    [⊢ [[_ ≫ (fsm:automaton init-state- 
               [state- : (label arr target-) ...] ...)] 
        ⇒ : FSM]]])
 
+(define-primop reject : State)
 
 (define-typed-syntax ?
  [(_ e ...+) ≫
    [⊢ [[e ≫ e-] ⇒ : ty]] ...
    --------
    [⊢ [[_ ≫ (ro:choose e ...)] ⇒ : (⊔ ty ...)]]])
+
+(define (apply-FSM f v) (f v))
+(define-primop apply-FSM : (→ FSM (List Symbol) Bool))
