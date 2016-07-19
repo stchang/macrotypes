@@ -1,6 +1,6 @@
 #lang s-exp macrotypes/typecheck
-(extends "stlc+tup.rkt" #:except × ×? tup proj
-                        #:rename [~× ~stlc:×])
+(extends "stlc+tup.rkt" #:except × ×? tup proj ~× ~×*)
+(require (only-in "stlc+tup.rkt" [~× ~stlc:×]))
 (provide × ∨ (for-syntax ~× ~×* ~∨ ~∨*))
 
 
@@ -30,6 +30,7 @@
 (define-typed-syntax define
   [(define x:id e)
    #:with (e- τ) (infer+erase #'e)
+
    #:with y (generate-temporary)
    #'(begin-
        (define-syntax x (make-rename-transformer (⊢ y : τ)))

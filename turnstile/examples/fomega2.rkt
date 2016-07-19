@@ -1,5 +1,5 @@
 #lang turnstile
-(extends "sysf.rkt" #:except #%datum ∀ Λ inst);#:rename [~∀ ~sysf:∀])
+(extends "sysf.rkt" #:except #%datum ∀ ~∀ ~∀* ∀? Λ inst)
 (reuse String #%datum #:from "stlc+reco+var.rkt")
 
 ; same as fomega.rkt except here λ and #%app works as both type and terms

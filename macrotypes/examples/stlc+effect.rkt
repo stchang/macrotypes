@@ -1,5 +1,5 @@
 #lang s-exp macrotypes/typecheck
-(extends "stlc+box.rkt" #:except ref deref := #%app λ)
+(extends "stlc+box.rkt" #:except ref Ref ~Ref ~Ref* Ref? deref := #%app λ)
 
 (provide (for-syntax get-new-effects))
 

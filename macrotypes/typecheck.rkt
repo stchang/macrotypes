@@ -43,14 +43,19 @@
 (define-syntax (mb stx)
   (syntax-parse stx
     [(_ . stuff)
-     #'(#%module-begin
+     (syntax/loc this-syntax
+       (#%module-begin
         (provide #%module-begin #%top-interaction #%top require) ; useful racket forms
-        . stuff)]))
+        . stuff))]))
 
 (struct exn:fail:type:runtime exn:fail:user ())
 
+;; drop-file-ext : String -> String
 (define-for-syntax (drop-file-ext filename)
   (car (string-split filename ".")))
+;; extract-filename : PathString -> String
+(define-for-syntax (extract-filename f)
+  (path->string (path-replace-suffix (file-name-from-path f) "")))
 
 (begin-for-syntax
   (define-syntax-parameter stx (syntax-rules ())))
@@ -78,29 +83,35 @@
 (define-syntax extends
   (syntax-parser
     [(_ base-lang
-        (~optional (~seq #:except (~and x:id (~not _:keyword)) ...) #:defaults ([(x 1) null]))
-        (~optional (~seq #:rename [old new] ...) #:defaults ([(old 1) null][(new 1) null]))
-        (~optional (~seq #:prefix p ...) #:defaults ([(p 1) null])))
-     #:with pre (or (let ([dat (syntax-e #'base-lang)])
-                      (and (string? dat)
-                           (string->symbol (drop-file-ext dat))))
-                    #'base-lang)                    
-     #:with pre: (format-id #'pre "~a:" #'pre)
+        (~optional (~seq #:except (~and x:id (~not _:keyword)) ...) 
+                   #:defaults ([(x 1) null]))
+        (~optional (~seq #:rename [old new] ...) 
+                   #:defaults ([(old 1) null][(new 1) null])))
+     #:with pre: 
+            (let ([pre (or (let ([dat (syntax-e #'base-lang)])
+                             (and (string? dat) (extract-filename dat)))
+                           #'base-lang)])
+              (format-id #'base-lang "~a:" pre))
      #:with internal-pre (generate-temporary)
-     #:with non-excluded-imports #'(except-in base-lang p ... x ... old ...)
+     #:with non-excluded-imports #'(except-in base-lang x ... old ...)
      #:with conflicted? #'(λ (n) (member (string->symbol n) '(#%app λ #%datum begin let let* letrec if define)))
      #:with not-conflicted? #'(λ (n) (and (not (conflicted? n)) n))
      #`(begin
-         (require (prefix-in pre: (only-in base-lang p ... x ...))) ; prefixed
-         (require (rename-in (only-in base-lang old ...) [old new] ...))
-         (require (filtered-in not-conflicted? non-excluded-imports))
-         (require (filtered-in ; conflicted names, with (internal) prefix
+         #,(syntax/loc this-syntax
+             (require (prefix-in pre: base-lang))) ; prefixed
+         #,(syntax/loc this-syntax
+            (require (rename-in (only-in base-lang old ...) [old new] ...)))
+         #,(syntax/loc this-syntax
+             (require (filtered-in not-conflicted? non-excluded-imports)))
+         #,(syntax/loc this-syntax
+             (require (filtered-in ; conflicted names, with (internal) prefix
                    (let ([conflicted-pre (symbol->string (syntax->datum #'internal-pre))])
                      (λ (name) (and (conflicted? name)
                                     (string-append conflicted-pre name))))
-                   non-excluded-imports))
-         (provide (filtered-out
-                   (let* ([pre-str #,(string-append (drop-file-ext (syntax-e #'base-lang)) ":")]
+                   non-excluded-imports)))
+         #,(quasisyntax/loc this-syntax
+             (provide (filtered-out
+                   (let* ([pre-str #,(string-append (extract-filename (syntax-e #'base-lang)) ":")]
                           [int-pre-str #,(symbol->string (syntax->datum #'internal-pre))]
                           [pre-str-len (string-length pre-str)]
                           [int-pre-str-len (string-length int-pre-str)]
@@ -116,20 +127,23 @@
                              name))
                        (and (not (member out-name excluded)) out-name)))
                    (all-from-out base-lang))
-                  ))]))
+                  )))]))
 (define-syntax reuse
   (syntax-parser
     [(_ (~or x:id [old:id new:id]) ... #:from base-lang)
-     #:with pre (or (let ([dat (syntax-e #'base-lang)])
-                      (and (string? dat)
-                           (string->symbol (drop-file-ext dat))))
-                    #'base-lang)                    
-     #:with pre: (format-id #'pre "~a:" #'pre)
+     #:with pre: 
+            (let ([pre (or (let ([dat (syntax-e #'base-lang)])
+                             (and (string? dat) (extract-filename dat)))
+                           #'base-lang)])
+              (format-id #'base-lang "~a:" pre))
      #`(begin
-         (require (rename-in (only-in base-lang old ...) [old new] ...))
-         (require (prefix-in pre: (only-in base-lang x ...)))
-         (provide (filtered-out
-                   (let* ([pre-str #,(string-append (drop-file-ext (syntax-e #'base-lang)) ":")]
+         #,(syntax/loc this-syntax
+             (require (rename-in (only-in base-lang old ...) [old new] ...)))
+         #,(syntax/loc this-syntax
+             (require (prefix-in pre: (only-in base-lang x ...))))
+         #,(quasisyntax/loc this-syntax
+             (provide (filtered-out
+                   (let* ([pre-str #,(string-append (extract-filename (syntax-e #'base-lang)) ":")]
                           [pre-str-len (string-length pre-str)]
                           [drop-pre (λ (s) (substring s pre-str-len))]
                           [excluded (map (compose symbol->string syntax->datum) (syntax->list #'(new ...)))]
@@ -142,7 +156,7 @@
                        (and (not (member out-name excluded))
                             (member out-name origs)
                             out-name)))
-                   (all-from-out base-lang))))]))
+                   (all-from-out base-lang)))))]))
 
 (define-syntax add-expected
   (syntax-parser

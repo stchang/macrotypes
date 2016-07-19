@@ -1,6 +1,6 @@
 #lang turnstile
-(extends "stlc+tup.rkt" #:except × ×? tup proj
-                        #:rename [~× ~stlc:×])
+(extends "stlc+tup.rkt" #:except × ×? tup proj ~× ~×*)
+(require (only-in "stlc+tup.rkt" [~× ~stlc:×]))
 (provide × ∨ (for-syntax ~× ~×* ~∨ ~∨*))
 
 
