@@ -1,10 +1,8 @@
 #lang turnstile
-;(require (only-in rosette bv bitvector))
-;(require (only-in rosette [exact-integer? integer?]))
 (extends "../ext-stlc.rkt" #:except if)
 (reuse List #:from "../stlc+cons.rkt")
-(require (prefix-in stlc: (only-in "../stlc+reco+var.rkt" define λ)))
-(require (only-in "../stlc+reco+var.rkt" define-type-alias Int Bool →))
+(require (only-in "../stlc+reco+var.rkt" [define stlc:define]))
+(require (only-in "../stlc+reco+var.rkt" define-type-alias))
 (require (prefix-in ro: rosette))
 (provide BVPred)
 
@@ -91,7 +89,7 @@
    --------
    [_ ≻ (begin-
           (define-syntax- f (make-rename-transformer (⊢ f- : (→ ty ... ty_out))))
-          (stlc:define f- (stlc:λ ([x : ty] ...) e)))]])
+          (stlc:define f- (ext-stlc:λ ([x : ty] ...) e)))]])
 
 (define-base-type Stx)
 
