@@ -10,7 +10,7 @@
 ;; ;(require (only-in sdsl/fsm/fsm automaton))
 ;; ;; (require sdsl/bv/lang/core (prefix-in bv: sdsl/bv/lang/form))
 
-(require (for-syntax lens "../../append-lens.rkt"))
+(require (for-syntax lens unstable/lens))
 
 (define-base-types FSM Regexp State)
 
