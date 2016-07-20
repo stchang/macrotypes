@@ -107,5 +107,5 @@
        ref-stx]
       [(id . args)
        (let ([stx* (list* '#%app #'id (cdr (syntax-e stx)))])
-         (datum->syntax stx stx* stx))])))
+         (datum->syntax stx stx* stx stx))])))
 

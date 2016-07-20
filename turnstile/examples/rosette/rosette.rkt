@@ -93,11 +93,6 @@
 
 (define-base-type Stx)
 
-#;(define-typed-syntax syntax
-  [(_ template) ≫
-   --------
-   [⊢ [[_ ≫ (syntax- template)] ⇒ : Stx]]])
-
 ;; ----------------------------------------------------------------------------
 ;; BV stuff
 
@@ -105,10 +100,14 @@
 (define-base-type BV) ; represents actual bitvectors
 
 ; a predicate recognizing bv's of a certain size
+#;(define-syntax BVPred 
+  (make-variable-like-transformer 
+   ((current-type-eval) #'(→ BV Bool))))
 (define-type-alias BVPred (→ BV Bool))
 
 ;; TODO: fix me --- need subtyping?
-(define-syntax Nat (make-rename-transformer #'Int))
+;(define-syntax Nat (make-rename-transformer #'Int))
+(define-type-alias Nat Int)
 
 ;; TODO: support higher order case --- need intersect types?
 ;(define-rosette-primop bv : (→ Int BVPred BV)

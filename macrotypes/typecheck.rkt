@@ -595,7 +595,10 @@
          (define-syntax τ
            (syntax-parser
              ;[(~var _ id) (add-orig (assign-type #'τ-internal #'kind) #'τ)])))]))
-             [(~var _ id) (add-orig (assign-type #'(τ-internal) #'#%tag) #'τ)])))]))
+             [(~var _ id) 
+              (add-orig 
+               (assign-type 
+                (syntax/loc this-syntax (τ-internal)) #'#%tag) #'τ)])))]))
 
 ; I use identifiers "τ" and "kind" but this form is not restricted to them.
 ; E.g., τ can be #'★ and kind can be #'#%kind (★'s type)

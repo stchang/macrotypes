@@ -15,14 +15,15 @@
 
 (define-base-type Int)
 
+;; Using τ.norm leads to a "not valid type" error when file is compiled
 (define-syntax define-primop
   (syntax-parser #:datum-literals (:)
-    [(_ op:id : τ:type)
+    [(_ op:id : τ)
      #:with op/tc (generate-temporary #'op)
      #'(begin
          (provide (rename-out [op/tc op]))
          (define-primop op/tc op : τ))]
-    [(_ op/tc op : τ)
+    [(_ op/tc op : τ:type)
      #'(begin
          #;(define-syntax op/tc (make-rename-transformer (assign-type #'op #'τ)))
          ; rename transformer doesnt seem to expand at the right time

@@ -27,11 +27,13 @@
 (require "fomega2-tests.rkt")
 (require "fomega3-tests.rkt")
 
-(require macrotypes/examples/tests/stlc+occurrence-tests)
-(require macrotypes/examples/tests/stlc+overloading-tests)
+;; these are not ported to turnstile yet
+;; see macrotypes/examples/tests/run-all-tests.rkt
+;(require macrotypes/examples/tests/stlc+occurrence-tests)
+;(require macrotypes/examples/tests/stlc+overloading-tests)
 
 ;; type inference
-(require macrotypes/examples/tests/infer-tests)
+;(require macrotypes/examples/tests/infer-tests)
 (require "tlb-infer-tests.rkt")
 
 ;; type and effects
