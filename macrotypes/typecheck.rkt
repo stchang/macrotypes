@@ -97,18 +97,23 @@
      #:with conflicted? #'(λ (n) (member (string->symbol n) '(#%app λ #%datum begin let let* letrec if define)))
      #:with not-conflicted? #'(λ (n) (and (not (conflicted? n)) n))
      #`(begin
-         #,(syntax/loc this-syntax
-             (require (prefix-in pre: base-lang))) ; prefixed
-         #,(syntax/loc this-syntax
-            (require (rename-in (only-in base-lang old ...) [old new] ...)))
-         #,(syntax/loc this-syntax
-             (require (filtered-in not-conflicted? non-excluded-imports)))
-         #,(syntax/loc this-syntax
-             (require (filtered-in ; conflicted names, with (internal) prefix
+         #,(quasisyntax/loc this-syntax
+             (require #,(syntax/loc this-syntax
+                          (prefix-in pre: base-lang)))) ; prefixed
+         #,(quasisyntax/loc this-syntax
+            (require #,(syntax/loc this-syntax
+                         (rename-in (only-in base-lang old ...) [old new] ...))))
+         #,(quasisyntax/loc this-syntax
+             (require #,(syntax/loc this-syntax 
+                          (filtered-in not-conflicted? non-excluded-imports))))
+         #,(quasisyntax/loc this-syntax
+             (require 
+              #,(syntax/loc this-syntax 
+                  (filtered-in ; conflicted names, with (internal) prefix
                    (let ([conflicted-pre (symbol->string (syntax->datum #'internal-pre))])
                      (λ (name) (and (conflicted? name)
                                     (string-append conflicted-pre name))))
-                   non-excluded-imports)))
+                   non-excluded-imports))))
          #,(quasisyntax/loc this-syntax
              (provide (filtered-out
                    (let* ([pre-str #,(string-append (extract-filename (syntax-e #'base-lang)) ":")]
