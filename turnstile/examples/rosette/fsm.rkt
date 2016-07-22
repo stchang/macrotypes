@@ -56,7 +56,7 @@
    --------
   ;; the #'choose identifier itself must have the location of its use
   ;; see define-synthax implementation, specifically syntax/source in utils
-  [⊢ [_ ≫ (#,(syntax/loc #'ch ro:choose) e ...) ⇒ : (⊔ ty ...)]]])
+  [⊢ [_ ≫ (#,(syntax/loc #'ch ro:choose) e- ...) ⇒ : (⊔ ty ...)]]])
 
 ;; (define (apply-FSM f v) (f v))
 ;; (define-primop apply-FSM : (→ FSM (List Symbol) Bool))
