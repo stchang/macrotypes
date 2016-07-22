@@ -1,24 +1,35 @@
-#lang turnstile
-(extends "rosette.rkt"); #:except →) ; extends typed rosette
+;#lang turnstile
+#lang racket/base
+(require (except-in "../../../turnstile/turnstile.rkt" #%module-begin zero? void sub1 or and not add1 = - * + boolean? integer? string? quote pregexp make-parameter equal?)
+         (for-syntax (except-in "../../../turnstile/turnstile.rkt")))
+(extends "rosette.rkt" #:except #%datum #%app) ; extends typed rosette
 (require (prefix-in ro: rosette)) ; untyped 
 (require (prefix-in ro: rosette/lib/synthax))
-;; (require (except-in "rosette.rkt" #%app define)) ; typed
-;; (require (only-in sdsl/bv/lang/bvops bvredand bvredor)
 (require (prefix-in fsm: sdsl/fsm/fsm))
-(require (only-in sdsl/fsm/fsm reject))
-;(require (prefix-in fsm: (only-in sdsl/fsm/automaton automaton)))
-;; ;(require (only-in sdsl/fsm/fsm automaton))
-;; ;; (require sdsl/bv/lang/core (prefix-in bv: sdsl/bv/lang/form))
+(require (only-in sdsl/fsm/fsm reject verify-automaton debug-automaton synthesize-automaton))
 
 (require (for-syntax lens unstable/lens))
 
-(define-base-types FSM Regexp State)
+(define-base-types FSM State Pict)
 
-(define-typed-syntax pregexp 
-  [(_ s) ≫
-   [⊢ [s ≫ s- ⇐ : String]]
+(define-typed-syntax #%datum
+  [(_ . v) ≫
+   #:when (regexp? (syntax-e #'v))
    --------
-   [⊢ [_ ≫ (pregexp- s-) ⇒ : Regexp]]])
+   [⊢ [_ ≫ (ro:#%datum . v) ⇒ : Regexp]]]
+  [(_ . v) ≫
+   --------
+   [_ ≻ (rosette:#%datum . v)]])
+
+(define-typed-syntax app #:export-as #%app
+  [(_ f e) ≫
+   [⊢ [f ≫ f- ⇐ : FSM]]
+   [⊢ [e ≫ e- ⇐ : (List Symbol)]]
+   --------
+   [⊢ [_ ≫ (ro:#%app f- e-) ⇒ : Bool]]]
+  [(_ f . es) ≫
+   --------
+   [_ ≻ (rosette:#%app f . es)]])
 
 (define-typed-syntax automaton #:datum-literals (: →)
   [(_ init-state:id
@@ -28,26 +39,28 @@
                  (format "initial state ~a is not declared state: ~a"
                          (syntax->datum #'init-state)
                          (syntax->datum #'(state ...)))
-   ;#:fail-unless (let ([states (syntax->datum #'(state ...))])
-   ;                (for/and ([t (syntax->datum #'(target ... ...))])
-   ;                  (member t states)))
-   ;              (format "transition to unknown state")
    #:with arr (datum->syntax #f '→)
    [() ([state ≫ state- : State] ...) ⊢ 
     [init-state ≫ init-state- ⇐ : State]
     [target ≫ target- ⇐ : State] ... ...]
    --------
-   [⊢ [_ ≫ (fsm:automaton init-state-
-             [state- : (label arr target-) ...] ...)
-       ⇒ : FSM]]])
+   [⊢ [_ ≫ (fsm:automaton init-state- 
+             [state- : (label arr target-) ...] ...) ⇒  : FSM]]])
 
 (define-primop reject : State)
 
+;(provide (rename-out [fsm:? ?]))
 (define-typed-syntax ?
- [(_ e ...+) ≫
-   [⊢ [e ≫ e- ⇒ : ty]] ...
+ [(ch e ...+) ≫
+  [⊢ [e ≫ e- ⇒ : ty]] ...
    --------
-   [⊢ [_ ≫ (ro:choose e ...) ⇒ : (⊔ ty ...)]]])
+  ;; the #'choose identifier itself must have the location of its use
+  ;; see define-synthax implementation, specifically syntax/source in utils
+  [⊢ [_ ≫ (#,(syntax/loc #'ch ro:choose) e ...) ⇒ : (⊔ ty ...)]]])
 
-(define (apply-FSM f v) (f v))
-(define-primop apply-FSM : (→ FSM (List Symbol) Bool))
+;; (define (apply-FSM f v) (f v))
+;; (define-primop apply-FSM : (→ FSM (List Symbol) Bool))
+
+(define-primop verify-automaton : (→ FSM Regexp (List Symbol)))
+(define-primop debug-automaton : (→ FSM Regexp (List Symbol) Pict))
+(define-primop synthesize-automaton : (→ FSM Regexp Unit))

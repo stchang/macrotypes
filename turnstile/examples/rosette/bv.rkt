@@ -1,7 +1,10 @@
-#lang turnstile
-(extends "rosette.rkt" #:except bv bveq bvslt bvult bvsle bvule bvsgt bvugt bvsge bvuge) ; extends typed rosette
+;#lang turnstile
+#lang racket/base
+(require (except-in "../../../turnstile/turnstile.rkt" #%module-begin zero? void sub1 or and not add1 = - * + boolean? integer? string? quote pregexp make-parameter equal?)
+         (for-syntax (except-in "../../../turnstile/turnstile.rkt")))
+(extends "rosette.rkt" ; extends typed rosette
+         #:except bv bveq bvslt bvult bvsle bvule bvsgt bvugt bvsge bvuge)
 (require (prefix-in ro: rosette)) ; untyped 
-;(require (except-in "rosette.rkt" #%app define)) ; typed
 (require (only-in sdsl/bv/lang/bvops bvredand bvredor)
          (prefix-in bv: (only-in sdsl/bv/lang/bvops BV)))
 (require sdsl/bv/lang/core (prefix-in bv: sdsl/bv/lang/form))

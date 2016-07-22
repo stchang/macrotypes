@@ -1,9 +1,15 @@
-#lang turnstile
-(extends "../ext-stlc.rkt" #:except if)
+;#lang turnstile
+#lang racket/base
+(require (except-in "../../../turnstile/turnstile.rkt" 
+           #%module-begin zero? void sub1 or and not add1 = - * + boolean? integer?)
+         (for-syntax (except-in "../../../turnstile/turnstile.rkt")))
+(provide (rename-out [ro:#%module-begin #%module-begin]))
+(extends "../ext-stlc.rkt" #:except if #%app #%module-begin)
 (reuse List #:from "../stlc+cons.rkt")
 (require (only-in "../stlc+reco+var.rkt" [define stlc:define]))
 (require (only-in "../stlc+reco+var.rkt" define-type-alias))
 (require (prefix-in ro: rosette))
+(require (prefix-in ro: rosette/lib/synthax))
 (provide BVPred)
 
 (define-simple-macro (define-rosette-primop op:id : ty)
@@ -27,10 +33,25 @@
           (define-syntax- x (make-rename-transformer (⊢ y : ty.norm))) ...
           (ro:define-symbolic y ... pred-))]])
 
+(define-typed-syntax choose
+  [(_ e ...+) ≫
+   [⊢ [e ≫ e- ⇒ : ty]] ...
+   --------
+   [⊢ [_ ≫ (ro:choose e ...) ⇒ : (⊔ ty ...)]]])
+
+(define-typed-syntax app #:export-as #%app
+  [(_ e_fn e_arg ...) ≫
+   [⊢ [e_fn ≫ e_fn- ⇒ : (~→ τ_in ... τ_out)]]
+   #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
+   (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
+   [⊢ [e_arg ≫ e_arg- ⇐ : τ_in] ...]
+   --------
+   [⊢ [_ ≫ (ro:#%app e_fn- e_arg- ...) ⇒ : τ_out]]])
+
 ;; ----------------------------------------------------------------------------
 ;; Racket stuff
 
-(define-base-type Symbol)
+(define-base-types Symbol Regexp)
 
 (define-typed-syntax quote
   [(_ x:id) ≫
@@ -45,6 +66,7 @@
 (define-rosette-primop boolean? : (→ Bool Bool))
 (define-rosette-primop integer? : (→ Int Bool))
 (define-rosette-primop string? : (→ String Bool))
+(define-rosette-primop pregexp : (→ String Regexp))
 
 (define-typed-syntax equal?
   [(equal? e1 e2) ≫

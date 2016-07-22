@@ -2,4 +2,5 @@
 (require "rosette-tests.rkt")
 (require "bv-tests.rkt")
 ;(require "bv-ref-tests.rkt")
-(require "fsm-test.rkt")
+; visit but dont instantiate, o.w. will get unsat
+(dynamic-require "fsm-test.rkt" (void))

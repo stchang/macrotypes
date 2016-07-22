@@ -9,8 +9,7 @@
            (r → end)] 
    [end : ]))
 
-(define rx (pregexp "^c[ad]+r$"))
-
+(define rx #px"^c[ad]+r$")
 
 (define M 
   (automaton init
@@ -23,11 +22,13 @@
            (r → (? s1 s2 end reject))]
    [end  : ]))
 
-; example commands 
-(check-type (apply-FSM m '(c a r)) : Bool -> #t)
-(check-type (apply-FSM m '(c d r)) : Bool -> #t)
-(check-type (apply-FSM m '(c a d a r)) : Bool -> #t)
-(check-type (apply-FSM m '(c a d a)) : Bool -> #f)
-;; (verify-automaton m #px"^c[ad]+r$")
-;; (debug-automaton m #px"^c[ad]+r$" '(c r))
-;; (synthesize-automaton M #px"^c[ad]+r$")
+(check-type (M '(c a r)) : Bool) ; symbolic result
+
+;; example commands 
+(check-type (m '(c a r)) : Bool -> #t)
+(check-type (m '(c d r)) : Bool -> #t)
+(check-type (m '(c a d a r)) : Bool -> #t)
+(check-type (m '(c a d a)) : Bool -> #f)
+(check-type (verify-automaton m #px"^c[ad]+r$") : (List Symbol) -> '(c r))
+(check-type (debug-automaton m #px"^c[ad]+r$" '(c r)) : Pict)
+(check-type (synthesize-automaton M #px"^c[ad]+r$") : Unit)
