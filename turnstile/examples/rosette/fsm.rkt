@@ -1,6 +1,8 @@
 ;#lang turnstile
 #lang racket/base
-(require (except-in "../../../turnstile/turnstile.rkt" #%module-begin zero? void sub1 or and not add1 = - * + boolean? integer? string? quote pregexp make-parameter equal?)
+(require (except-in "../../../turnstile/turnstile.rkt" 
+          #%module-begin 
+          zero? void sub1 or and not add1 = - * + boolean? integer? string? quote pregexp make-parameter equal? list)
          (for-syntax (except-in "../../../turnstile/turnstile.rkt")))
 (extends "rosette.rkt" #:except #%datum #%app) ; extends typed rosette
 (require (prefix-in ro: rosette)) ; untyped 

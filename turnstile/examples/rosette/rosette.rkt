@@ -1,11 +1,17 @@
 ;#lang turnstile
 #lang racket/base
+;; (require racket/require)
+;; (require 
+;;  (except-in
+;;   (subtract-in "../../../turnstile/turnstile.rkt" 
+;;                (except-in "../ext-stlc.rkt" #%app #%top #%datum))))
 (require (except-in "../../../turnstile/turnstile.rkt" 
-           #%module-begin zero? void sub1 or and not add1 = - * + boolean? integer?)
+           #%module-begin 
+           zero? void sub1 or and not add1 = - * + boolean? integer? list)
          (for-syntax (except-in "../../../turnstile/turnstile.rkt")))
 (provide (rename-out [ro:#%module-begin #%module-begin]))
 (extends "../ext-stlc.rkt" #:except if #%app #%module-begin)
-(reuse List #:from "../stlc+cons.rkt")
+(reuse List list #:from "../stlc+cons.rkt")
 (require (only-in "../stlc+reco+var.rkt" [define stlc:define]))
 (require (only-in "../stlc+reco+var.rkt" define-type-alias))
 (require (prefix-in ro: rosette))
