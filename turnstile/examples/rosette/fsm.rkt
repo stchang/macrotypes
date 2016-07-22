@@ -7,11 +7,13 @@
 (require (prefix-in ro: rosette/lib/synthax))
 (require (prefix-in fsm: sdsl/fsm/fsm))
 (require (only-in sdsl/fsm/fsm reject verify-automaton debug-automaton synthesize-automaton))
+(provide (rename-out [rosette:choose ?]))
 
 (require (for-syntax lens unstable/lens))
 
 (define-base-types FSM State Pict)
 
+;; extend rosette:#%datum to handle regexp literals
 (define-typed-syntax #%datum
   [(_ . v) ≫
    #:when (regexp? (syntax-e #'v))
@@ -21,6 +23,7 @@
    --------
    [_ ≻ (rosette:#%datum . v)]])
 
+;; extend rosette:#%app to work with FSM
 (define-typed-syntax app #:export-as #%app
   [(_ f e) ≫
    [⊢ [f ≫ f- ⇐ : FSM]]
@@ -48,15 +51,6 @@
              [state- : (label arr target-) ...] ...) ⇒  : FSM]]])
 
 (define-primop reject : State)
-
-;(provide (rename-out [fsm:? ?]))
-(define-typed-syntax ?
- [(ch e ...+) ≫
-  [⊢ [e ≫ e- ⇒ : ty]] ...
-   --------
-  ;; the #'choose identifier itself must have the location of its use
-  ;; see define-synthax implementation, specifically syntax/source in utils
-  [⊢ [_ ≫ (#,(syntax/loc #'ch ro:choose) e- ...) ⇒ : (⊔ ty ...)]]])
 
 ;; (define (apply-FSM f v) (f v))
 ;; (define-primop apply-FSM : (→ FSM (List Symbol) Bool))

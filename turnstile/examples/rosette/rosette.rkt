@@ -34,10 +34,12 @@
           (ro:define-symbolic y ... pred-))]])
 
 (define-typed-syntax choose
-  [(_ e ...+) ≫
+  [(ch e ...+) ≫
    [⊢ [e ≫ e- ⇒ : ty]] ...
    --------
-   [⊢ [_ ≫ (ro:choose e ...) ⇒ : (⊔ ty ...)]]])
+   ;; the #'choose identifier itself must have the location of its use
+   ;; see define-synthax implementation, specifically syntax/source in utils
+   [⊢ [_ ≫ (#,(syntax/loc #'ch ro:choose) e- ...) ⇒ : (⊔ ty ...)]]])
 
 (define-typed-syntax app #:export-as #%app
   [(_ e_fn e_arg ...) ≫
