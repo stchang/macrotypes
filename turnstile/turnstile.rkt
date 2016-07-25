@@ -11,7 +11,22 @@
 
 (module typecheck+ racket/base
   (provide (all-defined-out))
-  (require (for-meta -1 (except-in macrotypes/typecheck #%module-begin)))
+  (require (for-meta -1 (except-in macrotypes/typecheck #%module-begin))
+           (only-in lens lens-view lens-set)
+           (only-in unstable/lens stx-append*n-lens))
+  ;; infer/depth returns a list of three values:
+  ;;   tvxs- ; a stx-list of the expanded versions of type variables in the tvctx
+  ;;   xs-   ; a stx-list of the expanded versions of variables in the ctx
+  ;;   es*-  ; a nested list a depth given by the depth argument, with the same structure
+  ;;         ; as es*, containing the expanded es*, with the types attached
+  (define (infer/depth #:ctx ctx #:tvctx tvctx depth es* origs*)
+    (define flat (stx-append*n-lens depth))
+    (define es (lens-view flat (list es*)))
+    (define origs (lens-view flat (list origs*)))
+    (define/with-syntax [tvxs- xs- es- _]
+      (infer #:tvctx tvctx #:ctx ctx (stx-map pass-orig es origs)))
+    (match-define (list es*-) (lens-set flat (list es*) #'es-))
+    (list #'tvxs- #'xs- es*-))
   (define (raise-⇐-expected-type-error ⇐-stx body expected-type existing-type)
     (raise-syntax-error
      '⇐
@@ -33,6 +48,19 @@
     [pattern (~datum --------)])
   (define-syntax-class elipsis
     [pattern (~literal ...)])
+
+  ;; with-depth : Any (Stx-Listof Elipsis) -> Any
+  (define (with-depth stx elipses)
+    (cond [(stx-null? elipses) stx]
+          [else
+           (with-depth (list stx (stx-car elipses))
+                       (stx-cdr elipses))]))
+
+  ;; add-lists : Any Natural -> Any
+  (define (add-lists stx n)
+    (cond [(zero? n) stx]
+          [else (add-lists (list stx) (sub1 n))]))
+  
   (define-splicing-syntax-class props
     [pattern (~and (~seq stuff ...) (~seq (~seq k:id v) ...))])
   (define-splicing-syntax-class ⇒-prop
@@ -104,36 +132,49 @@
              #:with [ctx ...] #'[ctx1.ctx ... ...]])
   (define-splicing-syntax-class inf
     #:datum-literals (⊢ ⇒ ⇐ ≫ :)
-    #:attributes ([e-stx 1] [e-stx-orig 1] [e-pat 1])
+    #:attributes (depth es-stx es-stx-orig es-pat)
     [pattern (~seq [[e-stx* ≫ e-pat*] props:⇒-props] ooo:elipsis ...)
-             #:with e-tmp (generate-temporary #'e-pat*)
-             #:with τ-tmp (generate-temporary 'τ)
-             #:with [e-stx ...] #'[e-stx* ooo ...]
-             #:with [e-stx-orig ...] #'[e-stx* ooo ...]
-             #:with [e-pat ...]
-             #'[(~post
-                 (~seq
-                  (~and props.e-pat
-                        e-pat*)
-                  ooo ...))]]
+             #:with depth (stx-length #'[ooo ...])
+             #:with es-stx (with-depth #'e-stx* #'[ooo ...])
+             #:with es-stx-orig (with-depth #'e-stx* #'[ooo ...])
+             #:with es-pat
+             #`(~post
+                #,(with-depth
+                   #'(~and props.e-pat
+                           e-pat*)
+                   #'[ooo ...]))]
     [pattern (~seq [[e-stx* ≫ e-pat*] props:⇐-props] ooo:elipsis ...)
              #:with e-tmp (generate-temporary #'e-pat*)
              #:with τ-tmp (generate-temporary 'τ)
              #:with τ-exp-tmp (generate-temporary 'τ_expected)
-             #:with [e-stx ...] #'[(add-expected e-stx* props.τ-stx) ooo ...]
-             #:with [e-stx-orig ...] #'[e-stx* ooo ...]
-             #:with [e-pat ...]
-             #'[(~post
-                 (~seq
-                  (~and props.e-pat
-                        e-pat*)
-                  ooo ...))]]
+             #:with depth (stx-length #'[ooo ...])
+             #:with es-stx (with-depth #'(add-expected e-stx* props.τ-stx) #'[ooo ...])
+             #:with es-stx-orig (with-depth #'e-stx* #'[ooo ...])
+             #:with es-pat
+             #`(~post
+                #,(with-depth
+                   #'(~and props.e-pat
+                           e-pat*)
+                   #'[ooo ...]))]
     )
   (define-splicing-syntax-class inf*
+    #:attributes (depth es-stx es-stx-orig es-pat)
     [pattern (~seq inf:inf ...)
-             #:with [e-stx ...] #'[inf.e-stx ... ...]
-             #:with [e-stx-orig ...] #'[inf.e-stx-orig ... ...]
-             #:with [e-pat ...] #'[inf.e-pat ... ...]])
+             #:do [(define ds (stx-map syntax-e #'[inf.depth ...]))
+                   (define max-d (apply max 0 ds))]
+             #:with depth (add1 max-d)
+             #:with [[es-stx* es-stx-orig* es-pat*] ...]
+             (for/list ([inf-es-stx (in-list (syntax->list #'[inf.es-stx ...]))]
+                        [inf-es-stx-orig (in-list (syntax->list #'[inf.es-stx-orig ...]))]
+                        [inf-es-pat (in-list (syntax->list #'[inf.es-pat ...]))]
+                        [d (in-list ds)])
+               (list
+                (add-lists inf-es-stx (- max-d d))
+                (add-lists inf-es-stx-orig (- max-d d))
+                (add-lists inf-es-pat (- max-d d))))
+             #:with es-stx #'[es-stx* ...]
+             #:with es-stx-orig #'[es-stx-orig* ...]
+             #:with es-pat #'[es-pat* ...]])
   (define-splicing-syntax-class clause
     #:attributes ([pat 1])
     #:datum-literals (⊢ ⇒ ⇐ ≫ τ⊑ :)
@@ -150,12 +191,12 @@
              #'[(~post
                  (~post
                   (~parse
-                   [[(tvctx.x- ...) (ctx.x- ...) (inf.e-pat ...) _] ooo ...]
+                   [[(tvctx.x- ...) (ctx.x- ...) inf.es-pat] ooo ...]
                    (for/list ([tvctxs tvctxss]
                               [ctxs ctxss]
-                              [es (in-list (syntax->list #'[(inf.e-stx ...) ooo ...]))]
-                              [origs (in-list (syntax->list #'[(inf.e-stx-orig ...) ooo ...]))])
-                     (infer #:tvctx tvctxs #:ctx ctxs (stx-map pass-orig es origs))))))]]
+                              [es* (in-list (syntax->list #'[inf.es-stx ooo ...]))]
+                              [origs* (in-list (syntax->list #'[inf.es-stx-orig ooo ...]))])
+                     (infer/depth #:tvctx tvctxs #:ctx ctxs 'inf.depth es* origs*)))))]]
     [pattern [a τ⊑ b]
              #:with [pat ...]
              #'[(~post

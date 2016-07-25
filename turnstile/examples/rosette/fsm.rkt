@@ -33,14 +33,9 @@
                       (member t states)))
                   (format "transition to unknown state")]
    [#:with arr (datum->syntax #f '→)]
-   [#:with (t ...) 
-           (lens-view stx-append*-lens #'((target ...) ...))]
    [() ([state : State ≫ state-] ...) ⊢ 
     [[init-state ≫ init-state-] ⇐ : State]
-;     [[target ≫ target-] ⇐ : State] ... ...]
-    [[t ≫ t-] ⇐ : State] ...]
-   [#:with ((target- ...) ...) 
-           (lens-set stx-append*-lens #'((target ...) ...) #'(t- ...))]
+    [[target ≫ target-] ⇐ : State] ... ...]
    --------
    [⊢ [[_ ≫ (fsm:automaton init-state- 
               [state- : (label arr target-) ...] ...)] 

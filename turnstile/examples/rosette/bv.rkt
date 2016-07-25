@@ -81,7 +81,7 @@
    [#:fail-unless (stx-andmap brace? #'(ids ...))
                   "given ops must be enclosed with braces"]
    [⊢ [[n ≫ n-] ⇐ : Int] ...]
-   [⊢ [[id ≫ id-] ⇒ : ty_id] ...] ...
+   [⊢ [[id ≫ id-] ⇒ : ty_id] ... ...]
    [#:fail-unless (stx-andmap →? #'(ty_id ... ...))
                   "given op must be a function"]
    [#:with ((~→ ty ...) ...) #'(ty_id ... ...)]
