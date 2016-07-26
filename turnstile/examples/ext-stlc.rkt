@@ -25,17 +25,17 @@
 (define-typed-syntax #%datum
   [(#%datum . b:boolean) ≫
    --------
-   [⊢ [[_ ≫ (#%datum- . b)] ⇒ : Bool]]]
+   [⊢ [_ ≫ (#%datum- . b) ⇒ : Bool]]]
   [(#%datum . s:str) ≫
    --------
-   [⊢ [[_ ≫ (#%datum- . s)] ⇒ : String]]]
+   [⊢ [_ ≫ (#%datum- . s) ⇒ : String]]]
   [(#%datum . f) ≫
    [#:when (flonum? (syntax-e #'f))]
    --------
-   [⊢ [[_ ≫ (#%datum- . f)] ⇒ : Float]]]
+   [⊢ [_ ≫ (#%datum- . f) ⇒ : Float]]]
   [(#%datum . c:char) ≫
    --------
-   [⊢ [[_ ≫ (#%datum- . c)] ⇒ : Char]]]
+   [⊢ [_ ≫ (#%datum- . c) ⇒ : Char]]]
   [(#%datum . x) ≫
    --------
    [_ ≻ (stlc+lit:#%datum . x)]])
@@ -50,16 +50,16 @@
 
 (define-typed-syntax and
   [(and e1 e2) ≫
-   [⊢ [[e1 ≫ e1-] ⇐ : Bool]]
-   [⊢ [[e2 ≫ e2-] ⇐ : Bool]]
+   [⊢ [e1 ≫ e1- ⇐ : Bool]]
+   [⊢ [e2 ≫ e2- ⇐ : Bool]]
    --------
-   [⊢ [[_ ≫ (and- e1- e2-)] ⇒ : Bool]]])
+   [⊢ [_ ≫ (and- e1- e2-) ⇒ : Bool]]])
 
 (define-typed-syntax or
   [(or e ...) ≫
-   [⊢ [[e ≫ e-] ⇐ : Bool] ...]
+   [⊢ [e ≫ e- ⇐ : Bool] ...]
    --------
-   [⊢ [[_ ≫ (or- e- ...)] ⇒ : Bool]]])
+   [⊢ [_ ≫ (or- e- ...) ⇒ : Bool]]])
 
 (begin-for-syntax 
   (define current-join 
@@ -80,44 +80,44 @@
 
 (define-typed-syntax if
   [(if e_tst e1 e2) ⇐ : τ-expected ≫
-   [⊢ [[e_tst ≫ e_tst-] ⇒ : _]] ; Any non-false value is truthy.
-   [⊢ [[e1 ≫ e1-] ⇐ : τ-expected]]
-   [⊢ [[e2 ≫ e2-] ⇐ : τ-expected]]
+   [⊢ [e_tst ≫ e_tst- ⇒ : _]] ; Any non-false value is truthy.
+   [⊢ [e1 ≫ e1- ⇐ : τ-expected]]
+   [⊢ [e2 ≫ e2- ⇐ : τ-expected]]
    --------
-   [⊢ [[_ ≫ (if- e_tst- e1- e2-)] ⇐ : _]]]
+   [⊢ [_ ≫ (if- e_tst- e1- e2-) ⇐ : _]]]
   [(if e_tst e1 e2) ≫
-   [⊢ [[e_tst ≫ e_tst-] ⇒ : _]] ; Any non-false value is truthy.
-   [⊢ [[e1 ≫ e1-] ⇒ : τ1]]
-   [⊢ [[e2 ≫ e2-] ⇒ : τ2]]
+   [⊢ [e_tst ≫ e_tst- ⇒ : _]] ; Any non-false value is truthy.
+   [⊢ [e1 ≫ e1- ⇒ : τ1]]
+   [⊢ [e2 ≫ e2- ⇒ : τ2]]
    --------
-   [⊢ [[_ ≫ (if- e_tst- e1- e2-)] ⇒ : (⊔ τ1 τ2)]]])
+   [⊢ [_ ≫ (if- e_tst- e1- e2-) ⇒ : (⊔ τ1 τ2)]]])
 
 (define-base-type Unit)
 (define-primop void : (→ Unit))
 
 (define-typed-syntax begin
   [(begin e_unit ... e) ⇐ : τ_expected ≫
-   [⊢ [[e_unit ≫ e_unit-] ⇒ : _] ...]
-   [⊢ [[e ≫ e-] ⇐ : τ_expected]]
+   [⊢ [e_unit ≫ e_unit- ⇒ : _] ...]
+   [⊢ [e ≫ e- ⇐ : τ_expected]]
    --------
-   [⊢ [[_ ≫ (begin- e_unit- ... e-)] ⇐ : _]]]
+   [⊢ [_ ≫ (begin- e_unit- ... e-) ⇐ : _]]]
   [(begin e_unit ... e) ≫
-   [⊢ [[e_unit ≫ e_unit-] ⇒ : _] ...]
-   [⊢ [[e ≫ e-] ⇒ : τ_e]]
+   [⊢ [e_unit ≫ e_unit- ⇒ : _] ...]
+   [⊢ [e ≫ e- ⇒ : τ_e]]
    --------
-   [⊢ [[_ ≫ (begin- e_unit- ... e-)] ⇒ : τ_e]]])
+   [⊢ [_ ≫ (begin- e_unit- ... e-) ⇒ : τ_e]]])
 
 (define-typed-syntax let
   [(let ([x e] ...) e_body) ⇐ : τ_expected ≫
-   [⊢ [[e ≫ e-] ⇒ : τ_x] ...]
-   [() ([x : τ_x ≫ x-] ...) ⊢ [[e_body ≫ e_body-] ⇐ : τ_expected]]
+   [⊢ [e ≫ e- ⇒ : τ_x] ...]
+   [() ([x ≫ x- : τ_x] ...) ⊢ [e_body ≫ e_body- ⇐ : τ_expected]]
    --------
-   [⊢ [[_ ≫ (let- ([x- e-] ...) e_body-)] ⇐ : _]]]
+   [⊢ [_ ≫ (let- ([x- e-] ...) e_body-) ⇐ : _]]]
   [(let ([x e] ...) e_body) ≫
-   [⊢ [[e ≫ e-] ⇒ : τ_x] ...]
-   [() ([x : τ_x ≫ x-] ...) ⊢ [[e_body ≫ e_body-] ⇒ : τ_body]]
+   [⊢ [e ≫ e- ⇒ : τ_x] ...]
+   [() ([x ≫ x- : τ_x] ...) ⊢ [e_body ≫ e_body- ⇒ : τ_body]]
    --------
-   [⊢ [[_ ≫ (let- ([x- e-] ...) e_body-)] ⇒ : τ_body]]])
+   [⊢ [_ ≫ (let- ([x- e-] ...) e_body-) ⇒ : τ_body]]])
 
 ; dont need to manually transfer expected type
 ; result template automatically propagates properties
@@ -133,14 +133,14 @@
 
 (define-typed-syntax letrec
   [(letrec ([b:type-bind e] ...) e_body) ⇐ : τ_expected ≫
-   [() ([b.x : b.type ≫ x-] ...)
-    ⊢ [[e ≫ e-] ⇐ : b.type] ... [[e_body ≫ e_body-] ⇐ : τ_expected]]
+   [() ([b.x ≫ x- : b.type] ...)
+    ⊢ [e ≫ e- ⇐ : b.type] ... [e_body ≫ e_body- ⇐ : τ_expected]]
    --------
-   [⊢ [[_ ≫ (letrec- ([x- e-] ...) e_body-)] ⇐ : _]]]
+   [⊢ [_ ≫ (letrec- ([x- e-] ...) e_body-) ⇐ : _]]]
   [(letrec ([b:type-bind e] ...) e_body) ≫
-   [() ([b.x : b.type ≫ x-] ...)
-    ⊢ [[e ≫ e-] ⇐ : b.type] ... [[e_body ≫ e_body-] ⇒ : τ_body]]
+   [() ([b.x ≫ x- : b.type] ...)
+    ⊢ [e ≫ e- ⇐ : b.type] ... [e_body ≫ e_body- ⇒ : τ_body]]
    --------
-   [⊢ [[_ ≫ (letrec- ([x- e-] ...) e_body-)] ⇒ : τ_body]]])
+   [⊢ [_ ≫ (letrec- ([x- e-] ...) e_body-) ⇒ : τ_body]]])
 
 

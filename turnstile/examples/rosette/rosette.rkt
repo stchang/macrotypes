@@ -20,7 +20,7 @@
 
 (define-typed-syntax define-symbolic
   [(_ x:id ...+ pred : ty:type) ≫
-   [⊢ [[pred ≫ pred-] ⇐ : (→ ty.norm Bool)]]
+   [⊢ [pred ≫ pred- ⇐ : (→ ty.norm Bool)]]
    [#:with (y ...) (generate-temporaries #'(x ...))]
    --------
    [_ ≻ (begin-
@@ -35,10 +35,10 @@
 (define-typed-syntax quote
   [(_ x:id) ≫
    --------
-   [⊢ [[_ ≫ (quote- x)] ⇒ : Symbol]]]
+   [⊢ [_ ≫ (quote- x) ⇒ : Symbol]]]
   [(_ (x:id ...)) ≫
    --------
-   [⊢ [[_ ≫ (quote- (x ...))] ⇒ : (stlc+cons:List Symbol)]]])
+   [⊢ [_ ≫ (quote- (x ...)) ⇒ : (stlc+cons:List Symbol)]]])
 
 (define-type-constructor Param #:arity = 1)
 
@@ -48,43 +48,43 @@
 
 (define-typed-syntax equal?
   [(equal? e1 e2) ≫
-   [⊢ [[e1 ≫ e1-] ⇒ : ty1]]
-   [⊢ [[e2 ≫ e2-] ⇐ : ty1]]
+   [⊢ [e1 ≫ e1- ⇒ : ty1]]
+   [⊢ [e2 ≫ e2- ⇐ : ty1]]
    --------
-   [⊢ [[_ ≫ (ro:equal? e1- e2-)] ⇒ : Bool]]])
+   [⊢ [_ ≫ (ro:equal? e1- e2-) ⇒ : Bool]]])
 
 (define-typed-syntax if
   [(if e_tst e1 e2) ⇐ : τ-expected ≫
-   [⊢ [[e_tst ≫ e_tst-] ⇒ : _]] ; Any non-false value is truthy.
-   [⊢ [[e1 ≫ e1-] ⇐ : τ-expected]]
-   [⊢ [[e2 ≫ e2-] ⇐ : τ-expected]]
+   [⊢ [e_tst ≫ e_tst- ⇒ : _]] ; Any non-false value is truthy.
+   [⊢ [e1 ≫ e1- ⇐ : τ-expected]]
+   [⊢ [e2 ≫ e2- ⇐ : τ-expected]]
    --------
-   [⊢ [[_ ≫ (ro:if e_tst- e1- e2-)] ⇐ : _]]]
+   [⊢ [_ ≫ (ro:if e_tst- e1- e2-) ⇐ : _]]]
   [(if e_tst e1 e2) ≫
-   [⊢ [[e_tst ≫ e_tst-] ⇒ : _]] ; Any non-false value is truthy.
-   [⊢ [[e1 ≫ e1-] ⇒ : τ1]]
-   [⊢ [[e2 ≫ e2-] ⇒ : τ2]]
+   [⊢ [e_tst ≫ e_tst- ⇒ : _]] ; Any non-false value is truthy.
+   [⊢ [e1 ≫ e1- ⇒ : τ1]]
+   [⊢ [e2 ≫ e2- ⇒ : τ2]]
    --------
-   [⊢ [[_ ≫ (ro:if e_tst- e1- e2-)] ⇒ : (⊔ τ1 τ2)]]])
+   [⊢ [_ ≫ (ro:if e_tst- e1- e2-) ⇒ : (⊔ τ1 τ2)]]])
 
 ;; TODO: fix this to support Racket parameter usage patterns?
 ;; eg, this wont work if applied since it's not a function type
 (define-typed-syntax make-parameter
   #;[(_ e) ⇐ : (~Param τ_expected) ≫
-   [⊢ [[e ≫ e-] ⇐ : τ_expected]]
+   [⊢ [e ≫ e- ⇐ : τ_expected]]
    --------
-   [⊢ [[_ ≫ (ro:make-parameter e-)]]]]
+   [⊢ [_ ≫ (ro:make-parameter e-)]]]
   [(_ e) ≫
-   [⊢ [[e ≫ e-] ⇒ : τ]]
+   [⊢ [e ≫ e- ⇒ : τ]]
    --------
-   [⊢ [[_ ≫ (ro:make-parameter e-)] ⇒ : (Param τ)]]])
+   [⊢ [_ ≫ (ro:make-parameter e-) ⇒ : (Param τ)]]])
 
 (define-typed-syntax define #:datum-literals (: -> →)
   [(_ x:id e) ≫
    --------
    [_ ≻ (stlc:define x e)]]
   [(_ (f [x : ty] ... (~or → ->) ty_out) e) ≫
-;   [⊢ [[e ≫ e-] ⇒ : ty_e]]
+;   [⊢ [e ≫ e- ⇒ : ty_e]]
    [#:with f- (generate-temporary #'f)]
    --------
    [_ ≻ (begin-
@@ -113,15 +113,15 @@
 ;(define-rosette-primop bv : (→ Int BVPred BV)
 (define-typed-syntax bv
   [(_ e_val e_size) ≫
-   [⊢ [[e_val ≫ e_val-] ⇐ : Int]]
-   [⊢ [[e_size ≫ e_size-] ⇐ : BVPred]]
+   [⊢ [e_val ≫ e_val- ⇐ : Int]]
+   [⊢ [e_size ≫ e_size- ⇐ : BVPred]]
    --------
-   [⊢ [[_ ≫ (ro:bv e_val- e_size-)] ⇒ : BV]]]
+   [⊢ [_ ≫ (ro:bv e_val- e_size-) ⇒ : BV]]]
   [(_ e_val e_size) ≫
-   [⊢ [[e_val ≫ e_val-] ⇐ : Int]]
-   [⊢ [[e_size ≫ e_size-] ⇐ : Nat]]
+   [⊢ [e_val ≫ e_val- ⇐ : Int]]
+   [⊢ [e_size ≫ e_size- ⇐ : Nat]]
    --------
-   [⊢ [[_ ≫ (ro:bv e_val- e_size-)] ⇒ : BV]]])
+   [⊢ [_ ≫ (ro:bv e_val- e_size-) ⇒ : BV]]])
 
 (define-rosette-primop bv? : (→ BV Bool))
 (define-rosette-primop bitvector : (→ Nat BVPred))
@@ -147,27 +147,27 @@
 (define-typed-syntax bvand
   [f:id ≫ ; TODO: implement variable arity types
    --------
-   [⊢ [[_ ≫ ro:bvand] ⇒ : (→ BV BV BV)]]]
+   [⊢ [_ ≫ ro:bvand ⇒ : (→ BV BV BV)]]]
   [(_ e ...+) ≫
-   [⊢ [[e ≫ e-] ⇐ : BV] ...]
+   [⊢ [e ≫ e- ⇐ : BV] ...]
    --------
-   [⊢ [[_ ≫ (ro:bvand e- ...)] ⇒ : BV]]])
+   [⊢ [_ ≫ (ro:bvand e- ...) ⇒ : BV]]])
 (define-typed-syntax bvor
   [f:id ≫ ; TODO: implement variable arity types
    --------
-   [⊢ [[_ ≫ ro:bvor] ⇒ : (→ BV BV BV)]]]
+   [⊢ [_ ≫ ro:bvor ⇒ : (→ BV BV BV)]]]
   [(_ e ...+) ≫
-   [⊢ [[e ≫ e-] ⇐ : BV] ...]
+   [⊢ [e ≫ e- ⇐ : BV] ...]
    --------
-   [⊢ [[_ ≫ (ro:bvor e- ...)] ⇒ : BV]]])
+   [⊢ [_ ≫ (ro:bvor e- ...) ⇒ : BV]]])
 (define-typed-syntax bvxor
   [f:id ≫ ; TODO: implement variable arity types
    --------
-   [⊢ [[_ ≫ ro:bvxor] ⇒ : (→ BV BV BV)]]]
+   [⊢ [_ ≫ ro:bvxor ⇒ : (→ BV BV BV)]]]
   [(_ e ...+) ≫
-   [⊢ [[e ≫ e-] ⇐ : BV] ...]
+   [⊢ [e ≫ e- ⇐ : BV] ...]
    --------
-   [⊢ [[_ ≫ (ro:bvxor e- ...)] ⇒ : BV]]])
+   [⊢ [_ ≫ (ro:bvxor e- ...) ⇒ : BV]]])
 
 (define-rosette-primop bvshl : (→ BV BV BV))
 (define-rosette-primop bvlshr : (→ BV BV BV))
@@ -177,27 +177,27 @@
 (define-typed-syntax bvadd
   [f:id ≫ ; TODO: implement variable arity types
    --------
-   [⊢ [[_ ≫ ro:bvadd] ⇒ : (→ BV BV BV)]]]
+   [⊢ [_ ≫ ro:bvadd ⇒ : (→ BV BV BV)]]]
   [(_ e ...+) ≫
-   [⊢ [[e ≫ e-] ⇐ : BV] ...]
+   [⊢ [e ≫ e- ⇐ : BV] ...]
    --------
-   [⊢ [[_ ≫ (ro:bvadd e- ...)] ⇒ : BV]]])
+   [⊢ [_ ≫ (ro:bvadd e- ...) ⇒ : BV]]])
 (define-typed-syntax bvsub
   [f:id ≫ ; TODO: implement variable arity types
    --------
-   [⊢ [[_ ≫ ro:bvsub] ⇒ : (→ BV BV BV)]]]
+   [⊢ [_ ≫ ro:bvsub ⇒ : (→ BV BV BV)]]]
   [(_ e ...+) ≫
-   [⊢ [[e ≫ e-] ⇐ : BV] ...]
+   [⊢ [e ≫ e- ⇐ : BV] ...]
    --------
-   [⊢ [[_ ≫ (ro:bvsub e- ...)] ⇒ : BV]]])
+   [⊢ [_ ≫ (ro:bvsub e- ...) ⇒ : BV]]])
 (define-typed-syntax bvmul
   [f:id ≫ ; TODO: implement variable arity types
    --------
-   [⊢ [[_ ≫ ro:bvmul] ⇒ : (→ BV BV BV)]]]
+   [⊢ [_ ≫ ro:bvmul ⇒ : (→ BV BV BV)]]]
   [(_ e ...+) ≫
-   [⊢ [[e ≫ e-] ⇐ : BV] ...]
+   [⊢ [e ≫ e- ⇐ : BV] ...]
    --------
-   [⊢ [[_ ≫ (ro:bvmul e- ...)] ⇒ : BV]]])
+   [⊢ [_ ≫ (ro:bvmul e- ...) ⇒ : BV]]])
 
 (define-rosette-primop bvsdiv : (→ BV BV BV))
 (define-rosette-primop bvudiv : (→ BV BV BV))
@@ -207,9 +207,9 @@
 
 (define-typed-syntax concat
   [(_ e ...+) ≫
-   [⊢ [[e ≫ e-] ⇐ : BV] ...]
+   [⊢ [e ≫ e- ⇐ : BV] ...]
    --------
-   [⊢ [[_ ≫ (ro:concat e- ...)] ⇒ : BV]]])
+   [⊢ [_ ≫ (ro:concat e- ...) ⇒ : BV]]])
 
 (define-rosette-primop extract : (→ Int Int BV BV))
 ;; TODO: additionally support union in 2nd arg

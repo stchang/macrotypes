@@ -15,67 +15,67 @@
 (define-typed-syntax nil
   [(nil ~! τi:type-ann) ≫
    --------
-   [⊢ [[_ ≫ null-] ⇒ : (List τi.norm)]]]
+   [⊢ [_ ≫ null- ⇒ : (List τi.norm)]]]
   ; minimal type inference
   [nil:id ⇐ : (~List τ) ≫
    --------
-   [⊢ [[_ ≫ null-] ⇐ : _]]])
+   [⊢ [_ ≫ null- ⇐ : _]]])
 (define-typed-syntax cons
   [(cons e1 e2) ≫
-   [⊢ [[e1 ≫ e1-] ⇒ : τ1]]
-   [⊢ [[e2 ≫ e2-] ⇐ : (List τ1)]]
+   [⊢ [e1 ≫ e1- ⇒ : τ1]]
+   [⊢ [e2 ≫ e2- ⇐ : (List τ1)]]
    --------
-   [⊢ [[_ ≫ (cons- e1- e2-)] ⇒ : (List τ1)]]])
+   [⊢ [_ ≫ (cons- e1- e2-) ⇒ : (List τ1)]]])
 (define-typed-syntax isnil
   [(isnil e) ≫
-   [⊢ [[e ≫ e-] ⇒ : (~List _)]]
+   [⊢ [e ≫ e- ⇒ : (~List _)]]
    --------
-   [⊢ [[_ ≫ (null?- e-)] ⇒ : Bool]]])
+   [⊢ [_ ≫ (null?- e-) ⇒ : Bool]]])
 (define-typed-syntax head
   [(head e) ≫
-   [⊢ [[e ≫ e-] ⇒ : (~List τ)]]
+   [⊢ [e ≫ e- ⇒ : (~List τ)]]
    --------
-   [⊢ [[_ ≫ (car- e-)] ⇒ : τ]]])
+   [⊢ [_ ≫ (car- e-) ⇒ : τ]]])
 (define-typed-syntax tail
   [(tail e) ≫
-   [⊢ [[e ≫ e-] ⇒ : τ-lst]]
+   [⊢ [e ≫ e- ⇒ : τ-lst]]
    [#:fail-unless (List? #'τ-lst)
     (format "Expected a list type, got: ~a" (type->str #'τ-lst))]
    --------
-   [⊢ [[_ ≫ (cdr- e-)] ⇒ : τ-lst]]])
+   [⊢ [_ ≫ (cdr- e-) ⇒ : τ-lst]]])
 (define-typed-syntax list
   [(list) ≫
    --------
    [_ ≻ nil]]
   [(list x . rst) ⇐ : (~List τ) ≫ ; has expected type
    --------
-   [⊢ [[_ ≫ (cons (add-expected x τ) (list . rst))] ⇐ : _]]]
+   [⊢ [_ ≫ (cons (add-expected x τ) (list . rst)) ⇐ : _]]]
   [(list x . rst) ≫ ; no expected type
    --------
    [_ ≻ (cons x (list . rst))]])
 (define-typed-syntax reverse
   [(reverse e) ≫
-   [⊢ [[e ≫ e-] ⇒ : τ-lst]]
+   [⊢ [e ≫ e- ⇒ : τ-lst]]
    [#:fail-unless (List? #'τ-lst)
     (format "Expected a list type, got: ~a" (type->str #'τ-lst))]
    --------
-   [⊢ [[_ ≫ (reverse- e-)] ⇒ : τ-lst]]])
+   [⊢ [_ ≫ (reverse- e-) ⇒ : τ-lst]]])
 (define-typed-syntax length
   [(length e) ≫
-   [⊢ [[e ≫ e-] ⇒ : τ-lst]]
+   [⊢ [e ≫ e- ⇒ : τ-lst]]
    [#:fail-unless (List? #'τ-lst)
     (format "Expected a list type, got: ~a" (type->str #'τ-lst))]
    --------
-   [⊢ [[_ ≫ (length- e-)] ⇒ : Int]]])
+   [⊢ [_ ≫ (length- e-) ⇒ : Int]]])
 (define-typed-syntax list-ref
   [(list-ref e n) ≫
-   [⊢ [[e ≫ e-] ⇒ : (~List τ)]]
-   [⊢ [[n ≫ n-] ⇐ : Int]]
+   [⊢ [e ≫ e- ⇒ : (~List τ)]]
+   [⊢ [n ≫ n- ⇐ : Int]]
    --------
-   [⊢ [[_ ≫ (list-ref- e- n-)] ⇒ : τ]]])
+   [⊢ [_ ≫ (list-ref- e- n-) ⇒ : τ]]])
 (define-typed-syntax member
   [(member v e) ≫
-   [⊢ [[e ≫ e-] ⇒ : (~List τ)]]
-   [⊢ [[v ≫ v-] ⇐ : τ]]
+   [⊢ [e ≫ e- ⇒ : (~List τ)]]
+   [⊢ [v ≫ v- ⇐ : τ]]
    --------
-   [⊢ [[_ ≫ (member- v- e-)] ⇒ : Bool]]])
+   [⊢ [_ ≫ (member- v- e-) ⇒ : Bool]]])

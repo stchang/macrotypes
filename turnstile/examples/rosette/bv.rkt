@@ -12,14 +12,14 @@
 (define-typed-syntax current-bvpred
   [c-bvpred:id ≫
    --------
-   [⊢ [[_ ≫ bv:BV] ⇒ : (Param BVPred)]]]
+   [⊢ [_ ≫ bv:BV ⇒ : (Param BVPred)]]]
   [(_) ≫
    --------
-   [⊢ [[_ ≫ (bv:BV)] ⇒ : BVPred]]]
+   [⊢ [_ ≫ (bv:BV) ⇒ : BVPred]]]
   [(_ e) ≫
-   [⊢ [[e ≫ e-] ⇒ : BVPred]]
+   [⊢ [e ≫ e- ⇒ : BVPred]]
    --------
-   [⊢ [[_ ≫ (bv:BV e-)] ⇒ : Unit]]])
+   [⊢ [_ ≫ (bv:BV e-) ⇒ : Unit]]])
 
 (define-typed-syntax bv
   [(_ e_val) ≫
@@ -34,9 +34,9 @@
    --------
    [_ ≻ (bv* (current-bvpred))]]
   [(_ e_size) ≫
-   [⊢ [[e_size ≫ e_size-] ⇐ : BVPred]]
+   [⊢ [e_size ≫ e_size- ⇐ : BVPred]]
    --------
-   [⊢ [[_ ≫ ((lambda- () (ro:define-symbolic* b e_size-) b))] ⇒ : BV]]])
+   [⊢ [_ ≫ ((lambda- () (ro:define-symbolic* b e_size-) b)) ⇒ : BV]]])
 
 (define-syntax-rule (bool->bv b) 
   (rosette:if b 
@@ -60,10 +60,10 @@
    --------
    [_ ≻ (define-fragment (id param ...) #:implements spec #:library lib-expr #:minbv (rosette:#%datum . 4))]]
   [(_ (id param ...) #:implements spec #:library lib-expr #:minbv minbv) ≫
-   [⊢ [[spec ≫ spec-] ⇒ : ty_spec]]
+   [⊢ [spec ≫ spec- ⇒ : ty_spec]]
    [#:fail-unless (→? #'ty_spec) "spec must be a function"]
-   [⊢ [[lib-expr ≫ lib-expr-] ⇐ : Lib]]
-   [⊢ [[minbv ≫ minbv-] ⇐ : Int]]
+   [⊢ [lib-expr ≫ lib-expr- ⇐ : Lib]]
+   [⊢ [minbv ≫ minbv- ⇐ : Int]]
    [#:with id-stx (format-id #'id "~a-stx" #'id #:source #'id)]
    --------
    [_ ≻ (begin-
@@ -80,14 +80,14 @@
   [(_ [(~and ids (id ...)) n] ...) ≫
    [#:fail-unless (stx-andmap brace? #'(ids ...))
                   "given ops must be enclosed with braces"]
-   [⊢ [[n ≫ n-] ⇐ : Int] ...]
-   [⊢ [[id ≫ id-] ⇒ : ty_id] ... ...]
+   [⊢ [n ≫ n- ⇐ : Int] ...]
+   [⊢ [id ≫ id- ⇒ : ty_id] ... ...]
    [#:fail-unless (stx-andmap →? #'(ty_id ... ...))
                   "given op must be a function"]
    [#:with ((~→ ty ...) ...) #'(ty_id ... ...)]
    [#:fail-unless (stx-andmap BV? #'(ty ... ...))
                   "given op must have BV inputs and output"]
    --------
-   [⊢ [[_ ≫ (bv:bvlib [{id- ...} n-] ...)] ⇒ : Lib]]])
+   [⊢ [_ ≫ (bv:bvlib [{id- ...} n-] ...) ⇒ : Lib]]])
 
 (define-syntax-rule (thunk e) (rosette:λ () e))

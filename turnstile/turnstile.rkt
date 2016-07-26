@@ -132,10 +132,10 @@
   (define-splicing-syntax-class id+props+≫
     #:datum-literals (≫)
     #:attributes ([x- 1] [ctx 1])
-    [pattern (~seq [x:id props:props ≫ x--:id])
+    [pattern (~seq [x:id ≫ x--:id props:props])
              #:with [x- ...] #'[x--]
              #:with [ctx ...] #'[[x props.stuff ...]]]
-    [pattern (~seq [x:id props:props ≫ x--:id] ooo:elipsis)
+    [pattern (~seq [x:id ≫ x--:id props:props] ooo:elipsis)
              #:with [x- ...] #'[x-- ooo]
              #:with [ctx ...] #'[[x props.stuff ...] ooo]])
   (define-splicing-syntax-class id-props+≫*
@@ -146,7 +146,7 @@
   (define-splicing-syntax-class inf
     #:datum-literals (⊢ ⇒ ⇐ ≫ :)
     #:attributes (depth es-stx es-stx-orig es-pat)
-    [pattern (~seq [[e-stx* ≫ e-pat*] props:⇒-props] ooo:elipsis ...)
+    [pattern (~seq [e-stx* ≫ e-pat* props:⇒-props] ooo:elipsis ...)
              #:with depth (stx-length #'[ooo ...])
              #:with es-stx (with-depth #'e-stx* #'[ooo ...])
              #:with es-stx-orig (with-depth #'e-stx* #'[ooo ...])
@@ -156,7 +156,7 @@
                    #'(~and props.e-pat
                            e-pat*)
                    #'[ooo ...]))]
-    [pattern (~seq [[e-stx* ≫ e-pat*] props:⇐-props] ooo:elipsis ...)
+    [pattern (~seq [e-stx* ≫ e-pat* props:⇐-props] ooo:elipsis ...)
              #:with e-tmp (generate-temporary #'e-pat*)
              #:with τ-tmp (generate-temporary 'τ)
              #:with τ-exp-tmp (generate-temporary 'τ_expected)
@@ -247,7 +247,7 @@
   (define-syntax-class last-clause
     #:datum-literals (⊢ ≫ ≻ ⇒ ⇐ :)
     #:attributes ([pat 0] [stuff 1] [body 0])
-    [pattern [⊢ [[pat ≫ e-stx] props:⇒-props/conclusion]]
+    [pattern [⊢ [pat ≫ e-stx props:⇒-props/conclusion]]
              #:with [stuff ...] #'[]
              #:with body:expr
              (for/fold ([body #'(quasisyntax/loc this-syntax e-stx)])
@@ -255,9 +255,9 @@
                         [v (in-list (syntax->list #'[props.tag-expr ...]))])
                (with-syntax ([body body] [k k] [v v])
                  #'(assign-type body #:tag 'k v)))]
-    [pattern [⊢ [[e-stx]]]
-             #:with :last-clause #'[⊢ [[_ ≫ e-stx] ⇐ : _]]]
-    [pattern [⊢ [[pat* ≫ e-stx] ⇐ : τ-pat]]
+    [pattern [⊢ [e-stx]]
+             #:with :last-clause #'[⊢ [_ ≫ e-stx ⇐ : _]]]
+    [pattern [⊢ [pat* ≫ e-stx ⇐ : τ-pat]]
              #:with stx (generate-temporary 'stx)
              #:with τ (generate-temporary #'τ-pat)
              #:with pat

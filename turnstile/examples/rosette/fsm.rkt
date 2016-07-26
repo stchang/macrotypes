@@ -16,9 +16,9 @@
 
 (define-typed-syntax pregexp 
   [(_ s) ≫
-   [⊢ [[s ≫ s-] ⇐ : String]]
+   [⊢ [s ≫ s- ⇐ : String]]
    --------
-   [⊢ [[_ ≫ (pregexp- s-)] ⇒ : Regexp]]])
+   [⊢ [_ ≫ (pregexp- s-) ⇒ : Regexp]]])
 
 (define-typed-syntax automaton #:datum-literals (: →)
   [(_ init-state:id
@@ -33,21 +33,21 @@
                       (member t states)))
                   (format "transition to unknown state")]
    [#:with arr (datum->syntax #f '→)]
-   [() ([state : State ≫ state-] ...) ⊢ 
-    [[init-state ≫ init-state-] ⇐ : State]
-    [[target ≫ target-] ⇐ : State] ... ...]
+   [() ([state ≫ state- : State] ...) ⊢ 
+    [init-state ≫ init-state- ⇐ : State]
+    [target ≫ target- ⇐ : State] ... ...]
    --------
-   [⊢ [[_ ≫ (fsm:automaton init-state- 
-              [state- : (label arr target-) ...] ...)] 
+   [⊢ [_ ≫ (fsm:automaton init-state-
+             [state- : (label arr target-) ...] ...)
        ⇒ : FSM]]])
 
 (define-primop reject : State)
 
 (define-typed-syntax ?
  [(_ e ...+) ≫
-   [⊢ [[e ≫ e-] ⇒ : ty]] ...
+   [⊢ [e ≫ e- ⇒ : ty]] ...
    --------
-   [⊢ [[_ ≫ (ro:choose e ...)] ⇒ : (⊔ ty ...)]]])
+   [⊢ [_ ≫ (ro:choose e ...) ⇒ : (⊔ ty ...)]]])
 
 (define (apply-FSM f v) (f v))
 (define-primop apply-FSM : (→ FSM (List Symbol) Bool))
