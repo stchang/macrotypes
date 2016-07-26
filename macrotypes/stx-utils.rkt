@@ -1,5 +1,5 @@
 #lang racket/base
-(require syntax/stx syntax/parse racket/list version/utils)
+(require syntax/stx syntax/parse racket/list racket/format version/utils)
 (provide (all-defined-out))
 
 (define (stx-cadr stx) (stx-car (stx-cdr stx)))
@@ -44,8 +44,8 @@
   (string=? (syntax-e s1) (syntax-e s2)))
 
 (define (stx-sort stx 
-          #:cmp [cmp (lambda (x y) (string<=? (symbol->string (syntax->datum x))
-                                         (symbol->string (syntax->datum y))))]
+          #:cmp [cmp (lambda (x y) (string<=? (~a (syntax->datum x))
+                                              (~a (syntax->datum y))))]
           #:key [key-fn (λ (x) x)])
   (sort (stx->list stx) cmp #:key key-fn))
 
