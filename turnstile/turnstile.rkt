@@ -175,57 +175,60 @@
              #:with es-stx #'[es-stx* ...]
              #:with es-stx-orig #'[es-stx-orig* ...]
              #:with es-pat #'[es-pat* ...]])
-  (define-splicing-syntax-class clause
-    #:attributes ([pat 1])
-    #:datum-literals (⊢ ⇒ ⇐ ≫ τ⊑ :)
-    [pattern [⊢ (~and (~seq inf-stuff ...) (~seq inf:inf ...))]
-             #:with [:clause] #'[[() () ⊢ inf-stuff ...]]]
-    [pattern (~seq [⊢ (~and (~seq inf-stuff ...) (~seq inf:inf ...))] ooo:elipsis)
-             #:with [:clause] #'[[() () ⊢ inf-stuff ...] ooo]]
+  (define-splicing-syntax-class inf-clause
+    #:attributes (pat)
+    #:datum-literals (⊢)
+    [pattern (~seq [⊢ (~and (~seq inf-stuff ...) (~seq inf:inf ...))] ooo:elipsis ...)
+             #:with [:inf-clause] #'[[() () ⊢ inf-stuff ...] ooo ...]]
     [pattern (~seq [(tvctx:id-props+≫*) (ctx:id-props+≫*) ⊢ inf:inf*] ooo:elipsis ...)
              #:with tvctxss (cond [(stx-null? #'[tvctx.ctx ...]) #'(in-cycle (in-value '()))]
                                   [else #'(in-list (syntax->list #'[(tvctx.ctx ...) ooo ...]))])
              #:with ctxss (cond [(stx-null? #'[ctx.ctx ...]) #'(in-cycle (in-value '()))]
                                 [else #'(in-list (syntax->list #'[(ctx.ctx ...) ooo ...]))])
-             #:with [pat ...]
-             #'[(~post
-                 (~post
-                  (~parse
-                   [[(tvctx.x- ...) (ctx.x- ...) inf.es-pat] ooo ...]
-                   (for/list ([tvctxs tvctxss]
-                              [ctxs ctxss]
-                              [es* (in-list (syntax->list #'[inf.es-stx ooo ...]))]
-                              [origs* (in-list (syntax->list #'[inf.es-stx-orig ooo ...]))])
-                     (infer/depth #:tvctx tvctxs #:ctx ctxs 'inf.depth es* origs*)))))]]
+             #:with pat
+             #'(~post
+                (~post
+                 (~parse
+                  [[(tvctx.x- ...) (ctx.x- ...) inf.es-pat] ooo ...]
+                  (for/list ([tvctxs tvctxss]
+                             [ctxs ctxss]
+                             [es* (in-list (syntax->list #'[inf.es-stx ooo ...]))]
+                             [origs* (in-list (syntax->list #'[inf.es-stx-orig ooo ...]))])
+                    (infer/depth #:tvctx tvctxs #:ctx ctxs 'inf.depth es* origs*)))))]
+    )
+  (define-splicing-syntax-class clause
+    #:attributes (pat)
+    #:datum-literals (τ⊑)
+    [pattern :inf-clause]
     [pattern [a τ⊑ b]
-             #:with [pat ...]
-             #'[(~post
-                 (~fail #:unless (typecheck? #'a #'b)
-                        (typecheck-fail-msg/1/no-expr #'b #'a)))]]
+             #:with pat
+             #'(~post
+                (~fail #:unless (typecheck? #'a #'b)
+                       (typecheck-fail-msg/1/no-expr #'b #'a)))]
     [pattern [a τ⊑ b #:for e]
-             #:with [pat ...]
-             #'[(~post
-                 (~fail #:unless (typecheck? #'a #'b)
-                        (typecheck-fail-msg/1 #'b #'a #'e)))]]
+             #:with pat
+             #'(~post
+                (~fail #:unless (typecheck? #'a #'b)
+                       (typecheck-fail-msg/1 #'b #'a #'e)))]
     [pattern (~seq [a τ⊑ b] ooo:elipsis)
-             #:with [pat ...]
-             #'[(~post
-                 (~fail #:unless (typechecks? #'[a ooo] #'[b ooo])
-                        (typecheck-fail-msg/multi/no-exprs #'[b ooo] #'[a ooo])))]]
+             #:with pat
+             #'(~post
+                (~fail #:unless (typechecks? #'[a ooo] #'[b ooo])
+                       (typecheck-fail-msg/multi/no-exprs #'[b ooo] #'[a ooo])))]
     [pattern (~seq [a τ⊑ b #:for e] ooo:elipsis)
-             #:with [pat ...]
-             #'[(~post
-                 (~fail #:unless (typechecks? #'[a ooo] #'[b ooo])
-                        (typecheck-fail-msg/multi #'[b ooo] #'[a ooo] #'[e ooo])))]]
+             #:with pat
+             #'(~post
+                (~fail #:unless (typechecks? #'[a ooo] #'[b ooo])
+                       (typecheck-fail-msg/multi #'[b ooo] #'[a ooo] #'[e ooo])))]
     [pattern [#:when condition:expr]
-             #:with [pat ...]
-             #'[(~fail #:unless condition)]]
+             #:with pat
+             #'(~fail #:unless condition)]
     [pattern [#:with pat*:expr expr:expr]
-             #:with [pat ...]
-             #'[(~post (~parse pat* expr))]]
+             #:with pat
+             #'(~post (~parse pat* expr))]
     [pattern [#:fail-unless condition:expr message:expr]
-             #:with [pat ...]
-             #'[(~post (~fail #:unless condition message))]]
+             #:with pat
+             #'(~post (~fail #:unless condition message))]
     )
   (define-syntax-class last-clause
     #:datum-literals (⊢ ≫ ≻ ⇒ ⇐ :)
@@ -297,7 +300,7 @@
              #:with norm
              #'[(~and pat.pat
                       last-clause.pat
-                      clause.pat ... ...)
+                      clause.pat ...)
                 last-clause.stuff ...
                 body]])
   (define-splicing-syntax-class stxparse-kws
