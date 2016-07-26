@@ -27,6 +27,19 @@
       (infer #:tvctx tvctx #:ctx ctx (stx-map pass-orig es origs)))
     (match-define (list es*-) (lens-set flat (list es*) #'es-))
     (list #'tvxs- #'xs- es*-))
+  ;; infers/depths
+  (define (infers/depths clause-depth inf-depth tvctxs/ctxs/ess/origss*)
+    (define flat (stx-append*n-lens clause-depth))
+    (define tvctxs/ctxs/ess/origss
+      (lens-view flat (list tvctxs/ctxs/ess/origss*)))
+    (define infs
+      (for/list ([tvctx/ctx/es/origs (in-list tvctxs/ctxs/ess/origss)])
+        (match-define (list tvctx ctx es origs)
+          (stx->list tvctx/ctx/es/origs))
+        (infer/depth #:tvctx tvctx #:ctx ctx inf-depth es origs)))
+    (match-define (list res)
+      (lens-set flat (list tvctxs/ctxs/ess/origss*) infs))
+    res)
   (define (raise-⇐-expected-type-error ⇐-stx body expected-type existing-type)
     (raise-syntax-error
      '⇐
@@ -181,20 +194,21 @@
     [pattern (~seq [⊢ (~and (~seq inf-stuff ...) (~seq inf:inf ...))] ooo:elipsis ...)
              #:with [:inf-clause] #'[[() () ⊢ inf-stuff ...] ooo ...]]
     [pattern (~seq [(tvctx:id-props+≫*) (ctx:id-props+≫*) ⊢ inf:inf*] ooo:elipsis ...)
-             #:with tvctxss (cond [(stx-null? #'[tvctx.ctx ...]) #'(in-cycle (in-value '()))]
-                                  [else #'(in-list (syntax->list #'[(tvctx.ctx ...) ooo ...]))])
-             #:with ctxss (cond [(stx-null? #'[ctx.ctx ...]) #'(in-cycle (in-value '()))]
-                                [else #'(in-list (syntax->list #'[(ctx.ctx ...) ooo ...]))])
+             #:with clause-depth (stx-length #'[ooo ...])
+             #:with infs-pat
+             (with-depth
+              #'[(tvctx.x- ...) (ctx.x- ...) inf.es-pat]
+              #'[ooo ...])
+             #:with tvctxs/ctxs/ess/origs
+             (with-depth
+              #'[(tvctx.ctx ...) (ctx.ctx ...) inf.es-stx inf.es-stx-orig]
+              #'[ooo ...])
              #:with pat
              #'(~post
                 (~post
                  (~parse
-                  [[(tvctx.x- ...) (ctx.x- ...) inf.es-pat] ooo ...]
-                  (for/list ([tvctxs tvctxss]
-                             [ctxs ctxss]
-                             [es* (in-list (syntax->list #'[inf.es-stx ooo ...]))]
-                             [origs* (in-list (syntax->list #'[inf.es-stx-orig ooo ...]))])
-                    (infer/depth #:tvctx tvctxs #:ctx ctxs 'inf.depth es* origs*)))))]
+                  infs-pat
+                  (infers/depths 'clause-depth 'inf.depth #'tvctxs/ctxs/ess/origs))))]
     )
   (define-splicing-syntax-class clause
     #:attributes (pat)
