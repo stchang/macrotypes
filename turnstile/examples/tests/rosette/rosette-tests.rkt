@@ -1,23 +1,29 @@
 #lang s-exp "../../rosette/rosette.rkt"
 (require "../rackunit-typechecking.rkt")
 
+(check-type (sub1 10) : Int -> 9) ; TODO: Nat
+(check-type (sub1 0) : Int -> -1) ; TODO: NegInt
+(check-type (sub1 -1) : Int -> -2) ; TODO: NegInt
+
 ;(check-type bv : (→ Int BVPred BV))
-(typecheck-fail (bv "1" 2) #:with-msg "expected Int, given String")
+(typecheck-fail (bv "1" 2) #:with-msg "expected.*Int.*given.*String")
 (check-type (bv 1 (bvpred 2)) : BV -> (bv 1 (bvpred 2)))
 
-(check-type bitvector : (→ Int BVPred))
+(typecheck-fail (bv 0 0) #:with-msg "expected.*PosInt.*given.*Zero")
+(check-type bitvector : (→ Nat BVPred))
 (check-type (bitvector 3) : BVPred)
 (typecheck-fail ((bitvector 4) 1))
 (check-type ((bitvector 4) (bv 10 (bvpred 4))) :  Bool)
 
 ;; same as above, but with bvpred
-(check-type bvpred : (→ Int BVPred))
+(check-type bvpred : (→ Nat BVPred))
 (check-type (bvpred 3) : BVPred)
 (typecheck-fail ((bvpred 4) 1))
 (check-type ((bvpred 4) (bv 10 (bvpred 4))) :  Bool)
-;; TODO: add Nat to catch this at compile time?
-(check-type (bvpred -1) : BVPred) ; runtime exn
-(check-runtime-exn (bvpred -1))
+;; typed rosette catches this during typechecking, 
+;; whereas untyped rosette uses a runtime exn
+(typecheck-fail (bvpred -1) #:with-msg "expected Nat, given NegInt")
+;(check-runtime-exn (bvpred -1))
 
 (typecheck-fail (bitvector? "2"))
 (check-type (bitvector? (bitvector 10)) : Bool -> #t)

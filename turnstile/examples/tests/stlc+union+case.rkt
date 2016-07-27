@@ -1,4 +1,4 @@
-#lang s-exp "../stlc+union.rkt"
+#lang s-exp "../stlc+union+case.rkt"
 (require "rackunit-typechecking.rkt")
 
 (check-type 1 : Nat)
@@ -8,7 +8,17 @@
 (check-type (+ 1.1 1) : Num -> 2.1)
 (typecheck-fail (+ "1" 1) #:with-msg "expected Num, given String")
 
+;; case-> subtyping
 (check-type ((λ ([f : (→ Int Int)]) (f 10)) add1) : Int -> 11)
+(check-type ((λ ([f : (case-> (→ Int Int))]) (f 10)) add1) : Int -> 11)
+(check-type ((λ ([f : (case-> (→ Nat Nat)
+                              (→ Int Int))]) (f 10)) add1) : Int -> 11)
+(check-not-type ((λ ([f : (case-> (→ Int Int))]) (f 10)) add1) : Nat)
+(check-type ((λ ([f : (case-> (→ Nat Nat)
+                              (→ Int Int))]) (f 10)) add1) : Nat -> 11)
+(typecheck-fail ((λ ([f : (case-> (→ Zero Zero)
+                                  (→ Int Int))]) (f 10)) add1) 
+ #:with-msg "expected \\(case-> \\(→ Zero Zero\\) \\(→ Int Int\\)\\), given \\(case→ \\(→ Nat Nat\\) \\(→ Int Int\\)")
 
 ;; Alex's example
 ;; illustrates flattening

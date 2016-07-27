@@ -11,7 +11,7 @@
   (define (add-escs str)
     (replace-brackets
         (foldl (lambda (c s) (regexp-replace* c s (add-esc c))) str escs)))
-  (define (expected tys #:given [givens ""] #:note [note ""])
+  #;(define (expected tys #:given [givens ""] #:note [note ""])
     (string-append  
      note ".*Expected.+argument\\(s\\) with type\\(s\\).+" 
      (add-escs tys) ".*Given:.*" 

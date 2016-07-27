@@ -10,10 +10,10 @@
            zero? void sub1 or and not add1 = - * + boolean? integer? list)
          (for-syntax (except-in "../../../turnstile/turnstile.rkt")))
 (provide (rename-out [ro:#%module-begin #%module-begin]))
-(extends "../ext-stlc.rkt" #:except if #%app #%module-begin)
+(extends "../stlc+union.rkt" #:except if #%app #%module-begin)
 (reuse List list #:from "../stlc+cons.rkt")
 (require (only-in "../stlc+reco+var.rkt" [define stlc:define]))
-(require (only-in "../stlc+reco+var.rkt" define-type-alias))
+;(require (only-in "../stlc+reco+var.rkt" define-type-alias))
 (require (prefix-in ro: rosette))
 (require (prefix-in ro: rosette/lib/synthax))
 (provide BVPred)
@@ -119,7 +119,7 @@
    --------
    [_ ≻ (begin-
           (define-syntax- f (make-rename-transformer (⊢ f- : (→ ty ... ty_out))))
-          (stlc:define f- (ext-stlc:λ ([x : ty] ...) e)))]])
+          (stlc:define f- (stlc+union:λ ([x : ty] ...) e)))]])
 
 (define-base-type Stx)
 
@@ -130,17 +130,16 @@
 (define-base-type BV) ; represents actual bitvectors
 
 ; a predicate recognizing bv's of a certain size
-#;(define-syntax BVPred 
+(define-syntax BVPred 
   (make-variable-like-transformer 
-   ((current-type-eval) #'(→ BV Bool))))
-(define-type-alias BVPred (→ BV Bool))
+   (add-orig #'(→ BV Bool) #'BVPred)))
+;(define-type-alias BVPred (→ BV Bool))
 
 ;; TODO: fix me --- need subtyping?
 ;(define-syntax Nat (make-rename-transformer #'Int))
-(define-type-alias Nat Int)
+;(define-type-alias Nat Int)
 
 ;; TODO: support higher order case --- need intersect types?
-;(define-rosette-primop bv : (→ Int BVPred BV)
 (define-typed-syntax bv
   [(_ e_val e_size) ≫
    [⊢ [e_val ≫ e_val- ⇐ : Int]]
@@ -149,7 +148,7 @@
    [⊢ [_ ≫ (ro:bv e_val- e_size-) ⇒ : BV]]]
   [(_ e_val e_size) ≫
    [⊢ [e_val ≫ e_val- ⇐ : Int]]
-   [⊢ [e_size ≫ e_size- ⇐ : Nat]]
+   [⊢ [e_size ≫ e_size- ⇐ : PosInt]]
    --------
    [⊢ [_ ≫ (ro:bv e_val- e_size-) ⇒ : BV]]])
 
@@ -158,8 +157,8 @@
 (define-rosette-primop bitvector? : (→ BVPred Bool))
 (define-rosette-primop* bitvector bvpred : (→ Nat BVPred))
 (define-rosette-primop* bitvector? bvpred? : (→ BVPred Bool))
-(define-rosette-primop bitvector-size : (→ BVPred Int))
-(define-rosette-primop* bitvector-size bvpred-size : (→ BVPred Int))
+(define-rosette-primop bitvector-size : (→ BVPred Nat))
+(define-rosette-primop* bitvector-size bvpred-size : (→ BVPred Nat))
 
 (define-rosette-primop bveq : (→ BV BV Bool))
 (define-rosette-primop bvslt : (→ BV BV Bool))
