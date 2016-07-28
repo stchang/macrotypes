@@ -4,6 +4,8 @@
 
 (define deps
   '("base"
-    "sweet-exp"
+    "sweet-exp-lib"
+    "lens"
+    "rosette"
     ))
 
