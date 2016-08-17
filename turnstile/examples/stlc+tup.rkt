@@ -17,7 +17,7 @@
 
 (define-typed-syntax tup
   [(tup e ...) ⇐ : (~× τ ...) ≫
-   [#:when (stx-length=? #'[e ...] #'[τ ...])]
+   #:when (stx-length=? #'[e ...] #'[τ ...])
    [⊢ [e ≫ e- ⇐ : τ] ...]
    --------
    [⊢ [_ ≫ (list- e- ...) ⇐ : _]]]
@@ -29,7 +29,7 @@
 (define-typed-syntax proj
   [(proj e_tup n:nat) ≫
    [⊢ [e_tup ≫ e_tup- ⇒ : (~× τ ...)]]
-   [#:fail-unless (< (syntax-e #'n) (stx-length #'[τ ...])) "index too large"]
+   #:fail-unless (< (syntax-e #'n) (stx-length #'[τ ...])) "index too large"
    --------
    [⊢ [_ ≫ (list-ref- e_tup- n) ⇒ : #,(stx-list-ref #'[τ ...] (syntax-e #'n))]]])
 

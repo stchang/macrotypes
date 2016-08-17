@@ -30,7 +30,7 @@
    --------
    [⊢ [_ ≫ (#%datum- . s) ⇒ : String]]]
   [(#%datum . f) ≫
-   [#:when (flonum? (syntax-e #'f))]
+   #:when (flonum? (syntax-e #'f))
    --------
    [⊢ [_ ≫ (#%datum- . f) ⇒ : Float]]]
   [(#%datum . c:char) ≫

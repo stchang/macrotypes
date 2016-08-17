@@ -16,8 +16,8 @@
 
 (define-typed-syntax pack
   [(pack (τ:type e) as ∃τ:type) ≫
-   [#:with (~∃* (τ_abstract) τ_body) #'∃τ.norm]
-   [#:with τ_e (subst #'τ.norm #'τ_abstract #'τ_body)]
+   #:with (~∃* (τ_abstract) τ_body) #'∃τ.norm
+   #:with τ_e (subst #'τ.norm #'τ_abstract #'τ_body)
    [⊢ [e ≫ e- ⇐ : τ_e]]
    --------
    [⊢ [_ ≫ e- ⇒ : ∃τ.norm]]])
@@ -69,7 +69,7 @@
    ;; Γ ⊢ (open [x <= e_packed with X_2] e) : τ_e
    ;;
    [⊢ [e_packed ≫ e_packed- ⇒ : (~∃ (Y) τ_body)]]
-   [#:with τ_x (subst #'X #'Y #'τ_body)]
+   #:with τ_x (subst #'X #'Y #'τ_body)
    [([X ≫ X- : #%type]) ([x ≫ x- : τ_x]) ⊢ [e ≫ e- ⇒ : τ_e]]
    --------
    [⊢ [_ ≫ (let- ([x- e_packed-]) e-) ⇒ : τ_e]]])

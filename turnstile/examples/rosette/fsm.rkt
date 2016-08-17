@@ -23,16 +23,16 @@
 (define-typed-syntax automaton #:datum-literals (: →)
   [(_ init-state:id
       [state:id : (label:id → target) ...] ...) ≫
-   [#:fail-unless (member (syntax->datum #'init-state)
-                          (syntax->datum #'(state ...)))
-                  (format "initial state ~a is not declared state: ~a"
-                          (syntax->datum #'init-state)
-                          (syntax->datum #'(state ...)))]
-   #;[#:fail-unless (let ([states (syntax->datum #'(state ...))])
-                    (for/and ([t (syntax->datum #'(target ... ...))])
-                      (member t states)))
-                  (format "transition to unknown state")]
-   [#:with arr (datum->syntax #f '→)]
+   #:fail-unless (member (syntax->datum #'init-state)
+                         (syntax->datum #'(state ...)))
+                 (format "initial state ~a is not declared state: ~a"
+                         (syntax->datum #'init-state)
+                         (syntax->datum #'(state ...)))
+   ;#:fail-unless (let ([states (syntax->datum #'(state ...))])
+   ;                (for/and ([t (syntax->datum #'(target ... ...))])
+   ;                  (member t states)))
+   ;              (format "transition to unknown state")
+   #:with arr (datum->syntax #f '→)
    [() ([state ≫ state- : State] ...) ⊢ 
     [init-state ≫ init-state- ⇐ : State]
     [target ≫ target- ⇐ : State] ... ...]

@@ -38,8 +38,8 @@
        (⇒ ν (~locs fns ...))
        (⇒ := (~locs fas ...))
        (⇒ ! (~locs fds ...))]]
-   [#:fail-unless (stx-length=? #'[e ...] #'[τ_in ...])
-    (num-args-fail-msg #'efn #'[τ_in ...] #'[e ...])]
+   #:fail-unless (stx-length=? #'[e ...] #'[τ_in ...])
+   (num-args-fail-msg #'efn #'[τ_in ...] #'[e ...])
    [⊢ [e ≫ e_arg-
        (⇐ : τ_in)
        (⇒ ν (~locs ns ...))

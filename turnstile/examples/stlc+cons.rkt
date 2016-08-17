@@ -39,8 +39,8 @@
 (define-typed-syntax tail
   [(tail e) ≫
    [⊢ [e ≫ e- ⇒ : τ-lst]]
-   [#:fail-unless (List? #'τ-lst)
-    (format "Expected a list type, got: ~a" (type->str #'τ-lst))]
+   #:fail-unless (List? #'τ-lst)
+   (format "Expected a list type, got: ~a" (type->str #'τ-lst))
    --------
    [⊢ [_ ≫ (cdr- e-) ⇒ : τ-lst]]])
 (define-typed-syntax list
@@ -56,15 +56,15 @@
 (define-typed-syntax reverse
   [(reverse e) ≫
    [⊢ [e ≫ e- ⇒ : τ-lst]]
-   [#:fail-unless (List? #'τ-lst)
-    (format "Expected a list type, got: ~a" (type->str #'τ-lst))]
+   #:fail-unless (List? #'τ-lst)
+   (format "Expected a list type, got: ~a" (type->str #'τ-lst))
    --------
    [⊢ [_ ≫ (reverse- e-) ⇒ : τ-lst]]])
 (define-typed-syntax length
   [(length e) ≫
    [⊢ [e ≫ e- ⇒ : τ-lst]]
-   [#:fail-unless (List? #'τ-lst)
-    (format "Expected a list type, got: ~a" (type->str #'τ-lst))]
+   #:fail-unless (List? #'τ-lst)
+   (format "Expected a list type, got: ~a" (type->str #'τ-lst))
    --------
    [⊢ [_ ≫ (length- e-) ⇒ : Int]]])
 (define-typed-syntax list-ref

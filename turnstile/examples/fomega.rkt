@@ -92,7 +92,7 @@
   [(inst e τ ...) ≫
    [⊢ [e ≫ e- ⇒ : (~∀ (tv ...) τ_body) (⇒ : (~∀★ k ...))]]
    [⊢ [τ ≫ τ- ⇐ : k] ...]
-   [#:with τ-inst (substs #'(τ- ...) #'(tv ...) #'τ_body)]
+   #:with τ-inst (substs #'(τ- ...) #'(tv ...) #'τ_body)
    --------
    [⊢ [_ ≫ e- ⇒ : τ-inst]]])
 
@@ -101,16 +101,16 @@
 (define-typed-syntax tyλ
   [(tyλ bvs:kind-ctx τ_body) ≫
    [() ([bvs.x ≫ tv- : bvs.kind] ...) ⊢ [τ_body ≫ τ_body- ⇒ : k_body]]
-   [#:fail-unless ((current-kind?) #'k_body)
-    (format "not a valid type: ~a\n" (type->str #'τ_body))]
+   #:fail-unless ((current-kind?) #'k_body)
+   (format "not a valid type: ~a\n" (type->str #'τ_body))
    --------
    [⊢ [_ ≫ (λ- (tv- ...) τ_body-) ⇒ : (⇒ bvs.kind ... k_body)]]])
 
 (define-typed-syntax tyapp
   [(tyapp τ_fn τ_arg ...) ≫
    [⊢ [τ_fn ≫ τ_fn- ⇒ : (~⇒ k_in ... k_out)]]
-   [#:fail-unless (stx-length=? #'[k_in ...] #'[τ_arg ...])
-    (num-args-fail-msg #'τ_fn #'[k_in ...] #'[τ_arg ...])]
+   #:fail-unless (stx-length=? #'[k_in ...] #'[τ_arg ...])
+   (num-args-fail-msg #'τ_fn #'[k_in ...] #'[τ_arg ...])
    [⊢ [τ_arg ≫ τ_arg- ⇐ : k_in] ...]
    --------
    [⊢ [_ ≫ (#%app- τ_fn- τ_arg- ...) ⇒ : k_out]]])

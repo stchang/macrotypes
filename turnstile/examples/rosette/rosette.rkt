@@ -21,7 +21,7 @@
 (define-typed-syntax define-symbolic
   [(_ x:id ...+ pred : ty:type) ≫
    [⊢ [pred ≫ pred- ⇐ : (→ ty.norm Bool)]]
-   [#:with (y ...) (generate-temporaries #'(x ...))]
+   #:with (y ...) (generate-temporaries #'(x ...))
    --------
    [_ ≻ (begin-
           (define-syntax- x (make-rename-transformer (⊢ y : ty.norm))) ...
@@ -85,7 +85,7 @@
    [_ ≻ (stlc:define x e)]]
   [(_ (f [x : ty] ... (~or → ->) ty_out) e) ≫
 ;   [⊢ [e ≫ e- ⇒ : ty_e]]
-   [#:with f- (generate-temporary #'f)]
+   #:with f- (generate-temporary #'f)
    --------
    [_ ≻ (begin-
           (define-syntax- f (make-rename-transformer (⊢ f- : (→ ty ... ty_out))))

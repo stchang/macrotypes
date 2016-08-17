@@ -234,13 +234,13 @@
              #'(~post
                 (~fail #:unless (typechecks? #'[a ooo] #'[b ooo])
                        (typecheck-fail-msg/multi #'[b ooo] #'[a ooo] #'[e ooo])))]
-    [pattern [#:when condition:expr]
+    [pattern (~seq #:when condition:expr)
              #:with pat
              #'(~fail #:unless condition)]
-    [pattern [#:with pat*:expr expr:expr]
+    [pattern (~seq #:with pat*:expr expr:expr)
              #:with pat
              #'(~post (~parse pat* expr))]
-    [pattern [#:fail-unless condition:expr message:expr]
+    [pattern (~seq #:fail-unless condition:expr message:expr)
              #:with pat
              #'(~post (~fail #:unless condition message))]
     )

@@ -40,8 +40,8 @@
 (define-typed-syntax #%app
   [(_ e_fn e_arg ...) ≫
    [⊢ [e_fn ≫ e_fn- ⇒ : (~→ τ_in ... τ_out)]]
-   [#:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
-    (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])]
+   #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
+   (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
    [⊢ [e_arg ≫ e_arg- ⇐ : τ_in] ...]
    --------
    [⊢ [_ ≫ (#%app- e_fn- e_arg- ...) ⇒ : τ_out]]])

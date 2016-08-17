@@ -39,7 +39,7 @@
           (define- y (ann e : τ.norm)))]]
   [(define x:id e) ≫
    [⊢ [e ≫ e- ⇒ : τ]]
-   [#:with y (generate-temporary #'x)]
+   #:with y (generate-temporary #'x)
    --------
    [_ ≻ (begin-
           (define-syntax x (make-rename-transformer (⊢ y : τ)))
@@ -95,10 +95,10 @@
 (define-typed-syntax proj #:literals (quote)
   [(proj e_rec l:id) ≫
    [⊢ [e_rec ≫ e_rec- ⇒ : τ_e]]
-   [#:fail-unless (×? #'τ_e)
-    (format "Expected expression ~s to have × type, got: ~a"
-            (syntax->datum #'e_rec) (type->str #'τ_e))]
-   [#:with τ_l (×-ref #'τ_e #'l)]
+   #:fail-unless (×? #'τ_e)
+   (format "Expected expression ~s to have × type, got: ~a"
+           (syntax->datum #'e_rec) (type->str #'τ_e))
+   #:with τ_l (×-ref #'τ_e #'l)
    --------
    [⊢ [_ ≫ (cadr- (assoc- 'l e_rec-)) ⇒ : τ_l]]])
 
@@ -150,13 +150,13 @@
    --------
    [_ ≻ (ann (var l = e) : τ.norm)]]
   [(var l:id = e) ⇐ : τ ≫
-   [#:fail-unless (∨? #'τ)
-    (format "Expected the expected type to be a ∨ type, got: ~a" (type->str #'τ))]
-   [#:with τ_e
-    (∨-ref #'τ #'l #:else
-           (λ () (raise-syntax-error #f
-                    (format "~a field does not exist" (syntax->datum #'l))
-                    stx)))]
+   #:fail-unless (∨? #'τ)
+   (format "Expected the expected type to be a ∨ type, got: ~a" (type->str #'τ))
+   #:with τ_e
+   (∨-ref #'τ #'l #:else
+          (λ () (raise-syntax-error #f
+                   (format "~a field does not exist" (syntax->datum #'l))
+                   stx)))
    [⊢ [e ≫ e- ⇐ : τ_e]]
    --------
    [⊢ [_ ≫ (list- 'l e) ⇐ : _]]])
@@ -164,10 +164,10 @@
 (define-typed-syntax case
   #:datum-literals (of =>)
   [(case e [l:id x:id => e_l] ...) ≫
-   [#:fail-unless (not (null? (syntax->list #'(l ...)))) "no clauses"]
+   #:fail-unless (not (null? (syntax->list #'(l ...)))) "no clauses"
    [⊢ [e ≫ e- ⇒ : (~∨* [l_x : τ_x] ...)]]
-   [#:fail-unless (stx-length=? #'(l ...) #'(l_x ...)) "wrong number of case clauses"]
-   [#:fail-unless (typechecks? #'(l ...) #'(l_x ...)) "case clauses not exhaustive"]
+   #:fail-unless (stx-length=? #'(l ...) #'(l_x ...)) "wrong number of case clauses"
+   #:fail-unless (typechecks? #'(l ...) #'(l_x ...)) "case clauses not exhaustive"
    [() ([x ≫ x- : τ_x]) ⊢ [e_l ≫ e_l- ⇒ : τ_el]] ...
    --------
    [⊢ [_ ≫

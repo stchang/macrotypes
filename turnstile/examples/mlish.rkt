@@ -313,7 +313,7 @@
 (define-typed-syntax define
   [(define x:id e) ≫
    [⊢ [e ≫ e- ⇒ : τ]]
-   [#:with y (generate-temporary)]
+   #:with y (generate-temporary)
    --------
    [_ ≻ (begin-
           (define-syntax x (make-rename-transformer (⊢ y : τ)))
@@ -321,16 +321,16 @@
   ; explicit "forall"
   [(define Ys (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) 
      e_body ... e) ≫
-   [#:when (brace? #'Ys)]
+   #:when (brace? #'Ys)
    ;; TODO; remove this code duplication
-   [#:with g (add-orig (generate-temporary #'f) #'f)]
-   [#:with e_ann #'(add-expected e τ_out)]
-   [#:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))]
+   #:with g (add-orig (generate-temporary #'f) #'f)
+   #:with e_ann #'(add-expected e τ_out)
+   #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
    ;; TODO: check that specified return type is correct
    ;; - currently cannot do it here; to do the check here, need all types of
    ;;  top-lvl fns, since they can call each other
-   [#:with (~and ty_fn_expected (~?∀ _ (~ext-stlc:→ _ ... out_expected))) 
-           ((current-type-eval) #'(?∀ Ys (ext-stlc:→ τ+orig ...)))]
+   #:with (~and ty_fn_expected (~?∀ _ (~ext-stlc:→ _ ... out_expected))) 
+          ((current-type-eval) #'(?∀ Ys (ext-stlc:→ τ+orig ...)))
    --------
    [_ ≻ (begin-
           (define-syntax f (make-rename-transformer (⊢ g : ty_fn_expected)))
@@ -342,18 +342,18 @@
    [_ ≻ (define (f [x : ty] ... -> ty_out) . b)]]
   [(define (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) 
      e_body ... e) ≫
-   [#:with Ys (compute-tyvars #'(τ ... τ_out))]
-   [#:with g (add-orig (generate-temporary #'f) #'f)]
-   [#:with e_ann (syntax/loc #'e (ann e : τ_out))] ; must be macro bc t_out may have unbound tvs
-   [#:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))]
+   #:with Ys (compute-tyvars #'(τ ... τ_out))
+   #:with g (add-orig (generate-temporary #'f) #'f)
+   #:with e_ann (syntax/loc #'e (ann e : τ_out)) ; must be macro bc t_out may have unbound tvs
+   #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
    ;; TODO: check that specified return type is correct
    ;; - currently cannot do it here; to do the check here, need all types of
    ;;  top-lvl fns, since they can call each other
-   [#:with (~and ty_fn_expected (~?∀ _ (~ext-stlc:→ _ ... out_expected))) 
-           (set-stx-prop/preserved 
-            ((current-type-eval) #'(?∀ Ys (ext-stlc:→ τ+orig ...)))
-            'orig
-            (list #'(→ τ+orig ...)))]
+   #:with (~and ty_fn_expected (~?∀ _ (~ext-stlc:→ _ ... out_expected))) 
+          (set-stx-prop/preserved 
+           ((current-type-eval) #'(?∀ Ys (ext-stlc:→ τ+orig ...)))
+           'orig
+           (list #'(→ τ+orig ...)))
    --------
    [_ ≻ (begin-
           (define-syntax f (make-rename-transformer (⊢ g : ty_fn_expected)))
@@ -462,36 +462,36 @@
            (syntax-parse/typed-syntax stx
              ; no args and not polymorphic
              [C:id ≫
-              [#:when (and (stx-null? #'(X ...)) (stx-null? #'(τ ...)))]
+              #:when (and (stx-null? #'(X ...)) (stx-null? #'(τ ...)))
               --------
               [_ ≻ (C)]]
              ; no args but polymorphic, check expected type
              [C:id ⇐ : (NameExpander τ-expected-arg (... ...)) ≫
-              [#:when (stx-null? #'(τ ...))]
+              #:when (stx-null? #'(τ ...))
               --------
               [⊢ [_ ≫ (StructName) ⇐ : _]]]
              ; id with multiple expected args, HO fn
              [C:id ≫
-              [#:when (not (stx-null? #'(τ ...)))]
+              #:when (not (stx-null? #'(τ ...)))
               --------
               [⊢ [_ ≫ StructName ⇒ : (?∀ (X ...) (ext-stlc:→ τ ... (Name X ...)))]]]
              [(C τs e_arg ...) ≫
-              [#:when (brace? #'τs)] ; commit to this clause
-              [#:with [X* (... ...)] #'[X ...]]
-              [#:with [e_arg* (... ...)] #'[e_arg ...]]
-              [#:with {~! τ_X:type (... ...)} #'τs]
-              [#:with (τ_in:type (... ...)) ; instantiated types
-               (inst-types/cs #'(X ...) #'([X* τ_X.norm] (... ...)) #'(τ ...))]
+              #:when (brace? #'τs) ; commit to this clause
+              #:with [X* (... ...)] #'[X ...]
+              #:with [e_arg* (... ...)] #'[e_arg ...]
+              #:with {~! τ_X:type (... ...)} #'τs
+              #:with (τ_in:type (... ...)) ; instantiated types
+              (inst-types/cs #'(X ...) #'([X* τ_X.norm] (... ...)) #'(τ ...))
               [⊢ [e_arg* ≫ e_arg*- ⇐ : τ_in.norm] (... ...)]
-              [#:with [e_arg- ...] #'[e_arg*- (... ...)]]
+              #:with [e_arg- ...] #'[e_arg*- (... ...)]
               --------
               [⊢ [_ ≫ (StructName e_arg- ...) ⇒ : (Name τ_X.norm (... ...))]]]
              [(C . args) ≫ ; no type annotations, must infer instantiation
-              [#:with StructName/ty 
-               (set-stx-prop/preserved
-                (⊢ StructName : (?∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))
-                'orig
-                (list #'C))]
+              #:with StructName/ty 
+              (set-stx-prop/preserved
+               (⊢ StructName : (?∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))
+               'orig
+               (list #'C))
               --------
               [_ ≻ (mlish:#%app StructName/ty . args)]]))
          ...)]))
@@ -678,18 +678,18 @@
 
 (define-typed-syntax match2 #:datum-literals (with ->)
   [(match2 e with . clauses) ≫
-   [#:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"]
+   #:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"
    [⊢ [e ≫ e- ⇒ : τ_e]]
-   [#:with ([(~seq p ...) -> e_body] ...) #'clauses]
-   [#:with (pat ...) (stx-map ; use brace to indicate root pattern
-                      (lambda (ps) (syntax-parse ps [(pp ...) (syntax/loc stx {pp ...})]))
-                      #'((p ...) ...)) ]
-   [#:with ([(~and ctx ([x ty] ...)) pat-] ...) (compile-pats #'(pat ...) #'τ_e)]
-   [#:with ty-expected (get-expected-type stx)]
+   #:with ([(~seq p ...) -> e_body] ...) #'clauses
+   #:with (pat ...) (stx-map ; use brace to indicate root pattern
+                     (lambda (ps) (syntax-parse ps [(pp ...) (syntax/loc stx {pp ...})]))
+                     #'((p ...) ...))
+   #:with ([(~and ctx ([x ty] ...)) pat-] ...) (compile-pats #'(pat ...) #'τ_e)
+   #:with ty-expected (get-expected-type stx)
    [() ([x ≫ x- : ty] ...)
     ⊢ [(add-expected e_body ty-expected) ≫ e_body- ⇒ : ty_body]]
    ...
-   [#:when (check-exhaust #'(pat- ...) #'τ_e)]
+   #:when (check-exhaust #'(pat- ...) #'τ_e)
    --------
    [⊢ [_ ≫ (match- e- [pat- (let- ([x- x] ...) e_body-)] ...)
        ⇒ : (⊔ ty_body ...)]]])
@@ -697,55 +697,55 @@
 (define-typed-syntax match #:datum-literals (with -> ::)
   ;; e is a tuple
   [(match e with . clauses) ≫
-   [#:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"]
+   #:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"
    [⊢ [e ≫ e- ⇒ : τ_e]]
-   [#:when (×? #'τ_e)]
-   [#:with t_expect (get-expected-type stx)] ; propagate inferred type
-   [#:with ([x ... -> e_body]) #'clauses]
-   [#:with (~× ty ...) #'τ_e]
-   [#:fail-unless (stx-length=? #'(ty ...) #'(x ...))
-                  "match clause pattern not compatible with given tuple"]
+   #:when (×? #'τ_e)
+   #:with t_expect (get-expected-type stx) ; propagate inferred type
+   #:with ([x ... -> e_body]) #'clauses
+   #:with (~× ty ...) #'τ_e
+   #:fail-unless (stx-length=? #'(ty ...) #'(x ...))
+                 "match clause pattern not compatible with given tuple"
    [() ([x ≫ x- : ty] ...)
     ⊢ [(add-expected e_body t_expect) ≫ e_body- ⇒ : ty_body]]
-   [#:with (acc ...) (for/list ([(a i) (in-indexed (syntax->list #'(x ...)))])
-                       #`(lambda (s) (list-ref s #,(datum->syntax #'here i))))]
-   [#:with z (generate-temporary)]
+   #:with (acc ...) (for/list ([(a i) (in-indexed (syntax->list #'(x ...)))])
+                      #`(lambda (s) (list-ref s #,(datum->syntax #'here i))))
+   #:with z (generate-temporary)
    --------
    [⊢ [_ ≫ (let- ([z e-])
              (let- ([x- (acc z)] ...) e_body-))
        ⇒ : ty_body]]]
   ;; e is a list
   [(match e with . clauses) ≫
-   [#:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"]
+   #:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"
    [⊢ [e ≫ e- ⇒ : τ_e]]
-   [#:when (List? #'τ_e)]
-   [#:with t_expect (get-expected-type stx)] ; propagate inferred type
-   [#:with ([(~or (~and (~and xs [x ...]) (~parse rst (generate-temporary)))
-                  (~and (~seq (~seq x ::) ... rst:id) (~parse xs #'())))
-             -> e_body] ...+)
-    #'clauses]
-   [#:fail-unless (stx-ormap 
-                   (lambda (xx) (and (brack? xx) (zero? (stx-length xx)))) 
-                   #'(xs ...))
-    "match: missing empty list case"]
-   [#:fail-unless (not (and (stx-andmap brack? #'(xs ...))
-                            (= 1 (stx-length #'(xs ...)))))
-    "match: missing non-empty list case"]
-   [#:with (~List ty) #'τ_e]
+   #:when (List? #'τ_e)
+   #:with t_expect (get-expected-type stx) ; propagate inferred type
+   #:with ([(~or (~and (~and xs [x ...]) (~parse rst (generate-temporary)))
+                 (~and (~seq (~seq x ::) ... rst:id) (~parse xs #'())))
+            -> e_body] ...+)
+   #'clauses
+   #:fail-unless (stx-ormap 
+                  (lambda (xx) (and (brack? xx) (zero? (stx-length xx)))) 
+                  #'(xs ...))
+   "match: missing empty list case"
+   #:fail-unless (not (and (stx-andmap brack? #'(xs ...))
+                           (= 1 (stx-length #'(xs ...)))))
+   "match: missing non-empty list case"
+   #:with (~List ty) #'τ_e
    [() ([x ≫ x- : ty] ... [rst ≫ rst- : (List ty)])
     ⊢ [(add-expected e_body t_expect) ≫ e_body- ⇒ : ty_body]]
    ...
-   [#:with (len ...) (stx-map (lambda (p) #`#,(stx-length p)) #'((x ...) ...))]
-   [#:with (lenop ...) (stx-map (lambda (p) (if (brack? p) #'=- #'>=-)) #'(xs ...))]
-   [#:with (pred? ...) (stx-map
-                        (lambda (l lo) #`(λ- (lst) (#,lo (length lst) #,l)))
-                        #'(len ...) #'(lenop ...))]
-   [#:with ((acc1 ...) ...) (stx-map 
-                             (lambda (xs)
-                               (for/list ([(x i) (in-indexed (syntax->list xs))])
-                                 #`(lambda- (lst) (list-ref- lst #,(datum->syntax #'here i)))))
-                             #'((x ...) ...))]
-   [#:with (acc2 ...) (stx-map (lambda (l) #`(lambda- (lst) (list-tail- lst #,l))) #'(len ...))]
+   #:with (len ...) (stx-map (lambda (p) #`#,(stx-length p)) #'((x ...) ...))
+   #:with (lenop ...) (stx-map (lambda (p) (if (brack? p) #'=- #'>=-)) #'(xs ...))
+   #:with (pred? ...) (stx-map
+                       (lambda (l lo) #`(λ- (lst) (#,lo (length lst) #,l)))
+                       #'(len ...) #'(lenop ...))
+   #:with ((acc1 ...) ...) (stx-map 
+                            (lambda (xs)
+                              (for/list ([(x i) (in-indexed (syntax->list xs))])
+                                #`(lambda- (lst) (list-ref- lst #,(datum->syntax #'here i)))))
+                            #'((x ...) ...))
+   #:with (acc2 ...) (stx-map (lambda (l) #`(lambda- (lst) (list-tail- lst #,l))) #'(len ...))
    --------
    [⊢ [_ ≫ (let- ([z e-])
              (cond-
@@ -754,47 +754,47 @@
        ⇒ : (⊔ ty_body ...)]]]
   ;; e is a variant
   [(match e with . clauses) ≫
-   [#:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"]
+   #:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"
    [⊢ [e ≫ e- ⇒ : τ_e]]
-   [#:when (and (not (×? #'τ_e)) (not (List? #'τ_e)))]
-   [#:with t_expect (get-expected-type stx)] ; propagate inferred type
-   [#:with ([Clause:id x:id ... 
-                       (~optional (~seq #:when e_guard) #:defaults ([e_guard #'(ext-stlc:#%datum . #t)]))
-                       -> e_c_un] ...+) ; un = unannotated with expected ty
-    #'clauses]
+   #:when (and (not (×? #'τ_e)) (not (List? #'τ_e)))
+   #:with t_expect (get-expected-type stx) ; propagate inferred type
+   #:with ([Clause:id x:id ... 
+                      (~optional (~seq #:when e_guard) #:defaults ([e_guard #'(ext-stlc:#%datum . #t)]))
+                      -> e_c_un] ...+) ; un = unannotated with expected ty
+   #'clauses
    ;; length #'clauses may be > length #'info, due to guards
-   [#:with info-body (get-extra-info #'τ_e)]
-   [#:with (_ (_ (_ ConsAll) . _) ...) #'info-body]
-   [#:fail-unless (set=? (syntax->datum #'(Clause ...))
-                         (syntax->datum #'(ConsAll ...)))
-    (type-error #:src stx
-                #:msg (string-append
-                       "match: clauses not exhaustive; missing: "
-                       (string-join      
-                        (map symbol->string
-                             (set-subtract 
-                              (syntax->datum #'(ConsAll ...))
-                              (syntax->datum #'(Clause ...))))
-                        ", ")))]
-   [#:with ((_ _ _ Cons? [_ acc τ] ...) ...)
-    (map ; ok to compare symbols since clause names can't be rebound
-     (lambda (Cl) 
-       (stx-findf
-        (syntax-parser
-          [(_ 'C . rst) (equal? Cl (syntax->datum #'C))])
-        (stx-cdr #'info-body))) ; drop leading #%app
-     (syntax->datum #'(Clause ...)))]
+   #:with info-body (get-extra-info #'τ_e)
+   #:with (_ (_ (_ ConsAll) . _) ...) #'info-body
+   #:fail-unless (set=? (syntax->datum #'(Clause ...))
+                        (syntax->datum #'(ConsAll ...)))
+   (type-error #:src stx
+               #:msg (string-append
+                      "match: clauses not exhaustive; missing: "
+                      (string-join      
+                       (map symbol->string
+                            (set-subtract 
+                             (syntax->datum #'(ConsAll ...))
+                             (syntax->datum #'(Clause ...))))
+                       ", ")))
+   #:with ((_ _ _ Cons? [_ acc τ] ...) ...)
+   (map ; ok to compare symbols since clause names can't be rebound
+    (lambda (Cl) 
+      (stx-findf
+       (syntax-parser
+         [(_ 'C . rst) (equal? Cl (syntax->datum #'C))])
+       (stx-cdr #'info-body))) ; drop leading #%app
+    (syntax->datum #'(Clause ...)))
    ;; this commented block experiments with expanding to unsafe ops
-   ;; [#:with ((acc ...) ...) (stx-map 
-   ;;                          (lambda (accs)
-   ;;                           (for/list ([(a i) (in-indexed (syntax->list accs))])
-   ;;                             #`(lambda (s) (unsafe-struct*-ref s #,(datum->syntax #'here i)))))
-   ;;                          #'((acc-fn ...) ...))]
-   [#:with (e_c ...+) (stx-map (lambda (ec) (add-expected-ty ec #'t_expect)) #'(e_c_un ...))]
+   ;; #:with ((acc ...) ...) (stx-map 
+   ;;                         (lambda (accs)
+   ;;                          (for/list ([(a i) (in-indexed (syntax->list accs))])
+   ;;                            #`(lambda (s) (unsafe-struct*-ref s #,(datum->syntax #'here i)))))
+   ;;                         #'((acc-fn ...) ...))
+   #:with (e_c ...+) (stx-map (lambda (ec) (add-expected-ty ec #'t_expect)) #'(e_c_un ...))
    [() ([x ≫ x- : τ] ...)
     ⊢ [e_guard ≫ e_guard- ⇐ : Bool] [e_c ≫ e_c- ⇒ : τ_ec]]
    ...
-   [#:with z (generate-temporary)] ; dont duplicate eval of test expr
+   #:with z (generate-temporary) ; dont duplicate eval of test expr
    --------
    [⊢ [_ ≫ (let- ([z e-])
              (cond-
@@ -837,15 +837,15 @@
 ; all λs have type (?∀ (X ...) (→ τ_in ... τ_out))
 (define-typed-syntax λ #:datum-literals (:)
   [(λ (x:id ...) body) ⇐ : (~?∀ (X ...) (~ext-stlc:→ τ_in ... τ_out)) ≫
-   [#:fail-unless (stx-length=? #'[x ...] #'[τ_in ...])
-    (format "expected a function of ~a arguments, got one with ~a arguments"
-            (stx-length #'[τ_in ...]) (stx-length #'[x ...]))]
+   #:fail-unless (stx-length=? #'[x ...] #'[τ_in ...])
+   (format "expected a function of ~a arguments, got one with ~a arguments"
+           (stx-length #'[τ_in ...]) (stx-length #'[x ...]))
    [([X ≫ X- : #%type] ...) ([x ≫ x- : τ_in] ...)
     ⊢ [body ≫ body- ⇐ : τ_out]]
    --------
    [⊢ [_ ≫ (λ- (x- ...) body-) ⇐ : _]]]
   [(λ ([x : τ_x] ...) body) ⇐ : (~?∀ (V ...) (~ext-stlc:→ τ_in ... τ_out)) ≫
-   [#:with [X ...] (compute-tyvars #'(τ_x ...))]
+   #:with [X ...] (compute-tyvars #'(τ_x ...))
    [([X ≫ X- : #%type] ...) ()
     ⊢ [τ_x ≫ τ_x- ⇐ : #%type] ...]
    [τ_in τ⊑ τ_x- #:for x] ...
@@ -855,13 +855,13 @@
    --------
    [⊢ [_ ≫ (λ- (x- ...) body-) ⇐ : _]]]
   [(λ ([x : τ_x] ...) body) ≫
-   [#:with [X ...] (compute-tyvars #'(τ_x ...))]
+   #:with [X ...] (compute-tyvars #'(τ_x ...))
    ;; TODO is there a way to have λs that refer to ids defined after them?
    [([X ≫ X- : #%type] ...) ([x ≫ x- : τ_x] ...)
     ⊢ [body ≫ body- ⇒ : τ_body]]
-   [#:with [τ_x* ...] (inst-types/cs #'[X ...] #'([X X-] ...) #'[τ_x ...])]
-   [#:with τ_fn (add-orig #'(?∀ (X- ...) (ext-stlc:→ τ_x* ... τ_body))
-                          #`(→ #,@(stx-map get-orig #'[τ_x* ...]) #,(get-orig #'τ_body)))]
+   #:with [τ_x* ...] (inst-types/cs #'[X ...] #'([X X-] ...) #'[τ_x ...])
+   #:with τ_fn (add-orig #'(?∀ (X- ...) (ext-stlc:→ τ_x* ... τ_body))
+                         #`(→ #,@(stx-map get-orig #'[τ_x* ...]) #,(get-orig #'τ_body)))
    --------
    [⊢ [_ ≫ (λ- (x- ...) body-) ⇒ : τ_fn]]])
 
@@ -872,30 +872,30 @@
    ;; compute fn type (ie ∀ and →)
    [⊢ [e_fn ≫ e_fn- ⇒ : (~?∀ Xs (~ext-stlc:→ . tyX_args))]]
    ;; solve for type variables Xs
-   [#:with [[e_arg- ...] Xs* cs] (solve #'Xs #'tyX_args stx)]
+   #:with [[e_arg- ...] Xs* cs] (solve #'Xs #'tyX_args stx)
    ;; instantiate polymorphic function type
-   [#:with [τ_in ... τ_out] (inst-types/cs #'Xs* #'cs #'tyX_args)]
-   [#:with (unsolved-X ...) (find-free-Xs #'Xs* #'τ_out)]
+   #:with [τ_in ... τ_out] (inst-types/cs #'Xs* #'cs #'tyX_args)
+   #:with (unsolved-X ...) (find-free-Xs #'Xs* #'τ_out)
    ;; arity check
-   [#:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
-    (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])]
+   #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
+   (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
    ;; compute argument types
-   [#:with (τ_arg ...) (stx-map typeof #'(e_arg- ...))]
+   #:with (τ_arg ...) (stx-map typeof #'(e_arg- ...))
    ;; typecheck args
    [τ_arg τ⊑ τ_in #:for e_arg] ...
-   [#:with τ_out* (if (stx-null? #'(unsolved-X ...))
-                      #'τ_out
-                      (syntax-parse #'τ_out
-                        [(~?∀ (Y ...) τ_out)
-                         #:fail-unless (→? #'τ_out)
-                         (mk-app-poly-infer-error stx #'(τ_in ...) #'(τ_arg ...) #'e_fn)
-                         (for ([X (in-list (syntax->list #'(unsolved-X ...)))])
-                           (unless (covariant-X? X #'τ_out)
-                             (raise-syntax-error
-                              #f
-                              (mk-app-poly-infer-error stx #'(τ_in ...) #'(τ_arg ...) #'e_fn)
-                              stx)))
-                         #'(∀ (unsolved-X ... Y ...) τ_out)]))]
+   #:with τ_out* (if (stx-null? #'(unsolved-X ...))
+                     #'τ_out
+                     (syntax-parse #'τ_out
+                       [(~?∀ (Y ...) τ_out)
+                        #:fail-unless (→? #'τ_out)
+                        (mk-app-poly-infer-error stx #'(τ_in ...) #'(τ_arg ...) #'e_fn)
+                        (for ([X (in-list (syntax->list #'(unsolved-X ...)))])
+                          (unless (covariant-X? X #'τ_out)
+                            (raise-syntax-error
+                             #f
+                             (mk-app-poly-infer-error stx #'(τ_in ...) #'(τ_arg ...) #'e_fn)
+                             stx)))
+                        #'(∀ (unsolved-X ... Y ...) τ_out)]))
    --------
    [⊢ [_ ≫ (#%app- e_fn- e_arg- ...) ⇒ : τ_out*]]])
 
@@ -935,7 +935,7 @@
 
 (define-typed-syntax make-channel
   [(make-channel (~and tys {ty})) ≫
-   [#:when (brace? #'tys)]
+   #:when (brace? #'tys)
    --------
    [⊢ [_ ≫ (make-channel-) ⇒ : (Channel ty)]]])
 (define-typed-syntax channel-get
@@ -996,7 +996,7 @@
 
 (define-typed-syntax vector
   [(vector (~and tys {ty})) ≫
-   [#:when (brace? #'tys)]
+   #:when (brace? #'tys)
    --------
    [⊢ [_ ≫ (vector-) ⇒ : (Vector ty)]]]
   [(vector v ...) ⇐ : (Vector ty) ≫
@@ -1005,8 +1005,8 @@
    [⊢ [_ ≫ (vector- v- ...) ⇐ : _]]]
   [(vector v ...) ≫
    [⊢ [v ≫ v- ⇒ : ty] ...]
-   [#:when (same-types? #'(ty ...))]
-   [#:with one-ty (stx-car #'(ty ...))]
+   #:when (same-types? #'(ty ...))
+   #:with one-ty (stx-car #'(ty ...))
    --------
    [⊢ [_ ≫ (vector- v- ...) ⇒ : (Vector one-ty)]]])
 (define-typed-syntax make-vector
@@ -1247,16 +1247,16 @@
 ; mutable hashes
 (define-typed-syntax hash
   [(hash (~and tys {ty_key ty_val})) ≫
-   [#:when (brace? #'tys)]
+   #:when (brace? #'tys)
    --------
    [⊢ [_ ≫ (make-hash-) ⇒ : (Hash ty_key ty_val)]]]
   [(hash (~seq k v) ...) ≫
    [⊢ [k ≫ k- ⇒ : ty_k] ...]
    [⊢ [v ≫ v- ⇒ : ty_v] ...]
-   [#:when (same-types? #'(ty_k ...))]
-   [#:when (same-types? #'(ty_v ...))]
-   [#:with ty_key (stx-car #'(ty_k ...))]
-   [#:with ty_val (stx-car #'(ty_v ...))]
+   #:when (same-types? #'(ty_k ...))
+   #:when (same-types? #'(ty_v ...))
+   #:with ty_key (stx-car #'(ty_k ...))
+   #:with ty_val (stx-car #'(ty_v ...))
    --------
    [⊢ [_ ≫ (make-hash- (list- (cons- k- v-) ...)) ⇒ : (Hash ty_key ty_val)]]])
 (define-typed-syntax hash-set!
@@ -1368,7 +1368,7 @@
   [(provide x:id ...) ≫
    [⊢ [x ≫ x- ⇒ : ty_x] ...]
    ; TODO: use hash-code to generate this tmp
-   [#:with (x-ty ...) (stx-map (lambda (y) (format-id y "~a-ty" y)) #'(x ...))]
+   #:with (x-ty ...) (stx-map (lambda (y) (format-id y "~a-ty" y)) #'(x ...))
    --------
    [_ ≻ (begin-
           (provide- x ...)
@@ -1376,8 +1376,8 @@
           (provide- x-ty ...))]])
 (define-typed-syntax require-typed
   [(require-typed x:id ... #:from mod) ≫
-   [#:with (x-ty ...) (stx-map (lambda (y) (format-id y "~a-ty" y)) #'(x ...))]
-   [#:with (y ...) (generate-temporaries #'(x ...))]
+   #:with (x-ty ...) (stx-map (lambda (y) (format-id y "~a-ty" y)) #'(x ...))
+   #:with (y ...) (generate-temporaries #'(x ...))
    --------
    [_ ≻ (begin-
           (require- (rename-in (only-in mod x ... x-ty ...) [x y] ...))

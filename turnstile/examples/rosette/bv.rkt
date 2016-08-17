@@ -61,10 +61,10 @@
    [_ ≻ (define-fragment (id param ...) #:implements spec #:library lib-expr #:minbv (rosette:#%datum . 4))]]
   [(_ (id param ...) #:implements spec #:library lib-expr #:minbv minbv) ≫
    [⊢ [spec ≫ spec- ⇒ : ty_spec]]
-   [#:fail-unless (→? #'ty_spec) "spec must be a function"]
+   #:fail-unless (→? #'ty_spec) "spec must be a function"
    [⊢ [lib-expr ≫ lib-expr- ⇐ : Lib]]
    [⊢ [minbv ≫ minbv- ⇐ : Int]]
-   [#:with id-stx (format-id #'id "~a-stx" #'id #:source #'id)]
+   #:with id-stx (format-id #'id "~a-stx" #'id #:source #'id)
    --------
    [_ ≻ (begin-
             (define-values- (id-internal id-stx-internal)
@@ -78,15 +78,15 @@
 
 (define-typed-syntax bvlib
   [(_ [(~and ids (id ...)) n] ...) ≫
-   [#:fail-unless (stx-andmap brace? #'(ids ...))
-                  "given ops must be enclosed with braces"]
+   #:fail-unless (stx-andmap brace? #'(ids ...))
+                 "given ops must be enclosed with braces"
    [⊢ [n ≫ n- ⇐ : Int] ...]
    [⊢ [id ≫ id- ⇒ : ty_id] ... ...]
-   [#:fail-unless (stx-andmap →? #'(ty_id ... ...))
-                  "given op must be a function"]
-   [#:with ((~→ ty ...) ...) #'(ty_id ... ...)]
-   [#:fail-unless (stx-andmap BV? #'(ty ... ...))
-                  "given op must have BV inputs and output"]
+   #:fail-unless (stx-andmap →? #'(ty_id ... ...))
+                 "given op must be a function"
+   #:with ((~→ ty ...) ...) #'(ty_id ... ...)
+   #:fail-unless (stx-andmap BV? #'(ty ... ...))
+                 "given op must have BV inputs and output"
    --------
    [⊢ [_ ≫ (bv:bvlib [{id- ...} n-] ...) ⇒ : Lib]]])
 

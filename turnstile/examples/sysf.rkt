@@ -23,7 +23,7 @@
 (define-typed-syntax inst
   [(inst e τ:type ...) ≫
    [⊢ [e ≫ e- ⇒ : (~∀ tvs τ_body)]]
-   [#:with τ_inst (substs #'(τ.norm ...) #'tvs #'τ_body)]
+   #:with τ_inst (substs #'(τ.norm ...) #'tvs #'τ_body)
    --------
    [⊢ [_ ≫ e- ⇒ : τ_inst]]]
   [(inst e) ≫
