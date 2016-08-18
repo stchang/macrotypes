@@ -161,7 +161,8 @@
   (define-splicing-syntax-class inf
     #:datum-literals (⊢ ⇒ ⇐ ≫ :)
     #:attributes (depth es-stx es-stx-orig es-pat)
-    [pattern (~seq [e-stx* ≫ e-pat* props:⇒-props] ooo:elipsis ...)
+    [pattern (~or (~seq e-stx* ≫ e-pat* props:⇒-props (~parse (ooo ...) #'()))
+                  (~seq [e-stx* ≫ e-pat* props:⇒-props] ooo:elipsis ...))
              #:with depth (stx-length #'[ooo ...])
              #:with es-stx (with-depth #'e-stx* #'[ooo ...])
              #:with es-stx-orig (with-depth #'e-stx* #'[ooo ...])
@@ -171,7 +172,8 @@
                    #'(~and props.e-pat
                            e-pat*)
                    #'[ooo ...]))]
-    [pattern (~seq [e-stx* ≫ e-pat* props:⇐-props] ooo:elipsis ...)
+    [pattern (~or (~seq e-stx* ≫ e-pat* props:⇐-props (~parse (ooo ...) #'()))
+                  (~seq [e-stx* ≫ e-pat* props:⇐-props] ooo:elipsis ...))
              #:with e-tmp (generate-temporary #'e-pat*)
              #:with τ-tmp (generate-temporary 'τ)
              #:with τ-exp-tmp (generate-temporary 'τ_expected)
@@ -208,6 +210,8 @@
     #:datum-literals (⊢)
     [pattern (~or (~seq [⊢ inf:inf*] ooo:elipsis ...
                         (~parse ((ctx.x- ctx.ctx tvctx.x- tvctx.ctx) ...) #'()))
+                  (~seq [ctx:id-props+≫* ⊢ inf:inf*] ooo:elipsis ...
+                        (~parse ((tvctx.x- tvctx.ctx) ...) #'()))
                   (~seq [(ctx:id-props+≫*) ⊢ inf:inf*] ooo:elipsis ...
                         (~parse ((tvctx.x- tvctx.ctx) ...) #'()))
                   (~seq [(tvctx:id-props+≫*) (ctx:id-props+≫*) ⊢ inf:inf*] ooo:elipsis ...))
@@ -270,7 +274,8 @@
   (define-syntax-class last-clause
     #:datum-literals (⊢ ≫ ≻ ⇒ ⇐ :)
     #:attributes ([pat 0] [stuff 1] [body 0])
-    [pattern [⊢ [pat ≫ e-stx props:⇒-props/conclusion]]
+    [pattern (~or [⊢ pat ≫ e-stx props:⇒-props/conclusion]
+                  [⊢ [pat ≫ e-stx props:⇒-props/conclusion]])
              #:with [stuff ...] #'[]
              #:with body:expr
              (for/fold ([body #'(quasisyntax/loc this-syntax e-stx)])
@@ -278,9 +283,11 @@
                         [v (in-list (syntax->list #'[props.tag-expr ...]))])
                (with-syntax ([body body] [k k] [v v])
                  #'(assign-type body #:tag 'k v)))]
-    [pattern [⊢ [e-stx]]
+    [pattern (~or [⊢ [e-stx]] [⊢ (~and e-stx (~not [_ ≫ . rst]))])
              #:with :last-clause #'[⊢ [_ ≫ e-stx ⇐ : _]]]
-    [pattern (~or [⊢ [pat* ≫ e-stx ⇐ τ-pat]]
+    [pattern (~or [⊢ pat* ≫ e-stx ⇐ τ-pat]
+                  [⊢ pat* ≫ e-stx ⇐ : τ-pat]
+                  [⊢ [pat* ≫ e-stx ⇐ τ-pat]]
                   [⊢ [pat* ≫ e-stx ⇐ : τ-pat]])
              #:with stx (generate-temporary 'stx)
              #:with τ (generate-temporary #'τ-pat)
