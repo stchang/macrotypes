@@ -58,7 +58,13 @@
            (for-meta -1 (submod ".." typecheck+) (except-in macrotypes/typecheck #%module-begin))
            (for-meta -2 (except-in macrotypes/typecheck #%module-begin)))
   (define-syntax-class ---
-    [pattern (~datum --------)])
+    [pattern dashes
+             #:do [(define str-dashes (symbol->string (syntax->datum #'dashes)))]
+             #:fail-unless (for/and ([d (in-string str-dashes)])
+                             (char=? #\- d))
+                           "expected a separator consisting of dashes"
+             #:fail-unless (>= (string-length str-dashes) 3)
+                           "expected a separator of three or more dashes"])
   (define-syntax-class elipsis
     [pattern (~literal ...)])
 
