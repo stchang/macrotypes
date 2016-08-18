@@ -29,11 +29,11 @@
 
 (define-typed-syntax λ #:datum-literals (:)
   [(λ ([x:id : τ_in:type] ...) e) ≫
-   [() ([x ≫ x- : τ_in.norm] ...) ⊢ [e ≫ e- ⇒ τ_out]]
+   [([x ≫ x- : τ_in.norm] ...) ⊢ [e ≫ e- ⇒ τ_out]]
    --------
    [⊢ [_ ≫ (λ- (x- ...) e-) ⇒ (→ τ_in.norm ... τ_out)]]]
   [(λ (x:id ...) e) ⇐ (~→ τ_in ... τ_out) ≫
-   [() ([x ≫ x- : τ_in] ...) ⊢ [e ≫ e- ⇐ τ_out]]
+   [([x ≫ x- : τ_in] ...) ⊢ [e ≫ e- ⇐ τ_out]]
    --------
    [⊢ [_ ≫ (λ- (x- ...) e-) ⇐ _]]])
 

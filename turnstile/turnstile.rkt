@@ -199,9 +199,11 @@
   (define-splicing-syntax-class inf-clause
     #:attributes (pat)
     #:datum-literals (⊢)
-    [pattern (~seq [⊢ (~and (~seq inf-stuff ...) (~seq inf:inf ...))] ooo:elipsis ...)
-             #:with [:inf-clause] #'[[() () ⊢ inf-stuff ...] ooo ...]]
-    [pattern (~seq [(tvctx:id-props+≫*) (ctx:id-props+≫*) ⊢ inf:inf*] ooo:elipsis ...)
+    [pattern (~or (~seq [⊢ inf:inf*] ooo:elipsis ...
+                        (~parse ((ctx.x- ctx.ctx tvctx.x- tvctx.ctx) ...) #'()))
+                  (~seq [(ctx:id-props+≫*) ⊢ inf:inf*] ooo:elipsis ...
+                        (~parse ((tvctx.x- tvctx.ctx) ...) #'()))
+                  (~seq [(tvctx:id-props+≫*) (ctx:id-props+≫*) ⊢ inf:inf*] ooo:elipsis ...))
              #:with clause-depth (stx-length #'[ooo ...])
              #:with infs-pat
              (with-depth
