@@ -30,13 +30,13 @@
 (define-typed-syntax #%datum
   [(#%datum . n:nat) ≫
    --------
-   [⊢ [_ ≫ (#%datum- . n) ⇒ : Nat]]]
+   [⊢ _ ≫ (#%datum- . n) ⇒ Nat]]
   [(#%datum . n:integer) ≫
    --------
-   [⊢ [_ ≫ (#%datum- . n) ⇒ : Int]]]
+   [⊢ _ ≫ (#%datum- . n) ⇒ Int]]
   [(#%datum . n:number) ≫
    --------
-   [⊢ [_ ≫ (#%datum- . n) ⇒ : Num]]]
+   [⊢ _ ≫ (#%datum- . n) ⇒ Num]]
   [(#%datum . x) ≫
    --------
    [_ ≻ (ext:#%datum . x)]])

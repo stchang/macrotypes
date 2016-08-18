@@ -16,16 +16,16 @@
 
 (define-typed-syntax Λ
   [(Λ (tv:id ...) e) ≫
-   [([tv ≫ tv- : #%type] ...) () ⊢ [e ≫ e- ⇒ : τ]]
+   [([tv ≫ tv- : #%type] ...) () ⊢ e ≫ e- ⇒ τ]
    --------
-   [⊢ [_ ≫ e- ⇒ : (∀ (tv- ...) τ)]]])
+   [⊢ _ ≫ e- ⇒ (∀ (tv- ...) τ)]])
 
 (define-typed-syntax inst
   [(inst e τ:type ...) ≫
-   [⊢ [e ≫ e- ⇒ : (~∀ tvs τ_body)]]
+   [⊢ e ≫ e- ⇒ (~∀ tvs τ_body)]
    #:with τ_inst (substs #'(τ.norm ...) #'tvs #'τ_body)
    --------
-   [⊢ [_ ≫ e- ⇒ : τ_inst]]]
+   [⊢ _ ≫ e- ⇒ τ_inst]]
   [(inst e) ≫
    --------
    [_ ≻ e]])

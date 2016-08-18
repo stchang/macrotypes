@@ -39,13 +39,13 @@
 (define-typed-syntax unfld
   [(unfld τ:type-ann e) ≫
    #:with (~μ* (tv) τ_body) #'τ.norm
-   [⊢ [e ≫ e- ⇐ : τ.norm]]
+   [⊢ e ≫ e- ⇐ τ.norm]
    --------
-   [⊢ [_ ≫ e- ⇒ : #,(subst #'τ.norm #'tv #'τ_body)]]])
+   [⊢ _ ≫ e- ⇒ #,(subst #'τ.norm #'tv #'τ_body)]])
 (define-typed-syntax fld
   [(fld τ:type-ann e) ≫
    #:with (~μ* (tv) τ_body) #'τ.norm
    #:with τ_e (subst #'τ.norm #'tv #'τ_body)
-   [⊢ [e ≫ e- ⇐ : τ_e]]
+   [⊢ e ≫ e- ⇐ τ_e]
    --------
-   [⊢ [_ ≫ e- ⇒ : τ.norm]]])
+   [⊢ _ ≫ e- ⇒ τ.norm]])

@@ -35,7 +35,7 @@
 (define-typed-syntax #%datum
   [(#%datum . n:integer) ≫
    --------
-   [⊢ [_ ≫ (#%datum- . n) ⇒ : Int]]]
+   [⊢ _ ≫ (#%datum- . n) ⇒ Int]]
   [(_ . x) ≫
    --------
    [_ #:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])
