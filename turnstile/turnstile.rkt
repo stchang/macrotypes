@@ -256,6 +256,12 @@
     [pattern (~seq #:with pat*:expr expr:expr)
              #:with pat
              #'(~post (~parse pat* expr))]
+    [pattern (~seq #:do [stuff ...])
+             #:with pat
+             #'(~do stuff ...)]
+    [pattern (~seq #:fail-when condition:expr message:expr)
+             #:with pat
+             #'(~post (~fail #:when condition message))]
     [pattern (~seq #:fail-unless condition:expr message:expr)
              #:with pat
              #'(~post (~fail #:unless condition message))]
