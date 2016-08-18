@@ -98,6 +98,7 @@
                  #'(assign-type tag-expr #:tag 'k v)))])
   (define-splicing-syntax-class ⇐-prop
     #:datum-literals (⇐ :)
+    #:attributes (τ-stx e-pat)
     [pattern (~seq ⇐ : τ-stx)
              #:with e-tmp (generate-temporary)
              #:with τ-tmp (generate-temporary)
