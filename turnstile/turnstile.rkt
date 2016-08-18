@@ -79,7 +79,9 @@
   (define-splicing-syntax-class ⇒-prop
     #:datum-literals (⇒)
     #:attributes (e-pat)
-    [pattern (~seq ⇒ tag:id tag-pat (tag-prop:⇒-prop) ...)
+    [pattern (~or (~seq ⇒ tag-pat ; implicit : tag
+                        (~parse tag #':) (~parse (tag-prop.e-pat ...) #'()))
+                  (~seq ⇒ tag:id tag-pat (tag-prop:⇒-prop) ...)) ; explicit tag
              #:with e-tmp (generate-temporary)
              #:with e-pat
              #'(~and e-tmp
@@ -89,7 +91,11 @@
   (define-splicing-syntax-class ⇒-prop/conclusion
     #:datum-literals (⇒)
     #:attributes (tag tag-expr)
-    [pattern (~seq ⇒ tag:id tag-stx (tag-prop:⇒-prop/conclusion) ...)
+    [pattern (~or (~seq ⇒ tag-stx 
+                        (~parse tag #':)
+                        (~parse (tag-prop.tag ...) #'())
+                        (~parse (tag-prop.tag-expr ...) #'()))
+                  (~seq ⇒ tag:id tag-stx (tag-prop:⇒-prop/conclusion) ...))
              #:with tag-expr
              (for/fold ([tag-expr #'#`tag-stx])
                        ([k (in-list (syntax->list #'[tag-prop.tag ...]))]
@@ -99,7 +105,8 @@
   (define-splicing-syntax-class ⇐-prop
     #:datum-literals (⇐ :)
     #:attributes (τ-stx e-pat)
-    [pattern (~seq ⇐ : τ-stx)
+    [pattern (~or (~seq ⇐ τ-stx)
+                  (~seq ⇐ : τ-stx))
              #:with e-tmp (generate-temporary)
              #:with τ-tmp (generate-temporary)
              #:with τ-exp (generate-temporary)
@@ -258,7 +265,8 @@
                  #'(assign-type body #:tag 'k v)))]
     [pattern [⊢ [e-stx]]
              #:with :last-clause #'[⊢ [_ ≫ e-stx ⇐ : _]]]
-    [pattern [⊢ [pat* ≫ e-stx ⇐ : τ-pat]]
+    [pattern (~or [⊢ [pat* ≫ e-stx ⇐ τ-pat]]
+                  [⊢ [pat* ≫ e-stx ⇐ : τ-pat]])
              #:with stx (generate-temporary 'stx)
              #:with τ (generate-temporary #'τ-pat)
              #:with pat
@@ -288,7 +296,8 @@
   (define-splicing-syntax-class pat #:datum-literals (⇐ :)
     [pattern (~seq pat)
              #:attr transform-body identity]
-    [pattern (~seq pat* left:⇐ : τ-pat)
+    [pattern (~or (~seq pat* left:⇐ τ-pat)
+                  (~seq pat* left:⇐ : τ-pat))
              #:with stx (generate-temporary 'stx)
              #:with τ (generate-temporary #'τ-pat)
              #:with b (generate-temporary 'body)
