@@ -4,7 +4,7 @@
 (reuse define-type-alias #:from "stlc+reco+var.rkt")
 (provide Int Num Nat U
          define-named-type-alias
-         (for-syntax current-sub?))
+         (for-syntax current-sub? prune+sort))
 
 ;; Simply-Typed Lambda Calculus, plus union types
 ;; Types:
@@ -32,8 +32,12 @@
 (define-type-constructor U* #:arity > 0)
 
 (define-for-syntax (prune+sort tys)
-  (define ts (stx->list tys))
-  (stx-sort (remove-duplicates (stx->list tys) typecheck?)))
+  (stx-sort 
+   (remove-duplicates 
+    (stx->list tys)
+    ;; remove dups keeps first element
+    ;; but we want to keep supertype
+    (lambda (x y) (typecheck? y x)))))
   
 (define-syntax (U stx)
   (syntax-parse stx
