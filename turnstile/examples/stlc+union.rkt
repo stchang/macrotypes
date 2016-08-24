@@ -3,6 +3,7 @@
  #:except #%app #%datum + add1 sub1 * Int Int? ~Int Float Float? ~Float)
 (reuse define-type-alias #:from "stlc+reco+var.rkt")
 (provide Int Num Nat U
+         define-named-type-alias
          (for-syntax current-sub?))
 
 ;; Simply-Typed Lambda Calculus, plus union types
@@ -20,6 +21,12 @@
 ;; - terms from stlc+lit.rkt, except redefined: datum and +
 ;; - also *
 ;; Other: sub? current-sub?
+
+(define-syntax define-named-type-alias
+  (syntax-parser
+    [(define-named-type-alias Name:id τ:type)
+     #'(define-syntax Name
+         (make-variable-like-transformer (add-orig #'τ #'Name)))]))
 
 (define-base-types Zero NegInt PosInt Float)
 (define-type-constructor U* #:arity > 0)

@@ -10,7 +10,7 @@
            zero? void sub1 or and not add1 = - * + boolean? integer? list)
          (for-syntax (except-in "../../../turnstile/turnstile.rkt")))
 (provide (rename-out [ro:#%module-begin #%module-begin]))
-(extends "../stlc+union.rkt" #:except if #%app #%module-begin)
+(extends "../stlc+union+case.rkt" #:except if #%app #%module-begin add1 sub1 +)
 (reuse List list #:from "../stlc+cons.rkt")
 (require (only-in "../stlc+reco+var.rkt" [define stlc:define]))
 ;(require (only-in "../stlc+reco+var.rkt" define-type-alias))
@@ -49,10 +49,42 @@
 
 (define-typed-syntax app #:export-as #%app
   [(_ e_fn e_arg ...) ≫
-   [⊢ [e_fn ≫ e_fn- ⇒ : (~→ τ_in ... τ_out)]]
+   [⊢ [e_fn ≫ e_fn- ⇒ : (~→ ~! τ_in ... τ_out)]]
    #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
    (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
    [⊢ [e_arg ≫ e_arg- ⇐ : τ_in] ...]
+   --------
+   [⊢ [_ ≫ (ro:#%app e_fn- e_arg- ...) ⇒ : τ_out]]]
+  [(_ e_fn e_arg ...) ≫
+   [⊢ [e_fn ≫ e_fn- ⇒ : (~case-> ~! . (~and ty_fns ((~→ . _) ...)))]]
+   [⊢ [e_arg ≫ e_arg- ⇒ : τ_arg] ...]
+   #:with τ_out
+   (for/first ([ty_f (stx->list #'ty_fns)]
+               #:when (syntax-parse ty_f
+                        [(~→ τ_in ... τ_out)
+                         (and (stx-length=? #'(τ_in ...) #'(e_arg ...))
+                              (typechecks? #'(τ_arg ...) #'(τ_in ...)))]))
+     (syntax-parse ty_f [(~→ _ ... t_out) #'t_out]))
+   #:fail-unless (syntax-e #'τ_out)
+   ; use (failing) typechecks? to get err msg
+   (syntax-parse #'ty_fns
+     [((~→ τ_in ... _) ...)
+      (let* ([τs_expecteds #'((τ_in ...) ...)]
+             [τs_given #'(τ_arg ...)]
+             [expressions #'(e_arg ...)])
+        (format (string-append "type mismatch\n"
+                               "  expected one of:\n"
+                               "    ~a\n"
+                               "  given: ~a\n"
+                               "  expressions: ~a")
+         (string-join
+          (stx-map
+           (lambda (τs_expected)
+             (string-join (stx-map type->str τs_expected) ", "))
+           τs_expecteds)
+          "\n    ")
+           (string-join (stx-map type->str τs_given) ", ")
+           (string-join (map ~s (stx-map syntax->datum expressions)) ", ")))])
    --------
    [⊢ [_ ≫ (ro:#%app e_fn- e_arg- ...) ⇒ : τ_out]]])
 
@@ -75,6 +107,20 @@
 (define-rosette-primop integer? : (→ Int Bool))
 (define-rosette-primop string? : (→ String Bool))
 (define-rosette-primop pregexp : (→ String Regexp))
+
+(define-rosette-primop add1 : (case-> (→ NegInt (U NegInt Zero))
+                                      (→ Zero PosInt)
+                                      (→ PosInt PosInt)
+                                      (→ Nat PosInt)
+                                      (→ Int Int)))
+(define-rosette-primop sub1 : (case-> (→ NegInt NegInt)
+                                      (→ Zero NegInt)
+                                      (→ PosInt Nat)
+                                      (→ Nat Int)
+                                      (→ Int Int)))
+(define-rosette-primop + : (case-> (→ Int Int Int)
+                                   (→ Nat Nat Nat)
+                                   (→ Num Num Num)))
 
 (define-typed-syntax equal?
   [(equal? e1 e2) ≫
@@ -130,35 +176,19 @@
 (define-base-type BV) ; represents actual bitvectors
 
 ; a predicate recognizing bv's of a certain size
-(define-syntax BVPred 
-  (make-variable-like-transformer 
-   (add-orig #'(→ BV Bool) #'BVPred)))
-;(define-type-alias BVPred (→ BV Bool))
+(define-named-type-alias BVPred (→ BV Bool))
 
-;; TODO: fix me --- need subtyping?
-;(define-syntax Nat (make-rename-transformer #'Int))
-;(define-type-alias Nat Int)
-
-;; TODO: support higher order case --- need intersect types?
-(define-typed-syntax bv
-  [(_ e_val e_size) ≫
-   [⊢ [e_val ≫ e_val- ⇐ : Int]]
-   [⊢ [e_size ≫ e_size- ⇐ : BVPred]]
-   --------
-   [⊢ [_ ≫ (ro:bv e_val- e_size-) ⇒ : BV]]]
-  [(_ e_val e_size) ≫
-   [⊢ [e_val ≫ e_val- ⇐ : Int]]
-   [⊢ [e_size ≫ e_size- ⇐ : PosInt]]
-   --------
-   [⊢ [_ ≫ (ro:bv e_val- e_size-) ⇒ : BV]]])
+;; support higher order case with case-> types
+(define-rosette-primop bv : (case-> (→ Int BVPred BV)
+                                    (→ Int PosInt BV)))
 
 (define-rosette-primop bv? : (→ BV Bool))
-(define-rosette-primop bitvector : (→ Nat BVPred))
+(define-rosette-primop bitvector : (→ PosInt BVPred))
 (define-rosette-primop bitvector? : (→ BVPred Bool))
-(define-rosette-primop* bitvector bvpred : (→ Nat BVPred))
+(define-rosette-primop* bitvector bvpred : (→ PosInt BVPred))
 (define-rosette-primop* bitvector? bvpred? : (→ BVPred Bool))
-(define-rosette-primop bitvector-size : (→ BVPred Nat))
-(define-rosette-primop* bitvector-size bvpred-size : (→ BVPred Nat))
+(define-rosette-primop bitvector-size : (→ BVPred PosInt))
+(define-rosette-primop* bitvector-size bvpred-size : (→ BVPred PosInt))
 
 (define-rosette-primop bveq : (→ BV BV Bool))
 (define-rosette-primop bvslt : (→ BV BV Bool))

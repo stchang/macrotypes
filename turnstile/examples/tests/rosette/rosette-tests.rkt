@@ -1,28 +1,30 @@
 #lang s-exp "../../rosette/rosette.rkt"
 (require "../rackunit-typechecking.rkt")
 
-(check-type (sub1 10) : Int -> 9) ; TODO: Nat
-(check-type (sub1 0) : Int -> -1) ; TODO: NegInt
-(check-type (sub1 -1) : Int -> -2) ; TODO: NegInt
+(check-type (sub1 10) : Nat -> 9)
+(check-type (sub1 0) : NegInt -> -1)
+(check-type (sub1 -1) : NegInt -> -2)
 
-;(check-type bv : (→ Int BVPred BV))
+(check-type bv : (case-> (→ Int BVPred BV)
+                         (→ Int PosInt BV)))
 (typecheck-fail (bv "1" 2) #:with-msg "expected.*Int.*given.*String")
+(check-type (bv 1 2) : BV -> (bv 1 (bvpred 2)))
 (check-type (bv 1 (bvpred 2)) : BV -> (bv 1 (bvpred 2)))
 
 (typecheck-fail (bv 0 0) #:with-msg "expected.*PosInt.*given.*Zero")
-(check-type bitvector : (→ Nat BVPred))
+(check-type bitvector : (→ PosInt BVPred))
 (check-type (bitvector 3) : BVPred)
 (typecheck-fail ((bitvector 4) 1))
 (check-type ((bitvector 4) (bv 10 (bvpred 4))) :  Bool)
 
 ;; same as above, but with bvpred
-(check-type bvpred : (→ Nat BVPred))
+(check-type bvpred : (→ PosInt BVPred))
 (check-type (bvpred 3) : BVPred)
 (typecheck-fail ((bvpred 4) 1))
 (check-type ((bvpred 4) (bv 10 (bvpred 4))) :  Bool)
 ;; typed rosette catches this during typechecking, 
 ;; whereas untyped rosette uses a runtime exn
-(typecheck-fail (bvpred -1) #:with-msg "expected Nat, given NegInt")
+(typecheck-fail (bvpred -1) #:with-msg "expected PosInt, given NegInt")
 ;(check-runtime-exn (bvpred -1))
 
 (typecheck-fail (bitvector? "2"))
@@ -107,3 +109,19 @@
 (check-type (integer->bitvector 3
               (if c (bitvector 5) (bitvector 6))) 
   : BV -> (if c (bv 3 5) (bv 3 6)))
+
+;; case-> subtyping
+(check-type ((λ ([f : (→ Int Int)]) (f 10)) add1) : Int -> 11)
+(check-type ((λ ([f : (case-> (→ Int Int))]) (f 10)) add1) : Int -> 11)
+(check-type ((λ ([f : (case-> (→ Nat Nat)
+                              (→ Int Int))]) (f 10)) add1) : Int -> 11)
+(check-not-type ((λ ([f : (case-> (→ Int Int))]) (f 10)) add1) : Nat)
+(check-type ((λ ([f : (case-> (→ Nat Nat)
+                              (→ Int Int))]) (f 10)) add1) : Nat -> 11)
+(typecheck-fail ((λ ([f : (case-> (→ Zero Zero)
+                                  (→ Int Int))]) (f 10)) add1) 
+ #:with-msg
+ (string-append "expected \\(case-> \\(→ Zero Zero\\) \\(→ Int Int\\)\\), "
+                "given \\(case-> \\(→ NegInt \\(U NegInt Zero\\)\\) \\(→ Zero PosInt\\) "
+                "\\(→ PosInt PosInt\\) \\(→ Nat PosInt\\) \\(→ Int Int\\)\\)"))
+
