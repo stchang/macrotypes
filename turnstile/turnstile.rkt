@@ -13,32 +13,32 @@
   (provide (all-defined-out))
   (require (for-meta -1 (except-in macrotypes/typecheck #%module-begin))
            (only-in lens lens-view lens-set)
-           (only-in unstable/lens stx-append*n-lens))
+           (only-in unstable/lens stx-flatten/depth-lens))
   ;; infer/depth returns a list of three values:
   ;;   tvxs- ; a stx-list of the expanded versions of type variables in the tvctx
   ;;   xs-   ; a stx-list of the expanded versions of variables in the ctx
   ;;   es*-  ; a nested list a depth given by the depth argument, with the same structure
   ;;         ; as es*, containing the expanded es*, with the types attached
   (define (infer/depth #:ctx ctx #:tvctx tvctx depth es* origs*)
-    (define flat (stx-append*n-lens depth))
-    (define es (lens-view flat (list es*)))
-    (define origs (lens-view flat (list origs*)))
+    (define flat (stx-flatten/depth-lens depth))
+    (define es (lens-view flat es*))
+    (define origs (lens-view flat origs*))
     (define/with-syntax [tvxs- xs- es- _]
       (infer #:tvctx tvctx #:ctx ctx (stx-map pass-orig es origs)))
-    (match-define (list es*-) (lens-set flat (list es*) #'es-))
+    (define es*- (lens-set flat es* #'es-))
     (list #'tvxs- #'xs- es*-))
   ;; infers/depths
   (define (infers/depths clause-depth inf-depth tvctxs/ctxs/ess/origss*)
-    (define flat (stx-append*n-lens clause-depth))
+    (define flat (stx-flatten/depth-lens clause-depth))
     (define tvctxs/ctxs/ess/origss
-      (lens-view flat (list tvctxs/ctxs/ess/origss*)))
+      (lens-view flat tvctxs/ctxs/ess/origss*))
     (define infs
-      (for/list ([tvctx/ctx/es/origs (in-list tvctxs/ctxs/ess/origss)])
+      (for/list ([tvctx/ctx/es/origs (in-list (stx->list tvctxs/ctxs/ess/origss))])
         (match-define (list tvctx ctx es origs)
           (stx->list tvctx/ctx/es/origs))
         (infer/depth #:tvctx tvctx #:ctx ctx inf-depth es origs)))
-    (match-define (list res)
-      (lens-set flat (list tvctxs/ctxs/ess/origss*) infs))
+    (define res
+      (lens-set flat tvctxs/ctxs/ess/origss* infs))
     res)
   (define (raise-⇐-expected-type-error ⇐-stx body expected-type existing-type)
     (raise-syntax-error
@@ -58,7 +58,7 @@
            (for-meta -1 (submod ".." typecheck+) (except-in macrotypes/typecheck #%module-begin))
            (for-meta -2 (except-in macrotypes/typecheck #%module-begin)))
   (define-syntax-class ---
-    [pattern dashes
+    [pattern dashes:id
              #:do [(define str-dashes (symbol->string (syntax->datum #'dashes)))]
              #:fail-unless (for/and ([d (in-string str-dashes)])
                              (char=? #\- d))
