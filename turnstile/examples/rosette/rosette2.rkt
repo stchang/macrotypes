@@ -324,7 +324,14 @@
 (define-rosette-primop bvurem : (C→ BV BV BV))
 (define-rosette-primop bvsmod : (C→ BV BV BV))
 
+(define-rosette-primop concat : (C→ BV BV BV))
+(define-rosette-primop extract : (C→ Int Int BV BV))
+(define-rosette-primop sign-extend : (C→ BV CBVPred BV))
+(define-rosette-primop zero-extend : (C→ BV BVPred BV))
 
+(define-rosette-primop bitvector->integer : (C→ BV Int))
+(define-rosette-primop bitvector->natural : (C→ BV Nat))
+(define-rosette-primop integer->bitvector : (C→ Int BVPred BV))
 
 ;; ---------------------------------
 ;; Subtyping

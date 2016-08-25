@@ -192,39 +192,42 @@
 (check-type (bvsrem (bv -3 4) (if b (bv 2 4) (bv 3 4))) : BV 
             -> (if b (bv -1 4) (bv 0 4)))
 
-;; (check-type (concat (bv -1 4) (bv 0 1) (bv -1 3)) : BV -> (bv -9 8))
-;; (check-type (concat (bv -1 4) (if b (bv 0 1) (bv 0 2)) (bv -1 3)) : BV
-;;             -> (if b (bv -9 8) (bv -25 9)))
+(check-type (concat (concat (bv -1 4) (bv 0 1)) (bv -1 3)) : BV -> (bv -9 8))
+(check-type (concat (concat (bv -1 4) (if b (bv 0 1) (bv 0 2))) (bv -1 3)) : BV
+            -> (if b (bv -9 8) (bv -25 9)))
 
-;; (check-type (extract 2 1 (bv -1 4)) : BV -> (bv -1 2))
-;; (check-type (extract 3 3 (bv 1 4)) : BV -> (bv 0 1))
-;; (define-symbolic i j integer? : Int)
-;; (check-type (extract i j (bv 1 2)) : BV)
-;; ;            -> {[(&& (= 0 j) (= 1 i)) (bv 1 2)] ...})
+(check-type (extract 2 1 (bv -1 4)) : BV -> (bv -1 2))
+(check-type (extract 3 3 (bv 1 4)) : BV -> (bv 0 1))
+(define-symbolic i j integer? : Int)
+(check-type (extract i j (bv 1 2)) : BV)
+;            -> {[(&& (= 0 j) (= 1 i)) (bv 1 2)] ...})
 
-;; (check-type (sign-extend (bv -3 4) (bitvector 6)) : BV -> (bv -3 6))
-;; (check-type (zero-extend (bv -3 4) (bitvector 6)) : BV -> (bv 13 6))
-;; (define-symbolic c boolean? : Bool)
-;; (check-type (zero-extend (bv -3 4) (if b (bitvector 5) (bitvector 6))) 
-;;   : BV -> (if b (bv 13 5) (bv 13 6)))
-;; #;(check-type (zero-extend (bv -3 4) (if b (bitvector 5) "bad"))
-;;   : BV -> (bv 13 5))
-;; (check-type (zero-extend (bv -3 4) (if c (bitvector 5) (bitvector 1))) 
-;;   : BV -> (bv 13 5))
+(check-type (sign-extend (bv -3 4) (bitvector 6)) : BV -> (bv -3 6))
+(check-type (zero-extend (bv -3 4) (bitvector 6)) : BV -> (bv 13 6))
+(define-symbolic c boolean? : Bool)
+(check-type (zero-extend (bv -3 4) (if b (bitvector 5) (bitvector 6))) 
+  : BV -> (if b (bv 13 5) (bv 13 6)))
+;; TODO: change this test to use assert-type
+#;(check-type (zero-extend (bv -3 4) (if b (bitvector 5) "bad"))
+  : BV -> (bv 13 5))
+(check-type (zero-extend (bv -3 4) (if c (bitvector 5) (bitvector 1))) 
+  : BV -> (bv 13 5))
 
-;; (check-type (bitvector->integer (bv -1 4)) : Int -> -1)
-;; (check-type (bitvector->natural (bv -1 4)) : Int -> 15)
-;; (check-type (bitvector->integer (if b (bv -1 3) (bv -3 4))) 
-;;   : Int -> (if b -1 -3))
-;; ;(check-type (bitvector->integer (if b (bv -1 3) "bad")) : BV -> -1)
-;; (check-type (integer->bitvector 4 (bitvector 2)) : BV -> (bv 0 2))
-;; (check-type (integer->bitvector 15 (bitvector 4)) : BV -> (bv -1 4))
-;; #;(check-type (integer->bitvector (if b pi 3) 
-;;               (if c (bitvector 5) (bitvector 6))) 
-;;   : BV -> {[c (bv 3 5)] [(! c) (bv 3 6)]})
-;; (check-type (integer->bitvector 3
-;;               (if c (bitvector 5) (bitvector 6))) 
-;;   : BV -> (if c (bv 3 5) (bv 3 6)))
+(check-type (bitvector->integer (bv -1 4)) : Int -> -1)
+(check-type (bitvector->natural (bv -1 4)) : Int -> 15)
+(check-type (bitvector->integer (if b (bv -1 3) (bv -3 4))) 
+  : Int -> (if b -1 -3))
+;; TODO: change this test to use assert-type
+;(check-type (bitvector->integer (if b (bv -1 3) "bad")) : BV -> -1)
+(check-type (integer->bitvector 4 (bitvector 2)) : BV -> (bv 0 2))
+(check-type (integer->bitvector 15 (bitvector 4)) : BV -> (bv -1 4))
+;; TODO: change this test to use assert-type
+#;(check-type (integer->bitvector (if b pi 3) 
+              (if c (bitvector 5) (bitvector 6))) 
+  : BV -> {[c (bv 3 5)] [(! c) (bv 3 6)]})
+(check-type (integer->bitvector 3
+              (if c (bitvector 5) (bitvector 6))) 
+  : BV -> (if c (bv 3 5) (bv 3 6)))
 
 ;; case-> subtyping
 (check-type ((λ ([f : (C→ Int Int)]) (f 10)) add1) : Int -> 11)
