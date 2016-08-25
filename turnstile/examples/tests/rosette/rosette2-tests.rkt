@@ -85,6 +85,36 @@
 (check-type (+ (ann 1 : PosInt) (ann 10 : PosInt)) : Nat -> 11)
 (check-type (+ (ann -10 : NegInt) (ann 10 : PosInt)) : Int -> 0)
 
+;; if tests
+;; if expr has concrete type only if test and both branches are concrete
+(check-type (if #t 1 #f) : (CU CBool CInt))
+(check-type (if #t 1 #f) : (U CBool CInt))
+(check-type (if #t 1 #f) : (U Bool CInt))
+(check-type (if #t 1 #f) : (U Bool Int))
+(check-type (if #t 1 2) : CInt)
+(check-type (if #t 1 2) : Int)
+(check-type (if #t 1 2) : (CU CInt CBool))
+(check-type (if #t 1 2) : (U Int Bool))
+;; non-bool test
+(check-type (if 1 2 3) : CInt)
+;; else, if expr produces symbolic type
+(define-symbolic b0 boolean? : Bool)
+(define-symbolic i0 integer? : Int)
+(check-type (if b0 1 2) : Int)
+(check-not-type (if b0 1 2) : CInt)
+(check-type (if #t i0 2) : Int)
+(check-not-type (if #t i0 2) : CInt)
+(check-type (if #t 2 i0) : Int)
+(check-not-type (if #t 2 i0) : CInt)
+(check-type (if b0 i0 2) : Int)
+(check-type (if b0 1 #f) : (U CInt CBool))
+(check-type (if b0 1 #f) : (U Int Bool))
+;; slightly unintuitive case: (U Int Bool) <: (U CInt Bool), ok for now (see notes)
+(check-type (if #f i0 #f) : (U CInt CBool))
+(check-type (if #f i0 #f) : (U CInt Bool))
+(check-type (if #f i0 #f) : (U Int Bool))
+(check-type (if #f (+ i0 1) #f) : (U Int Bool))
+
 ;; BVs
 
 (check-type bv : (Ccase-> (C→ CInt CBVPred CBV)

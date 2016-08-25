@@ -1,0 +1,18 @@
+2016-08-25 --------------------
+
+** Problem:
+
+The following subtyping relation holds but is potentially unintuitive for a 
+programmer:
+
+(U Int Bool) <: (U CInt Bool)
+
+** Possible Solutions:
+1) leave as is
+2) allow only symbolic arguments to user-facing U constructor
+ - user-facing U constructor expands to U** flattening constructor,
+   which then expands to internal U* constructor
+ - disadvantage: an if expression will expose the internal U** constructor,
+   since if may need to create a symbolic union from potentially concrete types
+
+Choosing #1 for now.

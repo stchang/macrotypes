@@ -1,13 +1,13 @@
 #lang turnstile
 (extends "../stlc.rkt"
-  #:except #%app)
+  #:except #%app →)
 (reuse #%datum #:from "../stlc+union.rkt")
 (reuse define-type-alias #:from "../stlc+reco+var.rkt")
 (reuse define-named-type-alias #:from "../stlc+union.rkt")
 
 (provide CU U
-         C→
-         Ccase->
+         C→ →
+         Ccase-> ; TODO: symbolic case-> not supported yet
          CNegInt NegInt
          CZero Zero
          CPosInt PosInt
@@ -16,10 +16,10 @@
          CFloat Float
          CNum Num
          CBool Bool
-         CString ; symbolic string are not supported
+         CString String
          ;; BV types
          CBV BV
-         CBVPred ; symbolic bvpreds are not supported (yet)
+         CBVPred BVPred
          )
 
 (require
@@ -48,11 +48,13 @@
     [(_ . tys)
      #:with tys+ (stx-map (current-type-eval) #'tys)
      #:fail-unless (stx-andmap concrete? #'tys+)
-                   "CU require concrete arguments"
+                   "CU requires concrete types"
      #'(CU* . tys+)]))
 
 ;; internal symbolic union constructor
 (define-type-constructor U* #:arity >= 0)
+
+;; user-facing symbolic U constructor: flattens and prunes
 (define-syntax (U stx)
   (syntax-parse stx
     [(_ . tys)
@@ -90,6 +92,12 @@
 (define-named-type-alias PosInt (U CPosInt))
 (define-named-type-alias Float (U CFloat))
 (define-named-type-alias Bool (U CBool))
+(define-named-type-alias String (U CString))
+
+(define-syntax →
+  (syntax-parser
+    [(_ ty ...+) 
+     (add-orig #'(U (C→ ty ...)) this-syntax)]))
 
 (define-syntax define-symbolic-named-type-alias
   (syntax-parser
@@ -105,6 +113,19 @@
 (define-symbolic-named-type-alias Nat (CU CZero CPosInt))
 (define-symbolic-named-type-alias Int (CU CNegInt CNat))
 (define-symbolic-named-type-alias Num (CU CFloat CInt))
+
+;; ---------------------------------
+;; define-symbolic
+
+(define-typed-syntax define-symbolic
+  [(_ x:id ...+ pred : ty:type) ≫
+   ;; TODO: still unsound
+   [⊢ [pred ≫ pred- ⇐ : (→ ty.norm Bool)]]
+   #:with (y ...) (generate-temporaries #'(x ...))
+   --------
+   [_ ≻ (begin-
+          (define-syntax- x (make-rename-transformer (⊢ y : ty.norm))) ...
+          (ro:define-symbolic y ... pred-))]])
 
 ;; ---------------------------------
 ;; Function Application
@@ -161,6 +182,28 @@
    [⊢ [_ ≫ (ro:#%app e_fn- e_arg- ...) ⇒ : (U τ_out ...)]]])
 
 ;; ---------------------------------
+;; if
+
+(define-typed-syntax if
+  [(_ e_tst e1 e2) ≫
+   [⊢ [e_tst ≫ e_tst- ⇒ : ty_tst]]
+   #:when (concrete? #'ty_tst)
+   [⊢ [e1 ≫ e1- ⇒ : ty1]]
+   [⊢ [e2 ≫ e2- ⇒ : ty2]]
+   #:when (and (concrete? #'ty1) (concrete? #'ty2))
+   --------
+   [⊢ [_ ≫ (ro:if e_tst- e1- e2-) ⇒ : (CU ty1 ty2)]]]
+  [(_ e_tst e1 e2) ≫
+   [⊢ [e_tst ≫ e_tst- ⇒ : _]]
+   [⊢ [e1 ≫ e1- ⇒ : ty1]]
+   [⊢ [e2 ≫ e2- ⇒ : ty2]]
+   --------
+   [⊢ [_ ≫ (ro:if e_tst- e1- e2-) ⇒ : (U ty1 ty2)]]])
+   
+   
+
+
+;; ---------------------------------
 ;; Types for built-in operations
 
 (define-rosette-primop add1 : (Ccase-> (C→ CNegInt (CU CNegInt CZero))
@@ -190,10 +233,16 @@
                                     (C→ CNum CNum CNum)
                                     (C→ Num Num Num)))
 
+;; TODO: fix types of these predicates
+(define-rosette-primop boolean? : (C→ Bool Bool))
+(define-rosette-primop integer? : (C→ Num Bool))
+(define-rosette-primop real? : (C→ Num Bool))
+
 ;; ---------------------------------
 ;; BV Types and Operations
 
 (define-named-type-alias BV (U CBV))
+(define-named-type-alias BVPred (U CBVPred))
 
 (define-rosette-primop bv : (Ccase-> (C→ CInt CBVPred CBV)
                                      (C→ Int CBVPred BV)
