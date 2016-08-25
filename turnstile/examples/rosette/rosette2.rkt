@@ -213,14 +213,18 @@
 
 (define-rosette-primop bvnot : (C→ BV BV))
 
-;; TODO: bvand, bvor, bvxor
+(define-rosette-primop bvand : (C→ BV BV BV))
+(define-rosette-primop bvor : (C→ BV BV BV))
+(define-rosette-primop bvxor : (C→ BV BV BV))
 
 (define-rosette-primop bvshl : (C→ BV BV BV))
 (define-rosette-primop bvlshr : (C→ BV BV BV))
 (define-rosette-primop bvashr : (C→ BV BV BV))
 (define-rosette-primop bvneg : (C→ BV BV))
 
-;; TODO: bvadd, bvsub, bvmul
+(define-rosette-primop bvadd : (C→ BV BV BV))
+(define-rosette-primop bvsub : (C→ BV BV BV))
+(define-rosette-primop bvmul : (C→ BV BV BV))
 
 (define-rosette-primop bvsdiv : (C→ BV BV BV))
 (define-rosette-primop bvudiv : (C→ BV BV BV))

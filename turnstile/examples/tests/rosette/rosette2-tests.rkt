@@ -124,18 +124,18 @@
 (check-type (bveq (bv 1 2) (bv 1 3)) : Bool) ; -> runtime exn
 (check-runtime-exn (bveq (bv 1 2) (bv 1 3)))
 
-;; ;; non-primop bvops
-;; (check-type (bvand (bv -1 (bvpred 4)) (bv 2 (bvpred 4))) : BV 
-;;             -> (bv 2 (bvpred 4)))
-;; (check-type (bvor  (bv 0 (bvpred 3))  (bv 1 (bvpred 3))) : BV 
-;;             -> (bv 1 (bvpred 3)))
-;; (check-type (bvxor (bv -1 (bvpred 5)) (bv 1 (bvpred 5))) : BV 
-;;             -> (bv -2 (bvpred 5)))
 
-;; ;; examples from rosette guide
-;; (check-type (bvand (bv -1 4) (bv 2 4)) : BV -> (bv 2 4))
-;; (check-type (bvor  (bv 0 3)  (bv 1 3)) : BV -> (bv 1 3))
-;; (check-type (bvxor (bv -1 5) (bv 1 5)) : BV -> (bv -2 5))
+(check-type (bvand (bv -1 4) (bv 2 4)) : BV 
+            -> (bv 2 4))
+(check-type (bvor  (bv 0 3)  (bv 1 3)) : BV 
+            -> (bv 1 3))
+(check-type (bvxor (bv -1 5) (bv 1 5)) : BV 
+            -> (bv -2 5))
+
+;; examples from rosette guide
+(check-type (bvand (bv -1 4) (bv 2 4)) : BV -> (bv 2 4))
+(check-type (bvor  (bv 0 3)  (bv 1 3)) : BV -> (bv 1 3))
+(check-type (bvxor (bv -1 5) (bv 1 5)) : BV -> (bv -2 5))
 
 ;; (define-symbolic b boolean? : Bool)
 ;; (check-type (bvand (bv -1 4) (if b (bv 3 4) (bv 2 4))) : BV 
