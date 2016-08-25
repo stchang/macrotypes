@@ -17,13 +17,20 @@
          CNum Num
          CBool Bool
          CString ; symbolic string are not supported
+         ;; BV types
+         CBV BV
+         CBVPred ; symbolic bvpreds are not supported (yet)
          )
 
 (require
  (prefix-in ro: rosette)
  (only-in "../stlc+union.rkt" define-named-type-alias prune+sort current-sub?)
- (prefix-in C (only-in "../stlc+union+case.rkt"
-                       PosInt Zero NegInt Float Bool String [U U*] U*? [case-> case->*] → →?))
+ (prefix-in C
+   (combine-in
+    (only-in "../stlc+union+case.rkt"
+             PosInt Zero NegInt Float Bool String [U U*] U*? [case-> case->*] → →?)
+    (only-in "rosette.rkt"
+             BV BVPred)))
  (only-in "../stlc+union+case.rkt" [~U* ~CU*] [~case-> ~Ccase->] [~→ ~C→])
  (only-in "../ext-stlc.rkt" define-primop))
 
@@ -182,6 +189,44 @@
                                     (C→ Int Int Int)
                                     (C→ CNum CNum CNum)
                                     (C→ Num Num Num)))
+
+;; ---------------------------------
+;; BV Types and Operations
+
+(define-named-type-alias BV (U CBV))
+
+(define-rosette-primop bv : (Ccase-> (C→ CInt CBVPred CBV)
+                                     (C→ Int CBVPred BV)
+                                     (C→ CInt CPosInt CBV)
+                                     (C→ Int CPosInt BV)))
+(define-rosette-primop bitvector : (C→ CPosInt CBVPred))
+
+(define-rosette-primop bveq : (C→ BV BV Bool))
+(define-rosette-primop bvslt : (C→ BV BV Bool))
+(define-rosette-primop bvult : (C→ BV BV Bool))
+(define-rosette-primop bvsle : (C→ BV BV Bool))
+(define-rosette-primop bvule : (C→ BV BV Bool))
+(define-rosette-primop bvsgt : (C→ BV BV Bool))
+(define-rosette-primop bvugt : (C→ BV BV Bool))
+(define-rosette-primop bvsge : (C→ BV BV Bool))
+(define-rosette-primop bvuge : (C→ BV BV Bool))
+
+(define-rosette-primop bvnot : (C→ BV BV))
+
+;; TODO: bvand, bvor, bvxor
+
+(define-rosette-primop bvshl : (C→ BV BV BV))
+(define-rosette-primop bvlshr : (C→ BV BV BV))
+(define-rosette-primop bvashr : (C→ BV BV BV))
+(define-rosette-primop bvneg : (C→ BV BV))
+
+;; TODO: bvadd, bvsub, bvmul
+
+(define-rosette-primop bvsdiv : (C→ BV BV BV))
+(define-rosette-primop bvudiv : (C→ BV BV BV))
+(define-rosette-primop bvsrem : (C→ BV BV BV))
+(define-rosette-primop bvurem : (C→ BV BV BV))
+(define-rosette-primop bvsmod : (C→ BV BV BV))
 
 
 

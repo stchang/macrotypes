@@ -85,17 +85,23 @@
 (check-type (+ (ann 1 : PosInt) (ann 10 : PosInt)) : Nat -> 11)
 (check-type (+ (ann -10 : NegInt) (ann 10 : PosInt)) : Int -> 0)
 
-;; (check-type bv : (case-> (→ Int BVPred BV)
-;;                          (→ Int PosInt BV)))
-;; (typecheck-fail (bv "1" 2) #:with-msg "expected.*Int.*given.*String")
-;; (check-type (bv 1 2) : BV -> (bv 1 (bvpred 2)))
-;; (check-type (bv 1 (bvpred 2)) : BV -> (bv 1 (bvpred 2)))
+;; BVs
 
-;; (typecheck-fail (bv 0 0) #:with-msg "expected.*PosInt.*given.*Zero")
-;; (check-type bitvector : (→ PosInt BVPred))
-;; (check-type (bitvector 3) : BVPred)
-;; (typecheck-fail ((bitvector 4) 1))
-;; (check-type ((bitvector 4) (bv 10 (bvpred 4))) :  Bool)
+(check-type bv : (Ccase-> (C→ CInt CBVPred CBV)
+                          (C→ Int CBVPred BV)
+                          (C→ CInt CPosInt CBV)
+                          (C→ Int CPosInt BV)))
+(typecheck-fail (bv "1" 2) #:with-msg "expected.*Int.*given.*String")
+(check-type (bv 1 2) : CBV -> (bv 1 (bitvector 2)))
+(check-type (bv 1 (bitvector 2)) : CBV -> (bv 1 (bitvector 2)))
+(check-type (bv (ann 1 : Int) 2) : BV -> (bv 1 (bitvector 2)))
+(check-type (bv (ann 1 : Int) (bitvector 2)) : BV -> (bv 1 (bitvector 2)))
+
+(typecheck-fail (bv 0 0) #:with-msg "expected.*PosInt.*given.*Zero")
+(check-type bitvector : (C→ CPosInt CBVPred))
+(check-type (bitvector 3) : CBVPred)
+(typecheck-fail ((bitvector 4) 1))
+(check-type ((bitvector 4) (bv 10 (bitvector 4))) : CBool)
 
 ;; ;; same as above, but with bvpred
 ;; (check-type bvpred : (→ PosInt BVPred))
@@ -112,11 +118,11 @@
 ;; (typecheck-fail (bvpred? "2"))
 ;; (check-type (bvpred? (bvpred 10)) : Bool -> #t)
 
-;; ;; bvops
-;; (check-type (bveq (bv 1 (bvpred 3)) (bv 1 (bvpred 3))) : Bool -> #t)
-;; (typecheck-fail (bveq (bv 1 (bvpred 3)) 1))
-;; (check-type (bveq (bv 1 (bvpred 2)) (bv 1 (bvpred 3))) : Bool) ; -> runtime exn
-;; (check-runtime-exn (bveq (bv 1 (bvpred 2)) (bv 1 (bvpred 3))))
+;; bvops
+(check-type (bveq (bv 1 3) (bv 1 3)) : Bool -> #t)
+(typecheck-fail (bveq (bv 1 3) 1))
+(check-type (bveq (bv 1 2) (bv 1 3)) : Bool) ; -> runtime exn
+(check-runtime-exn (bveq (bv 1 2) (bv 1 3)))
 
 ;; ;; non-primop bvops
 ;; (check-type (bvand (bv -1 (bvpred 4)) (bv 2 (bvpred 4))) : BV 
@@ -135,14 +141,14 @@
 ;; (check-type (bvand (bv -1 4) (if b (bv 3 4) (bv 2 4))) : BV 
 ;;             -> (if b (bv 3 4) (bv 2 4)))
 
-;; (check-type (bvshl  (bv 1 4) (bv 2 4)) : BV -> (bv 4 4))
-;; (check-type (bvlshr (bv -1 3) (bv 1 3)) : BV -> (bv 3 3))
-;; (check-type (bvashr (bv -1 5) (bv 1 5)) : BV -> (bv -1 5))
+(check-type (bvshl  (bv 1 4) (bv 2 4)) : BV -> (bv 4 4))
+(check-type (bvlshr (bv -1 3) (bv 1 3)) : BV -> (bv 3 3))
+(check-type (bvashr (bv -1 5) (bv 1 5)) : BV -> (bv -1 5))
 ;; ;; TODO: see issue #23
 ;; (check-type (bvshl (bv -1 4) (if b (bv 3 4) (bv 2 4))) : BV)
 
-;; (check-type (bvneg (bv -1 4)) : BV -> (bv 1 4))
-;; (check-type (bvneg (bv 0 4)) : BV -> (bv 0 4))
+(check-type (bvneg (bv -1 4)) : BV -> (bv 1 4))
+(check-type (bvneg (bv 0 4)) : BV -> (bv 0 4))
 ;; (define-symbolic z (bitvector 3) : BV)
 ;; (check-type (bvneg z) : BV)
 ;; (check-type (bvadd (bv -1 4) (bv 2 4)) : BV -> (bv 1 4))
@@ -150,9 +156,9 @@
 ;; (check-type (bvmul (bv -1 5) (bv 1 5)) : BV -> (bv -1 5))
 ;; ;; TODO: see issue #23
 ;; (check-type (bvadd (bv -1 4) (bv 2 4) (if b (bv 1 4) (bv 3 4))) : BV)
-;; (check-type (bvsdiv (bv -3 4) (bv 2 4)) : BV -> (bv -1 4))
-;; (check-type (bvudiv (bv -3 3) (bv 2 3)) : BV -> (bv 2 3))
-;; (check-type (bvsmod (bv 1 5) (bv 0 5)) : BV -> (bv 1 5))
+(check-type (bvsdiv (bv -3 4) (bv 2 4)) : BV -> (bv -1 4))
+(check-type (bvudiv (bv -3 3) (bv 2 3)) : BV -> (bv 2 3))
+(check-type (bvsmod (bv 1 5) (bv 0 5)) : BV -> (bv 1 5))
 ;; (check-type (bvsrem (bv -3 4) (if b (bv 2 4) (bv 3 4))) : BV 
 ;;             -> (if b (bv -1 4) (bv 0 4)))
 
