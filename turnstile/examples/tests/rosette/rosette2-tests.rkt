@@ -131,7 +131,7 @@
 (check-type bitvector : (C→ CPosInt CBVPred))
 (check-type (bitvector 3) : CBVPred)
 (typecheck-fail ((bitvector 4) 1))
-(check-type ((bitvector 4) (bv 10 (bitvector 4))) : CBool)
+(check-type ((bitvector 4) (bv 10 (bitvector 4))) : Bool)
 
 ;; ;; same as above, but with bvpred
 ;; (check-type bvpred : (→ PosInt BVPred))
@@ -246,4 +246,22 @@
 ;; it's either (→ CInt CInt) or (→ CInt CBool), but not both, so
 ;; add1 can have this type even though it never returns a boolean
 (check-type ((λ ([f : (U (C→ CInt CInt) (C→ CInt CBool))]) (f 10)) add1) : (U Int Bool) -> 11)
+(check-type ((λ ([f : (U (C→ CInt CInt) (C→ CInt Bool))]) (f 10)) 
+             (if #t add1 positive?))
+            : (U CInt Bool) -> 11)
+(check-type ((λ ([f : (U (C→ CInt CInt) (C→ CInt Bool))]) (f 10)) 
+             (if #t add1 positive?))
+            : (U Int Bool) -> 11)
+;; concrete union of functions
+(check-type ((λ ([f : (CU (C→ CInt CInt) (C→ CInt CBool))]) (f 10)) add1) : (CU CInt CBool) -> 11)
+(check-type ((λ ([f : (CU (C→ CInt CInt) (C→ CInt CBool))]) (f 10)) 
+             (if #t add1 positive?))
+            : (CU CInt CBool) -> 11)
 
+;; check BVPred as type annotation
+;; CBV input annotation on arg is too restrictive to work as BVPred
+(typecheck-fail ((λ ([bvp : BVPred]) bvp) (λ ([bv : CBV]) #t)) 
+                #:with-msg "expected BVPred.*given.*CBV")
+(check-type ((λ ([bvp : BVPred]) bvp) (λ ([bv : BV]) #t)) : BVPred)
+;; this should pass, but will not if BVPred is a case->
+(check-type ((λ ([bvp : BVPred]) bvp) (λ ([bv : BV]) ((bitvector 2) bv))) : BVPred)

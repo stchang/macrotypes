@@ -1,5 +1,12 @@
 2016-08-25 --------------------
 
+TODOs:
+- add pred properties to types 
+  and use it to validate given pred in define-symbolic
+- implement assert-type, which adds to the assertion store
+
+2016-08-25 --------------------
+
 ** Problem:
 
 The following subtyping relation holds but is potentially unintuitive for a 

@@ -30,7 +30,7 @@
     (only-in "../stlc+union+case.rkt"
              PosInt Zero NegInt Float Bool String [U U*] U*? [case-> case->*] → →?)
     (only-in "rosette.rkt"
-             BV BVPred)))
+             BV)))
  (only-in "../stlc+union+case.rkt" [~U* ~CU*] [~case-> ~Ccase->] [~→ ~C→])
  (only-in "../ext-stlc.rkt" define-primop))
 
@@ -75,7 +75,7 @@
   (syntax-parse stx
     [(_ . tys)
      #:with tys+ (stx-map (current-type-eval) #'tys)
-     #:fail-unless (stx-andmap →? #'tys+)
+     #:fail-unless (stx-andmap C→? #'tys+)
                    "CU require concrete arguments"
      #'(Ccase->* . tys+)]))
 
@@ -172,6 +172,15 @@
    --------
    [⊢ [_ ≫ (ro:#%app e_fn- e_arg- ...) ⇒ : τ_out]]]
   [(_ e_fn e_arg ...) ≫
+   [⊢ [e_fn ≫ e_fn- ⇒ : (~CU* τ_f ...)]]
+   [⊢ [e_arg ≫ e_arg- ⇒ : τ_arg] ...]
+   #:with (f a ...) (generate-temporaries #'(e_fn e_arg ...))
+   [([f ≫ _ : τ_f] [a ≫ _ : τ_arg] ...)
+    ⊢ [(app f a ...) ≫ _ ⇒ : τ_out]]
+   ...
+   --------
+   [⊢ [_ ≫ (ro:#%app e_fn- e_arg- ...) ⇒ : (CU τ_out ...)]]]
+  [(_ e_fn e_arg ...) ≫
    [⊢ [e_fn ≫ e_fn- ⇒ : (~U* τ_f ...)]]
    [⊢ [e_arg ≫ e_arg- ⇒ : τ_arg] ...]
    #:with (f a ...) (generate-temporaries #'(e_fn e_arg ...))
@@ -237,12 +246,14 @@
 (define-rosette-primop boolean? : (C→ Bool Bool))
 (define-rosette-primop integer? : (C→ Num Bool))
 (define-rosette-primop real? : (C→ Num Bool))
+(define-rosette-primop positive? : (Ccase-> (C→ CNum CBool)
+                                            (C→ Num Bool)))
 
 ;; ---------------------------------
 ;; BV Types and Operations
 
 (define-named-type-alias BV (U CBV))
-(define-named-type-alias BVPred (U CBVPred))
+(define-symbolic-named-type-alias BVPred (C→ BV Bool))
 
 (define-rosette-primop bv : (Ccase-> (C→ CInt CBVPred CBV)
                                      (C→ Int CBVPred BV)
