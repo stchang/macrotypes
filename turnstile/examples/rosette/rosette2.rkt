@@ -4,6 +4,7 @@
 (reuse #%datum #:from "../stlc+union.rkt")
 (reuse define-type-alias #:from "../stlc+reco+var.rkt")
 (reuse define-named-type-alias #:from "../stlc+union.rkt")
+(reuse void Unit List list #:from "../stlc+cons.rkt")
 
 (provide CU U
          C→ →
@@ -87,11 +88,23 @@
 ;; ---------------------------------
 ;; Symbolic versions of types
 
+(begin-for-syntax
+  (define (add-pred stx pred)
+    (set-stx-prop/preserved stx 'pred pred))
+  (define (get-pred stx)
+    (syntax-property stx 'pred)))
+
+(define-syntax-parser add-predm
+  [(_ stx pred) (add-pred #'stx #'pred)])
+
 (define-named-type-alias NegInt (U CNegInt))
 (define-named-type-alias Zero (U CZero))
-(define-named-type-alias PosInt (U CPosInt))
+(define-named-type-alias PosInt 
+  (add-predm (U CPosInt) 
+             (lambda (x) 
+               (ro:and (ro:#%app ro:integer? x) (ro:#%app ro:positive? x)))))
 (define-named-type-alias Float (U CFloat))
-(define-named-type-alias Bool (U CBool))
+(define-named-type-alias Bool (add-predm (U CBool) ro:boolean?))
 (define-named-type-alias String (U CString))
 
 (define-syntax →
@@ -101,18 +114,19 @@
 
 (define-syntax define-symbolic-named-type-alias
   (syntax-parser
-    [(_ Name:id Cτ:expr)
+    [(_ Name:id Cτ:expr #:pred p?)
      #:with Cτ+ ((current-type-eval) #'Cτ)
      #:fail-when (and (not (concrete? #'Cτ+)) #'Cτ+)
                  "should be a concrete type"
      #:with CName (format-id #'Name "C~a" #'Name #:source #'Name)
      #'(begin-
          (define-named-type-alias CName Cτ)
-         (define-named-type-alias Name (U CName)))]))
+         (define-named-type-alias Name (add-predm (U CName) p?)))]))
 
-(define-symbolic-named-type-alias Nat (CU CZero CPosInt))
-(define-symbolic-named-type-alias Int (CU CNegInt CNat))
-(define-symbolic-named-type-alias Num (CU CFloat CInt))
+(define-symbolic-named-type-alias Nat (CU CZero CPosInt) 
+  #:pred (lambda (x) (ro:and (ro:integer? x) (ro:not (ro:negative? x)))))
+(define-symbolic-named-type-alias Int (CU CNegInt CNat) #:pred ro:integer?)
+(define-symbolic-named-type-alias Num (CU CFloat CInt) #:pred ro:real?)
 
 ;; ---------------------------------
 ;; define-symbolic
@@ -126,6 +140,16 @@
    [_ ≻ (begin-
           (define-syntax- x (make-rename-transformer (⊢ y : ty.norm))) ...
           (ro:define-symbolic y ... pred-))]])
+
+;; ---------------------------------
+;; assert-type
+
+(define-typed-syntax assert-type #:datum-literals (:)
+  [(_ e : ty:type) ≫
+   [⊢ [e ≫ e- ⇒ : _]]
+   #:with pred (get-pred #'ty.norm)
+   --------
+   [⊢ [_ ≫ (ro:let ([x e-]) (ro:assert (ro:#%app pred x)) x) ⇒ : ty.norm]]])  
 
 ;; ---------------------------------
 ;; Function Application
@@ -242,6 +266,8 @@
                                     (C→ CNum CNum CNum)
                                     (C→ Num Num Num)))
 
+(define-rosette-primop not : (C→ Bool Bool))
+
 ;; TODO: fix types of these predicates
 (define-rosette-primop boolean? : (C→ Bool Bool))
 (define-rosette-primop integer? : (C→ Num Bool))
@@ -249,17 +275,23 @@
 (define-rosette-primop positive? : (Ccase-> (C→ CNum CBool)
                                             (C→ Num Bool)))
 
+;; rosette-specific
+(define-rosette-primop asserts : (C→ (stlc+cons:List Bool)))
+(define-rosette-primop clear-asserts! : (C→ stlc+cons:Unit))
+
 ;; ---------------------------------
 ;; BV Types and Operations
 
-(define-named-type-alias BV (U CBV))
-(define-symbolic-named-type-alias BVPred (C→ BV Bool))
+(define-named-type-alias BV (add-predm (U CBV) bv?))
+(define-symbolic-named-type-alias BVPred (C→ BV Bool) #:pred ro:bitvector?)
 
 (define-rosette-primop bv : (Ccase-> (C→ CInt CBVPred CBV)
                                      (C→ Int CBVPred BV)
                                      (C→ CInt CPosInt CBV)
                                      (C→ Int CPosInt BV)))
+(define-rosette-primop bv? : (C→ BV Bool))
 (define-rosette-primop bitvector : (C→ CPosInt CBVPred))
+(define-rosette-primop bitvector? : (C→ BVPred Bool))
 
 (define-rosette-primop bveq : (C→ BV BV Bool))
 (define-rosette-primop bvslt : (C→ BV BV Bool))

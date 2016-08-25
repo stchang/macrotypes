@@ -265,3 +265,13 @@
 (check-type ((λ ([bvp : BVPred]) bvp) (λ ([bv : BV]) #t)) : BVPred)
 ;; this should pass, but will not if BVPred is a case->
 (check-type ((λ ([bvp : BVPred]) bvp) (λ ([bv : BV]) ((bitvector 2) bv))) : BVPred)
+
+;; assert-type tests
+(check-type (assert-type (sub1 10) : PosInt) : PosInt -> 9)
+(check-runtime-exn (assert-type (sub1 1) : PosInt))
+(define-symbolic b1 b2 boolean? : Bool)
+
+(check-type (clear-asserts!) : Unit -> (void))
+(check-type (assert-type (if b1 1 #f) : Int) : Int -> (if b1 1 #f))
+(check-type (assert-type (if b2 1 #f) : Bool) : Bool -> (if b2 1 #f))
+(check-type (asserts) : (List Bool) -> (list (not b2) b1))
