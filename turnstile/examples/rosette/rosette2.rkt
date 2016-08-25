@@ -120,7 +120,7 @@
 (define-typed-syntax define-symbolic
   [(_ x:id ...+ pred : ty:type) ≫
    ;; TODO: still unsound
-   [⊢ [pred ≫ pred- ⇐ : (→ ty.norm Bool)]]
+   [⊢ [pred ≫ pred- ⇐ : (C→ ty.norm Bool)]]
    #:with (y ...) (generate-temporaries #'(x ...))
    --------
    [_ ≻ (begin-

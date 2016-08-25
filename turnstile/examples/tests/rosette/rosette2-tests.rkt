@@ -167,30 +167,30 @@
 (check-type (bvor  (bv 0 3)  (bv 1 3)) : BV -> (bv 1 3))
 (check-type (bvxor (bv -1 5) (bv 1 5)) : BV -> (bv -2 5))
 
-;; (define-symbolic b boolean? : Bool)
-;; (check-type (bvand (bv -1 4) (if b (bv 3 4) (bv 2 4))) : BV 
-;;             -> (if b (bv 3 4) (bv 2 4)))
+(define-symbolic b boolean? : Bool)
+(check-type (bvand (bv -1 4) (if b (bv 3 4) (bv 2 4))) : BV 
+            -> (if b (bv 3 4) (bv 2 4)))
 
 (check-type (bvshl  (bv 1 4) (bv 2 4)) : BV -> (bv 4 4))
 (check-type (bvlshr (bv -1 3) (bv 1 3)) : BV -> (bv 3 3))
 (check-type (bvashr (bv -1 5) (bv 1 5)) : BV -> (bv -1 5))
-;; ;; TODO: see issue #23
-;; (check-type (bvshl (bv -1 4) (if b (bv 3 4) (bv 2 4))) : BV)
+;; TODO: see rosette issue #23
+(check-type (bvshl (bv -1 4) (if b (bv 3 4) (bv 2 4))) : BV)
 
 (check-type (bvneg (bv -1 4)) : BV -> (bv 1 4))
 (check-type (bvneg (bv 0 4)) : BV -> (bv 0 4))
-;; (define-symbolic z (bitvector 3) : BV)
-;; (check-type (bvneg z) : BV)
-;; (check-type (bvadd (bv -1 4) (bv 2 4)) : BV -> (bv 1 4))
-;; (check-type (bvsub (bv 0 3)  (bv 1 3)) : BV -> (bv -1 3))
-;; (check-type (bvmul (bv -1 5) (bv 1 5)) : BV -> (bv -1 5))
-;; ;; TODO: see issue #23
-;; (check-type (bvadd (bv -1 4) (bv 2 4) (if b (bv 1 4) (bv 3 4))) : BV)
+(define-symbolic z (bitvector 3) : BV)
+(check-type (bvneg z) : BV)
+(check-type (bvadd (bv -1 4) (bv 2 4)) : BV -> (bv 1 4))
+(check-type (bvsub (bv 0 3)  (bv 1 3)) : BV -> (bv -1 3))
+(check-type (bvmul (bv -1 5) (bv 1 5)) : BV -> (bv -1 5))
+;; TODO: see rosette issue #23
+(check-type (bvadd (bvadd (bv -1 4) (bv 2 4)) (if b (bv 1 4) (bv 3 4))) : BV)
 (check-type (bvsdiv (bv -3 4) (bv 2 4)) : BV -> (bv -1 4))
 (check-type (bvudiv (bv -3 3) (bv 2 3)) : BV -> (bv 2 3))
 (check-type (bvsmod (bv 1 5) (bv 0 5)) : BV -> (bv 1 5))
-;; (check-type (bvsrem (bv -3 4) (if b (bv 2 4) (bv 3 4))) : BV 
-;;             -> (if b (bv -1 4) (bv 0 4)))
+(check-type (bvsrem (bv -3 4) (if b (bv 2 4) (bv 3 4))) : BV 
+            -> (if b (bv -1 4) (bv 0 4)))
 
 ;; (check-type (concat (bv -1 4) (bv 0 1) (bv -1 3)) : BV -> (bv -9 8))
 ;; (check-type (concat (bv -1 4) (if b (bv 0 1) (bv 0 2)) (bv -1 3)) : BV
