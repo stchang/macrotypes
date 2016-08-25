@@ -118,8 +118,8 @@
                                       (→ PosInt Nat)
                                       (→ Nat Int)
                                       (→ Int Int)))
-(define-rosette-primop + : (case-> (→ Int Int Int)
-                                   (→ Nat Nat Nat)
+(define-rosette-primop + : (case-> (→ Nat Nat Nat)
+                                   (→ Int Int Int)
                                    (→ Num Num Num)))
 
 (define-typed-syntax equal?

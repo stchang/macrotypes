@@ -166,6 +166,24 @@
                                        (C→ Nat PosInt)
                                        (C→ CInt CInt)
                                        (C→ Int Int)))
+(define-rosette-primop sub1 : (Ccase-> (C→ CNegInt CNegInt)
+                                       (C→ NegInt NegInt)
+                                       (C→ CZero CNegInt)
+                                       (C→ Zero NegInt)
+                                       (C→ CPosInt CNat)
+                                       (C→ PosInt Nat)
+                                       (C→ CNat CInt)
+                                       (C→ Nat Int)
+                                       (C→ CInt CInt)
+                                       (C→ Int Int)))
+(define-rosette-primop + : (Ccase-> (C→ CNat CNat CNat)
+                                    (C→ Nat Nat Nat)
+                                    (C→ CInt CInt CInt)
+                                    (C→ Int Int Int)
+                                    (C→ CNum CNum CNum)
+                                    (C→ Num Num Num)))
+
+
 
 ;; ---------------------------------
 ;; Subtyping

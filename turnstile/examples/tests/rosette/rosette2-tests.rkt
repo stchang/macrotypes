@@ -72,9 +72,18 @@
 (check-type (add1 (ann -9 : NegInt)) : (U NegInt Zero) -> -8)
 (check-type (add1 (ann 9 : Int)) : Int -> 10)
 
-;; (check-type (sub1 10) : Nat -> 9)
-;; (check-type (sub1 0) : NegInt -> -1)
-;; (check-type (sub1 -1) : NegInt -> -2)
+;; sub1 has a similar case-> type
+(check-type (sub1 10) : CNat -> 9)
+(check-type (sub1 0) : CNegInt -> -1)
+(check-type (sub1 -1) : CNegInt -> -2)
+(check-type (sub1 (ann 10 : PosInt)) : Nat -> 9)
+(check-type (sub1 (ann 0 : Zero)) : NegInt -> -1)
+(check-type (sub1 (ann -1 : NegInt)) : NegInt -> -2)
+
+(check-type (+ 1 10) : CNat -> 11)
+(check-type (+ -10 10) : CInt -> 0)
+(check-type (+ (ann 1 : PosInt) (ann 10 : PosInt)) : Nat -> 11)
+(check-type (+ (ann -10 : NegInt) (ann 10 : PosInt)) : Int -> 0)
 
 ;; (check-type bv : (case-> (→ Int BVPred BV)
 ;;                          (→ Int PosInt BV)))
