@@ -196,3 +196,9 @@
                  "given \\(Ccase-> .*\\(C→ NegInt \\(U NegInt Zero\\)\\) .*\\(C→ Zero PosInt\\) "
                  ".*\\(C→ PosInt PosInt\\) .*\\(C→ Nat PosInt\\) .*\\(C→ Int Int\\)\\)"))
 
+;; applying symbolic function types
+(check-type ((λ ([f : (U (C→ CInt CInt))]) (f 10)) add1) : Int -> 11)
+;; it's either (→ CInt CInt) or (→ CInt CBool), but not both, so
+;; add1 can have this type even though it never returns a boolean
+(check-type ((λ ([f : (U (C→ CInt CInt) (C→ CInt CBool))]) (f 10)) add1) : (U Int Bool) -> 11)
+

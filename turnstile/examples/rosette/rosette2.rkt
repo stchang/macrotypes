@@ -142,7 +142,16 @@
            (string-join (stx-map type->str τs_given) ", ")
            (string-join (map ~s (stx-map syntax->datum expressions)) ", ")))])
    --------
-   [⊢ [_ ≫ (ro:#%app e_fn- e_arg- ...) ⇒ : τ_out]]])
+   [⊢ [_ ≫ (ro:#%app e_fn- e_arg- ...) ⇒ : τ_out]]]
+  [(_ e_fn e_arg ...) ≫
+   [⊢ [e_fn ≫ e_fn- ⇒ : (~U* τ_f ...)]]
+   [⊢ [e_arg ≫ e_arg- ⇒ : τ_arg] ...]
+   #:with (f a ...) (generate-temporaries #'(e_fn e_arg ...))
+   [([f ≫ _ : τ_f] [a ≫ _ : τ_arg] ...)
+    ⊢ [(app f a ...) ≫ _ ⇒ : τ_out]]
+   ...
+   --------
+   [⊢ [_ ≫ (ro:#%app e_fn- e_arg- ...) ⇒ : (U τ_out ...)]]])
 
 ;; ---------------------------------
 ;; Types for built-in operations
