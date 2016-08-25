@@ -58,6 +58,20 @@
 (check-type     ((λ ([x : (U Int Bool)]) x) ((λ ([x : (U CInt CBool)]) x) 1)) : (U CInt CBool))
 (check-type     ((λ ([x : (U CInt CBool)]) x) ((λ ([x : (U Int Bool)]) x) 1)) : (U CInt CBool))
 
+;; add1 has a case-> type with cases for different subtypes of Int
+;; to preserve some of the type information through the operation
+(check-type (add1 9) : CPosInt -> 10)
+(check-type (add1 0) : CPosInt -> 1)
+(check-type (add1 -1) : (CU CNegInt CZero) -> 0)
+(check-type (add1 -9) : (CU CNegInt CZero) -> -8)
+(check-type (add1 (ann 9 : PosInt)) : PosInt -> 10)
+(check-type (add1 (ann 0 : Zero)) : PosInt -> 1)
+(check-type (add1 (ann 9 : Nat)) : PosInt -> 10)
+(check-type (add1 (ann 0 : Nat)) : PosInt -> 1)
+(check-type (add1 (ann -1 : NegInt)) : (U NegInt Zero) -> 0)
+(check-type (add1 (ann -9 : NegInt)) : (U NegInt Zero) -> -8)
+(check-type (add1 (ann 9 : Int)) : Int -> 10)
+
 ;; (check-type (sub1 10) : Nat -> 9)
 ;; (check-type (sub1 0) : NegInt -> -1)
 ;; (check-type (sub1 -1) : NegInt -> -2)
@@ -167,18 +181,18 @@
 ;;               (if c (bitvector 5) (bitvector 6))) 
 ;;   : BV -> (if c (bv 3 5) (bv 3 6)))
 
-;; ;; case-> subtyping
-;; (check-type ((λ ([f : (→ Int Int)]) (f 10)) add1) : Int -> 11)
-;; (check-type ((λ ([f : (case-> (→ Int Int))]) (f 10)) add1) : Int -> 11)
-;; (check-type ((λ ([f : (case-> (→ Nat Nat)
-;;                               (→ Int Int))]) (f 10)) add1) : Int -> 11)
-;; (check-not-type ((λ ([f : (case-> (→ Int Int))]) (f 10)) add1) : Nat)
-;; (check-type ((λ ([f : (case-> (→ Nat Nat)
-;;                               (→ Int Int))]) (f 10)) add1) : Nat -> 11)
-;; (typecheck-fail ((λ ([f : (case-> (→ Zero Zero)
-;;                                   (→ Int Int))]) (f 10)) add1) 
-;;  #:with-msg
-;;  (string-append "expected \\(case-> \\(→ Zero Zero\\) \\(→ Int Int\\)\\), "
-;;                 "given \\(case-> \\(→ NegInt \\(U NegInt Zero\\)\\) \\(→ Zero PosInt\\) "
-;;                 "\\(→ PosInt PosInt\\) \\(→ Nat PosInt\\) \\(→ Int Int\\)\\)"))
+;; case-> subtyping
+(check-type ((λ ([f : (C→ Int Int)]) (f 10)) add1) : Int -> 11)
+(check-type ((λ ([f : (Ccase-> (C→ Int Int))]) (f 10)) add1) : Int -> 11)
+(check-type ((λ ([f : (Ccase-> (C→ Nat Nat)
+                               (C→ Int Int))]) (f 10)) add1) : Int -> 11)
+(check-not-type ((λ ([f : (Ccase-> (C→ Int Int))]) (f 10)) add1) : Nat)
+(check-type ((λ ([f : (Ccase-> (C→ Nat Nat)
+                               (C→ Int Int))]) (f 10)) add1) : Nat -> 11)
+(typecheck-fail ((λ ([f : (Ccase-> (C→ Zero Zero)
+                                   (C→ Int Int))]) (f 10)) add1) 
+  #:with-msg
+  (string-append "expected \\(Ccase-> \\(C→ Zero Zero\\) \\(C→ Int Int\\)\\), "
+                 "given \\(Ccase-> .*\\(C→ NegInt \\(U NegInt Zero\\)\\) .*\\(C→ Zero PosInt\\) "
+                 ".*\\(C→ PosInt PosInt\\) .*\\(C→ Nat PosInt\\) .*\\(C→ Int Int\\)\\)"))
 
