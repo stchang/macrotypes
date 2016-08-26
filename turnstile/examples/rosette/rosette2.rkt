@@ -5,9 +5,9 @@
 (reuse define-type-alias #:from "../stlc+reco+var.rkt")
 (reuse define-named-type-alias #:from "../stlc+union.rkt")
 (reuse void Unit List list #:from "../stlc+cons.rkt")
-(reuse define #:from "rosette.rkt")
 
-(provide CU U
+(provide Any
+         CU U
          C→ → (for-syntax ~C→ C→?)
          Ccase-> ; TODO: symbolic case-> not supported yet
          CParam ; TODO: symbolic Param not supported yet
@@ -30,13 +30,10 @@
  (prefix-in ro: rosette)
  (only-in "../stlc+union.rkt" define-named-type-alias prune+sort current-sub?)
  (prefix-in C
-   (combine-in
-    (only-in "../stlc+union+case.rkt"
-             PosInt Zero NegInt Float Bool String [U U*] U*? [case-> case->*] → →?)
-    (only-in "rosette.rkt"
-             BV Stx)))
+   (only-in "../stlc+union+case.rkt"
+            PosInt Zero NegInt Float Bool String [U U*] U*? [case-> case->*] → →?))
  (only-in "../stlc+union+case.rkt" [~U* ~CU*] [~case-> ~Ccase->] [~→ ~C→])
- (only-in "../ext-stlc.rkt" define-primop))
+ (only-in "../stlc+reco+var.rkt" [define stlc:define] define-primop))
 
 ;; copied from rosette.rkt
 (define-simple-macro (define-rosette-primop op:id : ty)
@@ -46,6 +43,8 @@
 
 ;; ---------------------------------
 ;; Concrete and Symbolic union types
+
+(define-base-types Any CBV CStx)
 
 (define-syntax (CU stx)
   (syntax-parse stx
@@ -69,7 +68,7 @@
 
 (begin-for-syntax
   (define (concrete? t)
-    (not (U*? t))))
+    (not (or (Any? t) (U*? t)))))
 
 ;; ---------------------------------
 ;; case-> and Ccase->
@@ -163,6 +162,18 @@
 ;; TODO: many of these implementations are copied code, with just the macro
 ;; output changed to use the ro: version. 
 ;; Is there a way to abstract this? macro mixin?
+
+(define-typed-syntax define #:datum-literals (: -> →)
+  [(_ x:id e) ≫
+   --------
+   [_ ≻ (stlc:define x e)]]
+  [(_ (f [x : ty] ... (~or → ->) ty_out) e) ≫
+;   [⊢ [e ≫ e- ⇒ : ty_e]]
+   #:with f- (generate-temporary #'f)
+   --------
+   [_ ≻ (begin-
+          (define-syntax- f (make-rename-transformer (⊢ f- : (C→ ty ... ty_out))))
+          (ro:define f- (stlc:λ ([x : ty] ...) (ann e : ty_out))))]])
 
 ;; ---------------------------------
 ;; Function Application
@@ -277,12 +288,8 @@
 ;; ---------------------------------
 ;; Types for built-in operations
 
-(define-typed-syntax equal?
-  [(equal? e1 e2) ≫
-   [⊢ [e1 ≫ e1- ⇒ : ty1]]
-   [⊢ [e2 ≫ e2- ⇐ : (U ty1)]]
-   --------
-   [⊢ [_ ≫ (ro:equal? e1- e2-) ⇒ : Bool]]])
+(define-rosette-primop equal? : (C→ Any Any Bool))
+(define-rosette-primop eq? : (C→ Any Any Bool))
 
 (define-rosette-primop add1 : (Ccase-> (C→ CNegInt (CU CNegInt CZero))
                                        (C→ NegInt (U NegInt Zero))
@@ -311,12 +318,13 @@
                                     (C→ CNum CNum CNum)
                                     (C→ Num Num Num)))
 
-(define-rosette-primop not : (C→ Bool Bool))
+(define-rosette-primop not : (C→ Any Bool))
+(define-rosette-primop false? : (C→ Any Bool))
 
 ;; TODO: fix types of these predicates
-(define-rosette-primop boolean? : (C→ Bool Bool))
-(define-rosette-primop integer? : (C→ Num Bool))
-(define-rosette-primop real? : (C→ Num Bool))
+(define-rosette-primop boolean? : (C→ Any Bool))
+(define-rosette-primop integer? : (C→ Any Bool))
+(define-rosette-primop real? : (C→ Any Bool))
 (define-rosette-primop positive? : (Ccase-> (C→ CNum CBool)
                                             (C→ Num Bool)))
 
@@ -332,9 +340,9 @@
 
 (define-rosette-primop bv : (Ccase-> (C→ CInt CBVPred CBV)
                                      (C→ CInt CPosInt CBV)))
-(define-rosette-primop bv? : (C→ BV Bool))
+(define-rosette-primop bv? : (C→ Any Bool))
 (define-rosette-primop bitvector : (C→ CPosInt CBVPred))
-(define-rosette-primop bitvector? : (C→ BVPred Bool))
+(define-rosette-primop bitvector? : (C→ Any Bool))
 
 (define-rosette-primop bveq : (C→ BV BV Bool))
 (define-rosette-primop bvslt : (C→ BV BV Bool))
@@ -389,6 +397,7 @@
     ;; (printf "t1 = ~a\n" (syntax->datum t1))
     ;; (printf "t2 = ~a\n" (syntax->datum t2))
     (or 
+     (Any? t2)
      ((current-type=?) t1 t2)
      (syntax-parse (list t1 t2)
        ; 2 U types, subtype = subset
