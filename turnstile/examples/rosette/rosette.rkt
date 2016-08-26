@@ -165,7 +165,7 @@
    --------
    [_ ≻ (begin-
           (define-syntax- f (make-rename-transformer (⊢ f- : (→ ty ... ty_out))))
-          (stlc:define f- (stlc+union:λ ([x : ty] ...) e)))]])
+          (stlc:define f- (stlc+union+case:λ ([x : ty] ...) e)))]])
 
 (define-base-type Stx)
 

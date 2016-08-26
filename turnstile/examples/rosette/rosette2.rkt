@@ -4,11 +4,13 @@
 (reuse #%datum #:from "../stlc+union.rkt")
 (reuse define-type-alias #:from "../stlc+reco+var.rkt")
 (reuse define-named-type-alias #:from "../stlc+union.rkt")
-(reuse void Unit List define list #:from "../stlc+cons.rkt")
+(reuse void Unit List list #:from "../stlc+cons.rkt")
+(reuse define #:from "rosette.rkt")
 
 (provide CU U
-         C→ →
+         C→ → (for-syntax ~C→ C→?)
          Ccase-> ; TODO: symbolic case-> not supported yet
+         CParam ; TODO: symbolic Param not supported yet
          CNegInt NegInt
          CZero Zero
          CPosInt PosInt
@@ -18,6 +20,7 @@
          CNum Num
          CBool Bool
          CString String
+         CStx ; symblic Stx not supported
          ;; BV types
          CBV BV
          CBVPred BVPred
@@ -31,7 +34,7 @@
     (only-in "../stlc+union+case.rkt"
              PosInt Zero NegInt Float Bool String [U U*] U*? [case-> case->*] → →?)
     (only-in "rosette.rkt"
-             BV)))
+             BV Stx)))
  (only-in "../stlc+union+case.rkt" [~U* ~CU*] [~case-> ~Ccase->] [~→ ~C→])
  (only-in "../ext-stlc.rkt" define-primop))
 
@@ -106,8 +109,8 @@
 (define-named-type-alias Float (U CFloat))
 (define-named-type-alias Bool (add-predm (U CBool) ro:boolean?))
 (define-named-type-alias String (U CString))
-(define-named-type-alias (Param X) (Ccase-> (C→ X)
-                                            (C→ X Unit)))
+(define-named-type-alias (CParam X) (Ccase-> (C→ X)
+                                             (C→ X stlc+cons:Unit)))
 
 (define-syntax →
   (syntax-parser
@@ -274,6 +277,13 @@
 ;; ---------------------------------
 ;; Types for built-in operations
 
+(define-typed-syntax equal?
+  [(equal? e1 e2) ≫
+   [⊢ [e1 ≫ e1- ⇒ : ty1]]
+   [⊢ [e2 ≫ e2- ⇐ : (U ty1)]]
+   --------
+   [⊢ [_ ≫ (ro:equal? e1- e2-) ⇒ : Bool]]])
+
 (define-rosette-primop add1 : (Ccase-> (C→ CNegInt (CU CNegInt CZero))
                                        (C→ NegInt (U NegInt Zero))
                                        (C→ CZero CPosInt)
@@ -365,6 +375,8 @@
 (define-rosette-primop bitvector->integer : (C→ BV Int))
 (define-rosette-primop bitvector->natural : (C→ BV Nat))
 (define-rosette-primop integer->bitvector : (C→ Int BVPred BV))
+
+(define-rosette-primop bitvector-size : (C→ CBVPred CPosInt))
 
 ;; ---------------------------------
 ;; Subtyping

@@ -10,24 +10,24 @@
 ;
 ; The first 20 benchmarks are also used in the SyGuS competition: http://www.sygus.org 
 
-(current-bvpred (bvpred 32))
+(current-bvpred (bitvector 32))
 
-(check-type (thunk (bv 1)) : (→ BV))
+(check-type (thunk (bv 1)) : (C→ BV))
 
 ; Constants.
 (define bv1  (thunk (bv 1)))
 (define bv2  (thunk (bv 2)))
-(define bvsz (thunk (bv (sub1 (bvpred-size (current-bvpred))))))
+(define bvsz (thunk (bv (sub1 (bitvector-size (current-bvpred))))))
 
-(check-type bv1 : (→ BV))
+(check-type bv1 : (C→ BV))
 (check-type (bv1) : BV -> (bv 1))
-(check-type ((bvpred 4) (bv1)) : Bool -> #f)
-(check-type ((bvpred 32) (bv1)) : Bool -> #t)
-(check-type bv2 : (→ BV))
-(check-type bvsz : (→ BV))
+(check-type ((bitvector 4) (bv1)) : Bool -> #f)
+(check-type ((bitvector 32) (bv1)) : Bool -> #t)
+(check-type bv2 : (C→ BV))
+(check-type bvsz : (C→ BV))
 
 (check-type (bvsub (bv 1) (bv1)) : BV -> (bv 0))
-(check-type ((bvpred 32) (bvsub (bv 1) (bv1))) : Bool -> #t)
+(check-type ((bitvector 32) (bvsub (bv 1) (bv1))) : Bool -> #t)
 
 ; Mask off the rightmost 1-bit.
 (define (p1 [x : BV] -> BV)
@@ -36,7 +36,7 @@
     o2))
 
 (check-type (p1 (bv 1)) : BV -> (bv 0))
-(check-type ((bvpred 32) (p1 (bv 1))) : Bool -> #t)
+(check-type ((bitvector 32) (p1 (bv 1))) : Bool -> #t)
 
 ; Test whether an unsigned integer is of the form 2^n-1.
 (define (p2 [x : BV] -> BV)
