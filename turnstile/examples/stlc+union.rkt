@@ -34,7 +34,7 @@
 
 
 (define-base-types Zero NegInt PosInt Float)
-(define-type-constructor U* #:arity > 0)
+(define-type-constructor U* #:arity >= 0)
 
 (define-for-syntax (prune+sort tys)
   (stx-sort 

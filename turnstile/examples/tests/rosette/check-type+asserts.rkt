@@ -4,7 +4,7 @@
 
 (require turnstile/turnstile
          "check-asserts.rkt"
-         (only-in "../../rosette/rosette2.rkt" List Bool Unit))
+         (only-in "../../rosette/rosette2.rkt" CList Bool CUnit))
 
 (define-typed-syntax check-type+asserts #:datum-literals (: ->)
   [(_ e : τ-expected -> v asserts) ≫
@@ -12,6 +12,6 @@
    --------
    [⊢ [_ ≫ (check-equal?/asserts e-
                                  (add-expected v τ-expected)
-                                 (add-expected asserts (List Bool)))
-         ⇒ : Unit]]])
+                                 (add-expected asserts (CList Bool)))
+         ⇒ : CUnit]]])
 

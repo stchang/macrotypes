@@ -2,7 +2,8 @@
 #lang racket/base
 (require (except-in "../../../turnstile/turnstile.rkt" 
           #%module-begin 
-          zero? void sub1 or and not add1 = - * + boolean? integer? real? positive? string? quote pregexp make-parameter equal? eq? list ~Any)
+          zero? void error sub1 or and not add1 = - * + boolean? integer? real? positive? string? quote pregexp 
+          make-parameter equal? eq? list ~Any)
          (for-syntax (except-in "../../../turnstile/turnstile.rkt")))
 (extends "rosette2.rkt" ; extends typed rosette
          #:except bv bveq bvslt bvult bvsle bvule bvsgt bvugt bvsge bvuge)
@@ -25,7 +26,7 @@
   [(_ e) ≫
    [⊢ [e ≫ e- ⇒ : CBVPred]]
    --------
-   [⊢ [_ ≫ (bv:BV e-) ⇒ : Unit]]])
+   [⊢ [_ ≫ (bv:BV e-) ⇒ : CUnit]]])
 
 (define-primop bv : (Ccase-> (C→ CInt CBV)
                              (C→ CInt CBVPred CBV)

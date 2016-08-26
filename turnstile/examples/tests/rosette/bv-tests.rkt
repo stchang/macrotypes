@@ -3,9 +3,9 @@
 
 (check-type current-bvpred : (CParam CBVPred))
 (check-type (current-bvpred) : BVPred -> (bitvector 4))
-(check-type (current-bvpred (bitvector 5)) : Unit -> (void))
+(check-type (current-bvpred (bitvector 5)) : CUnit -> (void))
 (check-type (current-bvpred) : BVPred -> (bitvector 5))
-(check-type (current-bvpred (bitvector 4)) : Unit -> (void))
+(check-type (current-bvpred (bitvector 4)) : CUnit -> (void))
 
 (check-type (bv 1) : BV)
 (check-type ((bitvector 4) (bv 1)) : Bool -> #t)

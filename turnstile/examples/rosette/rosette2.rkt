@@ -4,13 +4,13 @@
 (reuse #%datum #:from "../stlc+union.rkt")
 (reuse define-type-alias #:from "../stlc+reco+var.rkt")
 (reuse define-named-type-alias #:from "../stlc+union.rkt")
-(reuse void Unit List list #:from "../stlc+cons.rkt")
+(reuse void list #:from "../stlc+cons.rkt")
 
 (provide Any
          CU U
          C→ → (for-syntax ~C→ C→?)
          Ccase-> ; TODO: symbolic case-> not supported yet
-         CParam ; TODO: symbolic Param not supported yet
+         CUnit CList CParam ; TODO: symbolic Param not supported yet
          CNegInt NegInt
          CZero Zero
          CPosInt PosInt
@@ -30,10 +30,13 @@
  (prefix-in ro: rosette)
  (only-in "../stlc+union.rkt" define-named-type-alias prune+sort current-sub?)
  (prefix-in C
-   (only-in "../stlc+union+case.rkt"
-            PosInt Zero NegInt Float Bool String [U U*] U*? [case-> case->*] → →?))
+   (combine-in
+    (only-in "../stlc+union+case.rkt"
+             PosInt Zero NegInt Float Bool String [U U*] U*? [case-> case->*] → →?)
+    (only-in "../stlc+cons.rkt" Unit List)))
  (only-in "../stlc+union+case.rkt" [~U* ~CU*] [~case-> ~Ccase->] [~→ ~C→])
- (only-in "../stlc+reco+var.rkt" [define stlc:define] define-primop))
+ (only-in "../stlc+reco+var.rkt" [define stlc:define] define-primop)
+ (only-in "lifted-bitvector-pred.rkt" [bitvector? lifted-bitvector?]))
 
 ;; copied from rosette.rkt
 (define-simple-macro (define-rosette-primop op:id : ty)
@@ -44,7 +47,11 @@
 ;; ---------------------------------
 ;; Concrete and Symbolic union types
 
-(define-base-types Any CBV CStx)
+(begin-for-syntax
+  (define (concrete? t)
+    (not (or (Any? t) (U*? t)))))
+
+(define-base-types Any CBV CStx CSymbol)
 
 (define-syntax (CU stx)
   (syntax-parse stx
@@ -53,6 +60,8 @@
      #:fail-unless (stx-andmap concrete? #'tys+)
                    "CU requires concrete types"
      #'(CU* . tys+)]))
+
+(define-named-type-alias Nothing (CU))
 
 ;; internal symbolic union constructor
 (define-type-constructor U* #:arity >= 0)
@@ -65,10 +74,6 @@
      #:with ((~or (~U* ty1- ...) (~CU* ty2- ...) ty3-) ...) (stx-map (current-type-eval) #'tys)
      #:with tys- (prune+sort #'(ty1- ... ... ty2- ... ... ty3- ...))
      #'(U* . tys-)]))
-
-(begin-for-syntax
-  (define (concrete? t)
-    (not (or (Any? t) (U*? t)))))
 
 ;; ---------------------------------
 ;; case-> and Ccase->
@@ -109,7 +114,7 @@
 (define-named-type-alias Bool (add-predm (U CBool) ro:boolean?))
 (define-named-type-alias String (U CString))
 (define-named-type-alias (CParam X) (Ccase-> (C→ X)
-                                             (C→ X stlc+cons:Unit)))
+                                             (C→ X CUnit)))
 
 (define-syntax →
   (syntax-parser
@@ -146,7 +151,18 @@
           (ro:define-symbolic y ... pred-))]])
 
 ;; ---------------------------------
-;; assert-type
+;; assert, assert-type
+
+(define-typed-syntax assert
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : _]]
+   --------
+   [⊢ [_ ≫ (ro:assert e-) ⇒ : CUnit]]]
+  [(_ e m) ≫
+   [⊢ [e ≫ e- ⇒ : _]]
+   [⊢ [m ≫ m- ⇐ : (CU CString (C→ Nothing))]]
+   --------
+   [⊢ [_ ≫ (ro:assert e- m-) ⇒ : CUnit]]])
 
 (define-typed-syntax assert-type #:datum-literals (:)
   [(_ e : ty:type) ≫
@@ -174,6 +190,17 @@
    [_ ≻ (begin-
           (define-syntax- f (make-rename-transformer (⊢ f- : (C→ ty ... ty_out))))
           (ro:define f- (stlc:λ ([x : ty] ...) (ann e : ty_out))))]])
+
+;; ---------------------------------
+;; quote
+
+(define-typed-syntax quote
+  [(_ x:id) ≫
+   --------
+   [⊢ [_ ≫ (quote- x) ⇒ : CSymbol]]]
+  [(_ (x:id ...)) ≫
+   --------
+   [⊢ [_ ≫ (quote- (x ...)) ⇒ : (CList CSymbol)]]])
 
 ;; ---------------------------------
 ;; Function Application
@@ -284,12 +311,14 @@
    --------
    [_ ≻ (let ([x e]) (let* ([x_rst e_rst] ...) e_body))]])
 
-
 ;; ---------------------------------
 ;; Types for built-in operations
 
 (define-rosette-primop equal? : (C→ Any Any Bool))
 (define-rosette-primop eq? : (C→ Any Any Bool))
+(define-rosette-primop error : (C→ (CU CString CSymbol) Nothing))
+
+(define-rosette-primop pi : CNum)
 
 (define-rosette-primop add1 : (Ccase-> (C→ CNegInt (CU CNegInt CZero))
                                        (C→ NegInt (U NegInt Zero))
@@ -329,14 +358,14 @@
                                             (C→ Num Bool)))
 
 ;; rosette-specific
-(define-rosette-primop asserts : (C→ (stlc+cons:List Bool)))
-(define-rosette-primop clear-asserts! : (C→ stlc+cons:Unit))
+(define-rosette-primop asserts : (C→ (CList Bool)))
+(define-rosette-primop clear-asserts! : (C→ CUnit))
 
 ;; ---------------------------------
 ;; BV Types and Operations
 
 (define-named-type-alias BV (add-predm (U CBV) bv?))
-(define-symbolic-named-type-alias BVPred (C→ BV Bool) #:pred ro:bitvector?)
+(define-symbolic-named-type-alias BVPred (C→ BV Bool) #:pred lifted-bitvector?)
 
 (define-rosette-primop bv : (Ccase-> (C→ CInt CBVPred CBV)
                                      (C→ CInt CPosInt CBV)))

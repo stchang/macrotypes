@@ -132,27 +132,15 @@
 (typecheck-fail ((bitvector 4) 1))
 (check-type ((bitvector 4) (bv 10 (bitvector 4))) : Bool)
 
-;; ;; same as above, but with bvpred
-;; (check-type bvpred : (→ PosInt BVPred))
-;; (check-type (bvpred 3) : BVPred)
-;; (typecheck-fail ((bvpred 4) 1))
-;; (check-type ((bvpred 4) (bv 10 (bvpred 4))) :  Bool)
-;; ;; typed rosette catches this during typechecking, 
-;; ;; whereas untyped rosette uses a runtime exn
-;; (typecheck-fail (bvpred -1) #:with-msg "expected PosInt, given NegInt")
-;; ;(check-runtime-exn (bvpred -1))
-
-;; (typecheck-fail (bitvector? "2"))
-;; (check-type (bitvector? (bitvector 10)) : Bool -> #t)
-;; (typecheck-fail (bvpred? "2"))
-;; (check-type (bvpred? (bvpred 10)) : Bool -> #t)
+(check-type (bitvector? "2") : Bool -> #f)
+(check-type (bitvector? (bitvector 10)) : Bool -> #t)
 
 ;; bvops
 (check-type (bveq (bv 1 3) (bv 1 3)) : Bool -> #t)
 (typecheck-fail (bveq (bv 1 3) 1))
 (check-type (bveq (bv 1 2) (bv 1 3)) : Bool) ; -> runtime exn
 (check-runtime-exn (bveq (bv 1 2) (bv 1 3)))
-
+(clear-asserts!)
 
 (check-type (bvand (bv -1 4) (bv 2 4)) : BV 
             -> (bv 2 4))
@@ -173,7 +161,7 @@
 (check-type (bvshl  (bv 1 4) (bv 2 4)) : BV -> (bv 4 4))
 (check-type (bvlshr (bv -1 3) (bv 1 3)) : BV -> (bv 3 3))
 (check-type (bvashr (bv -1 5) (bv 1 5)) : BV -> (bv -1 5))
-;; TODO: see rosette issue #23
+;; TODO: see rosette issue #23 --- issue closed, won't fix
 (check-type (bvshl (bv -1 4) (if b (bv 3 4) (bv 2 4))) : BV)
 
 (check-type (bvneg (bv -1 4)) : BV -> (bv 1 4))
@@ -183,14 +171,13 @@
 (check-type (bvadd (bv -1 4) (bv 2 4)) : BV -> (bv 1 4))
 (check-type (bvsub (bv 0 3)  (bv 1 3)) : BV -> (bv -1 3))
 (check-type (bvmul (bv -1 5) (bv 1 5)) : BV -> (bv -1 5))
-;; TODO: see rosette issue #23
+;; TODO: see rosette issue #23 --- issue closed, won't fix
 (check-type (bvadd (bvadd (bv -1 4) (bv 2 4)) (if b (bv 1 4) (bv 3 4))) : BV)
 (check-type (bvsdiv (bv -3 4) (bv 2 4)) : BV -> (bv -1 4))
 (check-type (bvudiv (bv -3 3) (bv 2 3)) : BV -> (bv 2 3))
 (check-type (bvsmod (bv 1 5) (bv 0 5)) : BV -> (bv 1 5))
 (check-type (bvsrem (bv -3 4) (if b (bv 2 4) (bv 3 4))) : BV 
             -> (if b (bv -1 4) (bv 0 4)))
-
 (check-type (concat (concat (bv -1 4) (bv 0 1)) (bv -1 3)) : BV -> (bv -9 8))
 (check-type (concat (concat (bv -1 4) (if b (bv 0 1) (bv 0 2))) (bv -1 3)) : BV
             -> (if b (bv -9 8) (bv -25 9)))
@@ -206,24 +193,30 @@
 (define-symbolic c boolean? : Bool)
 (check-type (zero-extend (bv -3 4) (if b (bitvector 5) (bitvector 6))) 
   : BV -> (if b (bv 13 5) (bv 13 6)))
-;; TODO: change this test to use assert-type
-#;(check-type (zero-extend (bv -3 4) (if b (bitvector 5) "bad"))
-  : BV -> (bv 13 5))
-(check-type (zero-extend (bv -3 4) (if c (bitvector 5) (bitvector 1))) 
-  : BV -> (bv 13 5))
+(check-type+asserts
+ (zero-extend (bv -3 4) (assert-type (if b (bitvector 5) "bad") : BVPred))
+  : BV -> (bv 13 5) (list b))
+(check-type+asserts (zero-extend (bv -3 4) (if c (bitvector 5) (bitvector 1))) 
+  : BV -> (bv 13 5) (list c))
 
 (check-type (bitvector->integer (bv -1 4)) : Int -> -1)
 (check-type (bitvector->natural (bv -1 4)) : Int -> 15)
 (check-type (bitvector->integer (if b (bv -1 3) (bv -3 4))) 
   : Int -> (if b -1 -3))
-;; TODO: change this test to use assert-type
-;(check-type (bitvector->integer (if b (bv -1 3) "bad")) : BV -> -1)
+(check-type+asserts
+ (bitvector->integer (assert-type (if b (bv -1 3) "bad") : BV))
+ : Int -> -1 (list b))
 (check-type (integer->bitvector 4 (bitvector 2)) : BV -> (bv 0 2))
 (check-type (integer->bitvector 15 (bitvector 4)) : BV -> (bv -1 4))
-;; TODO: change this test to use assert-type
-#;(check-type (integer->bitvector (if b pi 3) 
-              (if c (bitvector 5) (bitvector 6))) 
-  : BV -> {[c (bv 3 5)] [(! c) (bv 3 6)]})
+(check-type+asserts (integer->bitvector (assert-type (if b pi 3) : Int)
+                                        (if c (bitvector 5) (bitvector 6)))
+ : BV -> (integer->bitvector 3 (if c (bitvector 5) (bitvector 6)))
+         (list (not b)))
+;; TODO: check that CInt also has the right pred (do we want this?)
+#;(check-type+asserts (integer->bitvector (assert-type (if b pi 3) : CInt)
+                                        (if c (bitvector 5) (bitvector 6)))
+ : BV -> (integer->bitvector 3 (if c (bitvector 5) (bitvector 6)))
+         (list (not b)))
 (check-type (integer->bitvector 3
               (if c (bitvector 5) (bitvector 6))) 
   : BV -> (if c (bv 3 5) (bv 3 6)))
@@ -273,6 +266,8 @@
 (check-runtime-exn (assert-type (sub1 1) : PosInt))
 (define-symbolic b1 b2 boolean? : Bool)
 
-(check-type (clear-asserts!) : Unit -> (void))
+(check-type (clear-asserts!) : CUnit -> (void))
 (check-type+asserts (assert-type (if b1 1 #f) : Int) : Int -> (if b1 1 #f) (list b1))
 (check-type+asserts (assert-type (if b2 1 #f) : Bool) : Bool -> (if b2 1 #f) (list (not b2)))
+
+(check-type (asserts) : (CList Bool) -> (list))
