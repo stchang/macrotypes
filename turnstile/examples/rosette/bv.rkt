@@ -8,7 +8,7 @@
          #:except bv bveq bvslt bvult bvsle bvule bvsgt bvugt bvsge bvuge)
 (require (only-in "../stlc+lit.rkt" define-primop))
 (require (prefix-in ro: rosette)) ; untyped 
-(require (only-in sdsl/bv/lang/bvops bvredand bvredor bv)
+(require (only-in sdsl/bv/lang/bvops bvredand bvredor bv bv*)
          (prefix-in bv: (only-in sdsl/bv/lang/bvops BV)))
 (require sdsl/bv/lang/core (prefix-in bv: sdsl/bv/lang/form))
 (provide thunk)
@@ -28,20 +28,11 @@
    [⊢ [_ ≫ (bv:BV e-) ⇒ : Unit]]])
 
 (define-primop bv : (Ccase-> (C→ CInt CBV)
-                             (C→ Int BV)
                              (C→ CInt CBVPred CBV)
-                             (C→ Int CBVPred BV)
-                             (C→ CInt CPosInt CBV)
-                             (C→ Int CPosInt BV)))
+                             (C→ CInt CPosInt CBV)))
+(define-primop bv* : (Ccase-> (C→ BV)
+                              (C→ CBVPred BV)))
 
-(define-typed-syntax bv*
-  [(_) ≫
-   --------
-   [_ ≻ (bv* (current-bvpred))]]
-  [(_ e_size) ≫
-   [⊢ [e_size ≫ e_size- ⇐ : BVPred]]
-   --------
-   [⊢ [_ ≫ ((lambda- () (ro:define-symbolic* b e_size-) b)) ⇒ : BV]]])
 
 (define-syntax-rule (bv:bool->bv b) 
   (ro:if b 

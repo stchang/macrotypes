@@ -257,7 +257,7 @@
 
  (define-simple-macro (check-equal/rand/bv f)
   #:with out (syntax/loc this-syntax 
-               (check-equal/rand f #:process (λ ([x : Int]) (bv x))))
+               (check-equal/rand f #:process (λ ([x : CInt]) (bv x))))
   out)
 
 ;; Mask off the rightmost 1-bit. < 1 sec.
