@@ -1,5 +1,6 @@
 #lang s-exp "../../rosette/rosette2.rkt"
-(require "../rackunit-typechecking.rkt")
+(require "../rackunit-typechecking.rkt"
+         "check-type+asserts.rkt")
 
 ;; subtyping among concrete
 (check-type     ((λ ([x : CPosInt]) x) ((λ ([x : CPosInt]) x) 1)) : CPosInt -> 1)
@@ -273,6 +274,5 @@
 (define-symbolic b1 b2 boolean? : Bool)
 
 (check-type (clear-asserts!) : Unit -> (void))
-(check-type (assert-type (if b1 1 #f) : Int) : Int -> (if b1 1 #f))
-(check-type (assert-type (if b2 1 #f) : Bool) : Bool -> (if b2 1 #f))
-(check-type (asserts) : (List Bool) -> (list (not b2) b1))
+(check-type+asserts (assert-type (if b1 1 #f) : Int) : Int -> (if b1 1 #f) (list b1))
+(check-type+asserts (assert-type (if b2 1 #f) : Bool) : Bool -> (if b2 1 #f) (list (not b2)))
