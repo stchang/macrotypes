@@ -118,14 +118,12 @@
 ;; BVs
 
 (check-type bv : (Ccase-> (C→ CInt CBVPred CBV)
-                          (C→ Int CBVPred BV)
-                          (C→ CInt CPosInt CBV)
-                          (C→ Int CPosInt BV)))
+                          (C→ CInt CPosInt CBV)))
 (typecheck-fail (bv "1" 2) #:with-msg "expected.*Int.*given.*String")
 (check-type (bv 1 2) : CBV -> (bv 1 (bitvector 2)))
 (check-type (bv 1 (bitvector 2)) : CBV -> (bv 1 (bitvector 2)))
-(check-type (bv (ann 1 : Int) 2) : BV -> (bv 1 (bitvector 2)))
-(check-type (bv (ann 1 : Int) (bitvector 2)) : BV -> (bv 1 (bitvector 2)))
+(typecheck-fail (bv (ann 1 : Int) 2) #:with-msg "expected.*CInt")
+(typecheck-fail (bv (ann 1 : Int) (bitvector 2)) #:with-msg "expected.*CInt")
 
 (typecheck-fail (bv 0 0) #:with-msg "expected.*PosInt.*given.*Zero")
 (check-type bitvector : (C→ CPosInt CBVPred))

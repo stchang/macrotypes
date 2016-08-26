@@ -2,8 +2,15 @@
 
 TODOs:
 - add pred properties to types 
-  and use it to validate given pred in define-symbolic
+ - use it to validate given pred in define-symbolic
+ - STARTED 2016-08-25
 - implement assert-type, which adds to the assertion store
+ - DONE 2016-08-25
+- add polymorphism
+ - regular polymorphism
+- extend BV type with a size
+ - requires BV-size-polymorpism?
+- add Any type?
 
 2016-08-25 --------------------
 

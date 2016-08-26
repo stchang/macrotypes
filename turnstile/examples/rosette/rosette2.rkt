@@ -4,7 +4,7 @@
 (reuse #%datum #:from "../stlc+union.rkt")
 (reuse define-type-alias #:from "../stlc+reco+var.rkt")
 (reuse define-named-type-alias #:from "../stlc+union.rkt")
-(reuse void Unit List list #:from "../stlc+cons.rkt")
+(reuse void Unit List define list #:from "../stlc+cons.rkt")
 
 (provide CU U
          C→ →
@@ -106,6 +106,8 @@
 (define-named-type-alias Float (U CFloat))
 (define-named-type-alias Bool (add-predm (U CBool) ro:boolean?))
 (define-named-type-alias String (U CString))
+(define-named-type-alias (Param X) (Ccase-> (C→ X)
+                                            (C→ X Unit)))
 
 (define-syntax →
   (syntax-parser
@@ -150,6 +152,14 @@
    #:with pred (get-pred #'ty.norm)
    --------
    [⊢ [_ ≫ (ro:let ([x e-]) (ro:assert (ro:#%app pred x)) x) ⇒ : ty.norm]]])  
+
+
+;; ---------------------------------
+;; Racket forms
+
+;; TODO: many of these implementations are copied code, with just the macro
+;; output changed to use the ro: version. 
+;; Is there a way to abstract this? macro mixin?
 
 ;; ---------------------------------
 ;; Function Application
@@ -233,7 +243,32 @@
    --------
    [⊢ [_ ≫ (ro:if e_tst- e1- e2-) ⇒ : (U ty1 ty2)]]])
    
-   
+;; ---------------------------------
+;; let, etc (copied from ext-stlc.rkt)
+
+(define-typed-syntax let
+  [(let ([x e] ...) e_body) ⇐ : τ_expected ≫
+   [⊢ [e ≫ e- ⇒ : τ_x] ...]
+   [() ([x ≫ x- : τ_x] ...) ⊢ [e_body ≫ e_body- ⇐ : τ_expected]]
+   --------
+   [⊢ [_ ≫ (ro:let ([x- e-] ...) e_body-) ⇐ : _]]]
+  [(let ([x e] ...) e_body) ≫
+   [⊢ [e ≫ e- ⇒ : τ_x] ...]
+   [() ([x ≫ x- : τ_x] ...) ⊢ [e_body ≫ e_body- ⇒ : τ_body]]
+   --------
+   [⊢ [_ ≫ (ro:let ([x- e-] ...) e_body-) ⇒ : τ_body]]])
+
+; dont need to manually transfer expected type
+; result template automatically propagates properties
+; - only need to transfer expected type when local expanding an expression
+;   - see let/tc
+(define-typed-syntax let*
+  [(let* () e_body) ≫
+   --------
+   [_ ≻ e_body]]
+  [(let* ([x e] [x_rst e_rst] ...) e_body) ≫
+   --------
+   [_ ≻ (let ([x e]) (let* ([x_rst e_rst] ...) e_body))]])
 
 
 ;; ---------------------------------
@@ -286,9 +321,7 @@
 (define-symbolic-named-type-alias BVPred (C→ BV Bool) #:pred ro:bitvector?)
 
 (define-rosette-primop bv : (Ccase-> (C→ CInt CBVPred CBV)
-                                     (C→ Int CBVPred BV)
-                                     (C→ CInt CPosInt CBV)
-                                     (C→ Int CPosInt BV)))
+                                     (C→ CInt CPosInt CBV)))
 (define-rosette-primop bv? : (C→ BV Bool))
 (define-rosette-primop bitvector : (C→ CPosInt CBVPred))
 (define-rosette-primop bitvector? : (C→ BVPred Bool))

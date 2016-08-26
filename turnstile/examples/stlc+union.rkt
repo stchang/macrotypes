@@ -26,7 +26,12 @@
   (syntax-parser
     [(define-named-type-alias Name:id τ:type)
      #'(define-syntax Name
-         (make-variable-like-transformer (add-orig #'τ #'Name)))]))
+         (make-variable-like-transformer (add-orig #'τ #'Name)))]
+    [(define-named-type-alias (f:id x:id ...) ty) ; dont expand yet
+     #'(define-syntax (f stx)
+         (syntax-parse stx
+           [(_ x ...) (add-orig #'ty stx)]))]))
+
 
 (define-base-types Zero NegInt PosInt Float)
 (define-type-constructor U* #:arity > 0)
