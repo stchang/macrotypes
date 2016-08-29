@@ -38,7 +38,7 @@
  (only-in "../stlc+union+case.rkt" [~U* ~CU*] [~case-> ~Ccase->] [~→ ~C→])
  (only-in "../stlc+cons.rkt" [~List ~CList])
  (only-in "../stlc+reco+var.rkt" [define stlc:define] define-primop)
- (only-in "lifted-bitvector-pred.rkt" [bitvector? lifted-bitvector?]))
+ (rename-in "rosette-util.rkt" [bitvector? lifted-bitvector?]))
 
 ;; copied from rosette.rkt
 (define-simple-macro (define-rosette-primop op:id : ty)
@@ -107,18 +107,9 @@
 (define-syntax-parser add-predm
   [(_ stx pred) (add-pred #'stx #'pred)])
 
-(ro:define (ro:zero-integer? x)
-  (ro:and (ro:#%app ro:integer? x) (ro:#%app ro:zero? x)))
-(ro:define (ro:positive-integer? x)
-  (ro:and (ro:#%app ro:integer? x) (ro:#%app ro:positive? x)))
-(ro:define (ro:negative-integer? x)
-  (ro:and (ro:#%app ro:integer? x) (ro:#%app ro:negative? x)))
-(ro:define (no:nonnegative-integer? x)
-  (ro:and (ro:#%app ro:integer? x) (ro:#%app ro:not (ro:#%app ro:negative? x))))
-
-(define-named-type-alias NegInt (add-predm (U CNegInt) ro:negative-integer?))
-(define-named-type-alias Zero (add-predm (U CZero) ro:zero-integer?))
-(define-named-type-alias PosInt (add-predm (U CPosInt) ro:positive-integer?))
+(define-named-type-alias NegInt (add-predm (U CNegInt) negative-integer?))
+(define-named-type-alias Zero (add-predm (U CZero) zero-integer?))
+(define-named-type-alias PosInt (add-predm (U CPosInt) positive-integer?))
 (define-named-type-alias Float (U CFloat))
 (define-named-type-alias Bool (add-predm (U CBool) ro:boolean?))
 (define-named-type-alias String (U CString))
@@ -142,7 +133,7 @@
          (define-named-type-alias CName Cτ)
          (define-named-type-alias Name (add-predm (U CName) p?)))]))
 
-(define-symbolic-named-type-alias Nat (CU CZero CPosInt) #:pred no:nonnegative-integer?)
+(define-symbolic-named-type-alias Nat (CU CZero CPosInt) #:pred nonnegative-integer?)
 (define-symbolic-named-type-alias Int (CU CNegInt CNat) #:pred ro:integer?)
 (define-symbolic-named-type-alias Num (CU CFloat CInt) #:pred ro:real?)
 
@@ -210,7 +201,7 @@
    [⊢ [e ≫ e- ⇒ : _]]
    #:with pred (get-pred #'ty.norm)
    --------
-   [⊢ [_ ≫ (ro:let ([x e-]) (ro:assert (ro:#%app pred x)) x) ⇒ : ty.norm]]])  
+   [⊢ [_ ≫ (ro:#%app assert-pred e- pred) ⇒ : ty.norm]]])  
 
 
 ;; ---------------------------------
