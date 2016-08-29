@@ -10,7 +10,8 @@
          CU U
          C→ → (for-syntax ~C→ C→?)
          Ccase-> ; TODO: symbolic case-> not supported yet
-         CUnit CList CParam ; TODO: symbolic Param not supported yet
+         CList CParam ; TODO: symbolic Param not supported yet
+         CUnit Unit
          CNegInt NegInt
          CZero Zero
          CPosInt PosInt
@@ -104,15 +105,22 @@
 (define-syntax-parser add-predm
   [(_ stx pred) (add-pred #'stx #'pred)])
 
-(define-named-type-alias NegInt (U CNegInt))
-(define-named-type-alias Zero (U CZero))
-(define-named-type-alias PosInt 
-  (add-predm (U CPosInt) 
-             (lambda (x) 
-               (ro:and (ro:#%app ro:integer? x) (ro:#%app ro:positive? x)))))
+(ro:define (ro:zero-integer? x)
+  (ro:and (ro:#%app ro:integer? x) (ro:#%app ro:zero? x)))
+(ro:define (ro:positive-integer? x)
+  (ro:and (ro:#%app ro:integer? x) (ro:#%app ro:positive? x)))
+(ro:define (ro:negative-integer? x)
+  (ro:and (ro:#%app ro:integer? x) (ro:#%app ro:negative? x)))
+(ro:define (no:nonnegative-integer? x)
+  (ro:and (ro:#%app ro:integer? x) (ro:#%app ro:not (ro:#%app ro:negative? x))))
+
+(define-named-type-alias NegInt (add-predm (U CNegInt) ro:negative-integer?))
+(define-named-type-alias Zero (add-predm (U CZero) ro:zero-integer?))
+(define-named-type-alias PosInt (add-predm (U CPosInt) ro:positive-integer?))
 (define-named-type-alias Float (U CFloat))
 (define-named-type-alias Bool (add-predm (U CBool) ro:boolean?))
 (define-named-type-alias String (U CString))
+(define-named-type-alias Unit (add-predm (U CUnit) ro:void?))
 (define-named-type-alias (CParam X) (Ccase-> (C→ X)
                                              (C→ X CUnit)))
 
@@ -132,8 +140,7 @@
          (define-named-type-alias CName Cτ)
          (define-named-type-alias Name (add-predm (U CName) p?)))]))
 
-(define-symbolic-named-type-alias Nat (CU CZero CPosInt) 
-  #:pred (lambda (x) (ro:and (ro:integer? x) (ro:not (ro:negative? x)))))
+(define-symbolic-named-type-alias Nat (CU CZero CPosInt) #:pred no:nonnegative-integer?)
 (define-symbolic-named-type-alias Int (CU CNegInt CNat) #:pred ro:integer?)
 (define-symbolic-named-type-alias Num (CU CFloat CInt) #:pred ro:real?)
 
@@ -346,6 +353,16 @@
                                     (C→ Int Int Int)
                                     (C→ CNum CNum CNum)
                                     (C→ Num Num Num)))
+(define-rosette-primop = : (Ccase-> (C→ CInt CInt CBool)
+                                    (C→ Int Int Bool)))
+(define-rosette-primop < : (Ccase-> (C→ CInt CInt CBool)
+                                    (C→ Int Int Bool)))
+(define-rosette-primop > : (Ccase-> (C→ CInt CInt CBool)
+                                    (C→ Int Int Bool)))
+(define-rosette-primop <= : (Ccase-> (C→ CInt CInt CBool)
+                                     (C→ Int Int Bool)))
+(define-rosette-primop >= : (Ccase-> (C→ CInt CInt CBool)
+                                    (C→ Int Int Bool)))
 
 (define-rosette-primop not : (C→ Any Bool))
 (define-rosette-primop false? : (C→ Any Bool))

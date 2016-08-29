@@ -262,12 +262,42 @@
 (check-type ((λ ([bvp : BVPred]) bvp) (λ ([bv : BV]) ((bitvector 2) bv))) : BVPred)
 
 ;; assert-type tests
-(check-type (assert-type (sub1 10) : PosInt) : PosInt -> 9)
+(check-type+asserts (assert-type (sub1 10) : PosInt) : PosInt -> 9 (list))
 (check-runtime-exn (assert-type (sub1 1) : PosInt))
 (define-symbolic b1 b2 boolean? : Bool)
 
 (check-type (clear-asserts!) : CUnit -> (void))
+;; asserts directly on a symbolic union
 (check-type+asserts (assert-type (if b1 1 #f) : Int) : Int -> (if b1 1 #f) (list b1))
 (check-type+asserts (assert-type (if b2 1 #f) : Bool) : Bool -> (if b2 1 #f) (list (not b2)))
+;; asserts on the (pc)
+(check-type+asserts (if b1 (assert-type 1 : Int) (assert-type #f : Int)) : Int
+                    -> 1 (list b1))
+(check-type+asserts (if b2 (assert-type 1 : Bool) (assert-type #f : Bool)) : Bool
+                    -> #f (list (not b2)))
+;; asserts on a define-symbolic value
+(define-symbolic i1 integer? : Int)
+(check-type+asserts (assert-type i1 : PosInt) : PosInt -> i1 (list (< 0 i1)))
+(check-type+asserts (assert-type i1 : Zero) : Zero -> i1 (list (= 0 i1)))
+(check-type+asserts (assert-type i1 : NegInt) : NegInt -> i1 (list (< i1 0)))
+;; TODO: should this assertion be equivalent to (<= 0 i1) ?
+(check-type+asserts (assert-type i1 : Nat) : Nat -> i1 (list (not (< i1 0))))
+;; asserts on other terms involving define-symbolic values
+(check-type+asserts (assert-type (+ i1 1) : PosInt) : PosInt -> (+ 1 i1) (list (< 0 (+ 1 i1))))
+(check-type+asserts (assert-type (+ i1 1) : Zero) : Zero -> (+ 1 i1) (list (= 0 (+ 1 i1))))
+(check-type+asserts (assert-type (+ i1 1) : NegInt) : NegInt -> (+ 1 i1) (list (< (+ 1 i1) 0)))
+
+(check-type+asserts (assert-type (if b1 i1 b2) : Int) : Int -> (if b1 i1 b2) (list b1))
+(check-type+asserts (assert-type (if b1 i1 b2) : Bool) : Bool -> (if b1 i1 b2) (list (not b1)))
+;; asserts on the (pc)
+(check-type+asserts (if b1 (assert-type i1 : Int) (assert-type b2 : Int)) : Int
+                    -> i1 (list b1))
+(check-type+asserts (if b1 (assert-type i1 : Bool) (assert-type b2 : Bool)) : Bool
+                    -> b2 (list (not b1)))
+;; TODO: should assert-type cause some predicates to return true or return false?
+(check-type+asserts (integer? (assert-type (if b1 i1 b2) : Int)) : Bool -> b1 (list b1))
+(check-type+asserts (integer? (assert-type (if b1 i1 b2) : Bool)) : Bool -> b1 (list (not b1)))
+(check-type+asserts (boolean? (assert-type (if b1 i1 b2) : Int)) : Bool -> (not b1) (list b1))
+(check-type+asserts (boolean? (assert-type (if b1 i1 b2) : Bool)) : Bool -> (not b1) (list (not b1)))
 
 (check-type (asserts) : (CList Bool) -> (list))
