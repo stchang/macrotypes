@@ -1,3 +1,9 @@
+2016-08-29 --------------------
+
+Interesting parts of Typed Rosette
+- only need a single U symbolic constructor
+- assert-type, using cast-type and assertion store
+
 2016-08-25 --------------------
 
 TODOs:
@@ -13,6 +19,7 @@ TODOs:
 - add Any type?
  - STARTED 2016-08-26
 - support internal definition contexts
+- fix type of Vector and List to differentiate homogeneous/hetero
 
 
 2016-08-25 --------------------

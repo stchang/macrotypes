@@ -486,6 +486,7 @@
 ;; Logic operators
 
 (define-rosette-primop ! : (C→ Bool Bool))
+(define-rosette-primop <=> : (C→ Bool Bool Bool))
 
 (define-typed-syntax &&
   [(_ e ...) ≫
@@ -513,9 +514,10 @@
      ((current-type=?) t1 t2)
      (syntax-parse (list t1 t2)
        [((~CList ty1) (~CList ty2))
-        ((current-sub?) t1 t2)]
+        ((current-sub?) #'ty1 #'ty2)]
+       ;; vectors are mutable and thus invariant
        [((~CVector . tys1) (~CVector . tys2))
-        (stx-andmap (current-sub?) #'tys1 #'tys2)]
+        (stx-andmap (current-type=?) #'tys1 #'tys2)]
        ; 2 U types, subtype = subset
        [((~CU* . ts1) _)
         (for/and ([t (stx->list #'ts1)])
