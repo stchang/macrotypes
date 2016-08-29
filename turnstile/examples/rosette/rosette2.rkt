@@ -36,12 +36,13 @@
              PosInt Zero NegInt Float Bool String [U U*] U*? [case-> case->*] → →?)
     (only-in "../stlc+cons.rkt" Unit List)))
  (only-in "../stlc+union+case.rkt" [~U* ~CU*] [~case-> ~Ccase->] [~→ ~C→])
+ (only-in "../stlc+cons.rkt" [~List ~CList])
  (only-in "../stlc+reco+var.rkt" [define stlc:define] define-primop)
  (only-in "lifted-bitvector-pred.rkt" [bitvector? lifted-bitvector?]))
 
 ;; copied from rosette.rkt
 (define-simple-macro (define-rosette-primop op:id : ty)
-  (begin
+  (begin-
     (require (only-in rosette [op op]))
     (define-primop op : ty)))
 
@@ -53,6 +54,7 @@
     (not (or (Any? t) (U*? t)))))
 
 (define-base-types Any CBV CStx CSymbol)
+(define-type-constructor CVector #:arity > 0)
 
 (define-syntax (CU stx)
   (syntax-parse stx
@@ -157,6 +159,38 @@
           (define-syntax- x (make-rename-transformer (⊢ y : ty.norm))) ...
           (ro:define-symbolic y ... pred-))]])
 
+(define-typed-syntax define-symbolic*
+  [(_ x:id ...+ pred : ty:type) ≫
+   ;; TODO: still unsound
+   [⊢ [pred ≫ pred- ⇐ : (C→ ty.norm Bool)]]
+   #:with (y ...) (generate-temporaries #'(x ...))
+   --------
+   [_ ≻ (begin-
+          (define-syntax- x (make-rename-transformer (⊢ y : ty.norm))) ...
+          (ro:define-symbolic* y ... pred-))]])
+
+;; TODO: support internal definition contexts
+(define-typed-syntax let-symbolic
+  [(_ ([(x:id ...+) pred : ty:type]) e) ≫
+   [⊢ [pred ≫ pred- ⇐ : (C→ ty.norm Bool)]]
+   [([x ≫ x- : ty.norm] ...) ⊢ [e ≫ e- ⇒ τ_out]]
+   --------
+   [⊢ [_ ≫ (ro:let-values
+            ([(x- ...) (ro:let ()
+                         (ro:define-symbolic x ... pred-)
+                         (ro:values x ...))])
+            e-) ⇒ : τ_out]]])
+(define-typed-syntax let-symbolic*
+  [(_ ([(x:id ...+) pred : ty:type]) e) ≫
+   [⊢ [pred ≫ pred- ⇐ : (C→ ty.norm Bool)]]
+   [([x ≫ x- : ty.norm] ...) ⊢ [e ≫ e- ⇒ τ_out]]
+   --------
+   [⊢ [_ ≫ (ro:let-values
+            ([(x- ...) (ro:let ()
+                         (ro:define-symbolic* x ... pred-)
+                         (ro:values x ...))])
+            e-) ⇒ : τ_out]]])
+
 ;; ---------------------------------
 ;; assert, assert-type
 
@@ -190,13 +224,13 @@
   [(_ x:id e) ≫
    --------
    [_ ≻ (stlc:define x e)]]
-  [(_ (f [x : ty] ... (~or → ->) ty_out) e) ≫
+  [(_ (f [x : ty] ... (~or → ->) ty_out) e ...+) ≫
 ;   [⊢ [e ≫ e- ⇒ : ty_e]]
    #:with f- (generate-temporary #'f)
    --------
    [_ ≻ (begin-
           (define-syntax- f (make-rename-transformer (⊢ f- : (C→ ty ... ty_out))))
-          (ro:define f- (stlc:λ ([x : ty] ...) (ann e : ty_out))))]])
+          (ro:define f- (stlc:λ ([x : ty] ...) (ann (begin e ...) : ty_out))))]])
 
 ;; ---------------------------------
 ;; quote
@@ -318,6 +352,30 @@
    --------
    [_ ≻ (let ([x e]) (let* ([x_rst e_rst] ...) e_body))]])
 
+;; --------------------
+;; begin
+
+(define-typed-syntax begin
+  [(begin e_unit ... e) ⇐ : τ_expected ≫
+   [⊢ [e_unit ≫ e_unit- ⇒ : _] ...]
+   [⊢ [e ≫ e- ⇐ : τ_expected]]
+   --------
+   [⊢ [_ ≫ (begin- e_unit- ... e-) ⇐ : _]]]
+  [(begin e_unit ... e) ≫
+   [⊢ [e_unit ≫ e_unit- ⇒ : _] ...]
+   [⊢ [e ≫ e- ⇒ : τ_e]]
+   --------
+   [⊢ [_ ≫ (ro:begin e_unit- ... e-) ⇒ : τ_e]]])
+
+;; ---------------------------------
+;; vector
+
+(define-typed-syntax vector
+  [(_ e ...) ≫
+   [⊢ [e ≫ e- ⇒ : τ] ...]
+   --------
+   [⊢ [_ ≫ (ro:vector e- ...) ⇒ : (CVector τ ...)]]])
+
 ;; ---------------------------------
 ;; Types for built-in operations
 
@@ -432,6 +490,23 @@
 
 (define-rosette-primop bitvector-size : (C→ CBVPred CPosInt))
 
+
+;; ---------------------------------
+;; Logic operators
+
+(define-rosette-primop ! : (C→ Bool Bool))
+
+(define-typed-syntax &&
+  [(_ e ...) ≫
+   [⊢ [e ≫ e- ⇐ : Bool] ...]
+   --------
+   [⊢ [_ ≫ (ro:&& e- ...) ⇒ : Bool]]])
+(define-typed-syntax ||
+  [(_ e ...) ≫
+   [⊢ [e ≫ e- ⇐ : Bool] ...]
+   --------
+   [⊢ [_ ≫ (ro:|| e- ...) ⇒ : Bool]]])
+
 ;; ---------------------------------
 ;; Subtyping
 
@@ -446,6 +521,10 @@
      (Any? t2)
      ((current-type=?) t1 t2)
      (syntax-parse (list t1 t2)
+       [((~CList ty1) (~CList ty2))
+        ((current-sub?) t1 t2)]
+       [((~CVector . tys1) (~CVector . tys2))
+        (stx-andmap (current-sub?) #'tys1 #'tys2)]
        ; 2 U types, subtype = subset
        [((~CU* . ts1) _)
         (for/and ([t (stx->list #'ts1)])

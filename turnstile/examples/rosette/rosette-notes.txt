@@ -11,6 +11,9 @@ TODOs:
 - extend BV type with a size
  - requires BV-size-polymorpism?
 - add Any type?
+ - STARTED 2016-08-26
+- support internal definition contexts
+
 
 2016-08-25 --------------------
 
