@@ -68,16 +68,31 @@
 (check-type (asserts) : (CListof Bool) -> (list))
 
 ;; sec 2.3
-;; (define (poly [x : Int] -> Int)
-;;   (+ (* x x x x) (* 6 x x x) (* 11 x x) (* 6 x)))
+(define (poly [x : Int] -> Int)
+  (+ (* x x x x) (* 6 x x x) (* 11 x x) (* 6 x)))
 
-;; (define (factored [x : Int] -> Int)
-;;  (* x (+ x 1) (+ x 2) (+ x 2)))
+(define (factored [x : Int] -> Int)
+  (* x (+ x 1) (+ x 2) (+ x 2)))
 
-;; (define (same p f x)
-;;  (assert (= (p x) (f x))))
+(define (same [p : (C→ Int Int)] [f : (C→ Int Int)] [x : Int] -> Unit)
+  (assert (= (p x) (f x))))
 
-;; ; check zeros; all seems well ...
-;; > (same poly factored 0)
-;; > (same poly factored -1)
-;; > (same poly factored -2)
+; check zeros; all seems well ...
+(check-type+asserts (same poly factored 0) : Unit -> (void) (list))
+(check-type+asserts (same poly factored -1) : Unit -> (void) (list))
+(check-type+asserts (same poly factored -2) : Unit -> (void) (list))
+
+(define-symbolic i integer? : Int)
+(define cex (verify (same poly factored i)))
+(check-type (evaluate i cex) : Int -> 12)
+(check-runtime-exn (same poly factored 12))
+(clear-asserts!)
+
+(require "../../rosette/query/debug.rkt"
+         "../../rosette/lib/render.rkt")
+(define/debug (factored/d [x : Int] -> Int)
+  (* x (+ x 1) (+ x 2) (+ x 2)))
+
+(define ucore (debug [integer?] (same poly factored/d 12)))
+(check-type ucore : CSolution)
+(check-type (render ucore) : CPict)

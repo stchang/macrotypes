@@ -20,6 +20,14 @@ TODOs:
  - STARTED 2016-08-26
 - support internal definition contexts
 - fix type of Vector and List to differentiate homogeneous/hetero
+- variable arity polymorphism
+- CSolution?
+- make libs have appropriate require paths
+  - eg typed/rosette/query/debug
+- make typed/rosette a separate pkg
+  - depends on macrotypes and rosette
+- create version of turnstile that does not provide #%module-begin
+  - eg rename existing turnstile to turnstile/lang?
 
 
 2016-08-25 --------------------

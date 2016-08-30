@@ -6,7 +6,7 @@
 (reuse define-named-type-alias #:from "../stlc+union.rkt")
 (reuse void list #:from "../stlc+cons.rkt")
 
-(provide Any
+(provide Any Nothing
          CU U
          C→ → (for-syntax ~C→ C→?)
          Ccase-> ; TODO: symbolic case-> not supported yet
@@ -246,13 +246,16 @@
 (define-typed-syntax app #:export-as #%app
   [(_ e_fn e_arg ...) ≫
    [⊢ [e_fn ≫ e_fn- ⇒ : (~C→ ~! τ_in ... τ_out)]]
+   #:with e_fn/progsrc- (replace-stx-loc #'e_fn- #'e_fn)
    #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
    (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
    [⊢ [e_arg ≫ e_arg- ⇐ : τ_in] ...]
    --------
+   ;; TODO: use e_fn/progsrc- (currently causing "cannot use id tainted in macro trans" err)
    [⊢ [_ ≫ (ro:#%app e_fn- e_arg- ...) ⇒ : τ_out]]]
   [(_ e_fn e_arg ...) ≫
    [⊢ [e_fn ≫ e_fn- ⇒ : (~Ccase-> ~! . (~and ty_fns ((~C→ . _) ...)))]]
+   #:with e_fn/progsrc- (replace-stx-loc #'e_fn- #'e_fn)
    [⊢ [e_arg ≫ e_arg- ⇒ : τ_arg] ...]
    #:with τ_out
    (for/first ([ty_f (stx->list #'ty_fns)]
@@ -282,25 +285,27 @@
            (string-join (stx-map type->str τs_given) ", ")
            (string-join (map ~s (stx-map syntax->datum expressions)) ", ")))])
    --------
-   [⊢ [_ ≫ (ro:#%app e_fn- e_arg- ...) ⇒ : τ_out]]]
+   [⊢ [_ ≫ (ro:#%app e_fn/progsrc- e_arg- ...) ⇒ : τ_out]]]
   [(_ e_fn e_arg ...) ≫
    [⊢ [e_fn ≫ e_fn- ⇒ : (~CU* τ_f ...)]]
+   #:with e_fn/progsrc- (replace-stx-loc #'e_fn- #'e_fn)
    [⊢ [e_arg ≫ e_arg- ⇒ : τ_arg] ...]
    #:with (f a ...) (generate-temporaries #'(e_fn e_arg ...))
    [([f ≫ _ : τ_f] [a ≫ _ : τ_arg] ...)
     ⊢ [(app f a ...) ≫ _ ⇒ : τ_out]]
    ...
    --------
-   [⊢ [_ ≫ (ro:#%app e_fn- e_arg- ...) ⇒ : (CU τ_out ...)]]]
+   [⊢ [_ ≫ (ro:#%app e_fn/progsrc- e_arg- ...) ⇒ : (CU τ_out ...)]]]
   [(_ e_fn e_arg ...) ≫
    [⊢ [e_fn ≫ e_fn- ⇒ : (~U* τ_f ...)]]
+   #:with e_fn/progsrc- (replace-stx-loc #'e_fn- #'e_fn)
    [⊢ [e_arg ≫ e_arg- ⇒ : τ_arg] ...]
    #:with (f a ...) (generate-temporaries #'(e_fn e_arg ...))
    [([f ≫ _ : τ_f] [a ≫ _ : τ_arg] ...)
     ⊢ [(app f a ...) ≫ _ ⇒ : τ_out]]
    ...
    --------
-   [⊢ [_ ≫ (ro:#%app e_fn- e_arg- ...) ⇒ : (U τ_out ...)]]])
+   [⊢ [_ ≫ (ro:#%app e_fn/progsrc- e_arg- ...) ⇒ : (U τ_out ...)]]])
 
 ;; ---------------------------------
 ;; if
@@ -356,7 +361,7 @@
    [⊢ [e_unit ≫ e_unit- ⇒ : _] ...]
    [⊢ [e ≫ e- ⇐ : τ_expected]]
    --------
-   [⊢ [_ ≫ (begin- e_unit- ... e-) ⇐ : _]]]
+   [⊢ [_ ≫ (ro:begin e_unit- ... e-) ⇐ : _]]]
   [(begin e_unit ... e) ≫
    [⊢ [e_unit ≫ e_unit- ⇒ : _] ...]
    [⊢ [e ≫ e- ⇒ : τ_e]]
@@ -410,11 +415,41 @@
                                        (C→ CInt CInt)
                                        (C→ Int Int)))
 (define-rosette-primop + : (Ccase-> (C→ CNat CNat CNat)
+                                    (C→ CNat CNat CNat CNat)
+                                    (C→ CNat CNat CNat CNat CNat)
                                     (C→ Nat Nat Nat)
+                                    (C→ Nat Nat Nat Nat)
+                                    (C→ Nat Nat Nat Nat Nat)
                                     (C→ CInt CInt CInt)
+                                    (C→ CInt CInt CInt CInt)
+                                    (C→ CInt CInt CInt CInt CInt)
                                     (C→ Int Int Int)
+                                    (C→ Int Int Int Int)
+                                    (C→ Int Int Int Int Int)
                                     (C→ CNum CNum CNum)
-                                    (C→ Num Num Num)))
+                                    (C→ CNum CNum CNum CNum)
+                                    (C→ CNum CNum CNum CNum CNum)
+                                    (C→ Num Num Num)
+                                    (C→ Num Num Num Num)
+                                    (C→ Num Num Num Num Num)))
+(define-rosette-primop * : (Ccase-> (C→ CNat CNat CNat)
+                                    (C→ CNat CNat CNat CNat)
+                                    (C→ CNat CNat CNat CNat CNat)
+                                    (C→ Nat Nat Nat)
+                                    (C→ Nat Nat Nat Nat)
+                                    (C→ Nat Nat Nat Nat Nat)
+                                    (C→ CInt CInt CInt)
+                                    (C→ CInt CInt CInt CInt)
+                                    (C→ CInt CInt CInt CInt CInt)
+                                    (C→ Int Int Int)
+                                    (C→ Int Int Int Int)
+                                    (C→ Int Int Int Int Int)
+                                    (C→ CNum CNum CNum)
+                                    (C→ CNum CNum CNum CNum)
+                                    (C→ CNum CNum CNum CNum CNum)
+                                    (C→ Num Num Num)
+                                    (C→ Num Num Num Num)
+                                    (C→ Num Num Num Num Num)))
 (define-rosette-primop = : (Ccase-> (C→ CInt CInt CBool)
                                     (C→ Int Int Bool)))
 (define-rosette-primop < : (Ccase-> (C→ CInt CInt CBool)
@@ -511,6 +546,31 @@
    [⊢ [e ≫ e- ⇐ : Bool] ...]
    --------
    [⊢ [_ ≫ (ro:|| e- ...) ⇒ : Bool]]])
+
+;; ---------------------------------
+;; solver forms
+
+(define-base-types CSolution CPict)
+
+(define-typed-syntax verify
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : _]]
+   --------
+   [⊢ [_ ≫ (ro:verify e-) ⇒ : CSolution]]]
+  [(_ #:assume ae #:guarantee ge) ≫
+   [⊢ [ae ≫ ae- ⇒ : _]]
+   [⊢ [ge ≫ ge- ⇒ : _]]
+   --------
+   [⊢ [_ ≫ (ro:verify #:assume ae- #:guarantee ge-) ⇒ : CSolution]]])
+
+(define-typed-syntax evaluate
+  [(_ v s) ≫
+   [⊢ [v ≫ v- ⇒ : ty]]
+   [⊢ [s ≫ s- ⇐ : CSolution]]
+   --------
+   [⊢ [_ ≫ (ro:evaluate v- s-) ⇒ : ty]]])
+
+(define-rosette-primop core : (C→ Any Any))
 
 ;; ---------------------------------
 ;; Subtyping
