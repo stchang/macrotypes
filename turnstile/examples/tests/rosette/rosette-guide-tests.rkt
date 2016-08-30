@@ -12,11 +12,17 @@
 (check-type (integer? b) : Bool -> #f)
 
 ;; TODO: fix these tests
-(check-type (vector b 1) : (CVector Bool CPosInt) -> (vector b 1))
-;; (check-not-type (vector b 1) : (CVector CBool CPosInt))
-;; (check-type (vector b 1) : (CVector Bool PosInt))
-;; (check-type (vector b 1) : (CVector Bool CInt))
-;; (check-type (vector b 1) : (CVector Bool Int))
+(check-type (vector b 1) : (CMVectorof (U Bool CPosInt)) -> (vector b 1))
+(check-not-type (vector b 1) : (CIVectorof (U Bool CPosInt)))
+(check-not-type (vector b 1) : (CMVectorof (CU CBool CPosInt)))
+;; but this is ok
+(check-type (vector b 1) : (CMVectorof (U CBool CPosInt)))
+;; mutable vectors are invariant
+(check-not-type (vector b 1) : (CMVectorof (U Bool CInt)))
+(check-type (vector b 1) : (CVectorof (U Bool PosInt)))
+;; vectors are also invariant, because it includes mvectors
+(check-not-type (vector b 1) : (CVectorof (U Bool CInt)))
+(check-not-type (vector b 1) : (CVectorof (U Bool Int)))
 
 (check-type (not b) : Bool -> (! b))
 (check-type (boolean? (not b)) : Bool -> #t)
@@ -59,7 +65,7 @@
 (check-type+asserts (assert (not b)) : Unit -> (void) (list (! b) #f))
 
 (check-type (clear-asserts!) : Unit -> (void))
-(check-type (asserts) : (CList Bool) -> (list))
+(check-type (asserts) : (CListof Bool) -> (list))
 
 ;; sec 2.3
 ;; (define (poly [x : Int] -> Int)

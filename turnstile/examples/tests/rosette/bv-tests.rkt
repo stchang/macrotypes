@@ -1,7 +1,7 @@
 #lang s-exp "../../rosette/bv.rkt"
 (require "../rackunit-typechecking.rkt")
 
-(check-type current-bvpred : (CParam CBVPred))
+(check-type current-bvpred : (CParamof CBVPred))
 (check-type (current-bvpred) : BVPred -> (bitvector 4))
 (check-type (current-bvpred (bitvector 5)) : CUnit -> (void))
 (check-type (current-bvpred) : BVPred -> (bitvector 5))

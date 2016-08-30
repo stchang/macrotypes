@@ -19,7 +19,7 @@
 (define-typed-syntax current-bvpred
   [c-bvpred:id ≫
    --------
-   [⊢ [_ ≫ bv:BV ⇒ : (CParam CBVPred)]]]
+   [⊢ [_ ≫ bv:BV ⇒ : (CParamof CBVPred)]]]
   [(_) ≫
    --------
    [⊢ [_ ≫ (bv:BV) ⇒ : CBVPred]]]

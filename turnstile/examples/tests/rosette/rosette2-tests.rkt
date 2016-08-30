@@ -300,4 +300,4 @@
 (check-type+asserts (boolean? (assert-type (if b1 i1 b2) : Int)) : Bool -> #f (list b1))
 (check-type+asserts (boolean? (assert-type (if b1 i1 b2) : Bool)) : Bool -> #t (list (not b1)))
 
-(check-type (asserts) : (CList Bool) -> (list))
+(check-type (asserts) : (CListof Bool) -> (list))

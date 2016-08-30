@@ -10,7 +10,7 @@
          CU U
          C→ → (for-syntax ~C→ C→?)
          Ccase-> ; TODO: symbolic case-> not supported yet
-         CList CParam ; TODO: symbolic Param not supported yet
+         CListof CVectorof CParamof ; TODO: symbolic Param not supported yet
          CUnit Unit
          CNegInt NegInt
          CZero Zero
@@ -34,9 +34,9 @@
    (combine-in
     (only-in "../stlc+union+case.rkt"
              PosInt Zero NegInt Float Bool String [U U*] U*? [case-> case->*] → →?)
-    (only-in "../stlc+cons.rkt" Unit List)))
+    (only-in "../stlc+cons.rkt" Unit [List Listof])))
  (only-in "../stlc+union+case.rkt" [~U* ~CU*] [~case-> ~Ccase->] [~→ ~C→])
- (only-in "../stlc+cons.rkt" [~List ~CList])
+ (only-in "../stlc+cons.rkt" [~List ~CListof])
  (only-in "../stlc+reco+var.rkt" [define stlc:define] define-primop)
  (rename-in "rosette-util.rkt" [bitvector? lifted-bitvector?]))
 
@@ -54,7 +54,12 @@
     (not (or (Any? t) (U*? t)))))
 
 (define-base-types Any CBV CStx CSymbol)
-(define-type-constructor CVector #:arity > 0)
+;; CVectorof includes all vectors
+;; CIVectorof includes only immutable vectors
+;; CMVectorof includes only mutable vectors
+(define-type-constructor CIVectorof #:arity = 1)
+(define-type-constructor CMVectorof #:arity = 1)
+(define-named-type-alias (CVectorof X) (CU (CIVectorof X) (CMVectorof X)))
 
 (define-syntax (CU stx)
   (syntax-parse stx
@@ -114,8 +119,8 @@
 (define-named-type-alias Bool (add-predm (U CBool) ro:boolean?))
 (define-named-type-alias String (U CString))
 (define-named-type-alias Unit (add-predm (U CUnit) ro:void?))
-(define-named-type-alias (CParam X) (Ccase-> (C→ X)
-                                             (C→ X CUnit)))
+(define-named-type-alias (CParamof X) (Ccase-> (C→ X)
+                                               (C→ X CUnit)))
 
 (define-syntax →
   (syntax-parser
@@ -232,7 +237,7 @@
    [⊢ [_ ≫ (quote- x) ⇒ : CSymbol]]]
   [(_ (x:id ...)) ≫
    --------
-   [⊢ [_ ≫ (quote- (x ...)) ⇒ : (CList CSymbol)]]])
+   [⊢ [_ ≫ (quote- (x ...)) ⇒ : (CListof CSymbol)]]])
 
 ;; ---------------------------------
 ;; Function Application
@@ -365,8 +370,16 @@
   [(_ e ...) ≫
    [⊢ [e ≫ e- ⇒ : τ] ...]
    --------
-   [⊢ [_ ≫ (ro:vector e- ...) ⇒ : (CVector τ ...)]]])
-
+   [⊢ [_ ≫ (ro:vector e- ...) ⇒ : #,(if (stx-andmap concrete? #'(τ ...))
+                                        #'(CMVectorof (CU τ ...))
+                                        #'(CMVectorof (U τ ...)))]]])
+(define-typed-syntax vector-immutable
+  [(_ e ...) ≫
+   [⊢ [e ≫ e- ⇒ : τ] ...]
+   --------
+   [⊢ [_ ≫ (ro:vector-immutable e- ...) ⇒ : (if (stx-andmap concrete? #'(τ ...))
+                                                #'(CIVectorof (CU τ ...))
+                                                #'(CIVectorof (U τ ...)))]]])
 ;; ---------------------------------
 ;; Types for built-in operations
 
@@ -424,7 +437,7 @@
                                             (C→ Num Bool)))
 
 ;; rosette-specific
-(define-rosette-primop asserts : (C→ (CList Bool)))
+(define-rosette-primop asserts : (C→ (CListof Bool)))
 (define-rosette-primop clear-asserts! : (C→ CUnit))
 
 ;; ---------------------------------
@@ -513,11 +526,11 @@
      (Any? t2)
      ((current-type=?) t1 t2)
      (syntax-parse (list t1 t2)
-       [((~CList ty1) (~CList ty2))
+       [((~CListof ty1) (~CListof ty2))
         ((current-sub?) #'ty1 #'ty2)]
-       ;; vectors are mutable and thus invariant
-       [((~CVector . tys1) (~CVector . tys2))
-        (stx-andmap (current-type=?) #'tys1 #'tys2)]
+       ;; vectors, only immutable vectors are invariant
+       [((~CIVectorof . tys1) (~CIVectorof . tys2))
+        (stx-andmap (current-sub?) #'tys1 #'tys2)]
        ; 2 U types, subtype = subset
        [((~CU* . ts1) _)
         (for/and ([t (stx->list #'ts1)])
