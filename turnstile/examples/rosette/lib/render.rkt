@@ -4,13 +4,13 @@
  (prefix-in ro: rosette/lib/render))
 
 (define-typed-syntax render
-  [(r s) ≫
+  [(_ s) ≫
    [⊢ [s ≫ s- ⇐ : t/ro:CSolution]]
    --------
-   [⊢ [_ ≫ (#,(syntax/loc #'r ro:render) s-) ⇒ : t/ro:CPict]]]
-  [(r s sz) ≫
+   [⊢ [_ ≫ (ro:render s-) ⇒ : t/ro:CPict]]]
+  [(_ s sz) ≫
    [⊢ [s ≫ s- ⇐ : t/ro:CSolution]]
    [⊢ [sz ≫ sz- ⇐ : t/ro:CNat]]
    --------
-   [⊢ [_ ≫ (#,(syntax/loc #'r ro:render) s- sz-) ⇒ : t/ro:CPict]]])
+   [⊢ [_ ≫ (ro:render s- sz-) ⇒ : t/ro:CPict]]])
   

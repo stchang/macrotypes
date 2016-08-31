@@ -571,6 +571,20 @@
    [⊢ [_ ≫ (ro:evaluate v- s-) ⇒ : ty]]])
 
 (define-rosette-primop core : (C→ Any Any))
+(define-rosette-primop sat? : (C→ Any Bool))
+
+(define-typed-syntax synthesize
+  [(_ #:forall ie #:guarantee ge) ≫
+   [⊢ [ie ≫ ie- ⇐ : (CListof Any)]]
+   [⊢ [ge ≫ ge- ⇒ : _]]
+   --------
+   [⊢ [_ ≫ (ro:synthesize #:forall ie- #:guarantee ge-) ⇒ : CSolution]]]
+  [(_ #:forall ie #:assume ae #:guarantee ge) ≫
+   [⊢ [ie ≫ ie- ⇐ : (CListof Any)]]
+   [⊢ [ae ≫ ae- ⇒ : _]]
+   [⊢ [ge ≫ ge- ⇒ : _]]
+   --------
+   [⊢ [_ ≫ (ro:synthesize #:forall ie- #:assume ae- #:guarantee ge-) ⇒ : CSolution]]])
 
 ;; ---------------------------------
 ;; Subtyping

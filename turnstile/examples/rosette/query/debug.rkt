@@ -4,14 +4,14 @@
  (prefix-in ro: rosette/query/debug))
 
 (define-typed-syntax define/debug #:datum-literals (: -> →)
-  [(d x:id e) ≫
+  [(_ x:id e) ≫
    [⊢ [e ≫ e- ⇒ : τ]]
    #:with y (generate-temporary #'x)
    --------
    [_ ≻ (begin-
           (define-syntax- x (make-rename-transformer (⊢ y : τ)))
           (ro:define/debug y e-))]]
-  [(d (f [x : ty] ... (~or → ->) ty_out) e ...+) ≫
+  [(_ (f [x : ty] ... (~or → ->) ty_out) e ...+) ≫
 ;   [⊢ [e ≫ e- ⇒ : ty_e]]
    #:with f- (generate-temporary #'f)
    --------
@@ -22,7 +22,7 @@
                         (t/ro:ann (t/ro:begin e ...) : ty_out))))]])
 
 (define-typed-syntax debug
-  [(d (solvable-pred ...+) e) ≫
+  [(_ (solvable-pred ...+) e) ≫
    [⊢ [solvable-pred ≫ solvable-pred- ⇐ : (t/ro:C→ t/ro:Nothing t/ro:Bool)]] ...
    [⊢ [e ≫ e- ⇒ : τ]]
    --------

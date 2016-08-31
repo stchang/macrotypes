@@ -1,5 +1,11 @@
 2016-08-31 --------------------
 
+Rosette TODO:
+- fix documentation of synthesize
+  - #:forall accepts everything, not just constant?s
+
+2016-08-31 --------------------
+
 Adding typed define/debug, debug (from query/debug), render (from lib/query):
 - revealed problems with the way Rosette tracks source locations
   - in query/debug.rkt: https://github.com/emina/rosette/blob/cb877b9094f368c5f392518e7538ae8a061433a2/rosette/query/debug.rkt#L38

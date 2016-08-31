@@ -95,4 +95,21 @@
 
 (define ucore (debug [integer?] (same poly factored/d 12)))
 (check-type ucore : CSolution)
+;; TESTING TODO: requires visual inspection (in DrRacket)
 (check-type (render ucore) : CPict)
+
+(require "../../rosette/lib/synthax.rkt")
+(define (factored/?? [x : Int] -> Int)
+ (* (+ x (??)) (+ x 1) (+ x (??)) (+ x (??))))
+
+(define binding
+  (synthesize #:forall (list i)
+              #:guarantee (same poly factored/?? i)))
+(check-type binding : CSolution)
+(check-type (sat? binding) : Bool -> #t)
+;; TESTING TODO: requires visual inspection of stdout
+(check-type (print-forms binding) : Unit -> (void))
+;; typed/rosette should print: 
+;;  '(define (factored/?? (x : Int) -> Int) (* (+ x 3) (+ x 1) (+ x 2) (+ x 0)))
+;; (untyped) rosette should print: 
+;;  '(define (factored x) (* (+ x 3) (+ x 1) (+ x 2) (+ x 0)))
