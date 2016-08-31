@@ -49,9 +49,9 @@
 (check-not-type dynamic : (C→ CInt))
 (check-type (eq? (static) (static)) : Bool -> #t)
 
-(define y0 (dynamic))
-(define y1 (dynamic))
-(check-type (eq? y0 y1) : Bool -> (= y0 y1))
+(define sym*1 (dynamic))
+(define sym*2 (dynamic))
+(check-type (eq? sym*1 sym*2) : Bool -> (= sym*1 sym*2))
 
 (define (yet-another-x -> Bool)
   (let-symbolic ([(x) boolean? : Bool]) x))
@@ -142,3 +142,45 @@
 (check-type (evaluate (poly y) sol) : Int -> 120)
 
 ;; 2.4 Symbolic Reasoning
+
+(define-symbolic x1 y1 real? : Num)
+(check-type (current-bitwidth) : (CU CPosInt CFalse) -> 5)
+(check-type (current-bitwidth #f) : CUnit -> (void))
+(check-type (current-bitwidth) : (CU CPosInt CFalse) -> #f)
+(check-not-type (current-bitwidth) : CFalse)
+(typecheck-fail (current-bitwidth #t) #:with-msg "expected \\(CU CFalse CPosInt\\), given True")
+(typecheck-fail (current-bitwidth 0) #:with-msg "expected \\(CU CFalse CPosInt\\), given Zero")
+(typecheck-fail (current-bitwidth -1) #:with-msg "expected \\(CU CFalse CPosInt\\), given NegInt")
+(check-type (current-bitwidth 5) : CUnit -> (void))
+
+; there is no solution under 5-bit signed integer semantics
+(check-type (solve (assert (= x1 3.5))) : CSolution -> (unsat))
+(check-type (solve (assert (= x1 64)))  : CSolution -> (unsat))
+
+; and quantifiers are not supported
+(check-runtime-exn (solve (assert (forall (list x1) (= x1 (+ x1 y1))))))
+;; expected err:
+;; finitize: cannot use (current-bitwidth 5) with a quantified formula 
+;; (forall (x1) (= x1 (+ x1 y1))); use (current-bitwidth #f) instead
+
+;; infinite precision semantics
+(current-bitwidth #f)
+
+(define sol1 (solve (assert (= x1 3.5))))
+;; sol1 = (model [x1 7/2])
+(check-type sol1 : CSolution)
+(check-type (sat? sol1) : Bool -> #t)
+(check-type (evaluate x1 sol1) : Num -> 7/2)
+
+(define sol2 (solve (assert (= x1 64))))
+;; sol2 = (model [x1 64.0])
+(check-type sol2 : CSolution)
+(check-type (sat? sol2) : Bool -> #t)
+(check-type (evaluate x1 sol2) : Num -> 64.0)
+
+;; and quantifiers work
+(define sol3 (solve (assert (forall (list x1) (= x1 (+ x1 y1))))))
+;; sol3 = (model [y1 0.0])
+(check-type sol3 : CSolution)
+(check-type (sat? sol3) : Bool -> #t)
+(check-type (evaluate y1 sol3) : Num -> 0.0)
