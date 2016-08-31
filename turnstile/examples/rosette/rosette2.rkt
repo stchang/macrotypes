@@ -4,7 +4,7 @@
 (reuse #%datum #:from "../stlc+union.rkt")
 (reuse define-type-alias #:from "../stlc+reco+var.rkt")
 (reuse define-named-type-alias #:from "../stlc+union.rkt")
-(reuse void list #:from "../stlc+cons.rkt")
+(reuse list #:from "../stlc+cons.rkt")
 
 (provide Any Nothing
          CU U
@@ -167,9 +167,9 @@
 
 ;; TODO: support internal definition contexts
 (define-typed-syntax let-symbolic
-  [(_ ([(x:id ...+) pred : ty:type]) e) ≫
+  [(_ ([(x:id ...+) pred : ty:type]) e ...) ≫
    [⊢ [pred ≫ pred- ⇐ : (C→ ty.norm Bool)]]
-   [([x ≫ x- : ty.norm] ...) ⊢ [e ≫ e- ⇒ τ_out]]
+   [([x ≫ x- : ty.norm] ...) ⊢ [(begin e ...) ≫ e- ⇒ τ_out]]
    --------
    [⊢ [_ ≫ (ro:let-values
             ([(x- ...) (ro:let ()
@@ -177,9 +177,9 @@
                          (ro:values x ...))])
             e-) ⇒ : τ_out]]])
 (define-typed-syntax let-symbolic*
-  [(_ ([(x:id ...+) pred : ty:type]) e) ≫
+  [(_ ([(x:id ...+) pred : ty:type]) e ...) ≫
    [⊢ [pred ≫ pred- ⇐ : (C→ ty.norm Bool)]]
-   [([x ≫ x- : ty.norm] ...) ⊢ [e ≫ e- ⇒ τ_out]]
+   [([x ≫ x- : ty.norm] ...) ⊢ [(begin e ...) ≫ e- ⇒ τ_out]]
    --------
    [⊢ [_ ≫ (ro:let-values
             ([(x- ...) (ro:let ()
@@ -330,14 +330,14 @@
 ;; let, etc (copied from ext-stlc.rkt)
 
 (define-typed-syntax let
-  [(let ([x e] ...) e_body) ⇐ : τ_expected ≫
+  [(let ([x e] ...) e_body ...) ⇐ : τ_expected ≫
    [⊢ [e ≫ e- ⇒ : τ_x] ...]
-   [() ([x ≫ x- : τ_x] ...) ⊢ [e_body ≫ e_body- ⇐ : τ_expected]]
+   [() ([x ≫ x- : τ_x] ...) ⊢ [(begin e_body ...) ≫ e_body- ⇐ : τ_expected]]
    --------
    [⊢ [_ ≫ (ro:let ([x- e-] ...) e_body-) ⇐ : _]]]
-  [(let ([x e] ...) e_body) ≫
+  [(let ([x e] ...) e_body ...) ≫
    [⊢ [e ≫ e- ⇒ : τ_x] ...]
-   [() ([x ≫ x- : τ_x] ...) ⊢ [e_body ≫ e_body- ⇒ : τ_body]]
+   [() ([x ≫ x- : τ_x] ...) ⊢ [(begin e_body ...) ≫ e_body- ⇒ : τ_body]]
    --------
    [⊢ [_ ≫ (ro:let ([x- e-] ...) e_body-) ⇒ : τ_body]]])
 
@@ -346,12 +346,12 @@
 ; - only need to transfer expected type when local expanding an expression
 ;   - see let/tc
 (define-typed-syntax let*
-  [(let* () e_body) ≫
+  [(let* () e_body ...) ≫
    --------
-   [_ ≻ e_body]]
-  [(let* ([x e] [x_rst e_rst] ...) e_body) ≫
+   [_ ≻ (begin e_body ...)]]
+  [(let* ([x e] [x_rst e_rst] ...) e_body ...) ≫
    --------
-   [_ ≻ (let ([x e]) (let* ([x_rst e_rst] ...) e_body))]])
+   [_ ≻ (let ([x e]) (let* ([x_rst e_rst] ...) e_body ...))]])
 
 ;; --------------------
 ;; begin
@@ -367,6 +367,16 @@
    [⊢ [e ≫ e- ⇒ : τ_e]]
    --------
    [⊢ [_ ≫ (ro:begin e_unit- ... e-) ⇒ : τ_e]]])
+
+;; ---------------------------------
+;; set!
+
+(define-typed-syntax set!
+  [(set! x:id e) ≫
+   [⊢ [x ≫ x- ⇒ : ty_x]]
+   [⊢ [e ≫ e- ⇐ : ty_x]]
+   --------
+   [⊢ [_ ≫ (ro:set! x- e-) ⇒ : CUnit]]])
 
 ;; ---------------------------------
 ;; vector
@@ -386,11 +396,19 @@
                                                 #'(CIVectorof (CU τ ...))
                                                 #'(CIVectorof (U τ ...)))]]])
 ;; ---------------------------------
+;; IO
+
+(define-rosette-primop printf : (Ccase-> (C→ CString CUnit)
+                                         (C→ CString Any CUnit)
+                                         (C→ CString Any Any CUnit)))
+(define-rosette-primop error : (C→ (CU CString CSymbol) Nothing))
+(define-rosette-primop void : (C→ CUnit))
+
+;; ---------------------------------
 ;; Types for built-in operations
 
 (define-rosette-primop equal? : (C→ Any Any Bool))
 (define-rosette-primop eq? : (C→ Any Any Bool))
-(define-rosette-primop error : (C→ (CU CString CSymbol) Nothing))
 
 (define-rosette-primop pi : CNum)
 

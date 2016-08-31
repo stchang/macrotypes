@@ -2,9 +2,7 @@
 (require "../rackunit-typechecking.rkt"
          "check-type+asserts.rkt")
 
-;; all examples from the Rosette Guide
-
-;; sec 2
+;; all examples from the Rosette Guide, Sec 2
 
 (define-symbolic b boolean? : Bool)
 (check-type b : Bool)
