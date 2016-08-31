@@ -82,11 +82,18 @@
 (check-type+asserts (same poly factored -1) : Unit -> (void) (list))
 (check-type+asserts (same poly factored -2) : Unit -> (void) (list))
 
+;; 2.3.1 Verification
+
 (define-symbolic i integer? : Int)
 (define cex (verify (same poly factored i)))
+(check-type cex : CSolution)
+(check-type (sat? cex) : Bool -> #t)
+(check-type (unsat? cex) : Bool -> #f)
 (check-type (evaluate i cex) : Int -> 12)
 (check-runtime-exn (same poly factored 12))
 (clear-asserts!)
+
+;; 2.3.2 Debugging
 
 (require "../../rosette/query/debug.rkt"
          "../../rosette/lib/render.rkt")
@@ -98,6 +105,8 @@
 ;; TESTING TODO: requires visual inspection (in DrRacket)
 (check-type (render ucore) : CPict)
 
+;; 2.3.3 Synthesis
+
 (require "../../rosette/lib/synthax.rkt")
 (define (factored/?? [x : Int] -> Int)
  (* (+ x (??)) (+ x 1) (+ x (??)) (+ x (??))))
@@ -107,9 +116,28 @@
               #:guarantee (same poly factored/?? i)))
 (check-type binding : CSolution)
 (check-type (sat? binding) : Bool -> #t)
+(check-type (unsat? binding) : Bool -> #f)
 ;; TESTING TODO: requires visual inspection of stdout
 (check-type (print-forms binding) : Unit -> (void))
 ;; typed/rosette should print: 
 ;;  '(define (factored/?? (x : Int) -> Int) (* (+ x 3) (+ x 1) (+ x 2) (+ x 0)))
 ;; (untyped) rosette should print: 
 ;;  '(define (factored x) (* (+ x 3) (+ x 1) (+ x 2) (+ x 0)))
+
+;; 2.3.4 Angelic Execution
+
+(define-symbolic x y integer? : Int)
+(define sol
+  (solve (begin (assert (not (= x y)))
+                (assert (< (abs x) 10))
+                (assert (< (abs y) 10))
+                (assert (not (= (poly x) 0)))
+                (assert (= (poly x) (poly y))))))
+(check-type sol : CSolution)
+(check-type (sat? sol) : Bool -> #t)
+(check-type (unsat? sol) : Bool -> #f)
+(check-type (evaluate x sol) : Int -> -5)
+(check-type (evaluate y sol) : Int -> 2)
+(check-type (evaluate (poly x) sol) : Int -> 120)
+(check-type (evaluate (poly y) sol) : Int -> 120)
+

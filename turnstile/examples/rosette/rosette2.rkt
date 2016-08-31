@@ -459,7 +459,18 @@
 (define-rosette-primop <= : (Ccase-> (C→ CInt CInt CBool)
                                      (C→ Int Int Bool)))
 (define-rosette-primop >= : (Ccase-> (C→ CInt CInt CBool)
-                                    (C→ Int Int Bool)))
+                                     (C→ Int Int Bool)))
+
+(define-rosette-primop abs : (Ccase-> (C→ CPosInt CPosInt)
+                                      (C→ PosInt PosInt)
+                                      (C→ CZero CZero)
+                                      (C→ Zero Zero)
+                                      (C→ CNegInt CPosInt)
+                                      (C→ NegInt PosInt)
+                                      (C→ CInt CInt)
+                                      (C→ Int Int)
+                                      (C→ CNum CNum)
+                                      (C→ Num Num)))
 
 (define-rosette-primop not : (C→ Any Bool))
 (define-rosette-primop false? : (C→ Any Bool))
@@ -552,6 +563,10 @@
 
 (define-base-types CSolution CPict)
 
+(define-rosette-primop core : (C→ Any Any))
+(define-rosette-primop sat? : (C→ Any Bool))
+(define-rosette-primop unsat? : (C→ Any Bool))
+
 (define-typed-syntax verify
   [(_ e) ≫
    [⊢ [e ≫ e- ⇒ : _]]
@@ -570,8 +585,6 @@
    --------
    [⊢ [_ ≫ (ro:evaluate v- s-) ⇒ : ty]]])
 
-(define-rosette-primop core : (C→ Any Any))
-(define-rosette-primop sat? : (C→ Any Bool))
 
 (define-typed-syntax synthesize
   [(_ #:forall ie #:guarantee ge) ≫
@@ -585,6 +598,12 @@
    [⊢ [ge ≫ ge- ⇒ : _]]
    --------
    [⊢ [_ ≫ (ro:synthesize #:forall ie- #:assume ae- #:guarantee ge-) ⇒ : CSolution]]])
+
+(define-typed-syntax solve
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : _]]
+   --------
+   [⊢ [_ ≫ (ro:solve e-) ⇒ : CSolution]]])
 
 ;; ---------------------------------
 ;; Subtyping
