@@ -1,4 +1,4 @@
-#lang turnstile
+#lang turnstile/lang
 (extends "stlc+tup.rkt" #:except × ×? tup proj ~× ~×*)
 (require (only-in "stlc+tup.rkt" [~× ~stlc:×]))
 (provide × ∨ (for-syntax ~× ~×* ~∨ ~∨*))

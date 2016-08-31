@@ -1,4 +1,4 @@
-#lang turnstile
+#lang turnstile/lang
 (extends "stlc+lit.rkt" #:except #%datum +)
 (reuse Bool String add1 #:from "ext-stlc.rkt")
 (require (prefix-in ext: (only-in "ext-stlc.rkt" #%datum))

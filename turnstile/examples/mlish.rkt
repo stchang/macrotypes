@@ -1,4 +1,4 @@
-#lang turnstile
+#lang turnstile/lang
 (require racket/fixnum racket/flonum
          (for-syntax macrotypes/type-constraints macrotypes/variance-constraints))
 

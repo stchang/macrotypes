@@ -1,4 +1,4 @@
-#lang turnstile
+#lang turnstile/lang
 (extends "ext-stlc.rkt")
 
 (require (for-syntax racket/list))

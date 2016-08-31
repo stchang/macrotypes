@@ -1,4 +1,4 @@
-#lang turnstile
+#lang turnstile/lang
 (extends "stlc+lit.rkt" #:except #%datum)
 (provide ⊔ (for-syntax current-join))
 

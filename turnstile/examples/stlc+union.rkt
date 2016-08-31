@@ -1,4 +1,4 @@
-#lang turnstile
+#lang turnstile/lang
 (extends "ext-stlc.rkt" 
  #:except #%app #%datum + add1 sub1 *
           Int Int? ~Int Float Float? ~Float Bool ~Bool Bool?)

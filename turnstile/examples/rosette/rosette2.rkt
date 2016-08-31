@@ -1,12 +1,13 @@
 #lang turnstile
 (extends "../stlc.rkt"
-  #:except #%app →)
+  #:except #%module-begin #%app →)
 (reuse #%datum #:from "../stlc+union.rkt")
 (reuse define-type-alias #:from "../stlc+reco+var.rkt")
 (reuse define-named-type-alias #:from "../stlc+union.rkt")
 (reuse list #:from "../stlc+cons.rkt")
 
-(provide Any Nothing
+(provide (rename-out [ro:#%module-begin #%module-begin])
+         Any Nothing
          CU U
          C→ → (for-syntax ~C→ C→?)
          Ccase-> ; TODO: symbolic case-> not supported yet

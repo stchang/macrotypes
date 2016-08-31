@@ -1,4 +1,4 @@
-#lang turnstile
+#lang turnstile/lang
 (extends "ext-stlc.rkt" #:except #%app λ ann)
 (reuse inst #:from "sysf.rkt")
 (require (only-in "sysf.rkt" ∀ ~∀ ∀? Λ))

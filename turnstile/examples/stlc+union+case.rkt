@@ -1,4 +1,4 @@
-#lang turnstile
+#lang turnstile/lang
 (extends "stlc+union.rkt"
  #:except #%app add1 sub1)
 (provide case→)

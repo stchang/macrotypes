@@ -1,4 +1,4 @@
-#lang turnstile
+#lang turnstile/lang
 (extends "stlc+cons.rkt")
 
 ;; Simply-Typed Lambda Calculus, plus mutable references

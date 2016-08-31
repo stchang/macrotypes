@@ -1,10 +1,4 @@
 #lang turnstile
-;#lang racket/base
-#;(require (except-in "../../../turnstile/turnstile.rkt"
-          #%module-begin 
-          zero? void error sub1 or and not add1 = >= <= < >  - * + boolean? integer? real? positive? string? quote pregexp
-          make-parameter equal? eq? list ~Any)
-         (for-syntax (except-in "../../../turnstile/turnstile.rkt")))
 (extends "rosette2.rkt" ; extends typed rosette
          #:except bv bveq bvslt bvult bvsle bvule bvsgt bvugt bvsge bvuge)
 (require (only-in "../stlc+lit.rkt" define-primop))

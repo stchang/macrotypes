@@ -1,4 +1,4 @@
-#lang turnstile
+#lang turnstile/lang
 (extends "sysf.rkt" #:except #%datum ∀ Λ inst)
 (reuse String #%datum #:from "stlc+reco+var.rkt")
 (require (only-in "fomega.rkt" current-kind? ∀★? ★? kind?))

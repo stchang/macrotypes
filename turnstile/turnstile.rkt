@@ -4,10 +4,11 @@
          define-typed-syntax
          (for-syntax syntax-parse/typed-syntax))
 
-(require (rename-in
-          macrotypes/typecheck
-          [define-typed-syntax -define-typed-syntax]
-          ))
+(require (except-in (rename-in
+                     macrotypes/typecheck
+                     [define-typed-syntax -define-typed-syntax]
+                     )
+                    #%module-begin))
 
 (module typecheck+ racket/base
   (provide (all-defined-out))

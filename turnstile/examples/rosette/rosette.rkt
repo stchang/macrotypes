@@ -1,22 +1,11 @@
-;#lang turnstile
-#lang racket/base
-;; (require racket/require)
-;; (require 
-;;  (except-in
-;;   (subtract-in "../../../turnstile/turnstile.rkt" 
-;;                (except-in "../ext-stlc.rkt" #%app #%top #%datum))))
-(require (except-in "../../../turnstile/turnstile.rkt" 
-           #%module-begin 
-           zero? void sub1 or and not add1 = - * + boolean? integer? list)
-         (for-syntax (except-in "../../../turnstile/turnstile.rkt")))
-(provide (rename-out [ro:#%module-begin #%module-begin]))
+#lang turnstile
 (extends "../stlc+union+case.rkt" #:except if #%app #%module-begin add1 sub1 +)
 (reuse List list #:from "../stlc+cons.rkt")
 (require (only-in "../stlc+reco+var.rkt" [define stlc:define]))
 ;(require (only-in "../stlc+reco+var.rkt" define-type-alias))
 (require (prefix-in ro: rosette))
 (require (prefix-in ro: rosette/lib/synthax))
-(provide BVPred)
+(provide BVPred (rename-out [ro:#%module-begin #%module-begin]))
 
 (define-simple-macro (define-rosette-primop op:id : ty)
   (begin

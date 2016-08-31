@@ -1,4 +1,4 @@
-#lang turnstile
+#lang turnstile/lang
 (provide only-in (for-syntax current-type=? types=?))
 
 (begin-for-syntax
