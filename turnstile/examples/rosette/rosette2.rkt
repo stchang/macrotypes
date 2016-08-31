@@ -252,7 +252,7 @@
    [⊢ [e_arg ≫ e_arg- ⇐ : τ_in] ...]
    --------
    ;; TODO: use e_fn/progsrc- (currently causing "cannot use id tainted in macro trans" err)
-   [⊢ [_ ≫ (ro:#%app e_fn- e_arg- ...) ⇒ : τ_out]]]
+   [⊢ [_ ≫ (ro:#%app e_fn/progsrc- e_arg- ...) ⇒ : τ_out]]]
   [(_ e_fn e_arg ...) ≫
    [⊢ [e_fn ≫ e_fn- ⇒ : (~Ccase-> ~! . (~and ty_fns ((~C→ . _) ...)))]]
    #:with e_fn/progsrc- (replace-stx-loc #'e_fn- #'e_fn)

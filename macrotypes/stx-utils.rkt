@@ -74,7 +74,7 @@
 (define (transfer-stx-props new orig #:ctx [ctx new])
   (datum->syntax ctx (syntax-e new) orig orig))
 (define (replace-stx-loc old new)
-  (datum->syntax old (syntax-e old) new old))
+  (datum->syntax (syntax-disarm old #f) (syntax-e (syntax-disarm old #f)) new old))
 
 ;; set-stx-prop/preserved : Stx Any Any -> Stx
 ;; Returns a new syntax object with the prop property set to val. If preserved
