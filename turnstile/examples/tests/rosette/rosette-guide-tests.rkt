@@ -141,3 +141,4 @@
 (check-type (evaluate (poly x) sol) : Int -> 120)
 (check-type (evaluate (poly y) sol) : Int -> 120)
 
+;; 2.4 Symbolic Reasoning

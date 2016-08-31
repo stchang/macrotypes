@@ -24,7 +24,7 @@
    --------
    [⊢ [_ ≫ (bv:BV) ⇒ : CBVPred]]]
   [(_ e) ≫
-   [⊢ [e ≫ e- ⇒ : CBVPred]]
+   [⊢ [e ≫ e- ⇐ : CBVPred]]
    --------
    [⊢ [_ ≫ (bv:BV e-) ⇒ : CUnit]]])
 

@@ -1,8 +1,9 @@
 #lang turnstile
 (extends "ext-stlc.rkt" 
- #:except #%app #%datum + add1 sub1 * Int Int? ~Int Float Float? ~Float)
+ #:except #%app #%datum + add1 sub1 *
+          Int Int? ~Int Float Float? ~Float Bool ~Bool Bool?)
 (reuse define-type-alias #:from "stlc+reco+var.rkt")
-(provide Int Num Nat U
+(provide Int Num Nat U Bool
          define-named-type-alias
          (for-syntax current-sub? prune+sort))
 
@@ -33,7 +34,7 @@
            [(_ x ...) (add-orig #'ty stx)]))]))
 
 
-(define-base-types Zero NegInt PosInt Float)
+(define-base-types Zero NegInt PosInt Float False True)
 (define-type-constructor U* #:arity >= 0)
 
 (define-for-syntax (prune+sort tys)
@@ -53,6 +54,9 @@
      (if (= 1 (stx-length #'tys-))
          (stx-car #'tys)
          #'(U* . tys-))]))
+(define-syntax Bool
+  (make-variable-like-transformer
+   (add-orig #'(U False True) #'Bool)))
 (define-syntax Nat
   (make-variable-like-transformer 
    (add-orig #'(U Zero PosInt) #'Nat)))
@@ -68,6 +72,10 @@
 (define-primop sub1 : (→ Int Int))
 
 (define-typed-syntax datum #:export-as #%datum
+  [(_ . b:boolean) ≫
+   #:with ty_out (if (syntax-e #'b) #'True #'False)
+   --------
+   [⊢ [_ ≫ (#%datum- . b) ⇒ : ty_out]]]
   [(_ . n:integer) ≫
    #:with ty_out (let ([m (syntax-e #'n)])
                    (cond [(zero? m) #'Zero]

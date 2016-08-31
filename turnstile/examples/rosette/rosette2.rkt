@@ -19,7 +19,7 @@
          CInt Int
          CFloat Float
          CNum Num
-         CBool Bool
+         CFalse CTrue CBool Bool
          CString String
          CStx ; symblic Stx not supported
          ;; BV types
@@ -33,7 +33,7 @@
  (prefix-in C
    (combine-in
     (only-in "../stlc+union+case.rkt"
-             PosInt Zero NegInt Float Bool String [U U*] U*? [case-> case->*] → →?)
+             PosInt Zero NegInt Float True False String [U U*] U*? [case-> case->*] → →?)
     (only-in "../stlc+cons.rkt" Unit [List Listof])))
  (only-in "../stlc+union+case.rkt" [~U* ~CU*] [~case-> ~Ccase->] [~→ ~C→])
  (only-in "../stlc+cons.rkt" [~List ~CListof])
@@ -116,7 +116,6 @@
 (define-named-type-alias Zero (add-predm (U CZero) zero-integer?))
 (define-named-type-alias PosInt (add-predm (U CPosInt) positive-integer?))
 (define-named-type-alias Float (U CFloat))
-(define-named-type-alias Bool (add-predm (U CBool) ro:boolean?))
 (define-named-type-alias String (U CString))
 (define-named-type-alias Unit (add-predm (U CUnit) ro:void?))
 (define-named-type-alias (CParamof X) (Ccase-> (C→ X)
@@ -138,6 +137,7 @@
          (define-named-type-alias CName Cτ)
          (define-named-type-alias Name (add-predm (U CName) p?)))]))
 
+(define-symbolic-named-type-alias Bool (CU CFalse CTrue) #:pred ro:boolean?)
 (define-symbolic-named-type-alias Nat (CU CZero CPosInt) #:pred nonnegative-integer?)
 (define-symbolic-named-type-alias Int (CU CNegInt CNat) #:pred ro:integer?)
 (define-symbolic-named-type-alias Num (CU CFloat CInt) #:pred ro:real?)
@@ -488,6 +488,20 @@
 
 ;; ---------------------------------
 ;; BV Types and Operations
+
+;; this must be a macro in order to support Racket's overloaded set/get
+;; parameter patterns
+(define-typed-syntax current-bitwidth
+  [_:id ≫
+   --------
+   [⊢ [_ ≫ ro:current-bitwidth ⇒ : (CParamof (CU CFalse CPosInt))]]]
+  [(_) ≫
+   --------
+   [⊢ [_ ≫ (ro:current-bitwidth) ⇒ : (CU CFalse CPosInt)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇐ : (CU CFalse CPosInt)]]
+   --------
+   [⊢ [_ ≫ (ro:current-bitwidth e-) ⇒ : CUnit]]])
 
 (define-named-type-alias BV (add-predm (U CBV) bv?))
 (define-symbolic-named-type-alias BVPred (C→ BV Bool) #:pred lifted-bitvector?)

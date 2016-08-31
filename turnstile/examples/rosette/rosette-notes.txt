@@ -60,6 +60,7 @@ TODOs:
 - create version of turnstile that does not provide #%module-begin
   - eg rename existing turnstile to turnstile/lang?
 - remove my-this-syntax stx param
+- add symbolic True and False?
 
 
 2016-08-25 --------------------
