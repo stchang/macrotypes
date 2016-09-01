@@ -33,6 +33,8 @@
 (check-type res : (CList Bool Nat))
 
 (check-type (second res) : Nat -> (if (first res) 0 3))
+;; use car and cdr instead
+(check-type (car (cdr res)) : Nat -> (if (car res) 0 3))
  
 ;; 3.2 Solver-Aided Forms
 

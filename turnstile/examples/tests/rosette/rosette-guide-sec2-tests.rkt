@@ -182,3 +182,53 @@
 (check-type sol3 : CSolution)
 (check-type (sat? sol3) : Bool -> #t)
 (check-type (evaluate y1 sol3) : Num -> 0.0)
+
+;; these examples uses symbolic lists
+(check-type
+ (letrec ([[ones : (C→ Int (Listof Int))]
+           (lambda ([n : Int])
+             (if (<= n 0)
+                 (list)
+                 (cons 1 (ones (- n 1)))))])
+   (printf "~a" (ones 3))
+   (printf "~a" (ones x)))
+ : Unit)
+
+(check-type
+ (letrec ([[ones : (C→ Int (Listof Int))]
+           (lambda ([n : Int])
+             (if (<= n 0)
+                 (list)
+                 (cons 1 (ones (- n 1)))))])
+   (ones 3))
+ : (Listof Int) -> (list 1 1 1))
+
+;; inf loop
+(check-type
+ (letrec ([[ones : (C→ Int (Listof Int))]
+           (lambda ([n : Int])
+             (if (<= n 0)
+                 (list)
+                 (cons 1 (ones (- n 1)))))])
+   (ones x))
+ : (Listof Int))
+
+;; drop lambda annotation
+(check-type
+ (letrec ([[ones : (C→ Int (Listof Int))]
+           (lambda (n)
+             (if (<= n 0)
+                 (list)
+                 (cons 1 (ones (- n 1)))))])
+   (printf "~a" (ones 3))
+   (printf "~a" (ones x)))
+ : Unit)
+
+(check-type
+ (letrec ([[adder : (C→ (CListof Int) Int (CListof Int))]
+           (lambda (vs n)
+             (if (null? vs)
+                 (list)
+                 (cons (+ (car vs) n) (adder (cdr vs) n))))])
+   (adder '(1 2 3) x))
+ : (CListof Int) -> (list (+ 1 x) (+ 2 x) (+ 3 x)))

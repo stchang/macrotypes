@@ -4,7 +4,9 @@
 (reuse #%datum define-type-alias define-named-type-alias
        #:from "../stlc+union.rkt")
 
-(provide (rename-out [ro:#%module-begin #%module-begin])
+(provide (rename-out [ro:#%module-begin #%module-begin] 
+                     [stlc:λ lambda]
+                     [first car] [rest cdr])
          Any Nothing
          CU U
          C→ → (for-syntax ~C→ C→?)
@@ -142,6 +144,7 @@
 (define-named-type-alias Unit (add-predm (U CUnit) ro:void?))
 (define-named-type-alias (CParamof X) (Ccase-> (C→ X)
                                                (C→ X CUnit)))
+(define-named-type-alias (Listof X) (U (CListof X)))
 
 (define-syntax →
   (syntax-parser
@@ -259,6 +262,9 @@
   [(_ x:id) ≫
    --------
    [⊢ [_ ≫ (quote- x) ⇒ : CSymbol]]]
+  [(_ (x:integer ...)) ≫
+   --------
+   [⊢ [_ ≫ (quote- (x ...)) ⇒ : (CListof CInt)]]]
   [(_ (x:id ...)) ≫
    --------
    [⊢ [_ ≫ (quote- (x ...)) ⇒ : (CListof CSymbol)]]])
@@ -377,6 +383,18 @@
    --------
    [_ ≻ (let ([x e]) (let* ([x_rst e_rst] ...) e_body ...))]])
 
+(define-typed-syntax letrec
+  [(letrec ([b:type-bind e] ...) e_body ...) ⇐ : τ_expected ≫
+   [() ([b.x ≫ x- : b.type] ...)
+    ⊢ [e ≫ e- ⇐ : b.type] ... [(begin e_body ...) ≫ e_body- ⇐ : τ_expected]]
+   --------
+   [⊢ [_ ≫ (ro:letrec ([x- e-] ...) e_body-) ⇐ : _]]]
+  [(letrec ([b:type-bind e] ...) e_body ...) ≫
+   [() ([b.x ≫ x- : b.type] ...)
+    ⊢ [e ≫ e- ⇐ : b.type] ... [(begin e_body ...) ≫ e_body- ⇒ : τ_body]]
+   --------
+   [⊢ [_ ≫ (ro:letrec ([x- e-] ...) e_body-) ⇒ : τ_body]]])
+
 ;; --------------------
 ;; begin
 
@@ -424,6 +442,11 @@
 ;; ---------------------------------
 ;; lists
 
+(define-rosette-primop null? : (Ccase-> (C→ (CListof Any) CBool)
+                                        (C→ (Listof Any) Bool)))
+(define-rosette-primop empty? : (Ccase-> (C→ (CListof Any) CBool)
+                                         (C→ (Listof Any) Bool)))
+
 (define-typed-syntax list
   [(_ e ...) ≫
    [⊢ [e ≫ e- ⇒ : τ] ...]
@@ -433,82 +456,93 @@
 (define-typed-syntax cons
   [_:id ≫ ;; TODO: use polymorphism
    --------
-   [⊢ [_ ≫ ro:cons ⇒ : (C→ Any (CListof Any) (CListof Any))]]]
+   [⊢ [_ ≫ ro:cons ⇒ : (Ccase-> (C→ Any (CListof Any) (CListof Any))
+                                (C→ Any (Listof Any) (Listof Any)))]]]
   [(_ e1 e2) ≫
    [⊢ [e2 ≫ e2- ⇒ : (~CListof τ)]]
    [⊢ [e1 ≫ e1- ⇐ : τ]]
    --------
    [⊢ [_ ≫ (ro:cons e1- e2-) ⇒ : (CListof τ)]]]
   [(_ e1 e2) ≫
+   [⊢ [e2 ≫ e2- ⇒ : (~U* (~CListof τ) ...)]]
+   [⊢ [e1 ≫ e1- ⇒ : τ1]]
+   --------
+   [⊢ [_ ≫ (ro:cons e1- e2-) ⇒ : (U (CListof (U τ1 τ)) ...)]]]
+  [(_ e1 e2) ≫
    [⊢ [e1 ≫ e1- ⇒ : τ1]]
    [⊢ [e2 ≫ e2- ⇒ : (~CList τ ...)]]
    --------
-   [⊢ [_ ≫ (ro:cons e1- e2-) ⇒ : (CList τ1 τ ...)]]])
+   [⊢ [_ ≫ (ro:cons e1- e2-) ⇒ : (CList τ1 τ ...)]]]
+  [(_ e1 e2) ≫
+   [⊢ [e1 ≫ e1- ⇒ : τ1]]
+   [⊢ [e2 ≫ e2- ⇒ : (~U* (~CList τ ...) ...)]]
+   --------
+   [⊢ [_ ≫ (ro:cons e1- e2-) ⇒ : (U (CList τ1 τ ...) ...)]]])
 
-(define-typed-syntax car
-  [_:id ≫ ;; TODO: use polymorphism
-   --------
-   [⊢ [_ ≫ ro:car ⇒ : (C→ (CListof Any) Any)]]]
-  [(_ e) ≫
-   [⊢ [e ≫ e- ⇒ : (~CListof τ)]]
-   --------
-   [⊢ [_ ≫ (ro:car e-) ⇒ : τ]]]
-  [(_ e) ≫
-   [⊢ [e ≫ e- ⇒ : (~CList τ1 τ ...)]]
-   --------
-   [⊢ [_ ≫ (ro:car e-) ⇒ : τ1]]])
-
-(define-typed-syntax cdr
-  [_:id ≫ ;; TODO: use polymorphism
-   --------
-   [⊢ [_ ≫ ro:cdr ⇒ : (C→ (CListof Any) (CListof Any))]]]
-  [(_ e) ≫
-   [⊢ [e ≫ e- ⇒ : (~CListof τ)]]
-   --------
-   [⊢ [_ ≫ (ro:cdr e-) ⇒ : (CListof τ)]]]
-  [(_ e) ≫
-   [⊢ [e ≫ e- ⇒ : (~CList τ1 τ ...)]]
-   --------
-   [⊢ [_ ≫ (ro:cdr e-) ⇒ : (CList τ ...)]]])
-
+;; in typed rosette, car and cdr are the same as first and rest?
 (define-typed-syntax first
   [_:id ≫ ;; TODO: use polymorphism
    --------
-   [⊢ [_ ≫ ro:first ⇒ : (C→ (CListof Any) Any)]]]
+   [⊢ [_ ≫ ro:first ⇒ : (C→ (Listof Any) Any)]]]
   [(_ e) ≫
    [⊢ [e ≫ e- ⇒ : (~CListof τ)]]
    --------
    [⊢ [_ ≫ (ro:first e-) ⇒ : τ]]]
   [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CListof τ) ...)]]
+   --------
+   [⊢ [_ ≫ (ro:first e-) ⇒ : (U τ ...)]]]
+  [(_ e) ≫
    [⊢ [e ≫ e- ⇒ : (~CList τ1 τ ...)]]
    --------
-   [⊢ [_ ≫ (ro:first e-) ⇒ : τ1]]])
+   [⊢ [_ ≫ (ro:first e-) ⇒ : τ1]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CList τ1 τ ...) ...)]]
+   --------
+   [⊢ [_ ≫ (ro:first e-) ⇒ : (U τ1 ...)]]])
 
 (define-typed-syntax rest
   [_:id ≫ ;; TODO: use polymorphism
    --------
-   [⊢ [_ ≫ ro:rest ⇒ : (C→ (CListof Any) (CListof Any))]]]
+   [⊢ [_ ≫ ro:rest ⇒ : (Ccase-> (C→ (CListof Any) (CListof Any))
+                                (C→ (Listof Any) (Listof Any)))]]]
   [(_ e) ≫
    [⊢ [e ≫ e- ⇒ : (~CListof τ)]]
    --------
    [⊢ [_ ≫ (ro:rest e-) ⇒ : (CListof τ)]]]
   [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CListof τ) ...)]]
+   --------
+   [⊢ [_ ≫ (ro:rest e-) ⇒ : (U (CListof τ) ...)]]]
+  [(_ e) ≫
    [⊢ [e ≫ e- ⇒ : (~CList τ1 τ ...)]]
    --------
-   [⊢ [_ ≫ (ro:rest e-) ⇒ : (CList τ ...)]]])
+   [⊢ [_ ≫ (ro:rest e-) ⇒ : (CList τ ...)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CList τ1 τ ...) ...)]]
+   --------
+   [⊢ [_ ≫ (ro:rest e-) ⇒ : (U (CList τ ...) ...)]]])
 
 (define-typed-syntax second
   [_:id ≫ ;; TODO: use polymorphism
    --------
-   [⊢ [_ ≫ ro:second ⇒ : (C→ (CListof Any) Any)]]]
+   [⊢ [_ ≫ ro:second ⇒ : (C→ (Listof Any) Any)]]]
   [(_ e) ≫
    [⊢ [e ≫ e- ⇒ : (~CListof τ)]]
    --------
    [⊢ [_ ≫ (ro:second e-) ⇒ : τ]]]
   [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CListof τ) ...)]]
+   --------
+   [⊢ [_ ≫ (ro:second e-) ⇒ : (U τ ...)]]]
+  [(_ e) ≫
    [⊢ [e ≫ e- ⇒ : (~CList τ1 τ2 τ ...)]]
    --------
-   [⊢ [_ ≫ (ro:second e-) ⇒ : τ2]]])
+   [⊢ [_ ≫ (ro:second e-) ⇒ : τ2]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CList τ1 τ2 τ ...) ...)]]
+   --------
+   [⊢ [_ ≫ (ro:second e-) ⇒ : (U τ2 ...)]]])
 
 ;; ---------------------------------
 ;; IO and other built-in ops
