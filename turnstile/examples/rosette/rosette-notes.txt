@@ -51,6 +51,7 @@ TODOs:
  - STARTED 2016-08-26
 - support internal definition contexts
 - fix type of Vector and List to differentiate homogeneous/hetero
+  - 2016-09-01: add CList for hetero lists
 - variable arity polymorphism
 - CSolution?
 - make libs have appropriate require paths

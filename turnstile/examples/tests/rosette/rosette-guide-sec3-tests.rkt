@@ -18,3 +18,19 @@
 ;; y1 symbolic: (ite x1 0 3)
 (check-type y1 : Nat -> (if x1 0 3))
 
+
+(define res
+ (let ([y (ann 0 : Nat)])
+   (if #t (void) (set! y 3))
+   (printf "y unchanged: ~a\n" y)
+   (if #f (set! y 3) (void))
+   (printf "y unchanged: ~a\n" y)
+   (let-symbolic ([(x) boolean? : Bool])
+     (if x (void) (set! y 3))
+     (printf "y symbolic: ~a\n" y)
+     (list x y))))
+
+(check-type res : (CList Bool Nat))
+
+(check-type (second res) : Nat -> (if (first res) 0 3))
+ 

@@ -3,7 +3,6 @@
   #:except #%module-begin #%app →)
 (reuse #%datum define-type-alias define-named-type-alias
        #:from "../stlc+union.rkt")
-(reuse list #:from "../stlc+cons.rkt")
 
 (provide (rename-out [ro:#%module-begin #%module-begin])
          Any Nothing
@@ -83,6 +82,7 @@
 (define-type-constructor CIVectorof #:arity = 1)
 (define-type-constructor CMVectorof #:arity = 1)
 (define-named-type-alias (CVectorof X) (CU (CIVectorof X) (CMVectorof X)))
+(define-type-constructor CList #:arity >= 0)
 
 (define-syntax (CU stx)
   (syntax-parse stx
@@ -395,6 +395,7 @@
 ;; ---------------------------------
 ;; set!
 
+;; TODO: use x instead of x-?
 (define-typed-syntax set!
   [(set! x:id e) ≫
    [⊢ [x ≫ x- ⇒ : ty_x]]
@@ -419,6 +420,96 @@
    [⊢ [_ ≫ (ro:vector-immutable e- ...) ⇒ : (if (stx-andmap concrete? #'(τ ...))
                                                 #'(CIVectorof (CU τ ...))
                                                 #'(CIVectorof (U τ ...)))]]])
+
+;; ---------------------------------
+;; lists
+
+(define-typed-syntax list
+  [(_ e ...) ≫
+   [⊢ [e ≫ e- ⇒ : τ] ...]
+   --------
+   [⊢ [_ ≫ (ro:list e- ...) ⇒ : (CList τ ...)]]])
+
+(define-typed-syntax cons
+  [_:id ≫ ;; TODO: use polymorphism
+   --------
+   [⊢ [_ ≫ ro:cons ⇒ : (C→ Any (CListof Any) (CListof Any))]]]
+  [(_ e1 e2) ≫
+   [⊢ [e2 ≫ e2- ⇒ : (~CListof τ)]]
+   [⊢ [e1 ≫ e1- ⇐ : τ]]
+   --------
+   [⊢ [_ ≫ (ro:cons e1- e2-) ⇒ : (CListof τ)]]]
+  [(_ e1 e2) ≫
+   [⊢ [e1 ≫ e1- ⇒ : τ1]]
+   [⊢ [e2 ≫ e2- ⇒ : (~CList τ ...)]]
+   --------
+   [⊢ [_ ≫ (ro:cons e1- e2-) ⇒ : (CList τ1 τ ...)]]])
+
+(define-typed-syntax car
+  [_:id ≫ ;; TODO: use polymorphism
+   --------
+   [⊢ [_ ≫ ro:car ⇒ : (C→ (CListof Any) Any)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CListof τ)]]
+   --------
+   [⊢ [_ ≫ (ro:car e-) ⇒ : τ]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CList τ1 τ ...)]]
+   --------
+   [⊢ [_ ≫ (ro:car e-) ⇒ : τ1]]])
+
+(define-typed-syntax cdr
+  [_:id ≫ ;; TODO: use polymorphism
+   --------
+   [⊢ [_ ≫ ro:cdr ⇒ : (C→ (CListof Any) (CListof Any))]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CListof τ)]]
+   --------
+   [⊢ [_ ≫ (ro:cdr e-) ⇒ : (CListof τ)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CList τ1 τ ...)]]
+   --------
+   [⊢ [_ ≫ (ro:cdr e-) ⇒ : (CList τ ...)]]])
+
+(define-typed-syntax first
+  [_:id ≫ ;; TODO: use polymorphism
+   --------
+   [⊢ [_ ≫ ro:first ⇒ : (C→ (CListof Any) Any)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CListof τ)]]
+   --------
+   [⊢ [_ ≫ (ro:first e-) ⇒ : τ]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CList τ1 τ ...)]]
+   --------
+   [⊢ [_ ≫ (ro:first e-) ⇒ : τ1]]])
+
+(define-typed-syntax rest
+  [_:id ≫ ;; TODO: use polymorphism
+   --------
+   [⊢ [_ ≫ ro:rest ⇒ : (C→ (CListof Any) (CListof Any))]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CListof τ)]]
+   --------
+   [⊢ [_ ≫ (ro:rest e-) ⇒ : (CListof τ)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CList τ1 τ ...)]]
+   --------
+   [⊢ [_ ≫ (ro:rest e-) ⇒ : (CList τ ...)]]])
+
+(define-typed-syntax second
+  [_:id ≫ ;; TODO: use polymorphism
+   --------
+   [⊢ [_ ≫ ro:second ⇒ : (C→ (CListof Any) Any)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CListof τ)]]
+   --------
+   [⊢ [_ ≫ (ro:second e-) ⇒ : τ]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CList τ1 τ2 τ ...)]]
+   --------
+   [⊢ [_ ≫ (ro:second e-) ⇒ : τ2]]])
+
 ;; ---------------------------------
 ;; IO and other built-in ops
 
@@ -677,39 +768,45 @@
      ((current-type=?) t1 t2)
      (syntax-parse (list t1 t2)
        [((~CListof ty1) (~CListof ty2))
-        ((current-sub?) #'ty1 #'ty2)]
+        (typecheck? #'ty1 #'ty2)]
+       [((~CList . tys1) (~CList . tys2))
+        (and (stx-length=? #'tys1 #'tys2)
+             (typechecks? #'tys1 #'tys2))]
+       [((~CList . tys) (~CListof . ty))
+        (for/and ([t (stx->list #'tys)])
+          (typecheck? t #'ty))]
        ;; vectors, only immutable vectors are invariant
        [((~CIVectorof . tys1) (~CIVectorof . tys2))
         (stx-andmap (current-sub?) #'tys1 #'tys2)]
        ; 2 U types, subtype = subset
        [((~CU* . ts1) _)
         (for/and ([t (stx->list #'ts1)])
-          ((current-sub?) t t2))]
+          (typecheck? t t2))]
        [((~U* . ts1) _)
         (and
          (not (concrete? t2))
          (for/and ([t (stx->list #'ts1)])
-           ((current-sub?) t t2)))]
+           (typecheck? t t2)))]
        ; 1 U type, 1 non-U type. subtype = member
        [(_ (~CU* . ts2))
         #:when (not (or (U*? t1) (CU*? t1)))
         (for/or ([t (stx->list #'ts2)])
-          ((current-sub?) t1 t))]
+          (typecheck? t1 t))]
        [(_ (~U* . ts2))
         #:when (not (or (U*? t1) (CU*? t1)))
         (for/or ([t (stx->list #'ts2)])
-          ((current-sub?) t1 t))]
+          (typecheck? t1 t))]
        ; 2 case-> types, subtype = subset
        [(_ (~Ccase-> . ts2))
         (for/and ([t (stx->list #'ts2)])
-          ((current-sub?) t1 t))]
+          (typecheck? t1 t))]
        ; 1 case-> , 1 non-case->
        [((~Ccase-> . ts1) _)
         (for/or ([t (stx->list #'ts1)])
-          ((current-sub?) t t2))]
+          (typecheck? t t2))]
        [((~C→ s1 ... s2) (~C→ t1 ... t2))
-        (and (subs? #'(t1 ...) #'(s1 ...))
-             ((current-sub?) #'s2 #'t2))]
+        (and (typechecks? #'(t1 ...) #'(s1 ...))
+             (typecheck? #'s2 #'t2))]
        [_ #f])))
   (current-sub? sub?)
   (current-typecheck-relation sub?)
