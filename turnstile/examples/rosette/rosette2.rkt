@@ -562,6 +562,18 @@
                                           (C→ Num Num Num)
                                           (C→ Num Num Num Num)
                                           (C→ Num Num Num Num Num))]
+                            [- : (Ccase-> (C→ CInt CInt CInt)
+                                          (C→ CInt CInt CInt CInt)
+                                          (C→ CInt CInt CInt CInt CInt)
+                                          (C→ Int Int Int)
+                                          (C→ Int Int Int Int)
+                                          (C→ Int Int Int Int Int)
+                                          (C→ CNum CNum CNum)
+                                          (C→ CNum CNum CNum CNum)
+                                          (C→ CNum CNum CNum CNum CNum)
+                                          (C→ Num Num Num)
+                                          (C→ Num Num Num Num)
+                                          (C→ Num Num Num Num Num))]
                             [* : (Ccase-> (C→ CNat CNat CNat)
                                           (C→ CNat CNat CNat CNat)
                                           (C→ CNat CNat CNat CNat CNat)
@@ -611,6 +623,12 @@
                             [real? : (C→ Any Bool)]
                             [positive? : (Ccase-> (C→ CNum CBool)
                                                   (C→ Num Bool))]
+                            [even? : (Ccase-> (C→ CInt CBool)
+                                              (C→ Int Bool))]
+                            [odd? : (Ccase-> (C→ CInt CBool)
+                                             (C→ Int Bool))]
+                            [remainder : (Ccase-> (C→ CInt CInt CInt)
+                                                  (C→ Int Int Int))]
 
                             ;; rosette-specific
                             [asserts : (C→ (CListof Bool))]
@@ -702,6 +720,17 @@
    --------
    [⊢ [_ ≫ (ro:|| e- ...) ⇒ : Bool]]])
 
+(define-typed-syntax and
+  [(_ e ...) ≫
+   [⊢ [e ≫ e- ⇐ : Bool] ...]
+   --------
+   [⊢ [_ ≫ (ro:and e- ...) ⇒ : Bool]]])
+(define-typed-syntax or
+  [(_ e ...) ≫
+   [⊢ [e ≫ e- ⇐ : Bool] ...]
+   --------
+   [⊢ [_ ≫ (ro:or e- ...) ⇒ : Bool]]])
+
 ;; ---------------------------------
 ;; solver forms
 
@@ -753,6 +782,34 @@
    --------
    [⊢ [_ ≫ (ro:solve e-) ⇒ : CSolution]]])
 
+(define-typed-syntax optimize
+  [(_ #:guarantee ge) ≫
+   [⊢ [ge ≫ ge- ⇒ : _]]
+   --------
+   [⊢ [_ ≫ (ro:optimize #:guarantee ge-) ⇒ : CSolution]]]
+  [(_ #:minimize mine #:guarantee ge) ≫
+   [⊢ [ge ≫ ge- ⇒ : _]]
+   [⊢ [mine ≫ mine- ⇐ : (CListof (U Num BV))]]
+   --------
+   [⊢ [_ ≫ (ro:optimize #:minimize mine- #:guarantee ge-) ⇒ : CSolution]]]
+  [(_ #:maximize maxe #:guarantee ge) ≫
+   [⊢ [ge ≫ ge- ⇒ : _]]
+   [⊢ [maxe ≫ maxe- ⇐ : (CListof (U Num BV))]]
+   --------
+   [⊢ [_ ≫ (ro:optimize #:maximize maxe- #:guarantee ge-) ⇒ : CSolution]]]
+  [(_ #:minimize mine #:maximize maxe #:guarantee ge) ≫
+   [⊢ [ge ≫ ge- ⇒ : _]]
+   [⊢ [maxe ≫ maxe- ⇐ : (CListof (U Num BV))]]
+   [⊢ [mine ≫ mine- ⇐ : (CListof (U Num BV))]]
+   --------
+   [⊢ [_ ≫ (ro:optimize #:minimize mine- #:maximize maxe- #:guarantee ge-) ⇒ : CSolution]]]
+  [(_ #:maximize maxe #:minimize mine #:guarantee ge) ≫
+   [⊢ [ge ≫ ge- ⇒ : _]]
+   [⊢ [maxe ≫ maxe- ⇐ : (CListof (U Num BV))]]
+   [⊢ [mine ≫ mine- ⇐ : (CListof (U Num BV))]]
+   --------
+   [⊢ [_ ≫ (ro:optimize #:maximize maxe- #:minimize mine- #:guarantee ge-) ⇒ : CSolution]]])
+
 ;; ---------------------------------
 ;; Subtyping
 
@@ -772,12 +829,12 @@
        [((~CList . tys1) (~CList . tys2))
         (and (stx-length=? #'tys1 #'tys2)
              (typechecks? #'tys1 #'tys2))]
-       [((~CList . tys) (~CListof . ty))
+       [((~CList . tys) (~CListof ty))
         (for/and ([t (stx->list #'tys)])
           (typecheck? t #'ty))]
        ;; vectors, only immutable vectors are invariant
-       [((~CIVectorof . tys1) (~CIVectorof . tys2))
-        (stx-andmap (current-sub?) #'tys1 #'tys2)]
+       [((~CIVectorof ty1) (~CIVectorof ty2))
+        (typecheck? #'ty1 #'ty2)]
        ; 2 U types, subtype = subset
        [((~CU* . ts1) _)
         (for/and ([t (stx->list #'ts1)])

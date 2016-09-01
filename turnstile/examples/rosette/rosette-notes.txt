@@ -53,7 +53,8 @@ TODOs:
 - fix type of Vector and List to differentiate homogeneous/hetero
   - 2016-09-01: add CList for hetero lists
 - variable arity polymorphism
-- CSolution?
+- CSolution
+   - DONE 2016-08-30
 - make libs have appropriate require paths
   - eg typed/rosette/query/debug
 - make typed/rosette a separate pkg
