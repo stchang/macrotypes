@@ -556,17 +556,24 @@
    [⊢ [_ ≫ (ro:second e-) ⇒ : (U τ2 ...)]]])
 
 ;; ---------------------------------
-<<<<<<< HEAD
 ;; IO and other built-in ops
 
 (provide (rosette-typed-out [printf : (Ccase-> (C→ CString CUnit)
                                                (C→ CString Any CUnit)
                                                (C→ CString Any Any CUnit))]
-                            [error : (C→ (CU CString CSymbol) Nothing)]
+                            [error : (Ccase-> (C→ (CU CString CSymbol) Nothing)
+                                              (C→ CSymbol CString Nothing))]
                             [void : (C→ CUnit)]
 
                             [equal? : (C→ Any Any Bool)]
                             [eq? : (C→ Any Any Bool)]
+                            [distinct? : (Ccase-> (C→ Bool)
+                                                  (C→ Any Bool)
+                                                  (C→ Any Any Bool)
+                                                  (C→ Any Any Any Bool)
+                                                  (C→ Any Any Any Any Bool)
+                                                  (C→ Any Any Any Any Any Bool)
+                                                  (C→ Any Any Any Any Any Any Bool))]
 
                             [pi : CNum]
 
@@ -638,6 +645,8 @@
                                           (C→ Num Num Num)
                                           (C→ Num Num Num Num)
                                           (C→ Num Num Num Num Num))]
+                            [/ : (Ccase-> (C→ CNum CNum CNum)
+                                          (C→ Num Num Num))]
                             [= : (Ccase-> (C→ CNum CNum CBool)
                                           (C→ Num Num Bool))]
                             [< : (Ccase-> (C→ CNum CNum CBool)
@@ -659,23 +668,50 @@
                                             (C→ Int Int)
                                             (C→ CNum CNum)
                                             (C→ Num Num))]
-
+                            [max : (Ccase-> (C→ CNum CNum CNum)
+                                            (C→ Num Num Num))]
+                            [min : (Ccase-> (C→ CNum CNum CNum)
+                                            (C→ Num Num Num))]
+                            [floor : (Ccase-> (C→ CNum CInt)
+                                              (C→ Num Int))]
+                            [ceiling : (Ccase-> (C→ CNum CInt)
+                                                (C→ Num Int))]
+                            [truncate : (Ccase-> (C→ CNum CInt)
+                                                 (C→ Num Int))]
+                            [expt : (Ccase-> (C→ CNum CNum CNum)
+                                             (C→ Num Num Num))]
+                            [sgn : (Ccase-> (C→ CNum CInt)
+                                            (C→ Num Int))]
+                            
                             [not : (C→ Any Bool)]
+                            [xor : (C→ Any Any Any)]
                             [false? : (C→ Any Bool)]
 
-                            ;; TODO: fix types of these predicates
+                            [true : CTrue]
+                            [false : CFalse]
                             [boolean? : (C→ Any Bool)]
                             [integer? : (C→ Any Bool)]
                             [real? : (C→ Any Bool)]
+                            [number? : (C→ Any Bool)]
                             [positive? : (Ccase-> (C→ CNum CBool)
+                                                  (C→ Num Bool))]
+                            [negative? : (Ccase-> (C→ CNum CBool)
                                                   (C→ Num Bool))]
                             [even? : (Ccase-> (C→ CInt CBool)
                                               (C→ Int Bool))]
                             [odd? : (Ccase-> (C→ CInt CBool)
                                              (C→ Int Bool))]
+                            [inexact->exact : (Ccase-> (C→ CNum CNum)
+                                                       (C→ Num Num))]
+                            [exact->inexact : (Ccase-> (C→ CNum CNum)
+                                                       (C→ Num Num))]
+                            [quotient : (Ccase-> (C→ CInt CInt CInt)
+                                                 (C→ Int Int Int))]
                             [remainder : (Ccase-> (C→ CInt CInt CInt)
                                                   (C→ Int Int Int))]
-
+                            [modulo : (Ccase-> (C→ CInt CInt CInt)
+                                               (C→ Int Int Int))]
+                            
                             ;; rosette-specific
                             [asserts : (C→ (CListof Bool))]
                             [clear-asserts! : (C→ CUnit)]))
@@ -791,15 +827,50 @@
    [⊢ [_ ≫ (ro:|| e- ...) ⇒ : Bool]]])
 
 (define-typed-syntax and
+  [(_) ≫
+   --------
+   [⊢ [_ ≫ (ro:and) ⇒ : CTrue]]]
   [(_ e ...) ≫
    [⊢ [e ≫ e- ⇐ : Bool] ...]
    --------
-   [⊢ [_ ≫ (ro:and e- ...) ⇒ : Bool]]])
+   [⊢ [_ ≫ (ro:and e- ...) ⇒ : Bool]]]
+  [(_ e ... elast) ≫
+   [⊢ [e ≫ e- ⇒ : ty] ...]
+   [⊢ [elast ≫ elast- ⇒ : ty-last]]
+   --------
+   [⊢ [_ ≫ (ro:and e- ... elast-) ⇒ : (U CFalse ty-last)]]])
 (define-typed-syntax or
+  [(_) ≫
+   --------
+   [⊢ [_ ≫ (ro:or) ⇒ : CFalse]]]
   [(_ e ...) ≫
    [⊢ [e ≫ e- ⇐ : Bool] ...]
    --------
-   [⊢ [_ ≫ (ro:or e- ...) ⇒ : Bool]]])
+   [⊢ [_ ≫ (ro:or e- ...) ⇒ : Bool]]]
+  [(_ e ...) ≫
+   [⊢ [e ≫ e- ⇒ : ty] ...]
+   --------
+   [⊢ [_ ≫ (ro:or efirst- e- ...) ⇒ : (U ty ...)]]])
+(define-typed-syntax nand
+  [(_) ≫
+   --------
+   [⊢ [_ ≫ (ro:nand) ⇒ : CFalse]]]
+  [(_ e ...) ≫
+   [⊢ [e ≫ e- ⇒ : _] ...]
+   --------
+   [⊢ [_ ≫ (ro:nand e- ...) ⇒ : Bool]]])
+(define-typed-syntax nor
+  [(_) ≫
+   --------
+   [⊢ [_ ≫ (ro:nor) ⇒ : CTrue]]]
+  [(_ e ...) ≫
+   [⊢ [e ≫ e- ⇒ : _] ...]
+   --------
+   [⊢ [_ ≫ (ro:nor e- ...) ⇒ : Bool]]])
+(define-typed-syntax implies
+  [(_ e1 e2) ≫
+   --------
+   [_ ≻ (if e1 e2 (stlc+union:#%datum . #t))]])
 
 ;; ---------------------------------
 ;; solver forms

@@ -1,8 +1,19 @@
+2016-09-02 --------------------
+
+Is concrete? broken?
+- ie, Is it correct to determine concreteness from only outermost constructor?
+- eg, an equal? that returns CBool based on concrete? inputs is not correct:
+  (equal? (list i) (list 1)) => (= i 1)
+  - is this a problem with concrete? or equal?
+
 2016-08-31 --------------------
 
 Rosette TODO:
 - fix documentation of synthesize
   - #:forall accepts everything, not just constant?s
+
+Rosette use case questions:
+- does the predicate in define-symbolic need to be an arbitrary expression?
 
 2016-08-31 --------------------
 
