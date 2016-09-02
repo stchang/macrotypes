@@ -30,6 +30,12 @@
     (syntax-parse cs
       [([a b] ...)
        #'(Constraints (Constraint a b) ...)]))
+  (define-syntax-class ?Some-form
+    #:attributes (Xs τ Cs)
+    [pattern (~Some Xs τ Cs)]
+    [pattern (~and τ (~not (~Some _ _ _)))
+             #:with Xs #'[]
+             #:with Cs ((current-type-eval) #'(Cs))])
   (define-syntax ~?∀
     (pattern-expander
      (syntax-parser
@@ -42,11 +48,14 @@
     (pattern-expander
      (syntax-parser
        [(?Some Xs-pat τ-pat Cs-pat)
-        #'(~or (~Some Xs-pat τ-pat Cs-pat)
-               (~and (~not (~Some _ _ _))
-                     (~parse Xs-pat #'[])
-                     (~parse Cs-pat ((current-type-eval) #'(Cs)))
-                     τ-pat))])))
+        #:with tmp (generate-temporary 'Some-form)
+        #:with tmp.Xs (format-id #'tmp "~a.Xs" #'tmp)
+        #:with tmp.τ (format-id #'tmp "~a.τ" #'tmp)
+        #:with tmp.Cs (format-id #'tmp "~a.Cs" #'tmp)
+        #'(~and (~var tmp ?Some-form)
+                (~parse Xs-pat #'tmp.Xs)
+                (~parse τ-pat #'tmp.τ)
+                (~parse Cs-pat #'tmp.Cs))])))
   (define-syntax ~Cs
     (pattern-expander
      (syntax-parser #:literals (...)
