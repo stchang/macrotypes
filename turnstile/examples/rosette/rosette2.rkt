@@ -645,18 +645,32 @@
                                           (C→ Num Num Num)
                                           (C→ Num Num Num Num)
                                           (C→ Num Num Num Num Num))]
-                            [/ : (Ccase-> (C→ CNum CNum CNum)
-                                          (C→ Num Num Num))]
+                            [/ : (Ccase-> (C→ CNum CNum)
+                                          (C→ CNum CNum CNum)
+                                          (C→ CNum CNum CNum CNum)
+                                          (C→ Num Num)
+                                          (C→ Num Num Num)
+                                          (C→ Num Num Num Num))]
                             [= : (Ccase-> (C→ CNum CNum CBool)
-                                          (C→ Num Num Bool))]
+                                          (C→ CNum CNum CNum CBool)
+                                          (C→ Num Num Bool)
+                                          (C→ Num Num Num Bool))]
                             [< : (Ccase-> (C→ CNum CNum CBool)
-                                          (C→ Num Num Bool))]
+                                          (C→ CNum CNum CNum CBool)
+                                          (C→ Num Num Bool)
+                                          (C→ Num Num Num Bool))]
                             [> : (Ccase-> (C→ CNum CNum CBool)
-                                          (C→ Num Num Bool))]
+                                          (C→ CNum CNum CNum CBool)
+                                          (C→ Num Num Bool)
+                                          (C→ Num Num Num Bool))]
                             [<= : (Ccase-> (C→ CNum CNum CBool)
-                                           (C→ Num Num Bool))]
+                                           (C→ CNum CNum CNum CBool)
+                                           (C→ Num Num Bool)
+                                           (C→ Num Num Num Bool))]
                             [>= : (Ccase-> (C→ CNum CNum CBool)
-                                           (C→ Num Num Bool))]
+                                           (C→ CNum CNum CNum CBool)
+                                           (C→ Num Num Bool)
+                                           (C→ Num Num Num Bool))]
 
                             [abs : (Ccase-> (C→ CPosInt CPosInt)
                                             (C→ PosInt PosInt)
@@ -668,20 +682,41 @@
                                             (C→ Int Int)
                                             (C→ CNum CNum)
                                             (C→ Num Num))]
-                            [max : (Ccase-> (C→ CNum CNum CNum)
-                                            (C→ Num Num Num))]
-                            [min : (Ccase-> (C→ CNum CNum CNum)
-                                            (C→ Num Num Num))]
-                            [floor : (Ccase-> (C→ CNum CInt)
-                                              (C→ Num Int))]
-                            [ceiling : (Ccase-> (C→ CNum CInt)
-                                                (C→ Num Int))]
-                            [truncate : (Ccase-> (C→ CNum CInt)
-                                                 (C→ Num Int))]
-                            [expt : (Ccase-> (C→ CNum CNum CNum)
+                            
+                            [max : (Ccase-> (C→ CInt CInt CInt)
+                                            (C→ CInt CInt CInt CInt)
+                                            (C→ CNum CNum CNum)
+                                            (C→ CNum CNum CNum CNum)
+                                            (C→ Int Int Int)
+                                            (C→ Int Int Int Int)
+                                            (C→ Num Num Num)
+                                            (C→ Num Num Num Num))]
+                            [min : (Ccase-> (C→ CInt CInt CInt)
+                                            (C→ CInt CInt CInt CInt)
+                                            (C→ CNum CNum CNum)
+                                            (C→ CNum CNum CNum CNum)
+                                            (C→ Int Int Int)
+                                            (C→ Int Int Int Int)
+                                            (C→ Num Num Num)
+                                            (C→ Num Num Num Num))] 
+                            ;; out type for these fns must be CNum, because of +inf.0 and +nan.0
+                            [floor : (Ccase-> (C→ CNum CNum)
+                                              (C→ Num Num))]
+                            [ceiling : (Ccase-> (C→ CNum CNum)
+                                                (C→ Num Num))]
+                            [truncate : (Ccase-> (C→ CNum CNum)
+                                                 (C→ Num Num))]
+                            [sgn : (Ccase-> (C→ CInt CInt)
+                                            (C→ Int Int)
+                                            (C→ CNum CNum)
+                                            (C→ Num Num))]
+
+                            [expt : (Ccase-> (C→ CNum CZero CPosInt)
+                                             (C→ Num Zero PosInt)
+                                             (C→ CInt CInt CInt)
+                                             (C→ Int Int Int)
+                                             (C→ CNum CNum CNum)
                                              (C→ Num Num Num))]
-                            [sgn : (Ccase-> (C→ CNum CInt)
-                                            (C→ Num Int))]
                             
                             [not : (C→ Any Bool)]
                             [xor : (C→ Any Any Any)]
@@ -697,6 +732,8 @@
                                                   (C→ Num Bool))]
                             [negative? : (Ccase-> (C→ CNum CBool)
                                                   (C→ Num Bool))]
+                            [zero? : (Ccase-> (C→ CNum CBool)
+                                              (C→ Num Bool))]
                             [even? : (Ccase-> (C→ CInt CBool)
                                               (C→ Int Bool))]
                             [odd? : (Ccase-> (C→ CInt CBool)
