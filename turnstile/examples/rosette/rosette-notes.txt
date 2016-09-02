@@ -64,6 +64,8 @@ TODOs:
 - remove my-this-syntax stx param
 - add symbolic True and False?
 - orig stx prop confuses distinction between symbolic and non-sym values
+- use variance information in type constructors?
+  - instead of special-casing individual constructors
 
 2016-08-25 --------------------
 

@@ -83,6 +83,7 @@
 ;; CMVectorof includes only mutable vectors
 (define-type-constructor CIVectorof #:arity = 1)
 (define-type-constructor CMVectorof #:arity = 1)
+(define-type-constructor CBoxof #:arity = 1)
 (define-named-type-alias (CVectorof X) (CU (CIVectorof X) (CMVectorof X)))
 (define-type-constructor CList #:arity >= 0)
 
@@ -149,7 +150,11 @@
 (define-syntax →
   (syntax-parser
     [(_ ty ...+) 
-     (add-orig #'(U (C→ ty ...)) this-syntax)]))
+     (add-pred
+      (add-orig 
+       #'(U (C→ ty ...)) 
+       this-syntax)
+      #'ro:fv?)]))
 
 (define-syntax define-symbolic-named-type-alias
   (syntax-parser
@@ -170,8 +175,11 @@
 ;; ---------------------------------
 ;; define-symbolic
 
-(define-typed-syntax define-symbolic
+(define-typed-syntax define-symbolic #:datum-literals (:)
   [(_ x:id ...+ pred : ty:type) ≫
+   #:fail-when (concrete? #'ty.norm)
+               (format "A symbolic value cannot have a concrete type, given ~a." 
+                       (type->str #'ty.norm))
    ;; TODO: still unsound
    [⊢ [pred ≫ pred- ⇐ : (C→ ty.norm Bool)]]
    #:with (y ...) (generate-temporaries #'(x ...))
@@ -180,8 +188,11 @@
           (define-syntax- x (make-rename-transformer (⊢ y : ty.norm))) ...
           (ro:define-symbolic y ... pred-))]])
 
-(define-typed-syntax define-symbolic*
+(define-typed-syntax define-symbolic* #:datum-literals (:)
   [(_ x:id ...+ pred : ty:type) ≫
+   #:fail-when (concrete? #'ty.norm)
+               (format "A symbolic value cannot have a concrete type, given ~a." 
+                       (type->str #'ty.norm))
    ;; TODO: still unsound
    [⊢ [pred ≫ pred- ⇐ : (C→ ty.norm Bool)]]
    #:with (y ...) (generate-temporaries #'(x ...))
@@ -545,6 +556,7 @@
    [⊢ [_ ≫ (ro:second e-) ⇒ : (U τ2 ...)]]])
 
 ;; ---------------------------------
+<<<<<<< HEAD
 ;; IO and other built-in ops
 
 (provide (rosette-typed-out [printf : (Ccase-> (C→ CString CUnit)
@@ -669,6 +681,21 @@
                             [clear-asserts! : (C→ CUnit)]))
 
 ;; ---------------------------------
+;; mutable boxes
+
+(define-typed-syntax box
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : τ]]
+   --------
+   [⊢ [_ ≫ (ro:box e-) ⇒ : (CBoxof τ)]]])
+
+(define-typed-syntax unbox
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CBoxof τ)]]
+   --------
+   [⊢ [_ ≫ (ro:unbox e-) ⇒ : τ]]])
+
+;; ---------------------------------
 ;; BV Types and Operations
 
 ;; this must be a macro in order to support Racket's overloaded set/get
@@ -736,6 +763,15 @@
 
                             [bitvector-size : (C→ CBVPred CPosInt)]
 
+
+;; ---------------------------------
+;; Uninterpreted functions
+
+(define-typed-syntax ~>
+  [(_ e ...+) ≫
+   [⊢ [e ≫ e- ⇐ : (C→ Nothing Bool)] ...]
+   --------
+   [⊢ [_ ≫ (ro:~> e- ...) ⇒ : (C→ Any Bool)]]])
 
 ;; ---------------------------------
 ;; Logic operators
