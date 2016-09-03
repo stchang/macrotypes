@@ -11,6 +11,8 @@ Is concrete? broken?
 Rosette TODO:
 - fix documentation of synthesize
   - #:forall accepts everything, not just constant?s
+- doc typo: core
+ - Returns the unsatisfiable core stored in the given satisfiable solution
 
 Rosette use case questions:
 - does the predicate in define-symbolic need to be an arbitrary expression?

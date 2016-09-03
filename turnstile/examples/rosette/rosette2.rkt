@@ -561,6 +561,7 @@
 (provide (rosette-typed-out [printf : (Ccase-> (C→ CString CUnit)
                                                (C→ CString Any CUnit)
                                                (C→ CString Any Any CUnit))]
+                            [displayln : (C→ Any CUnit)]
                             [error : (Ccase-> (C→ (CU CString CSymbol) Nothing)
                                               (C→ CSymbol CString Nothing))]
                             [void : (C→ CUnit)]
@@ -706,7 +707,9 @@
                                                 (C→ Num Num))]
                             [truncate : (Ccase-> (C→ CNum CNum)
                                                  (C→ Num Num))]
-                            [sgn : (Ccase-> (C→ CInt CInt)
+                            [sgn : (Ccase-> (C→ CZero CZero)
+                                            (C→ Zero Zero)
+                                            (C→ CInt CInt)
                                             (C→ Int Int)
                                             (C→ CNum CNum)
                                             (C→ Num Num))]
@@ -834,8 +837,7 @@
                             [bitvector->natural : (C→ BV Nat)]
                             [integer->bitvector : (C→ Int BVPred BV)]
 
-                            [bitvector-size : (C→ CBVPred CPosInt)]
-
+                            [bitvector-size : (C→ CBVPred CPosInt)]))
 
 ;; ---------------------------------
 ;; Uninterpreted functions
@@ -848,9 +850,9 @@
 
 ;; ---------------------------------
 ;; Logic operators
-
-                            [! : (C→ Bool Bool)]
-                            [<=> : (C→ Bool Bool Bool)]))
+(provide (rosette-typed-out [! : (C→ Bool Bool)]
+                            [<=> : (C→ Bool Bool Bool)]
+                            [=> : (C→ Bool Bool Bool)]))
 
 (define-typed-syntax &&
   [(_ e ...) ≫
@@ -914,14 +916,18 @@
 
 (define-base-types CSolution CPict)
 
-(provide (rosette-typed-out [core : (C→ Any Any)]
+(provide (rosette-typed-out [core : (C→ CSolution (U (Listof Any) CFalse))]
+                            ; TODO: implement hash
+                            [model : (C→ CSolution Any)]
+                            [sat : (Ccase-> (C→ CSolution)
+                                            (C→ Any CSolution))]
                             [sat? : (C→ Any Bool)]
                             [unsat? : (C→ Any Bool)]
                             [unsat : (Ccase-> (C→ CSolution)
                                               (C→ (CListof Bool) CSolution))]
                             [forall : (C→ (CListof Any) Bool Bool)]
                             [exists : (C→ (CListof Any) Bool Bool)]))
-
+                            
 (define-typed-syntax verify
   [(_ e) ≫
    [⊢ [e ≫ e- ⇒ : _]]
