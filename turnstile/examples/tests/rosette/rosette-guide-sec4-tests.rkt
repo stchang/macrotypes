@@ -232,7 +232,9 @@
 (define f1 (forall (list a1) (exists (list b1) (= a1 (+ a1 b1))))) ; no free constants
 ; so the model has no bindings
 (define sol1 (solve (assert f1)))
-(check-type sol1 : CSolution) ; -> (sat) ; TODO: how to check empty model?
+(check-type sol1 : CSolution)
+(check-type (model sol1) : (HashTable Any Any))
+(check-type (hash-keys (model sol1)) : (CListof Any) -> (list)) ; empty solution
 (check-type (sat? sol1) : Bool -> #t)
 (define g1 (forall (list a1) (= a1 (+ a1 b1))))  ; b is free in g
 ; so the model has a binding for b

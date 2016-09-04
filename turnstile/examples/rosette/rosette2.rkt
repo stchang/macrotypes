@@ -84,6 +84,8 @@
 (define-type-constructor CIVectorof #:arity = 1)
 (define-type-constructor CMVectorof #:arity = 1)
 (define-type-constructor CBoxof #:arity = 1)
+;; TODO: Hash subtyping?
+(define-type-constructor HashTable #:arity = 2)
 (define-named-type-alias (CVectorof X) (CU (CIVectorof X) (CMVectorof X)))
 (define-type-constructor CList #:arity >= 0)
 
@@ -449,6 +451,11 @@
    [⊢ [_ ≫ (ro:vector-immutable e- ...) ⇒ : (if (stx-andmap concrete? #'(τ ...))
                                                 #'(CIVectorof (CU τ ...))
                                                 #'(CIVectorof (U τ ...)))]]])
+
+;; ---------------------------------
+;; hash tables
+
+(define-rosette-primop hash-keys : (C→ (HashTable Any Any) (CListof Any)))
 
 ;; ---------------------------------
 ;; lists
@@ -918,16 +925,16 @@
 
 (provide (rosette-typed-out [core : (C→ CSolution (U (Listof Any) CFalse))]
                             ; TODO: implement hash
-                            [model : (C→ CSolution Any)]
+                            [model : (C→ CSolution (HashTable Any Any))]
                             [sat : (Ccase-> (C→ CSolution)
-                                            (C→ Any CSolution))]
+                                            (C→ (HashTable Any Any) CSolution))]
                             [sat? : (C→ Any Bool)]
                             [unsat? : (C→ Any Bool)]
                             [unsat : (Ccase-> (C→ CSolution)
                                               (C→ (CListof Bool) CSolution))]
                             [forall : (C→ (CListof Any) Bool Bool)]
                             [exists : (C→ (CListof Any) Bool Bool)]))
-                            
+
 (define-typed-syntax verify
   [(_ e) ≫
    [⊢ [e ≫ e- ⇒ : _]]
