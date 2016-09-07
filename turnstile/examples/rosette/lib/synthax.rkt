@@ -12,8 +12,18 @@
    #:with ??/progsrc (datum->syntax #'here 'ro:?? #'qq)
    --------
    [⊢ [_ ≫ (??/progsrc) ⇒ : t/ro:Int]]]
-  [(qq pred : ty:type) ≫
+  [(qq pred?) ≫
    #:with ??/progsrc (datum->syntax #'here 'ro:?? #'qq)
-   [⊢ [pred ≫ pred- ⇐ : (t/ro:C→ ty.norm t/ro:Bool)]]
+   [⊢ [pred? ≫ pred?- (⇒ : _) (⇒ typefor ty) (⇒ solvable? s?) (⇒ function? f?)]]
+   #:fail-unless (syntax-e #'s?)
+                 (format "Must provide a Rosette-solvable type, given ~a." 
+                         (syntax->datum #'pred?))
+   #:fail-when (syntax-e #'f?)
+               (format "Must provide a non-function Rosette type, given ~a." 
+                       (syntax->datum #'pred?))
    --------
-   [⊢ [_ ≫ (??/progsrc pred-) ⇒ : ty.norm]]])
+   [⊢ [_ ≫ (??/progsrc pred?-) ⇒ : ty]]])
+  
+(define-syntax print-forms
+  (make-variable-like-transformer
+   (assign-type #'ro:print-forms #'(t/ro:C→ t/ro:CSolution t/ro:Unit))))

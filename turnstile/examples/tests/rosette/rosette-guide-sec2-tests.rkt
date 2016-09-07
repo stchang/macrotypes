@@ -110,8 +110,17 @@
 ;; 2.3.3 Synthesis
 
 (require "../../rosette/lib/synthax.rkt")
+(check-type (??) : Int)
+(check-type (?? boolean?) : Bool)
+(typecheck-fail (?? positive?) 
+ #:with-msg "Must provide a Rosette-solvable type, given.*positive?")
+(typecheck-fail (?? (~> integer?))
+ #:with-msg "Must provide a non-function Rosette type, given.*integer?")
+
+
 (define (factored/?? [x : Int] -> Int)
  (* (+ x (??)) (+ x 1) (+ x (??)) (+ x (??))))
+
 
 (define binding
   (synthesize #:forall (list i)
