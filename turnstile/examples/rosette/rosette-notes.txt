@@ -84,6 +84,7 @@ TODOs:
 - orig stx prop confuses distinction between symbolic and non-sym values
 - use variance information in type constructors?
   - instead of special-casing individual constructors
+- ok to say "Rosette type" in type err msgs?
 
 2016-08-25 --------------------
 

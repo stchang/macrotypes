@@ -103,6 +103,10 @@
   (* x (+ x 1) (+ x 2) (+ x 2)))
 
 (define ucore (debug [integer?] (same poly factored/d 12)))
+(typecheck-fail (debug [positive?] (same poly factored/d 12))
+ #:with-msg "Must provide a Rosette-solvable type, given.*positive?")
+(typecheck-fail (debug [(~> integer?)] (same poly factored/d 12))
+ #:with-msg "Must provide a non-function Rosette type, given.*~> integer?")
 (check-type ucore : CSolution)
 ;; TESTING TODO: requires visual inspection (in DrRacket)
 (check-type (render ucore) : CPict)
