@@ -13,7 +13,8 @@
 ;; y1 unchanged: 0
 (check-type y1 : Nat -> 0)
 ;; symbolic effect!
-(define-symbolic x1 boolean? : Bool)
+(define-symbolic x1 boolean?)
+(typecheck-fail (define-symbolic x1 boolean? : Bool))
 (check-type (if x1 (void) (set! y1 3)) : Unit -> (void))
 ;; y1 symbolic: (ite x1 0 3)
 (check-type y1 : Nat -> (if x1 0 3))
@@ -25,7 +26,7 @@
    (printf "y unchanged: ~a\n" y)
    (if #f (set! y 3) (void))
    (printf "y unchanged: ~a\n" y)
-   (let-symbolic ([(x) boolean? : Bool])
+   (let-symbolic (x boolean?)
      (if x (void) (set! y 3))
      (printf "y symbolic: ~a\n" y)
      (list x y))))
@@ -41,13 +42,13 @@
 ;; 3.2.1 Symbolic Constants
 
 (define (always-same -> Int)
-  (let-symbolic ([(x) integer? : Int])
+  (let-symbolic (x integer?)
     x))
 (check-type (always-same) : Int)
 (check-type (eq? (always-same) (always-same)) : Bool -> #t)
 
 (define (always-different -> Int)
-  (let-symbolic* ([(x) integer? : Int])
+  (let-symbolic* (x integer?)
     x))
 (check-type (always-different) : Int)
 (define diff-sym*1 (always-different))
@@ -58,7 +59,7 @@
 
 (check-type+asserts (assert #t) : Unit -> (void) (list))
 (check-type+asserts (assert 1) : Unit -> (void) (list))
-(define-symbolic x123 boolean? : Bool)
+(define-symbolic x123 boolean?)
 (check-type+asserts (assert x123) : Unit -> (void) (list x123))
 (check-runtime-exn (assert #f "bad value"))
 
@@ -67,7 +68,7 @@
 (check-type (asserts) : (CListof Bool) -> (list))
 
 ;; 3.2.3 Angelic Execution
-(define-symbolic x y boolean? : Bool)
+(define-symbolic x y boolean?)
 (check-type (assert x) : Unit -> (void)) 
 (check-type (asserts) : (CListof Bool) -> (list x))
 (define solve-sol (solve (assert y)))
@@ -90,7 +91,7 @@
 (clear-asserts!)
 
 ;; 3.2.5 Synthesis
-(define-symbolic synth-x synth-c integer? : Int)
+(define-symbolic synth-x synth-c integer?)
 (check-type (assert (even? synth-x)) : Unit -> (void))
 (check-type (asserts) : (CListof Bool) -> (list (= 0 (remainder synth-x 2))))
 (define synth-sol
@@ -103,7 +104,7 @@
 
 ;; 3.2.6 Optimization
 (current-bitwidth #f) ; use infinite-precision arithmetic
-(define-symbolic opt-x opt-y integer? : Int)
+(define-symbolic opt-x opt-y integer?)
 (check-type (assert (< opt-x 2)) : Unit -> (void))
 (check-type (asserts) : (CListof Bool) -> (list (< opt-x 2)))
 (define opt-sol

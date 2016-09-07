@@ -17,8 +17,8 @@
 
 (check-type (if 1 (bv 1) (bv 0)) : BV -> (bv 1))
 (check-type (if #f (bv 1) (bv 0)) : BV -> (bv 0))
-(define-symbolic i integer? : Int)
-(define-symbolic b boolean? : Bool)
+(define-symbolic i integer?)
+(define-symbolic b boolean?)
 (check-type (if i (bv 1) (bv 0)) : BV -> (bv 1))
 (check-type (if b (bv 1) (bv 0)) : BV -> (if b (bv 1) (bv 0)))
 

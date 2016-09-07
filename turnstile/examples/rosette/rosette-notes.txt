@@ -54,6 +54,11 @@ TODOs:
 - add pred properties to types 
  - use it to validate given pred in define-symbolic
  - STARTED 2016-08-25
+ - alternative: don't require type, but associate type with pred?
+   - advantage: soundness
+   - disadvantage: cannot compute pred in define-symbolic
+     - Rosette users won't care?
+     - TODO: add extra type rules to propagate 'typefor tag
 - implement assert-type, which adds to the assertion store
  - DONE 2016-08-25
 - add polymorphism

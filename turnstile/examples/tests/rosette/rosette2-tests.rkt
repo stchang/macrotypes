@@ -99,8 +99,10 @@
 ;; non-bool test
 (check-type (if 1 2 3) : CInt)
 ;; else, if expr produces symbolic type
-(define-symbolic b0 boolean? : Bool)
-(define-symbolic i0 integer? : Int)
+(define-symbolic b0 boolean?)
+(define-symbolic i0 integer?)
+(typecheck-fail (define-symbolic posint1 positive?) 
+ #:with-msg "Must provide a Rosette-solvable type, given positive?")
 (check-type (if b0 1 2) : Int)
 (check-not-type (if b0 1 2) : CInt)
 (check-type (if #t i0 2) : Int)
@@ -154,7 +156,7 @@
 (check-type (bvor  (bv 0 3)  (bv 1 3)) : BV -> (bv 1 3))
 (check-type (bvxor (bv -1 5) (bv 1 5)) : BV -> (bv -2 5))
 
-(define-symbolic b boolean? : Bool)
+(define-symbolic b boolean?)
 (check-type (bvand (bv -1 4) (if b (bv 3 4) (bv 2 4))) : BV 
             -> (if b (bv 3 4) (bv 2 4)))
 
@@ -166,7 +168,7 @@
 
 (check-type (bvneg (bv -1 4)) : BV -> (bv 1 4))
 (check-type (bvneg (bv 0 4)) : BV -> (bv 0 4))
-(define-symbolic z (bitvector 3) : BV)
+(define-symbolic z (bitvector 3))
 (check-type (bvneg z) : BV)
 (check-type (bvadd (bv -1 4) (bv 2 4)) : BV -> (bv 1 4))
 (check-type (bvsub (bv 0 3)  (bv 1 3)) : BV -> (bv -1 3))
@@ -184,13 +186,13 @@
 
 (check-type (extract 2 1 (bv -1 4)) : BV -> (bv -1 2))
 (check-type (extract 3 3 (bv 1 4)) : BV -> (bv 0 1))
-(define-symbolic i j integer? : Int)
+(define-symbolic i j integer?)
 (check-type (extract i j (bv 1 2)) : BV)
 ;            -> {[(&& (= 0 j) (= 1 i)) (bv 1 2)] ...})
 
 (check-type (sign-extend (bv -3 4) (bitvector 6)) : BV -> (bv -3 6))
 (check-type (zero-extend (bv -3 4) (bitvector 6)) : BV -> (bv 13 6))
-(define-symbolic c boolean? : Bool)
+(define-symbolic c boolean?)
 (check-type (zero-extend (bv -3 4) (if b (bitvector 5) (bitvector 6))) 
   : BV -> (if b (bv 13 5) (bv 13 6)))
 (check-type+asserts
@@ -264,7 +266,7 @@
 ;; assert-type tests
 (check-type+asserts (assert-type (sub1 10) : PosInt) : PosInt -> 9 (list))
 (check-runtime-exn (assert-type (sub1 1) : PosInt))
-(define-symbolic b1 b2 boolean? : Bool)
+(define-symbolic b1 b2 boolean?)
 
 (check-type (clear-asserts!) : CUnit -> (void))
 ;; asserts directly on a symbolic union
@@ -276,7 +278,7 @@
 (check-type+asserts (if b2 (assert-type 1 : Bool) (assert-type #f : Bool)) : Bool
                     -> #f (list (not b2)))
 ;; asserts on a define-symbolic value
-(define-symbolic i1 integer? : Int)
+(define-symbolic i1 integer?)
 (check-type+asserts (assert-type i1 : PosInt) : PosInt -> i1 (list (< 0 i1)))
 (check-type+asserts (assert-type i1 : Zero) : Zero -> i1 (list (= 0 i1)))
 (check-type+asserts (assert-type i1 : NegInt) : NegInt -> i1 (list (< i1 0)))

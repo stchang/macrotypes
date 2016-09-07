@@ -4,7 +4,7 @@
 
 ;; all examples from the Rosette Guide, Sec 2
 
-(define-symbolic b boolean? : Bool)
+(define-symbolic b boolean?)
 (check-type b : Bool)
 (check-type (boolean? b) : Bool -> #t)
 (check-type (integer? b) : Bool -> #f)
@@ -25,17 +25,17 @@
 (check-type (not b) : Bool -> (! b))
 (check-type (boolean? (not b)) : Bool -> #t)
 
-(define-symbolic* n integer? : Int)
+(define-symbolic* n integer?)
 
 ;; TODO: support internal definition contexts
 (define (static -> Bool)
-  (let-symbolic ([(x) boolean? : Bool]) x))
+  (let-symbolic (x boolean?) x))
 #;(define (static -> Bool)
  (define-symbolic x boolean? : Bool) ; creates the same constant when evaluated
  x)
  
 (define (dynamic -> Int)
-  (let-symbolic* ([(y) integer? : Int]) y))
+  (let-symbolic* (y integer?) y))
 #;(define (dynamic -> Int)
  (define-symbolic* y integer? : Int) ; creates a different constant when evaluated
  y)
@@ -52,7 +52,7 @@
 (check-type (eq? sym*1 sym*2) : Bool -> (= sym*1 sym*2))
 
 (define (yet-another-x -> Bool)
-  (let-symbolic ([(x) boolean? : Bool]) x))
+  (let-symbolic (x boolean?) x))
 
 (check-type (eq? (static) (yet-another-x))
             : Bool -> (<=> (static) (yet-another-x)))
@@ -82,7 +82,7 @@
 
 ;; 2.3.1 Verification
 
-(define-symbolic i integer? : Int)
+(define-symbolic i integer?)
 (define cex (verify (same poly factored i)))
 (check-type cex : CSolution)
 (check-type (sat? cex) : Bool -> #t)
@@ -124,7 +124,7 @@
 
 ;; 2.3.4 Angelic Execution
 
-(define-symbolic x y integer? : Int)
+(define-symbolic x y integer?)
 (define sol
   (solve (begin (assert (not (= x y)))
                 (assert (< (abs x) 10))
@@ -141,7 +141,7 @@
 
 ;; 2.4 Symbolic Reasoning
 
-(define-symbolic x1 y1 real? : Num)
+(define-symbolic x1 y1 real?)
 (check-type (current-bitwidth) : (CU CPosInt CFalse) -> 5)
 (check-type (current-bitwidth #f) : CUnit -> (void))
 (check-type (current-bitwidth) : (CU CPosInt CFalse) -> #f)

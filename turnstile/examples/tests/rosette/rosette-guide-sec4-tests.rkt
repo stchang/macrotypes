@@ -2,7 +2,7 @@
 (require "../rackunit-typechecking.rkt"
          "check-type+asserts.rkt")
 
-;; Examples from the Rosette Guide, Section 4
+;; Examples from the Rosette Guide, Section 4.1 - 4.2
 
 ;; 4.1 Equality
 
@@ -22,15 +22,16 @@
 (check-type (equal? (list (box 1)) (list (box 1))) : Bool -> #t)
 (check-type (equal? (list (box 1)) (list (box 1.0))) : Bool -> #t)
 
-(define-symbolic n integer? : Int)
+(define-symbolic n integer?)
 (check-type (equal? n 1) : Bool -> (= 1 n))
 (check-type (equal? (box n) (box 1)) : Bool -> (= 1 n))
 (check-not-type (equal? n 1) : CBool)
 (check-not-type (equal? (box n) (box 1)) : CBool)
-(define-symbolic f g (~> integer? integer?) : (→ Int Int))
-(typecheck-fail
- (define-symbolic f g (~> integer? integer?) : (C→ Int Int))
- #:with-msg "symbolic value cannot have a concrete type")
+(typecheck-fail (~> positive?)
+ #:with-msg "Must provide a Rosette\\-solvable type, given.*positive?")
+(typecheck-fail (~> (~> integer?))
+ #:with-msg "Must provide a non\\-function Rosette type, given.*~> integer?")
+(define-symbolic f g (~> integer? integer?))
 (check-type f : (→ Int Int))
 (check-type g : (→ Int Int))
 (check-type (equal? f g) : Bool -> #f)
@@ -49,16 +50,16 @@
 (check-type (distinct?) : Bool -> #t)
 (check-type (distinct? 1) : Bool -> #t)
 (check-type  (distinct? (list 1 2) (list 3) (list 1 2)) : Bool -> #f)
-(define-symbolic x y z integer? : Int)
+(define-symbolic x y z integer?)
 (check-type (distinct? 3 z x y 2) : Bool -> (distinct? 2 3 x y z))
-(define-symbolic b boolean? : Bool)
+(define-symbolic b boolean?)
 (check-type (distinct? 3 (bv 3 4) (list 1) (list x) y 2)
             : Bool -> (&& (! (= 3 y)) (&& (! (= 1 x)) (! (= 2 y)))))
 (clear-asserts!)
 
 ;; 4.2 Booleans, Integers, and Reals
 
-;(define-symbolic b boolean? : Bool)
+;(define-symbolic b boolean?)
 (check-type (boolean? b) : Bool -> #t)
 (check-type (boolean? #t) : Bool -> #t)
 (check-type (boolean? #f) : Bool -> #t)
@@ -211,7 +212,7 @@
 (check-type (||) : Bool -> #f)
 ; no shortcircuiting
 (check-type (&& #f (begin (displayln "hello") #t))  : Bool -> #f)
-(define-symbolic a boolean? : Bool)
+(define-symbolic a boolean?)
  ; this typechecks only when b is true
 (check-type (&& a (assert-type (if b #t 1) : Bool)) : Bool -> a)
 ; so Rosette emits a corresponding assertion
@@ -227,21 +228,22 @@
 
 (current-bitwidth #f)
 
-(define-symbolic a1 b1 integer? : Int)
+(define-symbolic a1 b1 integer?)
 (check-type (forall (list) (= a1 b1)) : Bool -> (= a1 b1))
 (define f1 (forall (list a1) (exists (list b1) (= a1 (+ a1 b1))))) ; no free constants
 ; so the model has no bindings
 (define sol1 (solve (assert f1)))
 (check-type sol1 : CSolution)
-(check-type (model sol1) : (HashTable Any Any))
+(check-type (model sol1) : (CHashTable Any Any))
 (check-type (hash-keys (model sol1)) : (CListof Any) -> (list)) ; empty solution
 (check-type (sat? sol1) : Bool -> #t)
-(define g1 (forall (list a1) (= a1 (+ a1 b1))))  ; b is free in g
+(define g1 (forall (list a1) (= a1 (+ a1 b1))))  ; b1 is free in g1
 ; so the model has a binding for b
 (define sol2 (solve (assert g1)))
 (check-type sol2 : CSolution)
 (check-type (sat? sol2) : Bool -> #t)
 (check-type (evaluate b1 sol2) : Int -> 0)
-(define h (exists (list a1) (forall (list a1) (= a1 (+ a1 a1))))) ; body refers to the innermost a
+; body refers to the innermost a1
+(define h (exists (list a1) (forall (list a1) (= a1 (+ a1 a1)))))
 ; so h is unsatisfiable.
 (check-type (solve (assert h))  : CSolution -> (unsat))

@@ -85,7 +85,8 @@
 (define-type-constructor CMVectorof #:arity = 1)
 (define-type-constructor CBoxof #:arity = 1)
 ;; TODO: Hash subtyping?
-(define-type-constructor HashTable #:arity = 2)
+;; - invariant for now, like TR, though Rosette only uses immutable hashes?
+(define-type-constructor CHashTable #:arity = 2)
 (define-named-type-alias (CVectorof X) (CU (CIVectorof X) (CMVectorof X)))
 (define-type-constructor CList #:arity >= 0)
 
@@ -134,10 +135,28 @@
   (define (add-pred stx pred)
     (set-stx-prop/preserved stx 'pred pred))
   (define (get-pred stx)
-    (syntax-property stx 'pred)))
+    (syntax-property stx 'pred))
+  (define (add-typefor stx t)
+    (set-stx-prop/preserved stx 'typefor t))
+  (define (get-typefor stx)
+    (syntax-property stx 'typefor))
+  (define (mark-solvable stx)
+    (set-stx-prop/preserved stx 'solvable? #t))
+  (define (solvable? stx)
+    (syntax-property stx 'solvable?))
+  (define (mark-function stx)
+    (set-stx-prop/preserved stx 'function? #t))
+  (define (function? stx)
+    (syntax-property stx 'function?)))
 
 (define-syntax-parser add-predm
   [(_ stx pred) (add-pred #'stx #'pred)])
+(define-syntax-parser add-typeform
+  [(_ stx t) (add-typefor #'stx #'t)])
+(define-syntax-parser mark-solvablem
+  [(_ stx) (mark-solvable #'stx)])
+(define-syntax-parser mark-functionm
+  [(_ stx) (mark-function #'stx)])
 
 (define-named-type-alias NegInt (add-predm (U CNegInt) negative-integer?))
 (define-named-type-alias Zero (add-predm (U CZero) zero-integer?))
@@ -177,51 +196,55 @@
 ;; ---------------------------------
 ;; define-symbolic
 
-(define-typed-syntax define-symbolic #:datum-literals (:)
-  [(_ x:id ...+ pred : ty:type) ≫
-   #:fail-when (concrete? #'ty.norm)
-               (format "A symbolic value cannot have a concrete type, given ~a." 
-                       (type->str #'ty.norm))
-   ;; TODO: still unsound
-   [⊢ [pred ≫ pred- ⇐ : (C→ ty.norm Bool)]]
+(define-typed-syntax define-symbolic
+  [(_ x:id ...+ pred?) ≫
+   [⊢ [pred? ≫ pred?- (⇒ : _) (⇒ typefor ty) (⇒ solvable? s?)]]
+   #:fail-unless (syntax-e #'s?)
+                 (format "Must provide a Rosette-solvable type, given ~a." 
+                         (syntax->datum #'pred?))
    #:with (y ...) (generate-temporaries #'(x ...))
    --------
    [_ ≻ (begin-
-          (define-syntax- x (make-rename-transformer (⊢ y : ty.norm))) ...
-          (ro:define-symbolic y ... pred-))]])
+          (define-syntax- x (make-rename-transformer (⊢ y : ty))) ...
+          (ro:define-symbolic y ... pred?-))]])
 
-(define-typed-syntax define-symbolic* #:datum-literals (:)
-  [(_ x:id ...+ pred : ty:type) ≫
-   #:fail-when (concrete? #'ty.norm)
-               (format "A symbolic value cannot have a concrete type, given ~a." 
-                       (type->str #'ty.norm))
-   ;; TODO: still unsound
-   [⊢ [pred ≫ pred- ⇐ : (C→ ty.norm Bool)]]
+(define-typed-syntax define-symbolic*
+  [(_ x:id ...+ pred?) ≫
+   [⊢ [pred? ≫ pred?- (⇒ : _) (⇒ typefor ty) (⇒ solvable? s?)]]
+   #:fail-unless (syntax-e #'s?)
+                 (format "Must provide a Rosette-solvable type, given ~a." 
+                         (syntax->datum #'pred?))
    #:with (y ...) (generate-temporaries #'(x ...))
    --------
    [_ ≻ (begin-
-          (define-syntax- x (make-rename-transformer (⊢ y : ty.norm))) ...
-          (ro:define-symbolic* y ... pred-))]])
+          (define-syntax- x (make-rename-transformer (⊢ y : ty))) ...
+          (ro:define-symbolic* y ... pred?-))]])
 
 ;; TODO: support internal definition contexts
 (define-typed-syntax let-symbolic
-  [(_ ([(x:id ...+) pred : ty:type]) e ...) ≫
-   [⊢ [pred ≫ pred- ⇐ : (C→ ty.norm Bool)]]
-   [([x ≫ x- : ty.norm] ...) ⊢ [(begin e ...) ≫ e- ⇒ τ_out]]
+  [(_ (x:id ...+ pred?) e ...) ≫
+   [⊢ [pred? ≫ pred?- (⇒ : _) (⇒ typefor ty) (⇒ solvable? s?)]]
+   #:fail-unless (syntax-e #'s?)
+                 (format "Must provide a Rosette-solvable type, given ~a." 
+                         (syntax->datum #'pred?))
+   [([x ≫ x- : ty] ...) ⊢ [(begin e ...) ≫ e- ⇒ τ_out]]
    --------
    [⊢ [_ ≫ (ro:let-values
             ([(x- ...) (ro:let ()
-                         (ro:define-symbolic x ... pred-)
+                         (ro:define-symbolic x ... pred?-)
                          (ro:values x ...))])
             e-) ⇒ : τ_out]]])
 (define-typed-syntax let-symbolic*
-  [(_ ([(x:id ...+) pred : ty:type]) e ...) ≫
-   [⊢ [pred ≫ pred- ⇐ : (C→ ty.norm Bool)]]
-   [([x ≫ x- : ty.norm] ...) ⊢ [(begin e ...) ≫ e- ⇒ τ_out]]
+  [(_ (x:id ...+ pred?) e ...) ≫
+   [⊢ [pred? ≫ pred?- (⇒ : _) (⇒ typefor ty) (⇒ solvable? s?)]]
+   #:fail-unless (syntax-e #'s?)
+                 (format "Must provide a Rosette-solvable type, given ~a." 
+                         (syntax->datum #'pred?))
+   [([x ≫ x- : ty] ...) ⊢ [(begin e ...) ≫ e- ⇒ τ_out]]
    --------
    [⊢ [_ ≫ (ro:let-values
             ([(x- ...) (ro:let ()
-                         (ro:define-symbolic* x ... pred-)
+                         (ro:define-symbolic* x ... pred?-)
                          (ro:values x ...))])
             e-) ⇒ : τ_out]]])
 
@@ -455,7 +478,11 @@
 ;; ---------------------------------
 ;; hash tables
 
-(define-rosette-primop hash-keys : (C→ (HashTable Any Any) (CListof Any)))
+(define-typed-syntax hash-keys
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CHashTable τ _)]]
+   --------
+   [⊢ [_ ≫ (ro:hash-keys e-) ⇒ : (CListof τ)]]])
 
 ;; ---------------------------------
 ;; lists
@@ -734,9 +761,6 @@
 
                             [true : CTrue]
                             [false : CFalse]
-                            [boolean? : (C→ Any Bool)]
-                            [integer? : (C→ Any Bool)]
-                            [real? : (C→ Any Bool)]
                             [number? : (C→ Any Bool)]
                             [positive? : (Ccase-> (C→ CNum CBool)
                                                   (C→ Num Bool))]
@@ -762,6 +786,49 @@
                             ;; rosette-specific
                             [asserts : (C→ (CListof Bool))]
                             [clear-asserts! : (C→ CUnit)]))
+
+;; ---------------------------------
+;; more built-in ops
+;(define-rosette-primop boolean? : (C→ Any Bool))
+(define-typed-syntax boolean?
+  [_:id ≫
+   --------
+   [⊢ [_ ≫ (mark-solvablem
+            (add-typeform
+             ro:boolean?
+             Bool))
+           ⇒ : (C→ Any Bool)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : ty]]
+   --------
+   [⊢ [_ ≫ (ro:boolean? e-) ⇒ : #,(if (concrete? #'ty) #'CBool #'Bool)]]])
+
+;(define-rosette-primop integer? : (C→ Any Bool))
+(define-typed-syntax integer?
+  [_:id ≫
+   --------
+   [⊢ [_ ≫ (mark-solvablem
+            (add-typeform
+             ro:integer?
+             Int))
+           ⇒ : (C→ Any Bool)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : ty]]
+   --------
+   [⊢ [_ ≫ (ro:integer? e-) ⇒ : #,(if (concrete? #'ty) #'CBool #'Bool)]]])
+
+;(define-rosette-primop real? : (C→ Any Bool))
+(define-typed-syntax real?
+  [_:id ≫
+   --------
+   [⊢ [_ ≫ (mark-solvablem
+            (add-typeform
+             ro:real?
+             Num)) ⇒ : (C→ Any Bool)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : ty]]
+   --------
+   [⊢ [_ ≫ (ro:real? e-) ⇒ : #,(if (concrete? #'ty) #'CBool #'Bool)]]])
 
 ;; ---------------------------------
 ;; mutable boxes
@@ -801,7 +868,6 @@
 (provide (rosette-typed-out [bv : (Ccase-> (C→ CInt CBVPred CBV)
                                            (C→ CInt CPosInt CBV))]
                             [bv? : (C→ Any Bool)]
-                            [bitvector : (C→ CPosInt CBVPred)]
                             [bitvector? : (C→ Any Bool)]
 
                             [bveq : (C→ BV BV Bool)]
@@ -846,14 +912,38 @@
 
                             [bitvector-size : (C→ CBVPred CPosInt)]))
 
+;(define-rosette-primop bitvector : (C→ CPosInt CBVPred))
+(define-typed-syntax bitvector
+  [_:id ≫
+   --------
+   [⊢ [_ ≫ ro:bitvector ⇒ : (C→ CPosInt CBVPred)]]]
+  [(_ n) ≫
+   [⊢ [n ≫ n- ⇐ : CPosInt]]
+   --------
+   [⊢ [_ ≫ (mark-solvablem
+            (add-typeform
+             (ro:bitvector n-)
+             BV)) ⇒ : CBVPred]]])
+
 ;; ---------------------------------
 ;; Uninterpreted functions
 
 (define-typed-syntax ~>
-  [(_ e ...+) ≫
-   [⊢ [e ≫ e- ⇐ : (C→ Nothing Bool)] ...]
+  [(_ pred? ...+) ≫
+   [⊢ [pred? ≫ pred?- (⇒ : _) (⇒ typefor ty) (⇒ solvable? s?) (⇒ function? f?)]] ...
+   #:fail-unless (stx-andmap syntax-e #'(s? ...))
+                 (format "Must provide a Rosette-solvable type, given ~a." 
+                         (syntax->datum #'(pred? ...)))
+   #:fail-when (stx-ormap syntax-e #'(f? ...))
+               (format "Must provide a non-function Rosette type, given ~a." 
+                       (syntax->datum #'(pred? ...)))
    --------
-   [⊢ [_ ≫ (ro:~> e- ...) ⇒ : (C→ Any Bool)]]])
+   [⊢ [_ ≫ (mark-solvablem
+            (mark-functionm
+             (add-typeform
+              (ro:~> pred?- ...)
+              (C→ ty ...))))
+              ⇒ : (C→ Any Bool)]]])
 
 ;; ---------------------------------
 ;; Logic operators
@@ -925,9 +1015,9 @@
 
 (provide (rosette-typed-out [core : (C→ CSolution (U (Listof Any) CFalse))]
                             ; TODO: implement hash
-                            [model : (C→ CSolution (HashTable Any Any))]
+                            [model : (C→ CSolution (CHashTable Any Any))]
                             [sat : (Ccase-> (C→ CSolution)
-                                            (C→ (HashTable Any Any) CSolution))]
+                                            (C→ (CHashTable Any Any) CSolution))]
                             [sat? : (C→ Any Bool)]
                             [unsat? : (C→ Any Bool)]
                             [unsat : (Ccase-> (C→ CSolution)
