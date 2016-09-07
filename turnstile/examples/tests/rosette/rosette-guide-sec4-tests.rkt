@@ -231,6 +231,17 @@
 (define-symbolic a1 b1 integer?)
 (check-type (forall (list) (= a1 b1)) : Bool -> (= a1 b1))
 (define f1 (forall (list a1) (exists (list b1) (= a1 (+ a1 b1))))) ; no free constants
+(check-type (list 1) : (CListof PosInt))
+(check-type (list 1) : (CList PosInt))
+(typecheck-fail (exists (list 1) (= a1 b1)) 
+                #:with-msg "Expected list of symbolic constants, given list containing: PosInt")
+(typecheck-fail (exists (list (+ a1 b1)) (= a1 b1)) 
+                #:with-msg "Expected list of symbolic constants, given list containing: Int")
+(check-type (cons a1 (cons b (list))) : (CList (Constant Int) (Constant Bool)))
+(typecheck-fail (forall (list 1) (= a1 b1)) 
+                #:with-msg "Expected list of symbolic constants, given list containing: PosInt")
+(typecheck-fail (forall (list (+ a1 b1)) (= a1 b1)) 
+                #:with-msg "Expected list of symbolic constants, given list containing: Int")
 ; so the model has no bindings
 (define sol1 (solve (assert f1)))
 (check-type sol1 : CSolution)

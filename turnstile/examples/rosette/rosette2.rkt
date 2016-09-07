@@ -1042,16 +1042,50 @@
 (define-base-types CSolution CPict)
 
 (provide (rosette-typed-out [core : (C→ CSolution (U (Listof Any) CFalse))]
-                            ; TODO: implement hash
                             [model : (C→ CSolution (CHashTable Any Any))]
                             [sat : (Ccase-> (C→ CSolution)
                                             (C→ (CHashTable Any Any) CSolution))]
                             [sat? : (C→ Any Bool)]
                             [unsat? : (C→ Any Bool)]
                             [unsat : (Ccase-> (C→ CSolution)
-                                              (C→ (CListof Bool) CSolution))]
-                            [forall : (C→ (CListof Any) Bool Bool)]
-                            [exists : (C→ (CListof Any) Bool Bool)]))
+                                              (C→ (CListof Bool) CSolution))]))
+
+;(define-rosette-primop forall : (C→ (CListof Any) Bool Bool))
+;(define-rosette-primop exists : (C→ (CListof Any) Bool Bool))
+(define-typed-syntax forall
+  [(_ vs body) ≫
+   [⊢ [vs ≫ vs- ⇒ : (~CListof ~! ty)]]
+   #:fail-unless (Constant*? #'ty)
+   (format "Expected list of symbolic constants, given list of ~a" 
+           (type->str #'ty))
+   [⊢ [body ≫ body- ⇐ : Bool]]
+   --------
+   [⊢ [_ ≫ (ro:forall vs- body-) ⇒ : Bool]]]
+  [(_ vs body) ≫
+   [⊢ [vs ≫ vs- ⇒ : (~CList ~! ty ...)]]
+   #:fail-unless (stx-andmap Constant*? #'(ty ...))
+   (format "Expected list of symbolic constants, given list containing: ~a" 
+           (string-join (stx-map type->str #'(ty ...)) ", "))
+   [⊢ [body ≫ body- ⇐ : Bool]]
+   --------
+   [⊢ [_ ≫ (ro:forall vs- body-) ⇒ : Bool]]])
+(define-typed-syntax exists
+  [(_ vs body) ≫
+   [⊢ [vs ≫ vs- ⇒ : (~CListof ~! ty)]]
+   #:fail-unless (Constant*? #'ty)
+   (format "Expected list of symbolic constants, given list of ~a" 
+           (type->str #'ty))
+   [⊢ [body ≫ body- ⇐ : Bool]]
+   --------
+   [⊢ [_ ≫ (ro:exists vs- body-) ⇒ : Bool]]]
+  [(_ vs body) ≫
+   [⊢ [vs ≫ vs- ⇒ : (~CList ~! ty ...)]]
+   #:fail-unless (stx-andmap Constant*? #'(ty ...))
+   (format "Expected list of symbolic constants, given list containing: ~a" 
+           (string-join (stx-map type->str #'(ty ...)) ", "))
+   [⊢ [body ≫ body- ⇐ : Bool]]
+   --------
+   [⊢ [_ ≫ (ro:exists vs- body-) ⇒ : Bool]]])
 
 (define-typed-syntax verify
   [(_ e) ≫
@@ -1071,7 +1105,7 @@
    --------
    [⊢ [_ ≫ (ro:evaluate v- s-) ⇒ : ty]]])
 
-
+;; TODO: enforce list of constants?
 (define-typed-syntax synthesize
   [(_ #:forall ie #:guarantee ge) ≫
    [⊢ [ie ≫ ie- ⇐ : (CListof Any)]]
