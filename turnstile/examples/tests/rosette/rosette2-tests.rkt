@@ -103,6 +103,8 @@
 (define-symbolic i0 integer?)
 (typecheck-fail (define-symbolic posint1 positive?) 
  #:with-msg "Must provide a Rosette-solvable type, given positive?")
+(typecheck-fail (lambda ([x : (Constant CInt)]) x)
+ #:with-msg "Constant requires a symbolic type")
 (check-type b0 : Bool -> b0)
 (check-type b0 : (Constant Bool) -> b0)
 (check-type i0 : Int -> i0)

@@ -323,6 +323,7 @@
 
 ;; copied from rosette.rkt
 (define-typed-syntax app #:export-as #%app
+  ;; concrete functions
   [(_ e_fn e_arg ...) ≫
    [⊢ [e_fn ≫ e_fn- ⇒ : (~C→ ~! τ_in ... τ_out)]]
    #:with e_fn/progsrc- (replace-stx-loc #'e_fn- #'e_fn)
@@ -332,6 +333,7 @@
    --------
    ;; TODO: use e_fn/progsrc- (currently causing "cannot use id tainted in macro trans" err)
    [⊢ [_ ≫ (ro:#%app e_fn/progsrc- e_arg- ...) ⇒ : τ_out]]]
+  ;; concrete case->
   [(_ e_fn e_arg ...) ≫
    [⊢ [e_fn ≫ e_fn- ⇒ : (~Ccase-> ~! . (~and ty_fns ((~C→ . _) ...)))]]
    #:with e_fn/progsrc- (replace-stx-loc #'e_fn- #'e_fn)
@@ -365,6 +367,7 @@
            (string-join (map ~s (stx-map syntax->datum expressions)) ", ")))])
    --------
    [⊢ [_ ≫ (ro:#%app e_fn/progsrc- e_arg- ...) ⇒ : τ_out]]]
+  ;; concrete union functions
   [(_ e_fn e_arg ...) ≫
    [⊢ [e_fn ≫ e_fn- ⇒ : (~CU* τ_f ...)]]
    #:with e_fn/progsrc- (replace-stx-loc #'e_fn- #'e_fn)
@@ -375,8 +378,20 @@
    ...
    --------
    [⊢ [_ ≫ (ro:#%app e_fn/progsrc- e_arg- ...) ⇒ : (CU τ_out ...)]]]
+  ;; symbolic functions
   [(_ e_fn e_arg ...) ≫
    [⊢ [e_fn ≫ e_fn- ⇒ : (~U* τ_f ...)]]
+   #:with e_fn/progsrc- (replace-stx-loc #'e_fn- #'e_fn)
+   [⊢ [e_arg ≫ e_arg- ⇒ : τ_arg] ...]
+   #:with (f a ...) (generate-temporaries #'(e_fn e_arg ...))
+   [([f ≫ _ : τ_f] [a ≫ _ : τ_arg] ...)
+    ⊢ [(app f a ...) ≫ _ ⇒ : τ_out]]
+   ...
+   --------
+   [⊢ [_ ≫ (ro:#%app e_fn/progsrc- e_arg- ...) ⇒ : (U τ_out ...)]]]
+  ;; constant symbolic fns
+  [(_ e_fn e_arg ...) ≫
+   [⊢ [e_fn ≫ e_fn- ⇒ : (~Constant* (~U* τ_f ...))]]
    #:with e_fn/progsrc- (replace-stx-loc #'e_fn- #'e_fn)
    [⊢ [e_arg ≫ e_arg- ⇒ : τ_arg] ...]
    #:with (f a ...) (generate-temporaries #'(e_fn e_arg ...))
@@ -955,7 +970,7 @@
             (mark-functionm
              (add-typeform
               (ro:~> pred?- ...)
-              (C→ ty ...))))
+              (→ ty ...))))
               ⇒ : (C→ Any Bool)]]])
 
 ;; ---------------------------------

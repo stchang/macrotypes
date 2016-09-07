@@ -9,16 +9,20 @@
 (check-type (boolean? b) : Bool -> #t)
 (check-type (integer? b) : Bool -> #f)
 
-;; TODO: fix these tests
-(check-type (vector b 1) : (CMVectorof (U Bool CPosInt)) -> (vector b 1))
+;; TODO: fix these tests?
+(check-type (vector b 1) : (CMVectorof (U (Constant Bool) CPosInt)) -> (vector b 1))
+;; mut vectors are invariant
+(check-not-type (vector b 1) : (CMVectorof (U Bool CPosInt)))
 (check-not-type (vector b 1) : (CIVectorof (U Bool CPosInt)))
 (check-not-type (vector b 1) : (CMVectorof (CU CBool CPosInt)))
-;; but this is ok
-(check-type (vector b 1) : (CMVectorof (U CBool CPosInt)))
+(check-type (vector b 1) : (CMVectorof (U (Constant Bool) CPosInt)))
 ;; mutable vectors are invariant
+(check-not-type (vector b 1) : (CMVectorof (U CBool CPosInt)))
 (check-not-type (vector b 1) : (CMVectorof (U Bool CInt)))
-(check-type (vector b 1) : (CVectorof (U Bool PosInt)))
+
+(check-type (vector b 1) : (CVectorof (U (Constant Bool) PosInt)))
 ;; vectors are also invariant, because it includes mvectors
+(check-not-type (vector b 1) : (CVectorof (U Bool PosInt)))
 (check-not-type (vector b 1) : (CVectorof (U Bool CInt)))
 (check-not-type (vector b 1) : (CVectorof (U Bool Int)))
 
