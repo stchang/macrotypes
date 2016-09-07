@@ -9,6 +9,7 @@
                      [first car] [rest cdr])
          Any Nothing
          CU U
+         Constant
          C→ → (for-syntax ~C→ C→?)
          Ccase-> ; TODO: symbolic case-> not supported yet
          CListof CVectorof CMVectorof CIVectorof
@@ -75,7 +76,7 @@
 
 (begin-for-syntax
   (define (concrete? t)
-    (not (or (Any? t) (U*? t)))))
+    (not (or (Any? t) (U*? t) (Constant*? t)))))
 
 (define-base-types Any CBV CStx CSymbol)
 ;; CVectorof includes all vectors
@@ -111,6 +112,18 @@
      #:with ((~or (~U* ty1- ...) (~CU* ty2- ...) ty3-) ...) (stx-map (current-type-eval) #'tys)
      #:with tys- (prune+sort #'(ty1- ... ... ty2- ... ... ty3- ...))
      #'(U* . tys-)]))
+
+;; internal symbolic constant constructor
+(define-type-constructor Constant* #:arity = 1)
+
+;; user-facing symbolic constant constructor: enforce non-concrete type
+(define-syntax Constant
+  (syntax-parser
+    [(_ τ)
+     #:with τ+ ((current-type-eval) #'τ)
+     #:fail-when (and (concrete? #'τ+) #'τ)
+     "Constant requires a symbolic type"
+     #'(Constant* τ+)]))
 
 ;; ---------------------------------
 ;; case-> and Ccase->
@@ -205,7 +218,7 @@
    #:with (y ...) (generate-temporaries #'(x ...))
    --------
    [_ ≻ (begin-
-          (define-syntax- x (make-rename-transformer (⊢ y : ty))) ...
+          (define-syntax- x (make-rename-transformer (⊢ y : (Constant ty)))) ...
           (ro:define-symbolic y ... pred?-))]])
 
 (define-typed-syntax define-symbolic*
@@ -217,7 +230,7 @@
    #:with (y ...) (generate-temporaries #'(x ...))
    --------
    [_ ≻ (begin-
-          (define-syntax- x (make-rename-transformer (⊢ y : ty))) ...
+          (define-syntax- x (make-rename-transformer (⊢ y : (Constant ty)))) ...
           (ro:define-symbolic* y ... pred?-))]])
 
 ;; TODO: support internal definition contexts
@@ -227,7 +240,7 @@
    #:fail-unless (syntax-e #'s?)
                  (format "Must provide a Rosette-solvable type, given ~a." 
                          (syntax->datum #'pred?))
-   [([x ≫ x- : ty] ...) ⊢ [(begin e ...) ≫ e- ⇒ τ_out]]
+   [([x ≫ x- : (Constant ty)] ...) ⊢ [(begin e ...) ≫ e- ⇒ τ_out]]
    --------
    [⊢ [_ ≫ (ro:let-values
             ([(x- ...) (ro:let ()
@@ -240,7 +253,7 @@
    #:fail-unless (syntax-e #'s?)
                  (format "Must provide a Rosette-solvable type, given ~a." 
                          (syntax->datum #'pred?))
-   [([x ≫ x- : ty] ...) ⊢ [(begin e ...) ≫ e- ⇒ τ_out]]
+   [([x ≫ x- : (Constant ty)] ...) ⊢ [(begin e ...) ≫ e- ⇒ τ_out]]
    --------
    [⊢ [_ ≫ (ro:let-values
             ([(x- ...) (ro:let ()
@@ -1105,6 +1118,8 @@
      (Any? t2)
      ((current-type=?) t1 t2)
      (syntax-parse (list t1 t2)
+       [((~Constant* ty1) _)
+        (typecheck? #'ty1 t2)]
        [((~CListof ty1) (~CListof ty2))
         (typecheck? #'ty1 #'ty2)]
        [((~CList . tys1) (~CList . tys2))
