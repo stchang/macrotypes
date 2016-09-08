@@ -155,10 +155,14 @@
     (syntax-property stx 'typefor))
   (define (mark-solvable stx)
     (set-stx-prop/preserved stx 'solvable? #t))
+  (define (set-solvable stx v)
+    (set-stx-prop/preserved stx 'solvable? v))
   (define (solvable? stx)
     (syntax-property stx 'solvable?))
   (define (mark-function stx)
     (set-stx-prop/preserved stx 'function? #t))
+  (define (set-function stx v)
+    (set-stx-prop/preserved stx 'function? v))
   (define (function? stx)
     (syntax-property stx 'function?)))
 
@@ -213,7 +217,7 @@
   [(_ x:id ...+ pred?) ≫
    [⊢ [pred? ≫ pred?- (⇒ : _) (⇒ typefor ty) (⇒ solvable? s?)]]
    #:fail-unless (syntax-e #'s?)
-                 (format "Must provide a Rosette-solvable type, given ~a." 
+                 (format "Expected a Rosette-solvable type, given ~a." 
                          (syntax->datum #'pred?))
    #:with (y ...) (generate-temporaries #'(x ...))
    --------
@@ -225,7 +229,7 @@
   [(_ x:id ...+ pred?) ≫
    [⊢ [pred? ≫ pred?- (⇒ : _) (⇒ typefor ty) (⇒ solvable? s?)]]
    #:fail-unless (syntax-e #'s?)
-                 (format "Must provide a Rosette-solvable type, given ~a." 
+                 (format "Expected a Rosette-solvable type, given ~a." 
                          (syntax->datum #'pred?))
    #:with (y ...) (generate-temporaries #'(x ...))
    --------
@@ -238,7 +242,7 @@
   [(_ (x:id ...+ pred?) e ...) ≫
    [⊢ [pred? ≫ pred?- (⇒ : _) (⇒ typefor ty) (⇒ solvable? s?)]]
    #:fail-unless (syntax-e #'s?)
-                 (format "Must provide a Rosette-solvable type, given ~a." 
+                 (format "Expected a Rosette-solvable type, given ~a." 
                          (syntax->datum #'pred?))
    [([x ≫ x- : (Constant ty)] ...) ⊢ [(begin e ...) ≫ e- ⇒ τ_out]]
    --------
@@ -251,7 +255,7 @@
   [(_ (x:id ...+ pred?) e ...) ≫
    [⊢ [pred? ≫ pred?- (⇒ : _) (⇒ typefor ty) (⇒ solvable? s?)]]
    #:fail-unless (syntax-e #'s?)
-                 (format "Must provide a Rosette-solvable type, given ~a." 
+                 (format "Expected a Rosette-solvable type, given ~a." 
                          (syntax->datum #'pred?))
    [([x ≫ x- : (Constant ty)] ...) ⊢ [(begin e ...) ≫ e- ⇒ τ_out]]
    --------
@@ -794,6 +798,7 @@
 
                             [true : CTrue]
                             [false : CFalse]
+                            [real->integer : (C→ Num Int)]
                             [number? : (C→ Any Bool)]
                             [positive? : (Ccase-> (C→ CNum CBool)
                                                   (C→ Num Bool))]
@@ -896,6 +901,7 @@
    [⊢ [_ ≫ (ro:current-bitwidth e-) ⇒ : CUnit]]])
 
 (define-named-type-alias BV (add-predm (U CBV) bv?))
+(define-named-type-alias CPred (C→ Any Bool))
 (define-symbolic-named-type-alias BVPred (C→ Any Bool) #:pred lifted-bitvector?)
 (define-named-type-alias BVMultiArgOp (Ccase-> (C→ BV BV BV)
                                                (C→ BV BV BV BV)))
@@ -979,21 +985,24 @@
 ;; Uninterpreted functions
 
 (define-typed-syntax ~>
-  [(_ pred? ...+) ≫
+  [(_ pred? ...+ out) ≫
    [⊢ [pred? ≫ pred?- (⇒ : _) (⇒ typefor ty) (⇒ solvable? s?) (⇒ function? f?)]] ...
-   #:fail-unless (stx-andmap syntax-e #'(s? ...))
-                 (format "Must provide a Rosette-solvable type, given ~a." 
-                         (syntax->datum #'(pred? ...)))
-   #:fail-when (stx-ormap syntax-e #'(f? ...))
-               (format "Must provide a non-function Rosette type, given ~a." 
-                       (syntax->datum #'(pred? ...)))
+   [⊢ [out ≫ out- (⇒ : _) (⇒ typefor ty-out) (⇒ solvable? out-s?) (⇒ function? out-f?)]]
+   #:fail-unless (stx-andmap syntax-e #'(s? ... out-s?))
+                 (format "Expected a Rosette-solvable type, given ~a." 
+                         (syntax->datum #'(pred? ... out)))
+   #:fail-when (stx-ormap syntax-e #'(f? ... out-f?))
+               (format "Expected a non-function Rosette type, given ~a." 
+                       (syntax->datum #'(pred? ... out)))
    --------
    [⊢ [_ ≫ (mark-solvablem
             (mark-functionm
              (add-typeform
-              (ro:~> pred?- ...)
-              (→ ty ...))))
+              (ro:~> pred?- ... out-)
+              (→ ty ... ty-out))))
               ⇒ : (C→ Any Bool)]]])
+
+(define-rosette-primop fv? : (C→ Any Bool))
 
 ;; ---------------------------------
 ;; Logic operators
@@ -1124,6 +1133,11 @@
 
 (define-typed-syntax evaluate
   [(_ v s) ≫
+   [⊢ [v ≫ v- ⇒ : (~Constant* ty)]]
+   [⊢ [s ≫ s- ⇐ : CSolution]]
+   --------
+   [⊢ [_ ≫ (ro:evaluate v- s-) ⇒ : ty]]]
+  [(_ v s) ≫
    [⊢ [v ≫ v- ⇒ : ty]]
    [⊢ [s ≫ s- ⇐ : CSolution]]
    --------
@@ -1176,6 +1190,13 @@
    [⊢ [mine ≫ mine- ⇐ : (CListof (U Num BV))]]
    --------
    [⊢ [_ ≫ (ro:optimize #:maximize maxe- #:minimize mine- #:guarantee ge-) ⇒ : CSolution]]])
+
+;; ---------------------------------
+;; Symbolic reflection
+
+(define-rosette-primop term? : CPred)
+(define-rosette-primop expression? : CPred)
+(define-rosette-primop constant? : CPred)
 
 ;; ---------------------------------
 ;; Subtyping

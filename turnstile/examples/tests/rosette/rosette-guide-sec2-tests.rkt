@@ -104,9 +104,9 @@
 
 (define ucore (debug [integer?] (same poly factored/d 12)))
 (typecheck-fail (debug [positive?] (same poly factored/d 12))
- #:with-msg "Must provide a Rosette-solvable type, given.*positive?")
-(typecheck-fail (debug [(~> integer?)] (same poly factored/d 12))
- #:with-msg "Must provide a non-function Rosette type, given.*~> integer?")
+ #:with-msg "Expected a Rosette-solvable type, given.*positive?")
+(typecheck-fail (debug [(~> integer? integer?)] (same poly factored/d 12))
+ #:with-msg "Expected a non-function Rosette type, given.*~> integer\\? integer\\?")
 (check-type ucore : CSolution)
 ;; TESTING TODO: requires visual inspection (in DrRacket)
 (check-type (render ucore) : CPict)
@@ -117,9 +117,9 @@
 (check-type (??) : Int)
 (check-type (?? boolean?) : Bool)
 (typecheck-fail (?? positive?) 
- #:with-msg "Must provide a Rosette-solvable type, given.*positive?")
-(typecheck-fail (?? (~> integer?))
- #:with-msg "Must provide a non-function Rosette type, given.*integer?")
+ #:with-msg "Expected a Rosette-solvable type, given.*positive?")
+(typecheck-fail (?? (~> integer? integer?))
+ #:with-msg "Expected a non-function Rosette type, given.*integer\\? integer\\?")
 
 
 (define (factored/?? [x : Int] -> Int)

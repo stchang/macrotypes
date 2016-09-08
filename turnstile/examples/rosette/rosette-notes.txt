@@ -1,4 +1,17 @@
-2016-09-08
+2016-09-08 --------------------
+
+** Problem: Constant is unsound:
+
+(define-symbolic f (~> integer? boolean?))
+(define-symbolic x integer?)
+(define sol (solve (assert (not (equal? (f x) (f 1))))))
+(define res (evaluate x sol))
+
+res has type (Constant Int) but (constant? res) is false
+
+** Workaround: 
+
+2016-09-08 --------------------
 
 Typed Rosette tricky subtyping examples:
 
@@ -122,6 +135,9 @@ TODOs:
 - use variance information in type constructors?
   - instead of special-casing individual constructors
 - ok to say "Rosette type" in type err msgs?
+- 2016-09-08: fix Constant soundness wrt evaluate
+- 2016-09-08: transfer "typefor" and "solvable?" props to id in define
+  - DONE 2016-09-08
 
 2016-08-25 --------------------
 

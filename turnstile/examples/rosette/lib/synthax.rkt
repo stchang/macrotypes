@@ -16,10 +16,10 @@
    #:with ??/progsrc (datum->syntax #'here 'ro:?? #'qq)
    [⊢ [pred? ≫ pred?- (⇒ : _) (⇒ typefor ty) (⇒ solvable? s?) (⇒ function? f?)]]
    #:fail-unless (syntax-e #'s?)
-                 (format "Must provide a Rosette-solvable type, given ~a." 
+                 (format "Expected a Rosette-solvable type, given ~a." 
                          (syntax->datum #'pred?))
    #:fail-when (syntax-e #'f?)
-               (format "Must provide a non-function Rosette type, given ~a." 
+               (format "Expected a non-function Rosette type, given ~a." 
                        (syntax->datum #'pred?))
    --------
    [⊢ [_ ≫ (??/progsrc pred?-) ⇒ : ty]]])

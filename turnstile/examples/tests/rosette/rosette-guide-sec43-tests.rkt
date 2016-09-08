@@ -1,6 +1,5 @@
 #lang s-exp "../../rosette/rosette2.rkt"
-(require "../rackunit-typechecking.rkt"
-         "check-type+asserts.rkt")
+(require "../rackunit-typechecking.rkt")
 
 ;; Examples from the Rosette Guide, Section 4.3
 

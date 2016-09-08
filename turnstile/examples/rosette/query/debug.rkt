@@ -29,10 +29,10 @@
   [(_ (pred? ...+) e) ≫
    [⊢ [pred? ≫ pred?- (⇒ : _) (⇒ typefor ty) (⇒ solvable? s?) (⇒ function? f?)]] ...
    #:fail-unless (stx-andmap syntax-e #'(s? ...))
-                 (format "Must provide a Rosette-solvable type, given ~a." 
+                 (format "Expected a Rosette-solvable type, given ~a." 
                          (syntax->datum #'(pred? ...)))
    #:fail-when (stx-ormap syntax-e #'(f? ...))
-               (format "Must provide a non-function Rosette type, given ~a." 
+               (format "Expected a non-function Rosette type, given ~a." 
                        (syntax->datum #'(pred? ...)))
    [⊢ [e ≫ e- ⇒ : τ]]
    --------

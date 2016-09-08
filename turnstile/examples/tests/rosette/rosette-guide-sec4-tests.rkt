@@ -1,6 +1,5 @@
 #lang s-exp "../../rosette/rosette2.rkt"
-(require "../rackunit-typechecking.rkt"
-         "check-type+asserts.rkt")
+(require "../rackunit-typechecking.rkt")
 
 ;; Examples from the Rosette Guide, Section 4.1 - 4.2
 
@@ -27,10 +26,10 @@
 (check-type (equal? (box n) (box 1)) : Bool -> (= 1 n))
 (check-not-type (equal? n 1) : CBool)
 (check-not-type (equal? (box n) (box 1)) : CBool)
-(typecheck-fail (~> positive?)
- #:with-msg "Must provide a Rosette\\-solvable type, given.*positive?")
-(typecheck-fail (~> (~> integer?))
- #:with-msg "Must provide a non\\-function Rosette type, given.*~> integer?")
+(typecheck-fail (~> positive? positive?)
+ #:with-msg "Expected a Rosette\\-solvable type, given.*positive?")
+(typecheck-fail (~> (~> integer? integer?) integer?)
+ #:with-msg "Expected a non\\-function Rosette type, given.*~> integer?")
 (define-symbolic f g (~> integer? integer?))
 (check-type f : (→ Int Int))
 (check-type g : (→ Int Int))
