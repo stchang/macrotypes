@@ -532,10 +532,13 @@
    [⊢ [_ ≫ ro:cons ⇒ : (Ccase-> (C→ Any (CListof Any) (CListof Any))
                                 (C→ Any (Listof Any) (Listof Any)))]]]
   [(_ e1 e2) ≫
-   [⊢ [e2 ≫ e2- ⇒ : (~CListof τ)]]
-   [⊢ [e1 ≫ e1- ⇐ : τ]]
+   [⊢ [e2 ≫ e2- ⇒ : (~CListof τ1)]]
+   [⊢ [e1 ≫ e1- ⇒ : τ2]]
    --------
-   [⊢ [_ ≫ (ro:cons e1- e2-) ⇒ : (CListof τ)]]]
+   [⊢ [_ ≫ (ro:cons e1- e2-) 
+           ⇒ : #,(if (and (concrete? #'τ1) (concrete? #'τ2))
+                     #'(CListof (CU τ1 τ2))
+                     #'(CListof (U τ1 τ2)))]]]
   [(_ e1 e2) ≫
    [⊢ [e2 ≫ e2- ⇒ : (~U* (~CListof τ) ...)]]
    [⊢ [e1 ≫ e1- ⇒ : τ1]]
@@ -1054,6 +1057,7 @@
 ;(define-rosette-primop exists : (C→ (CListof Any) Bool Bool))
 (define-typed-syntax forall
   [(_ vs body) ≫
+   ;; TODO: allow U of Constants?
    [⊢ [vs ≫ vs- ⇒ : (~CListof ~! ty)]]
    #:fail-unless (Constant*? #'ty)
    (format "Expected list of symbolic constants, given list of ~a" 
@@ -1072,6 +1076,7 @@
 (define-typed-syntax exists
   [(_ vs body) ≫
    [⊢ [vs ≫ vs- ⇒ : (~CListof ~! ty)]]
+   ;; TODO: allow U of Constants?
    #:fail-unless (Constant*? #'ty)
    (format "Expected list of symbolic constants, given list of ~a" 
            (type->str #'ty))
@@ -1167,8 +1172,11 @@
      (Any? t2)
      ((current-type=?) t1 t2)
      (syntax-parse (list t1 t2)
-       [((~Constant* ty1) _)
-        (typecheck? #'ty1 t2)]
+       ;; Constant clause must appear before U, ow (Const Int) <: Int wont hold
+       [((~Constant* ty1) (~Constant* ty2))
+        (typecheck? #'ty1 #'ty2)]
+       [((~Constant* ty) _) 
+        (typecheck? #'ty t2)]
        [((~CListof ty1) (~CListof ty2))
         (typecheck? #'ty1 #'ty2)]
        [((~CList . tys1) (~CList . tys2))

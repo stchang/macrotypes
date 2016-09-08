@@ -309,3 +309,35 @@
 (check-type+asserts (boolean? (assert-type (if b1 i1 b2) : Bool)) : Bool -> #t (list (not b1)))
 
 (check-type (asserts) : (CListof Bool) -> (list))
+
+;; tests for Constant
+(define-symbolic ci1 integer?)
+(define-symbolic bi1 bi2 boolean?)
+
+(check-type ci1 : (Constant Int))
+(check-type ci1 : Int)
+(check-type ci1 : (Constant Num))
+(check-type ci1 : Num)
+
+;; homogeneous list of constants
+(check-type (list bi1 bi2) : (CList (Constant Bool) (Constant Bool)))
+(check-type (list bi1 bi2) : (CListof (Constant Bool)))
+
+;; heterogeneous list of constants
+(check-type (list ci1 bi1) : (CList (Constant Int) (Constant Bool)))
+(check-type (cons ci1 (cons bi1 (list))) : (CList (Constant Int) (Constant Bool)))
+
+(check-type
+ (lambda ([x : CInt] [lst : (CListof CBool)]) (cons x lst))
+ : (C→ CInt (CListof CBool) (CListof (CU CInt CBool))))
+(check-not-type
+ (lambda ([x : Int] [lst : (CListof Bool)]) (cons x lst))
+ : (C→ Int (CListof Bool) (CListof (CU CInt CBool))))
+(check-type
+ (lambda ([x : Int] [lst : (CListof Bool)]) (cons x lst))
+ : (C→ Int (CListof Bool) (CListof (U Int Bool))))
+
+;; TODO: should these tests hold?
+;(check-type ci1 : (U (Constant Int) (Constant Bool)))
+;(check-type (list ci1 bi1) : (CListof (U (Constant Int) (Constant Bool))))
+;(check-type (cons ci1 (cons bi1 (list))) : (CListof (U (Constant Int) (Constant Bool))))

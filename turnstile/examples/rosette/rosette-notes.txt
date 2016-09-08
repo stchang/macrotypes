@@ -1,3 +1,28 @@
+2016-09-08
+
+Typed Rosette tricky subtyping examples
+
+) Both these should be true:
+
+(Constant Int) <: (U (Constant Int) (Constant Bool))
+(Constant Int) <: Int = (U CInt)
+
+However, the first case will not hold unless the (rhs) U subtyping clause
+appears first, but the second case will not hold unless the (lhs) Constant
+subtyping clause appears first.
+
+Bad alternative: put (lhs) Constant clause first, but attach stx prop
+Con: complicated bc must propagate stx prop whenever descending lhs type
+
+Bad alternative: Perform reductions on U of Constants?
+Possibly?: (U (Constant Int) (Constant Bool)) -> (U Int Bool)
+But then, (U (Constant Int)) <: (U Int), which should *not* hold.
+
+Bad alternative: lift Constant out of U
+Con: non-constant values, eg (if b i1 i2) will be recognized as "constant"
+
+Current solution: disallow first case
+
 2016-09-02 --------------------
 
 Is concrete? broken?
