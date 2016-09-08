@@ -77,9 +77,13 @@
                  "given ops must be enclosed with braces"
    [⊢ [n ≫ n- ⇐ : Int] ...]
    [⊢ [id ≫ id- ⇒ : ty_id] ... ...]
-   #:fail-unless (stx-andmap C→? #'(ty_id ... ...))
+   #:fail-unless (stx-andmap (lambda (t) (or (C→? t) (Ccase->? t))) #'(ty_id ... ...))
                  "given op must be a function"
-   #:with ((~C→ ty ...) ...) #'(ty_id ... ...)
+   ;; outer ~and wrapper is a syntax-parse workaround
+   #:with ((~and (~or (~C→ ty ...)
+                      (~and (~Ccase-> (~C→ ty* ...) ...)
+                            (~parse (ty ...) #'(ty* ... ...))))) ...)
+          #'(ty_id ... ...)
    #:fail-unless (stx-andmap τ⊑BV? #'(ty ... ...))
                  "given op must have BV inputs and output"
    --------

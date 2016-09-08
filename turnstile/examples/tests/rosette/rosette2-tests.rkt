@@ -137,7 +137,7 @@
 (typecheck-fail (bv 0 0) #:with-msg "expected.*PosInt.*given.*Zero")
 (check-type bitvector : (C→ CPosInt CBVPred))
 (check-type (bitvector 3) : CBVPred)
-(typecheck-fail ((bitvector 4) 1))
+(check-type ((bitvector 4) 1) : Bool -> #f)
 (check-type ((bitvector 4) (bv 10 (bitvector 4))) : Bool)
 
 (check-type (bitvector? "2") : Bool -> #f)
@@ -265,9 +265,10 @@
 ;; CBV input annotation on arg is too restrictive to work as BVPred
 (typecheck-fail ((λ ([bvp : BVPred]) bvp) (λ ([bv : CBV]) #t)) 
                 #:with-msg "expected BVPred.*given.*CBV")
-(check-type ((λ ([bvp : BVPred]) bvp) (λ ([bv : BV]) #t)) : BVPred)
-;; this should pass, but will not if BVPred is a case->
-(check-type ((λ ([bvp : BVPred]) bvp) (λ ([bv : BV]) ((bitvector 2) bv))) : BVPred)
+(typecheck-fail ((λ ([bvp : BVPred]) bvp) (λ ([bv : BV]) #t))
+                #:with-msg "expected BVPred.*given.*BV")
+;; BVpred arg must have Any input type
+(check-type ((λ ([bvp : BVPred]) bvp) (λ ([bv : Any]) ((bitvector 2) bv))) : BVPred)
 
 ;; assert-type tests
 (check-type+asserts (assert-type (sub1 10) : PosInt) : PosInt -> 9 (list))

@@ -2,7 +2,7 @@
 
 Typed Rosette tricky subtyping examples:
 
-) Both these should be true:
+***** Both these should be true:
 
 (Constant Int) <: (U (Constant Int) (Constant Bool))
 (Constant Int) <: Int = (U CInt)

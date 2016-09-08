@@ -11,8 +11,7 @@
          CU U
          Constant
          C→ → (for-syntax ~C→ C→?)
-         Ccase-> ; TODO: symbolic case-> not supported yet
-         CListof CVectorof CMVectorof CIVectorof
+         CListof Listof CVectorof CMVectorof CIVectorof
          CParamof ; TODO: symbolic Param not supported yet
          CUnit Unit
          CNegInt NegInt
@@ -25,6 +24,7 @@
          CFalse CTrue CBool Bool
          CString String
          CStx ; symblic Stx not supported
+         CAsserts
          ;; BV types
          CBV BV
          CBVPred BVPred
@@ -37,7 +37,7 @@
    (combine-in
     (only-in "../stlc+union+case.rkt"
              PosInt Zero NegInt Float True False String [U U*] U*?
-             [case-> case->*] → →?)
+             [case-> case->*] case->? → →?)
     (only-in "../stlc+cons.rkt" Unit [List Listof])))
  (only-in "../stlc+union+case.rkt" [~U* ~CU*] [~case-> ~Ccase->] [~→ ~C→])
  (only-in "../stlc+cons.rkt" [~List ~CListof])
@@ -623,6 +623,8 @@
 ;; ---------------------------------
 ;; IO and other built-in ops
 
+(define-named-type-alias CAsserts (CListof Bool))
+
 (provide (rosette-typed-out [printf : (Ccase-> (C→ CString CUnit)
                                                (C→ CString Any CUnit)
                                                (C→ CString Any Any CUnit))]
@@ -815,7 +817,7 @@
                                                (C→ Int Int Int))]
                             
                             ;; rosette-specific
-                            [asserts : (C→ (CListof Bool))]
+                            [asserts : (C→ CAsserts)]
                             [clear-asserts! : (C→ CUnit)]))
 
 ;; ---------------------------------
@@ -893,13 +895,14 @@
    --------
    [⊢ [_ ≫ (ro:current-bitwidth e-) ⇒ : CUnit]]])
 
-(define-named-type-alias BV (add-predm (U CBV) ro:bv?))
-(define-symbolic-named-type-alias BVPred (C→ BV Bool) #:pred lifted-bitvector?)
+(define-named-type-alias BV (add-predm (U CBV) bv?))
+(define-symbolic-named-type-alias BVPred (C→ Any Bool) #:pred lifted-bitvector?)
+(define-named-type-alias BVMultiArgOp (Ccase-> (C→ BV BV BV)
+                                               (C→ BV BV BV BV)))
 
 (provide (rosette-typed-out [bv : (Ccase-> (C→ CInt CBVPred CBV)
                                            (C→ CInt CPosInt CBV))]
                             [bv? : (C→ Any Bool)]
-                            [bitvector? : (C→ Any Bool)]
 
                             [bveq : (C→ BV BV Bool)]
                             [bvslt : (C→ BV BV Bool)]
@@ -922,9 +925,9 @@
                             [bvashr : (C→ BV BV BV)]
                             [bvneg : (C→ BV BV)]
 
-                            [bvadd : (C→ BV BV BV)]
-                            [bvsub : (C→ BV BV BV)]
-                            [bvmul : (C→ BV BV BV)]
+                            [bvadd : BVMultiArgOp]
+                            [bvsub : BVMultiArgOp]
+                            [bvmul : BVMultiArgOp]
 
                             [bvsdiv : (C→ BV BV BV)]
                             [bvudiv : (C→ BV BV BV)]
@@ -932,7 +935,7 @@
                             [bvurem : (C→ BV BV BV)]
                             [bvsmod : (C→ BV BV BV)]
 
-                            [concat : (C→ BV BV BV)]
+                            [concat : BVMultiArgOp]
                             [extract : (C→ Int Int BV BV)]
                             [sign-extend : (C→ BV CBVPred BV)]
                             [zero-extend : (C→ BV BVPred BV)]
@@ -955,6 +958,22 @@
             (add-typeform
              (ro:bitvector n-)
              BV)) ⇒ : CBVPred]]])
+
+;; bitvector? can produce type CFalse if input does not have type (C→ Any Bool)
+;; result is always CBool, since anything symbolic returns false
+;(define-rosette-primop bitvector? : (C→ Any Bool))
+(define-typed-syntax bitvector?
+  [_:id ≫
+   --------
+   [⊢ [_ ≫ ro:bitvector? ⇒ : (C→ Any CBool)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇐ : (C→ Any Bool)]]
+   --------
+   [⊢ [_ ≫ (ro:bitvector? e-) ⇒ : CBool]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : _]]
+   --------
+   [⊢ [_ ≫ (ro:bitvector? e-) ⇒ : CFalse]]])
 
 ;; ---------------------------------
 ;; Uninterpreted functions
