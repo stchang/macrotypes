@@ -5,14 +5,15 @@
        #:from "../stlc+union.rkt")
 
 (provide (rename-out [ro:#%module-begin #%module-begin] 
-                     [stlc:λ lambda]
-                     [first car] [rest cdr])
+                     [stlc:λ lambda])
          Any Nothing
          CU U
          Constant
          C→ → (for-syntax ~C→ C→?)
-         CListof Listof CVectorof CMVectorof CIVectorof
+         Ccase-> (for-syntax ~Ccase-> Ccase->?) ; TODO: symbolic case-> not supported yet
+         CListof Listof Pair CVectorof MVectorof IVectorof CMVectorof CIVectorof
          CParamof ; TODO: symbolic Param not supported yet
+         CBoxof MBoxof IBoxof
          CUnit Unit
          CNegInt NegInt
          CZero Zero
@@ -84,12 +85,15 @@
 ;; CMVectorof includes only mutable vectors
 (define-type-constructor CIVectorof #:arity = 1)
 (define-type-constructor CMVectorof #:arity = 1)
-(define-type-constructor CBoxof #:arity = 1)
+(define-type-constructor CMBoxof #:arity = 1)
+(define-type-constructor CIBoxof #:arity = 1)
 ;; TODO: Hash subtyping?
 ;; - invariant for now, like TR, though Rosette only uses immutable hashes?
 (define-type-constructor CHashTable #:arity = 2)
 (define-named-type-alias (CVectorof X) (CU (CIVectorof X) (CMVectorof X)))
+(define-named-type-alias (CBoxof X) (CU (CIBoxof X) (CMBoxof X)))
 (define-type-constructor CList #:arity >= 0)
+(define-type-constructor CPair #:arity = 2)
 
 (define-syntax (CU stx)
   (syntax-parse stx
@@ -116,6 +120,15 @@
 ;; internal symbolic constant constructor
 (define-type-constructor Constant* #:arity = 1)
 
+(define-for-syntax (remove-Constant ty)
+  (syntax-parse ty
+    [(~Constant* t) #'t]
+    [(~U* . tys) ; redo U reductions
+     ((current-type-eval) #`(U . #,(stx-map remove-Constant #'tys)))]
+    [(tycon . tys) 
+     (transfer-stx-props #`(tycon . #,(stx-map remove-Constant #'tys)) ty)]
+    [any ty]))
+     
 ;; user-facing symbolic constant constructor: enforce non-concrete type
 (define-syntax Constant
   (syntax-parser
@@ -184,6 +197,11 @@
 (define-named-type-alias (CParamof X) (Ccase-> (C→ X)
                                                (C→ X CUnit)))
 (define-named-type-alias (Listof X) (U (CListof X)))
+(define-named-type-alias (MVectorof X) (U (CMVectorof X)))
+(define-named-type-alias (IVectorof X) (U (CIVectorof X)))
+(define-named-type-alias (MBoxof X) (U (CMBoxof X)))
+(define-named-type-alias (IBoxof X) (U (CIBoxof X)))
+(define-named-type-alias (Pair X Y) (U (CPair X Y)))
 
 (define-syntax →
   (syntax-parser
@@ -320,7 +338,12 @@
    [⊢ [_ ≫ (quote- (x ...)) ⇒ : (CListof CInt)]]]
   [(_ (x:id ...)) ≫
    --------
-   [⊢ [_ ≫ (quote- (x ...)) ⇒ : (CListof CSymbol)]]])
+   [⊢ [_ ≫ (quote- (x ...)) ⇒ : (CListof CSymbol)]]]
+  [(_ (x . y)) ≫
+   [⊢ [x ≫ x- ⇒ : τx]]
+   [⊢ [y ≫ y- ⇒ : τy]]
+   --------
+   [⊢ [_ ≫ (quote- (x . y)) ⇒ : (CPair τx τy)]]])
 
 ;; ---------------------------------
 ;; Function Application
@@ -492,6 +515,7 @@
 ;; ---------------------------------
 ;; vector
 
+;; mutable constructor
 (define-typed-syntax vector
   [(_ e ...) ≫
    [⊢ [e ≫ e- ⇒ : τ] ...]
@@ -499,13 +523,51 @@
    [⊢ [_ ≫ (ro:vector e- ...) ⇒ : #,(if (stx-andmap concrete? #'(τ ...))
                                         #'(CMVectorof (CU τ ...))
                                         #'(CMVectorof (U τ ...)))]]])
+
+;; immutable constructor
 (define-typed-syntax vector-immutable
   [(_ e ...) ≫
    [⊢ [e ≫ e- ⇒ : τ] ...]
    --------
-   [⊢ [_ ≫ (ro:vector-immutable e- ...) ⇒ : (if (stx-andmap concrete? #'(τ ...))
-                                                #'(CIVectorof (CU τ ...))
-                                                #'(CIVectorof (U τ ...)))]]])
+   [⊢ [_ ≫ (ro:vector-immutable e- ...) ⇒ : #,(if (stx-andmap concrete? #'(τ ...))
+                                                  #'(CIVectorof (CU τ ...))
+                                                  #'(CIVectorof (U τ ...)))]]])
+
+;; TODO: add CList case?
+;; returne mutable vector
+(define-typed-syntax list->vector
+  [_:id ≫ ;; TODO: use polymorphism
+   --------
+   [⊢ [_ ≫ ro:list->vector ⇒ : (Ccase-> (C→ (CListof Any) (CMVectorof Any))
+                                        (C→ (Listof Any) (MVectorof Any)))]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CListof τ)]]
+   --------
+   [⊢ [_ ≫ (ro:list->vector e-) ⇒ : (CMVectorof τ)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CListof τ) ...)]]
+   --------
+   [⊢ [_ ≫ (ro:list->vector e-) ⇒ : (U (CMVectorof τ) ...)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CList τ ...)]]
+   --------
+   [⊢ [_ ≫ (ro:list->vector e-) ⇒ : (CMVectorof (U τ ...))]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CList τ ...) ...)]]
+   --------
+   [⊢ [_ ≫ (ro:list->vector e-) ⇒ : (U (CMVector (U τ ...)) ...)]]])
+
+(define-typed-syntax vector-ref
+  [(_ e n) ≫
+   [⊢ [e ≫ e- ⇒ : (~or (~CMVectorof τ) (~CIVectorof τ))]]
+   [⊢ [n ≫ n- ⇐ : Int]]
+   --------
+   [⊢ [_ ≫ (ro:vector-ref e- n-) ⇒ : τ]]]
+  [(_ e n) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~and (~or (~CMVectorof τ) (~CIVectorof τ))) ...)]]
+   [⊢ [n ≫ n- ⇐ : Int]]
+   --------
+   [⊢ [_ ≫ (ro:vector-ref e- n-) ⇒ : (U τ ...)]]])
 
 ;; ---------------------------------
 ;; hash tables
@@ -533,8 +595,10 @@
 (define-typed-syntax cons
   [_:id ≫ ;; TODO: use polymorphism
    --------
-   [⊢ [_ ≫ ro:cons ⇒ : (Ccase-> (C→ Any (CListof Any) (CListof Any))
-                                (C→ Any (Listof Any) (Listof Any)))]]]
+   [⊢ [_ ≫ ro:cons ⇒ : (Ccase-> 
+                        (C→ Any Any (CPair Any Any))
+                        (C→ Any (CListof Any) (CListof Any))
+                        (C→ Any (Listof Any) (Listof Any)))]]]
   [(_ e1 e2) ≫
    [⊢ [e2 ≫ e2- ⇒ : (~CListof τ1)]]
    [⊢ [e1 ≫ e1- ⇒ : τ2]]
@@ -557,9 +621,75 @@
    [⊢ [e1 ≫ e1- ⇒ : τ1]]
    [⊢ [e2 ≫ e2- ⇒ : (~U* (~CList τ ...) ...)]]
    --------
-   [⊢ [_ ≫ (ro:cons e1- e2-) ⇒ : (U (CList τ1 τ ...) ...)]]])
+   [⊢ [_ ≫ (ro:cons e1- e2-) ⇒ : (U (CList τ1 τ ...) ...)]]]
+  [(_ e1 e2) ≫
+   [⊢ [e1 ≫ e1- ⇒ : τ1]]
+   [⊢ [e2 ≫ e2- ⇒ : τ2]]
+   --------
+   [⊢ [_ ≫ (ro:cons e1- e2-) ⇒ : (CPair τ1 τ2)]]])
 
-;; in typed rosette, car and cdr are the same as first and rest?
+;; car and cdr additionally support pairs
+(define-typed-syntax car
+  [_:id ≫ ;; TODO: use polymorphism
+   --------
+   [⊢ [_ ≫ ro:car ⇒ : (Ccase-> (C→ (Pairof Any Any) Any)
+                               (C→ (Listof Any) Any))]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CListof τ)]]
+   --------
+   [⊢ [_ ≫ (ro:car e-) ⇒ : τ]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CListof τ) ...)]]
+   --------
+   [⊢ [_ ≫ (ro:car e-) ⇒ : (U τ ...)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CList τ1 τ ...)]]
+   --------
+   [⊢ [_ ≫ (ro:car e-) ⇒ : τ1]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CList τ1 τ ...) ...)]]
+   --------
+   [⊢ [_ ≫ (ro:car e-) ⇒ : (U τ1 ...)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CPair τ _)]]
+   --------
+   [⊢ [_ ≫ (ro:car e-) ⇒ : τ]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CPair τ _) ...)]]
+   --------
+   [⊢ [_ ≫ (ro:car e-) ⇒ : (U τ ...)]]])
+
+(define-typed-syntax cdr
+  [_:id ≫ ;; TODO: use polymorphism
+   --------
+   [⊢ [_ ≫ ro:cdr ⇒ : (Ccase-> (C→ (CListof Any) (CListof Any))
+                                (C→ (Listof Any) (Listof Any)))]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CListof τ)]]
+   --------
+   [⊢ [_ ≫ (ro:cdr e-) ⇒ : (CListof τ)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CListof τ) ...)]]
+   --------
+   [⊢ [_ ≫ (ro:cdr e-) ⇒ : (U (CListof τ) ...)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CList τ1 τ ...)]]
+   --------
+   [⊢ [_ ≫ (ro:cdr e-) ⇒ : (CList τ ...)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CList τ1 τ ...) ...)]]
+   --------
+   [⊢ [_ ≫ (ro:cdr e-) ⇒ : (U (CList τ ...) ...)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CPair _ τ)]]
+   --------
+   [⊢ [_ ≫ (ro:cdr e-) ⇒ : τ]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CPair _ τ) ...)]]
+   --------
+   [⊢ [_ ≫ (ro:cdr e-) ⇒ : (U τ ...)]]])
+
+
 (define-typed-syntax first
   [_:id ≫ ;; TODO: use polymorphism
    --------
@@ -623,6 +753,105 @@
    [⊢ [e ≫ e- ⇒ : (~U* (~CList τ1 τ2 τ ...) ...)]]
    --------
    [⊢ [_ ≫ (ro:second e-) ⇒ : (U τ2 ...)]]])
+
+;; n must be Int bc Rosette does not have symbolic Nats
+(define-typed-syntax take
+  [_:id ≫ ;; TODO: use polymorphism
+   --------
+   [⊢ [_ ≫ ro:take ⇒ : (Ccase-> (C→ (CListof Any) CInt (CListof Any))
+                                (C→ (Listof Any) Int (Listof Any)))]]]
+  [(_ e n) ≫
+   [⊢ [e ≫ e- ⇒ : (~CListof τ)]]
+   [⊢ [n ≫ n- ⇐ : Int]]
+   --------
+   [⊢ [_ ≫ (ro:take e- n-) ⇒ : (CListof τ)]]]
+  [(_ e n) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CListof τ) ...)]]
+   [⊢ [n ≫ n- ⇐ : Int]]
+   --------
+   [⊢ [_ ≫ (ro:take e- n-) ⇒ : (U (CListof τ) ...)]]]
+  [(_ e n) ≫
+   [⊢ [e ≫ e- ⇒ : (~CList τ ...)]]
+   [⊢ [n ≫ n- ⇐ : Int]]
+   --------
+   [⊢ [_ ≫ (ro:take e- n-) ⇒ : (CListof (U τ ...))]]]
+  [(_ e n) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CList τ ...) ...)]]
+   [⊢ [n ≫ n- ⇐ : Int]]
+   --------
+   [⊢ [_ ≫ (ro:take e- n-) ⇒ : (U (CList (U τ ...)) ...)]]])
+
+(define-typed-syntax length
+  [_:id ≫ ;; TODO: use polymorphism
+   --------
+   [⊢ [_ ≫ ro:length ⇒ : (Ccase-> (C→ (CListof Any) CNat)
+                                (C→ (Listof Any) Nat))]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇐ : (CListof Any)]]
+   --------
+   [⊢ [_ ≫ (ro:length e-) ⇒ : CNat]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CListof _) ...)]]
+   --------
+   [⊢ [_ ≫ (ro:length e-) ⇒ : Nat]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CList _ ...)]]
+   --------
+   [⊢ [_ ≫ (ro:length e-) ⇒ : CNat]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CList _ ...) ...)]]
+   --------
+   [⊢ [_ ≫ (ro:length e-) ⇒ : Nat]]])
+
+(define-typed-syntax reverse
+  [_:id ≫ ;; TODO: use polymorphism
+   --------
+   [⊢ [_ ≫ ro:reverse ⇒ : (Ccase-> (C→ (CListof Any) (CListof Any))
+                                   (C→ (Listof Any) (Listof Any)))]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CListof τ)]]
+   --------
+   [⊢ [_ ≫ (ro:reverse e-) ⇒ : (CListof τ)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CListof τ) ...)]]
+   --------
+   [⊢ [_ ≫ (ro:reverse e-) ⇒ : (U (CListof τ) ...)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~CList . τs)]]
+   #:with τs/rev (stx-rev #'τs)
+   --------
+   [⊢ [_ ≫ (ro:reverse e-) ⇒ : (CList . τs/rev)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CList . τs) ...)]]
+   #:with (τs/rev ...) (stx-map stx-rev #'(τs ...))
+   --------
+   [⊢ [_ ≫ (ro:reverse e-) ⇒ : (U (CList . τs/rev) ...)]]])
+
+(define-typed-syntax sort
+  [_:id ≫ ;; TODO: use polymorphism
+   --------
+   [⊢ [_ ≫ ro:sort ⇒ : (Ccase-> (C→ (CListof Any) (C→ Any Any Bool) (CListof Any))
+                                (C→ (Listof Any) (C→ Any Any Bool) (Listof Any)))]]]
+  [(_ e cmp) ≫
+   [⊢ [e ≫ e- ⇒ : (~CListof τ)]]
+   [⊢ [cmp ≫ cmp- ⇐ : (C→ τ τ Bool)]]
+   --------
+   [⊢ [_ ≫ (ro:sort e- cmp-) ⇒ : (CListof τ)]]]
+  [(_ e cmp) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CListof τ) ...)]]
+   [⊢ [cmp ≫ cmp- ⇐ : (C→ (U τ ...) (U τ ...) Bool)]]
+   --------
+   [⊢ [_ ≫ (ro:sort e- cmp-) ⇒ : (U (CListof τ) ...)]]]
+  [(_ e cmp) ≫
+   [⊢ [e ≫ e- ⇒ : (~CList . τs)]]
+   [⊢ [cmp ≫ cmp- ⇐ : (C→ (U . τs) (U . τs) Bool)]]
+   --------
+   [⊢ [_ ≫ (ro:sort e- cmp-) ⇒ : (CListof (U . τs))]]]
+  [(_ e cmp) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~CList τ ...) ...)]]
+   [⊢ [cmp ≫ cmp- ⇐ : (C→ (U τ ... ...) (U τ ... ...) Bool)]]
+   --------
+   [⊢ [_ ≫ (ro:sort e- cmp-) ⇒ : (U (CList (U τ ...)) ...)]]])
 
 ;; ---------------------------------
 ;; IO and other built-in ops
@@ -875,13 +1104,23 @@
   [(_ e) ≫
    [⊢ [e ≫ e- ⇒ : τ]]
    --------
-   [⊢ [_ ≫ (ro:box e-) ⇒ : (CBoxof τ)]]])
+   [⊢ [_ ≫ (ro:box e-) ⇒ : (CMBoxof τ)]]])
+
+(define-typed-syntax box-immutable
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : τ]]
+   --------
+   [⊢ [_ ≫ (ro:box-immutable e-) ⇒ : (CIBoxof τ)]]])
 
 (define-typed-syntax unbox
   [(_ e) ≫
-   [⊢ [e ≫ e- ⇒ : (~CBoxof τ)]]
+   [⊢ [e ≫ e- ⇒ : (~or (~CMBoxof τ) (~CIBoxof τ))]]
    --------
-   [⊢ [_ ≫ (ro:unbox e-) ⇒ : τ]]])
+   [⊢ [_ ≫ (ro:unbox e-) ⇒ : τ]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : (~U* (~and (~or (~CMBoxof τ) (~CIBoxof τ))) ...)]]
+   --------
+   [⊢ [_ ≫ (ro:unbox e-) ⇒ : (U τ ...)]]])
 
 (define-rosette-primop term-cache
   : (Ccase-> (C→ (CHashTable Any Any))
@@ -1165,7 +1404,7 @@
    [⊢ [v ≫ v- ⇒ : ty]]
    [⊢ [s ≫ s- ⇐ : CSolution]]
    --------
-   [⊢ [_ ≫ (ro:evaluate v- s-) ⇒ : ty]]])
+   [⊢ [_ ≫ (ro:evaluate v- s-) ⇒ : #,(remove-Constant #'ty)]]])
 
 ;; TODO: enforce list of constants?
 (define-typed-syntax synthesize
@@ -1252,6 +1491,11 @@
        ;; vectors, only immutable vectors are invariant
        [((~CIVectorof ty1) (~CIVectorof ty2))
         (typecheck? #'ty1 #'ty2)]
+       [((~CIBoxof ty1) (~CIBoxof ty2))
+        (typecheck? #'ty1 #'ty2)]
+       [((~CPair ty1a ty1b) (~CPair ty2a ty2b))
+        (and (typecheck? #'ty1a #'ty2a)
+             (typecheck? #'ty1b #'ty2b))]
        ; 2 U types, subtype = subset
        [((~CU* . ts1) _)
         (for/and ([t (stx->list #'ts1)])

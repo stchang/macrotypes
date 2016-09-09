@@ -9,7 +9,9 @@
 
 res has type (Constant Int) but (constant? res) is false
 
-** Workaround: special case in evaluate
+** bad Workaround: special case in evaluate
+ - does not eliminate nested Constant from data structures and other tycons
+   - manually remove Constant for now
  - still unsound with polymorphism
 
 2016-09-08 --------------------
