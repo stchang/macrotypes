@@ -326,6 +326,53 @@
           (ro:define f-
             (stlc:λ ([x : ty] ...) (ann (begin e ...) : ty_out))))]])
 
+;; TODO: get subtyping to work for struct-generated types?
+;; TODO: handle mutable structs properly
+(define-typed-syntax struct #:datum-literals (:)
+  [(_ name:id (x:id ...) ~! . rst) ≫
+   #:fail-when #t "Missing type annotations for fields"
+   --------
+   [_ ≻ (ro:struct name (x ...) . rst)]]
+  [(_ name:id ([x:id : ty:type] ...) . kws) ≫
+   #:fail-unless (id-lower-case? #'name)
+                 (format "Expected lowercase struct name, given ~a" #'name)
+   #:with name* (generate-temporary #'name)
+   #:with Name (id-upcase #'name)
+   #:with CName (format-id #'name "C~a" #'Name)
+   #:with TyOut #'(Name ty ...)
+   #:with CTyOut #'(CName ty ...)
+   #:with (name-x ...) (stx-map (lambda (f) (format-id #'name "~a-~a" #'name f)) #'(x ...))
+   #:with (name-x* ...) (stx-map (lambda (f) (format-id #'name* "~a-~a" #'name* f)) #'(x ...))
+   #:with name? (format-id #'name "~a?" #'name)
+   #:with name?* (format-id #'name* "~a?" #'name*)
+   --------
+   [_ ≻ (ro:begin
+          (ro:struct name* (x ...) . kws)
+          (define-type-constructor CName #:arity = #,(stx-length #'(x ...)))
+          (define-named-type-alias (Name x ...) (U (CName x ...)))
+          (define-syntax name   ; constructor
+            (make-variable-like-transformer 
+             (assign-type #'name* #'(C→ ty ... CTyOut))))
+          (define-syntax name?  ; predicate
+            (make-variable-like-transformer 
+             (assign-type #'name?* #'(C→ Any Bool))))
+          (define-syntax name-x ; accessors
+            (make-variable-like-transformer 
+             (assign-type #'name-x* #'(C→ TyOut ty)))) ...)]])
+
+;; TODO: add type rules for generics
+(define-typed-syntax define-generics #:datum-literals (: ->)
+  [(_ name:id (f:id x:id ... -> ty-out)) ≫
+   #:with app-f (format-id #'f "apply-~a" #'f)
+   --------
+   [_ ≻ (ro:begin
+         (ro:define-generics name (f x ...))
+         (define-syntax app-f ; tmp workaround: each gen fn has its own apply
+           (syntax-parser
+             [(_ . es)
+              #:with es+ (stx-map expand/df #'es)
+              (assign-type #'(ro:#%app f . es+) #'ty-out)])))]])
+
 ;; ---------------------------------
 ;; quote
 
