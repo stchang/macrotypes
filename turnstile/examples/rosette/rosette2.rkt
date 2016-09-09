@@ -883,6 +883,14 @@
    --------
    [⊢ [_ ≫ (ro:unbox e-) ⇒ : τ]]])
 
+(define-rosette-primop term-cache
+  : (Ccase-> (C→ (CHashTable Any Any))
+             (C→ (CHashTable Any Any) CUnit)))
+(define-rosette-primop clear-terms! 
+  : (Ccase-> (C→ CUnit)
+             (C→ CFalse CUnit)
+             (C→ (CListof Any) CUnit))) ; list of terms
+
 ;; ---------------------------------
 ;; BV Types and Operations
 
@@ -1003,6 +1011,22 @@
               ⇒ : (C→ Any Bool)]]])
 
 (define-rosette-primop fv? : (C→ Any Bool))
+
+;; function? can produce type CFalse if input does not have type (C→ Any Bool)
+;; result is always CBool, since anything symbolic returns false
+;(define-rosette-primop function? : (C→ Any Bool))
+(define-typed-syntax function?
+  [_:id ≫
+   --------
+   [⊢ [_ ≫ ro:function? ⇒ : (C→ Any CBool)]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇐ : (C→ Any Bool)]]
+   --------
+   [⊢ [_ ≫ (ro:function? e-) ⇒ : CBool]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇒ : _]]
+   --------
+   [⊢ [_ ≫ (ro:function? e-) ⇒ : CFalse]]])
 
 ;; ---------------------------------
 ;; Logic operators

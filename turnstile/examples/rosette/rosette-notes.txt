@@ -9,7 +9,8 @@
 
 res has type (Constant Int) but (constant? res) is false
 
-** Workaround: 
+** Workaround: special case in evaluate
+ - still unsound with polymorphism
 
 2016-09-08 --------------------
 
@@ -97,6 +98,8 @@ minimal example:
 Interesting parts of Typed Rosette
 - only need a single U symbolic constructor
 - assert-type, using cast-type and assertion store
+- solvable?, function?, typefor tags
+- Constant constructor?
 
 2016-08-25 --------------------
 
@@ -109,14 +112,16 @@ TODOs:
    - disadvantage: cannot compute pred in define-symbolic
      - Rosette users won't care?
      - TODO: add extra type rules to propagate 'typefor tag
+ - DONE (alternative) 2016-09-07
 - implement assert-type, which adds to the assertion store
  - DONE 2016-08-25
 - add polymorphism
  - regular polymorphism
+ - BV size polymorphism?
 - extend BV type with a size
  - requires BV-size-polymorpism?
 - add Any type?
- - STARTED 2016-08-26
+ - STARTED 2016-08-26 DONE?
 - support internal definition contexts
 - fix type of Vector and List to differentiate homogeneous/hetero
   - 2016-09-01: add CList for hetero lists
@@ -129,15 +134,19 @@ TODOs:
   - depends on macrotypes and rosette
 - create version of turnstile that does not provide #%module-begin
   - eg rename existing turnstile to turnstile/lang?
+  - DONE, see Alex's commit 2016-08-31
+   - fixed set! bug
 - remove my-this-syntax stx param
 - add symbolic True and False?
 - orig stx prop confuses distinction between symbolic and non-sym values
+  in err msgs
 - use variance information in type constructors?
   - instead of special-casing individual constructors
 - ok to say "Rosette type" in type err msgs?
-- 2016-09-08: fix Constant soundness wrt evaluate
-- 2016-09-08: transfer "typefor" and "solvable?" props to id in define
+- ADD 2016-09-08: fix Constant soundness wrt evaluate
+- ADD 2016-09-08: transfer "typefor" and "solvable?" props to id in define
   - DONE 2016-09-08
+- is there a way to determine when evaluate produces concrete vals?
 
 2016-08-25 --------------------
 
