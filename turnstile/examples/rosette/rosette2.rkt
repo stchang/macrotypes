@@ -1333,16 +1333,19 @@
 ;; ---------------------------------
 ;; solver forms
 
-(define-base-types CSolution CPict)
+(define-base-types CSolution CSolver CPict)
 
-(provide (rosette-typed-out [core : (C→ CSolution (U (Listof Any) CFalse))]
-                            [model : (C→ CSolution (CHashTable Any Any))]
+(provide (rosette-typed-out [sat? : (C→ Any Bool)]
+                            [unsat? : (C→ Any Bool)]
+                            [solution? : CPred]
+                            [unknown? : CPred]
                             [sat : (Ccase-> (C→ CSolution)
                                             (C→ (CHashTable Any Any) CSolution))]
-                            [sat? : (C→ Any Bool)]
-                            [unsat? : (C→ Any Bool)]
                             [unsat : (Ccase-> (C→ CSolution)
-                                              (C→ (CListof Bool) CSolution))]))
+                                              (C→ (CListof Bool) CSolution))]
+                            [unknown : (C→ CSolution)]
+                            [model : (C→ CSolution (CHashTable Any Any))]
+                            [core : (C→ CSolution (U (Listof Any) CFalse))]))
 
 ;(define-rosette-primop forall : (C→ (CListof Any) Bool Bool))
 ;(define-rosette-primop exists : (C→ (CListof Any) Bool Bool))
@@ -1453,6 +1456,33 @@
    [⊢ [mine ≫ mine- ⇐ : (CListof (U Num BV))]]
    --------
    [⊢ [_ ≫ (ro:optimize #:maximize maxe- #:minimize mine- #:guarantee ge-) ⇒ : CSolution]]])
+
+;; this must be a macro in order to support Racket's overloaded set/get
+;; parameter patterns
+(define-typed-syntax current-solver
+  [_:id ≫
+   --------
+   [⊢ [_ ≫ ro:current-solver ⇒ : (CParamof CSolver)]]]
+  [(_) ≫
+   --------
+   [⊢ [_ ≫ (ro:current-solver) ⇒ : CSolver]]]
+  [(_ e) ≫
+   [⊢ [e ≫ e- ⇐ : CSolver]]
+   --------
+   [⊢ [_ ≫ (ro:current-solver e-) ⇒ : CUnit]]])
+
+;(define-rosette-primop gen:solver : CSolver)
+(define-rosette-primop solver? : CPred)
+(define-rosette-primop solver-assert : (C→ CSolver (CListof Bool) CUnit))
+(define-rosette-primop solver-clear : (C→ CSolver CUnit))
+(define-rosette-primop solver-minimize : (C→ CSolver (CListof (U Int Num BV)) CUnit))
+(define-rosette-primop solver-maximize : (C→ CSolver (CListof (U Int Num BV)) CUnit))
+(define-rosette-primop solver-check : (C→ CSolver CSolution))
+(define-rosette-primop solver-debug : (C→ CSolver CSolution))
+(define-rosette-primop solver-shutdown : (C→ CSolver CUnit))
+;; this is in rosette/solver/smt/z3 (is not in #lang rosette)
+;; make this part of base typed/rosette or separate lib?
+;(define-rosette-primop z3 : (C→ CSolver))
 
 ;; ---------------------------------
 ;; Symbolic reflection

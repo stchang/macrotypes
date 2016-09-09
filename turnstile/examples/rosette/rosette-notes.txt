@@ -69,6 +69,7 @@ Rosette TODO:
 
 Rosette use case questions:
 - does the predicate in define-symbolic need to be an arbitrary expression?
+- should z3 be part of #lang rosette?
 
 2016-08-31 --------------------
 
