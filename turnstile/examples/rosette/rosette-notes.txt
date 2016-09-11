@@ -150,6 +150,9 @@ TODOs:
 - ADD 2016-09-08: transfer "typefor" and "solvable?" props to id in define
   - DONE 2016-09-08
 - is there a way to determine when evaluate produces concrete vals?
+- ADD 2016-09-10: implement typed define-synthax
+- ADD 2016-09-11: get assert-type to work with for/all and define-lift
+- ADD 2016-09-11: implement multiple values (for with-asserts)
 
 2016-08-25 --------------------
 

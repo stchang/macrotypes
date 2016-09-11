@@ -13,7 +13,8 @@
           "rosette-guide-sec49-tests.rkt" "Rosette Guide, Section 4.9")
 
 (do-tests "rosette-guide-sec5-tests.rkt" "Rosette Guide, Section 5 Structures"
-          "rosette-guide-sec6-tests.rkt" "Rosette Guide, Section 6 Libraries")
+          "rosette-guide-sec6-tests.rkt" "Rosette Guide, Section 6 Libraries"
+          "rosette-guide-sec7-tests.rkt" "Rosette Guide, Section 7 Reflecting on Symbolic Values")
 
 (do-tests "bv-tests.rkt" "BV SDSL - General"
           "bv-ref-tests.rkt" "BV SDSL - Hacker's Delight synthesis")
