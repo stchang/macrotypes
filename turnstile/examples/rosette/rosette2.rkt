@@ -1321,11 +1321,23 @@
                             [=> : (C→ Bool Bool Bool)]))
 
 (define-typed-syntax &&
+  [_:id ≫
+   --------
+   [⊢ [_ ≫ ro:&& ⇒ :
+           (Ccase-> (C→ Bool)
+                    (C→ Bool Bool)
+                    (C→ Bool Bool Bool))]]]
   [(_ e ...) ≫
    [⊢ [e ≫ e- ⇐ : Bool] ...]
    --------
    [⊢ [_ ≫ (ro:&& e- ...) ⇒ : Bool]]])
 (define-typed-syntax ||
+  [_:id ≫
+   --------
+   [⊢ [_ ≫ ro:|| ⇒ :
+           (Ccase-> (C→ Bool)
+                    (C→ Bool Bool)
+                    (C→ Bool Bool Bool))]]]
   [(_ e ...) ≫
    [⊢ [e ≫ e- ⇐ : Bool] ...]
    --------
@@ -1380,7 +1392,7 @@
 ;; ---------------------------------
 ;; solver forms
 
-(define-base-types CSolution CSolver CPict)
+(define-base-types CSolution CSolver CPict CSyntax)
 
 (provide (rosette-typed-out [sat? : (C→ Any Bool)]
                             [unsat? : (C→ Any Bool)]

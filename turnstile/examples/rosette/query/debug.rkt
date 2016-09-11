@@ -19,11 +19,10 @@
    #:with f- (generate-temporary #'f)
    --------
    [_ ≻ (begin-
-          (define-syntax- f
-            (make-rename-transformer (⊢ f- : (t/ro:C→ ty ... ty_out))))
+          (define-syntax- f (make-rename-transformer (⊢ f- : (t/ro:C→ ty ... ty_out))))
           (ro:define/debug f- 
             (t/ro:λ ([x : ty] ...) 
-              (t/ro:ann (t/ro:begin e ...) : ty_out))))]])
+                    (t/ro:ann (t/ro:begin e ...) : ty_out))))]])
 
 (define-typed-syntax debug
   [(_ (pred? ...+) e) ≫
