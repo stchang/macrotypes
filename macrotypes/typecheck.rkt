@@ -420,6 +420,22 @@
   (define (expand/df e)
     (local-expand e 'expression null))
 
+  ;; type eval
+  ;; - default-type-eval == full expansion == canonical type representation
+  ;; - must expand because:
+  ;;   - checks for unbound identifiers (ie, undefined types)
+  ;;   - checks for valid types, ow can't distinguish types and terms
+  ;;     - could parse types but separate parser leads to duplicate code
+  ;;   - later, expanding enables reuse of same mechanisms for kind checking
+  ;;     and type application
+  (define (default-type-eval τ)
+    ; TODO: optimization: don't expand if expanded
+    ; currently, this causes problems when
+    ; combining unexpanded and expanded types to create new types
+    (add-orig (expand/df τ) τ))
+
+  (current-type-eval default-type-eval)
+
   ;; typecheck-fail-msg/1 : Type Type Stx -> String
   (define (typecheck-fail-msg/1 τ_expected τ_given expression)
     (format "type mismatch: expected ~a, given ~a\n  expression: ~s"

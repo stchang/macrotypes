@@ -1,23 +1,6 @@
 #lang turnstile/lang
 (provide only-in (for-syntax current-type=? types=?))
 
-(begin-for-syntax
-  ;; type eval
-  ;; - type-eval == full expansion == canonical type representation
-  ;; - must expand because:
-  ;;   - checks for unbound identifiers (ie, undefined types)
-  ;;   - checks for valid types, ow can't distinguish types and terms
-  ;;     - could parse types but separate parser leads to duplicate code
-  ;;   - later, expanding enables reuse of same mechanisms for kind checking
-  ;;     and type application
-  (define (type-eval τ)
-    ; TODO: optimization: don't expand if expanded
-    ; currently, this causes problems when
-    ; combining unexpanded and expanded types to create new types
-    (add-orig (expand/df τ) τ))
-
-  (current-type-eval type-eval))
-
 (define-syntax-category type)
 (define-type-constructor → #:arity >= 1
   #:arg-variances (λ (stx)
