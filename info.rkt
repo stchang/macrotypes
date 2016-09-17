@@ -9,3 +9,7 @@
     "rosette"
     ))
 
+(define build-deps
+  '("rackunit-lib"
+    ))
+
