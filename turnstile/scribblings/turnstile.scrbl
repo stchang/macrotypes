@@ -8,6 +8,17 @@
 
 @defmodule[turnstile #:lang #:use-sources (turnstile/turnstile)]
 
+To type some of these unicode characters in DrRacket, type
+the following and then hit Control-@litchar{\}.
+
+@itemlist[
+  @item{@litchar{\vdash} → @litchar{⊢}}
+  @item{@litchar{\gg} → @litchar{≫}}
+  @item{@litchar{\Rightarrow} → @litchar{⇒}}
+  @item{@litchar{\Leftarrow} → @litchar{⇐}}
+  @item{@litchar{\succ} → @litchar{≻}}
+]
+
 @defform[
   #:literals (≫ ⊢ ⇒ ⇐ ≻ : --------)
   (define-typed-syntax name-id option ... rule)
@@ -37,7 +48,23 @@
                [_ ≻ expr-template]]
    [⇐-conclusion [⊢ [_ ≫ expr-template ⇐ _]]]
    [ooo ...])
-]{
-Defines a macro that can do typechecking.
+ ]{
+Defines a macro that can do typechecking. It's roughly an
+extension of @racket[syntax-parse] that allows writing
+type-judgement-like rules that interleave typechecking and
+macro expansion.
+
+To typecheck an expression @racket[e], it needs to expand it
+to get its type. To express that, write the clause
+@racket[[⊢ [e ≫ pattern ⇒ type-pattern]]]. An example use of
+this would be @racket[[⊢ [e ≫ e- ⇒ τ_e]]], which binds the
+pattern variables @racket[e-] and @racket[τ_e] to the expanded
+version of @racket[e] and the type of it, respectively.
+
+To check that an expression @racket[e] has a given type
+@racket[τ_expected], it also needs to expand it. To express
+that, write the clause
+@racket[[⊢ [e ≫ pattern ⇐ τ_expected]]]. An example of this
+would be @racket[[e ≫ e- ⇐ Int]].
 }
 
