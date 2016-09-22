@@ -67,6 +67,9 @@ Rosette TODO:
 - doc typo: core
  - Returns the unsatisfiable core stored in the given satisfiable solution
 
+Rosette code base questions:
+- in define-synthax, in #:codegen lambda, is `sol` parameter unused?
+
 Rosette use case questions:
 - does the predicate in define-symbolic need to be an arbitrary expression?
 - should z3 be part of #lang rosette?
