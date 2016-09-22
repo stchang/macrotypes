@@ -367,6 +367,12 @@
 (define-syntax define-typed-syntax
   (lambda (stx)
     (syntax-parse stx
+      ;; single-clause def
+      [(def (name:id . pats) . rst)
+       ;; cannot always bind name as pat var, eg #%app, so replace with _
+       #:with r:rule #'[(_ . pats) . rst]
+       #'(-define-typed-syntax name r.norm)]
+      ;; multi-clause def
       [(def name:id
          (~and (~seq kw-stuff ...) :stxparse-kws)
          rule:rule

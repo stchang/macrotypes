@@ -26,10 +26,9 @@
    --------
    [⊢ (list- e- ...) ⇒ (× τ ...)]])
 
-(define-typed-syntax proj
-  [(_ e_tup n:nat) ≫
-   [⊢ e_tup ≫ e_tup- ⇒ (~× τ ...)]
-   #:fail-unless (< (syntax-e #'n) (stx-length #'[τ ...])) "index too large"
-   --------
-   [⊢ (list-ref- e_tup- n) ⇒ #,(stx-list-ref #'[τ ...] (syntax-e #'n))]])
+(define-typed-syntax (proj e_tup n:nat) ≫
+  [⊢ e_tup ≫ e_tup- ⇒ (~× τ ...)]
+  #:fail-unless (< (syntax-e #'n) (stx-length #'[τ ...])) "index too large"
+  --------
+  [⊢ (list-ref- e_tup- n) ⇒ #,(stx-list-ref #'[τ ...] (syntax-e #'n))])
 

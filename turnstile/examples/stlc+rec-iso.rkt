@@ -36,16 +36,14 @@
   (current-type=? type=?)
   (current-typecheck-relation type=?))
 
-(define-typed-syntax unfld
-  [(_ τ:type-ann e) ≫
-   #:with (~μ* (tv) τ_body) #'τ.norm
-   [⊢ e ≫ e- ⇐ τ.norm]
-   --------
-   [⊢ e- ⇒ #,(subst #'τ.norm #'tv #'τ_body)]])
-(define-typed-syntax fld
-  [(_ τ:type-ann e) ≫
-   #:with (~μ* (tv) τ_body) #'τ.norm
-   #:with τ_e (subst #'τ.norm #'tv #'τ_body)
-   [⊢ e ≫ e- ⇐ τ_e]
-   --------
-   [⊢ e- ⇒ τ.norm]])
+(define-typed-syntax (unfld τ:type-ann e) ≫
+  #:with (~μ* (tv) τ_body) #'τ.norm
+  [⊢ e ≫ e- ⇐ τ.norm]
+  --------
+  [⊢ e- ⇒ #,(subst #'τ.norm #'tv #'τ_body)])
+(define-typed-syntax (fld τ:type-ann e) ≫
+  #:with (~μ* (tv) τ_body) #'τ.norm
+  #:with τ_e (subst #'τ.norm #'tv #'τ_body)
+  [⊢ e ≫ e- ⇐ τ_e]
+  --------
+  [⊢ e- ⇒ τ.norm])

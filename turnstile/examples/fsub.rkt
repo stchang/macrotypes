@@ -44,11 +44,10 @@
 ;; 2) instantiation of ∀
 ;; Problem: need type annotations, even in expanded form
 ;; Solution: store type annotations in a (quasi) kind <:
-(define-typed-syntax ∀ #:datum-literals (<:)
-  [(_ ([tv:id <: τ:type] ...) τ_body) ≫
-   --------
-   ; eval first to overwrite the old #%type
-   [⊢ #,((current-type-eval) #'(sysf:∀ (tv ...) τ_body)) ⇒ (<: τ.norm ...)]])
+(define-typed-syntax (∀ ([tv:id (~datum <:) τ:type] ...) τ_body) ≫
+  --------
+  ; eval first to overwrite the old #%type
+  [⊢ #,((current-type-eval) #'(sysf:∀ (tv ...) τ_body)) ⇒ (<: τ.norm ...)])
 (begin-for-syntax
   (define-syntax ~∀
     (pattern-expander
@@ -73,20 +72,18 @@
                        #:src #'any
                        #:msg "Expected ∀ type, got: ~a" #'any))))]))))
 
-(define-typed-syntax Λ #:datum-literals (<:)
-  [(_ ([tv:id <: τsub:type] ...) e) ≫
-   ;; NOTE: store the subtyping relation of tv and τsub in the
-   ;; environment with a syntax property using another tag: '<:
-   ;; The "expose" function looks for this tag to enforce the bound,
-   ;; as in TaPL (fig 28-1)
-   [([tv ≫ tv- : #%type <: τsub] ...) () ⊢ e ≫ e- ⇒ τ_e]
-   --------
-   [⊢ e- ⇒ (∀ ([tv- <: τsub] ...) τ_e)]])
-(define-typed-syntax inst
-  [(_ e τ:type ...) ≫
-   [⊢ e ≫ e- ⇒ (~∀ ([tv <: τ_sub] ...) τ_body)]
-   [τ.norm τ⊑ τ_sub #:for τ] ...
-   #:with τ_inst (substs #'(τ.norm ...) #'(tv ...) #'τ_body)
-   --------
-   [⊢ e- ⇒ τ_inst]])
+(define-typed-syntax (Λ ([tv:id (~datum <:) τsub:type] ...) e) ≫
+  ;; NOTE: store the subtyping relation of tv and τsub in the
+  ;; environment with a syntax property using another tag: '<:
+  ;; The "expose" function looks for this tag to enforce the bound,
+  ;; as in TaPL (fig 28-1)
+  [([tv ≫ tv- : #%type <: τsub] ...) () ⊢ e ≫ e- ⇒ τ_e]
+  --------
+  [⊢ e- ⇒ (∀ ([tv- <: τsub] ...) τ_e)])
+(define-typed-syntax (inst e τ:type ...) ≫
+  [⊢ e ≫ e- ⇒ (~∀ ([tv <: τ_sub] ...) τ_body)]
+  [τ.norm τ⊑ τ_sub #:for τ] ...
+  #:with τ_inst (substs #'(τ.norm ...) #'(tv ...) #'τ_body)
+  --------
+  [⊢ e- ⇒ τ_inst])
 

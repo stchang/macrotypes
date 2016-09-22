@@ -11,22 +11,19 @@
 
 (define-type-constructor Ref)
 
-(define-typed-syntax ref
-  [(_ e) ≫
-   [⊢ e ≫ e- ⇒ τ]
-   --------
-   [⊢ (box- e-) ⇒ (Ref τ)]])
+(define-typed-syntax (ref e) ≫
+  [⊢ e ≫ e- ⇒ τ]
+  --------
+  [⊢ (box- e-) ⇒ (Ref τ)])
 
-(define-typed-syntax deref
-  [(_ e) ≫
-   [⊢ e ≫ e- ⇒ (~Ref τ)]
-   --------
-   [⊢ (unbox- e-) ⇒ τ]])
+(define-typed-syntax (deref e) ≫
+  [⊢ e ≫ e- ⇒ (~Ref τ)]
+  --------
+  [⊢ (unbox- e-) ⇒ τ])
 
-(define-typed-syntax := #:literals (:=)
-  [(_ e_ref e) ≫
-   [⊢ e_ref ≫ e_ref- ⇒ (~Ref τ)]
-   [⊢ e ≫ e- ⇐ τ]
-   --------
-   [⊢ (set-box!- e_ref- e-) ⇒ Unit]])
+(define-typed-syntax (:= e_ref e) ≫
+  [⊢ e_ref ≫ e_ref- ⇒ (~Ref τ)]
+  [⊢ e ≫ e- ⇐ τ]
+  --------
+  [⊢ (set-box!- e_ref- e-) ⇒ Unit])
 

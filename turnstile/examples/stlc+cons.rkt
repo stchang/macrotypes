@@ -20,29 +20,25 @@
   [:id ⇐ (~List τ) ≫
    --------
    [⊢ null-]])
-(define-typed-syntax cons
-  [(cons e1 e2) ≫
-   [⊢ e1 ≫ e1- ⇒ τ1]
-   [⊢ e2 ≫ e2- ⇐ (List τ1)]
-   --------
-   [⊢ _ ≫ (cons- e1- e2-) ⇒ (List τ1)]])
-(define-typed-syntax isnil
-  [(_ e) ≫
-   [⊢ e ≫ e- ⇒ (~List _)]
-   --------
-   [⊢ (null?- e-) ⇒ Bool]])
-(define-typed-syntax head
-  [(_ e) ≫
-   [⊢ e ≫ e- ⇒ (~List τ)]
-   --------
-   [⊢ (car- e-) ⇒ τ]])
-(define-typed-syntax tail
-  [(_ e) ≫
-   [⊢ e ≫ e- ⇒ τ-lst]
-   #:fail-unless (List? #'τ-lst)
-   (format "Expected a list type, got: ~a" (type->str #'τ-lst))
-   --------
-   [⊢ (cdr- e-) ⇒ τ-lst]])
+(define-typed-syntax (cons e1 e2) ≫
+  [⊢ e1 ≫ e1- ⇒ τ1]
+  [⊢ e2 ≫ e2- ⇐ (List τ1)]
+  --------
+  [⊢ (cons- e1- e2-) ⇒ (List τ1)])
+(define-typed-syntax (isnil e) ≫
+  [⊢ e ≫ e- ⇒ (~List _)]
+  --------
+  [⊢ (null?- e-) ⇒ Bool])
+(define-typed-syntax (head e) ≫
+  [⊢ e ≫ e- ⇒ (~List τ)]
+  --------
+  [⊢ (car- e-) ⇒ τ])
+(define-typed-syntax (tail e) ≫
+  [⊢ e ≫ e- ⇒ τ-lst]
+  #:fail-unless (List? #'τ-lst)
+  (format "Expected a list type, got: ~a" (type->str #'τ-lst))
+  --------
+  [⊢ (cdr- e-) ⇒ τ-lst])
 (define-typed-syntax list
   [(_) ≫
    --------
@@ -53,29 +49,25 @@
   [(_ x . rst) ≫ ; no expected type
    --------
    [≻ (cons x (list . rst))]])
-(define-typed-syntax reverse
-  [(_ e) ≫
-   [⊢ e ≫ e- ⇒ τ-lst]
-   #:fail-unless (List? #'τ-lst)
-   (format "Expected a list type, got: ~a" (type->str #'τ-lst))
-   --------
-   [⊢ (reverse- e-) ⇒ τ-lst]])
-(define-typed-syntax length
-  [(_ e) ≫
-   [⊢ e ≫ e- ⇒ τ-lst]
-   #:fail-unless (List? #'τ-lst)
-   (format "Expected a list type, got: ~a" (type->str #'τ-lst))
-   --------
-   [⊢ (length- e-) ⇒ Int]])
-(define-typed-syntax list-ref
-  [(_ e n) ≫
-   [⊢ e ≫ e- ⇒ (~List τ)]
-   [⊢ n ≫ n- ⇐ Int]
-   --------
-   [⊢ (list-ref- e- n-) ⇒ τ]])
-(define-typed-syntax member
-  [(_ v e) ≫
-   [⊢ e ≫ e- ⇒ (~List τ)]
-   [⊢ v ≫ v- ⇐ τ]
-   --------
-   [⊢ (member- v- e-) ⇒ Bool]])
+(define-typed-syntax (reverse e) ≫
+  [⊢ e ≫ e- ⇒ τ-lst]
+  #:fail-unless (List? #'τ-lst)
+  (format "Expected a list type, got: ~a" (type->str #'τ-lst))
+  --------
+  [⊢ (reverse- e-) ⇒ τ-lst])
+(define-typed-syntax (length e) ≫
+  [⊢ e ≫ e- ⇒ τ-lst]
+  #:fail-unless (List? #'τ-lst)
+  (format "Expected a list type, got: ~a" (type->str #'τ-lst))
+  --------
+  [⊢ (length- e-) ⇒ Int])
+(define-typed-syntax (list-ref e n) ≫
+  [⊢ e ≫ e- ⇒ (~List τ)]
+  [⊢ n ≫ n- ⇐ Int]
+  --------
+  [⊢ (list-ref- e- n-) ⇒ τ])
+(define-typed-syntax (member v e) ≫
+  [⊢ e ≫ e- ⇒ (~List τ)]
+  [⊢ v ≫ v- ⇐ τ]
+  --------
+  [⊢ (member- v- e-) ⇒ Bool])

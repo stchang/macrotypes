@@ -20,17 +20,15 @@
    ---------
    [⊢ (λ- (x- ...) e-)]])
 
-(define-typed-syntax #%app
-  [(_ e_fn e_arg ...) ≫
-   [⊢ e_fn ≫ e_fn- ⇒ (~→ τ_in ... τ_out)]
-   #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
-   (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
-   [⊢ e_arg ≫ e_arg- ⇐ τ_in] ...
-   --------
-   [⊢ (#%app- e_fn- e_arg- ...) ⇒ τ_out]])
+(define-typed-syntax (#%app e_fn e_arg ...) ≫
+  [⊢ e_fn ≫ e_fn- ⇒ (~→ τ_in ... τ_out)]
+  #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
+  (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
+  [⊢ e_arg ≫ e_arg- ⇐ τ_in] ...
+  --------
+  [⊢ (#%app- e_fn- e_arg- ...) ⇒ τ_out])
 
-(define-typed-syntax ann #:datum-literals (:)
-  [(_ e : τ:type) ≫
-   [⊢ e ≫ e- ⇐ τ.norm]
-   --------
-   [⊢ e- ⇒ τ.norm]])
+(define-typed-syntax (ann e (~datum :) τ:type) ≫
+  [⊢ e ≫ e- ⇐ τ.norm]
+  --------
+  [⊢ e- ⇒ τ.norm])

@@ -31,21 +31,20 @@
 (define-typed-syntax effect:#%app #:export-as #%app
   [(_ efn e ...) ≫
    [⊢ efn ≫ e_fn-
-       (⇒ : (~→ τ_in ... τ_out)
-          (⇒ ν (~locs tyns ...))
-          (⇒ := (~locs tyas ...))
-          (⇒ ! (~locs tyds ...)))
-       (⇒ ν (~locs fns ...))
-       (⇒ := (~locs fas ...))
-       (⇒ ! (~locs fds ...))]
+            (⇒ : (~→ τ_in ... τ_out)
+                 (⇒ ν (~locs tyns ...))
+                 (⇒ := (~locs tyas ...))
+                 (⇒ ! (~locs tyds ...)))
+            (⇒ ν (~locs fns ...))
+            (⇒ := (~locs fas ...))
+            (⇒ ! (~locs fds ...))]
    #:fail-unless (stx-length=? #'[e ...] #'[τ_in ...])
    (num-args-fail-msg #'efn #'[τ_in ...] #'[e ...])
-   [⊢ [e ≫ e_arg-
+   [⊢ e ≫ e_arg-
        (⇐ : τ_in)
        (⇒ ν (~locs ns ...))
        (⇒ := (~locs as ...))
-       (⇒ ! (~locs ds ...))]
-      ...]
+       (⇒ ! (~locs ds ...))] ...
    --------
    [⊢ (#%app- e_fn- e_arg- ...)
        (⇒ : τ_out)
@@ -53,20 +52,19 @@
        (⇒ := (locs fas ... tyas ... as ... ...))
        (⇒ ! (locs fds ... tyds ... ds ... ...))]])
 
-(define-typed-syntax λ
-  [(_ bvs:type-ctx e) ≫
-   [[bvs.x ≫ x- : bvs.type] ... ⊢
-    e ≫ e-
-        (⇒ : τ_res)
-        (⇒ ν (~locs ns ...))
-        (⇒ := (~locs as ...))
-        (⇒ ! (~locs ds ...))]
-   --------
-   [⊢ (λ- (x- ...) e-)
-       (⇒ : (→ bvs.type ... τ_res)
+(define-typed-syntax (λ bvs:type-ctx e) ≫
+  [[bvs.x ≫ x- : bvs.type] ... 
+   ⊢ e ≫ e-
+      (⇒ : τ_res)
+      (⇒ ν (~locs ns ...))
+      (⇒ := (~locs as ...))
+      (⇒ ! (~locs ds ...))]
+  --------
+  [⊢ (λ- (x- ...) e-)
+     (⇒ : (→ bvs.type ... τ_res)
           (⇒ ν (locs ns ...))
           (⇒ := (locs as ...))
-          (⇒ ! (locs ds ...)))]])
+          (⇒ ! (locs ds ...)))])
 
 (define-type-constructor Ref)
 

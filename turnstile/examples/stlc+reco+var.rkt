@@ -87,20 +87,18 @@
        (add-orig res (get-orig res))])))
 
 ;; records
-(define-typed-syntax tup #:datum-literals (=)
-  [(_ [l:id = e] ...) ≫
-   [⊢ e ≫ e- ⇒ τ] ...
-   --------
-   [⊢ (list- (list- 'l e-) ...) ⇒ (× [l : τ] ...)]])
-(define-typed-syntax proj #:literals (quote)
-  [(_ e_rec l:id) ≫
-   [⊢ e_rec ≫ e_rec- ⇒ τ_e]
-   #:fail-unless (×? #'τ_e)
-   (format "Expected expression ~s to have × type, got: ~a"
-           (syntax->datum #'e_rec) (type->str #'τ_e))
-   #:with τ_l (×-ref #'τ_e #'l)
-   --------
-   [⊢ (cadr- (assoc- 'l e_rec-)) ⇒ τ_l]])
+(define-typed-syntax (tup [l:id (~datum =) e] ...) ≫
+  [⊢ e ≫ e- ⇒ τ] ...
+  --------
+  [⊢ (list- (list- 'l e-) ...) ⇒ (× [l : τ] ...)])
+(define-typed-syntax (proj e_rec l:id) ≫
+  [⊢ e_rec ≫ e_rec- ⇒ τ_e]
+  #:fail-unless (×? #'τ_e)
+  (format "Expected expression ~s to have × type, got: ~a"
+          (syntax->datum #'e_rec) (type->str #'τ_e))
+  #:with τ_l (×-ref #'τ_e #'l)
+  --------
+  [⊢ (cadr- (assoc- 'l e_rec-)) ⇒ τ_l])
 
 (define-type-constructor ∨/internal #:arity >= 0)
 
@@ -161,14 +159,13 @@
    --------
    [⊢ (list- 'l e)]])
 
-(define-typed-syntax case #:datum-literals (of =>)
-  [(_ e [l:id x:id => e_l] ...) ≫
-   #:fail-unless (not (null? (syntax->list #'(l ...)))) "no clauses"
-   [⊢ e ≫ e- ⇒ (~∨* [l_x : τ_x] ...)]
-   #:fail-unless (stx-length=? #'(l ...) #'(l_x ...)) "wrong number of case clauses"
-   #:fail-unless (typechecks? #'(l ...) #'(l_x ...)) "case clauses not exhaustive"
-   [[x ≫ x- : τ_x] ⊢ e_l ≫ e_l- ⇒ τ_el] ...
-   --------
-   [⊢ (let- ([l_e (car- e-)])
-            (cond- [(symbol=?- l_e 'l) (let- ([x- (cadr- e-)]) e_l-)] ...))
-      ⇒ (⊔ τ_el ...)]])
+(define-typed-syntax (case e [l:id x:id (~datum =>) e_l] ...) ≫
+  #:fail-unless (not (null? (syntax->list #'(l ...)))) "no clauses"
+  [⊢ e ≫ e- ⇒ (~∨* [l_x : τ_x] ...)]
+  #:fail-unless (stx-length=? #'(l ...) #'(l_x ...)) "wrong number of case clauses"
+  #:fail-unless (typechecks? #'(l ...) #'(l_x ...)) "case clauses not exhaustive"
+  [[x ≫ x- : τ_x] ⊢ e_l ≫ e_l- ⇒ τ_el] ...
+  --------
+  [⊢ (let- ([l_e (car- e-)])
+           (cond- [(symbol=?- l_e 'l) (let- ([x- (cadr- e-)]) e_l-)] ...))
+     ⇒ (⊔ τ_el ...)])

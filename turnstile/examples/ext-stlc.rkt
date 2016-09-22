@@ -48,17 +48,15 @@
 (define-primop sub1 : (→ Int Int))
 (define-primop not : (→ Bool Bool))
 
-(define-typed-syntax and
-  [(_ e ...) ≫
-   [⊢ e ≫ e- ⇐ Bool] ...
-   --------
-   [⊢ (and- e- ...) ⇒ Bool]])
+(define-typed-syntax (and e ...) ≫
+  [⊢ e ≫ e- ⇐ Bool] ...
+  --------
+  [⊢ (and- e- ...) ⇒ Bool])
 
-(define-typed-syntax or
-  [(_ e ...) ≫
-   [⊢ e ≫ e- ⇐ Bool] ...
-   --------
-   [⊢ (or- e- ...) ⇒ Bool]])
+(define-typed-syntax (or e ...) ≫
+  [⊢ e ≫ e- ⇐ Bool] ...
+  --------
+  [⊢ (or- e- ...) ⇒ Bool])
 
 (begin-for-syntax 
   (define current-join 

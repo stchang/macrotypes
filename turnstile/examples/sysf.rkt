@@ -14,11 +14,10 @@
 
 (define-type-constructor ∀ #:bvs >= 0)
 
-(define-typed-syntax Λ
-  [(_ (tv:id ...) e) ≫
-   [([tv ≫ tv- : #%type] ...) () ⊢ e ≫ e- ⇒ τ]
-   --------
-   [⊢ e- ⇒ (∀ (tv- ...) τ)]])
+(define-typed-syntax (Λ (tv:id ...) e) ≫
+  [([tv ≫ tv- : #%type] ...) () ⊢ e ≫ e- ⇒ τ]
+  --------
+  [⊢ e- ⇒ (∀ (tv- ...) τ)])
 
 (define-typed-syntax inst
   [(_ e τ:type ...) ≫
