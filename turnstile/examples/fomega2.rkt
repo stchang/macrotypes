@@ -79,16 +79,16 @@
   (current-typecheck-relation (current-type=?)))
 
 (define-typed-syntax Λ
-  [(Λ bvs:kind-ctx e) ≫
-   [() ([bvs.x ≫ tv- : bvs.kind] ...) ⊢ [e ≫ e- ⇒ : τ_e]]
+  [(_ bvs:kind-ctx e) ≫
+   [[bvs.x ≫ tv- : bvs.kind] ... ⊢ e ≫ e- ⇒ τ_e]
    --------
-   [⊢ [_ ≫ e- ⇒ : (∀ ([tv- : bvs.kind] ...) τ_e)]]])
+   [⊢ e- ⇒ (∀ ([tv- : bvs.kind] ...) τ_e)]])
 
 (define-typed-syntax inst
-  [(inst e τ ...) ≫
-   [⊢ [e ≫ e- ⇒ : (~∀ (tv ...) τ_body) (⇒ : (~∀★ k ...))]]
-   [⊢ [τ ≫ τ- ⇐ : k] ...]
+  [(_ e τ ...) ≫
+   [⊢ e ≫ e- ⇒ : (~∀ (tv ...) τ_body) (⇒ : (~∀★ k ...))]
+   [⊢ τ ≫ τ- ⇐ k] ...
    #:with τ-inst (substs #'(τ- ...) #'(tv ...) #'τ_body)
    --------
-   [⊢ [_ ≫ e- ⇒ : τ-inst]]])
+   [⊢ e- ⇒ τ-inst]])
 

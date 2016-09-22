@@ -37,15 +37,15 @@
   (current-typecheck-relation type=?))
 
 (define-typed-syntax unfld
-  [(unfld τ:type-ann e) ≫
+  [(_ τ:type-ann e) ≫
    #:with (~μ* (tv) τ_body) #'τ.norm
    [⊢ e ≫ e- ⇐ τ.norm]
    --------
-   [⊢ _ ≫ e- ⇒ #,(subst #'τ.norm #'tv #'τ_body)]])
+   [⊢ e- ⇒ #,(subst #'τ.norm #'tv #'τ_body)]])
 (define-typed-syntax fld
-  [(fld τ:type-ann e) ≫
+  [(_ τ:type-ann e) ≫
    #:with (~μ* (tv) τ_body) #'τ.norm
    #:with τ_e (subst #'τ.norm #'tv #'τ_body)
    [⊢ e ≫ e- ⇐ τ_e]
    --------
-   [⊢ _ ≫ e- ⇒ τ.norm]])
+   [⊢ e- ⇒ τ.norm]])

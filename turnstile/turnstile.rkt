@@ -143,7 +143,7 @@
     [pattern (~seq p:⇒-prop/conclusion)
              #:with [tag ...] #'[p.tag]
              #:with [tag-expr ...] #'[p.tag-expr]]
-    [pattern (~seq (:⇒-prop/conclusion) ...)])
+    [pattern (~seq (:⇒-prop/conclusion) ...+)])
   (define-splicing-syntax-class id+props+≫
     #:datum-literals (≫)
     #:attributes ([x- 1] [ctx 1])
@@ -274,6 +274,7 @@
   (define-syntax-class last-clause
     #:datum-literals (⊢ ≫ ≻ ⇒ ⇐ :)
     #:attributes ([pat 0] [stuff 1] [body 0])
+    ;; ⇒ conclusion
     [pattern (~or [⊢ pat ≫ e-stx props:⇒-props/conclusion]
                   [⊢ [pat ≫ e-stx props:⇒-props/conclusion]])
              #:with [stuff ...] #'[]
@@ -283,6 +284,11 @@
                         [v (in-list (syntax->list #'[props.tag-expr ...]))])
                (with-syntax ([body body] [k k] [v v])
                  #'(assign-type body #:tag 'k v)))]
+    ;; ⇒ conclusion, implicit pat
+    [pattern (~or [⊢ e-stx props:⇒-props/conclusion]
+                  [⊢ [e-stx props:⇒-props/conclusion]])
+             #:with :last-clause #'[⊢ [_ ≫ e-stx . props]]]
+    ;; ⇐ conclusion
     [pattern (~or [⊢ [e-stx]] [⊢ (~and e-stx (~not [_ ≫ . rst]))])
              #:with :last-clause #'[⊢ [_ ≫ e-stx ⇐ : _]]]
     [pattern (~or [⊢ pat* ≫ e-stx ⇐ τ-pat]
@@ -301,6 +307,7 @@
              #:with [stuff ...] #'[]
              #:with body:expr
              #'(assign-type (quasisyntax/loc this-syntax e-stx) #`τ)]
+    ;; macro invocations
     [pattern [≻ e-stx]
              #:with :last-clause #'[_ ≻ e-stx]]
     [pattern [pat ≻ e-stx]

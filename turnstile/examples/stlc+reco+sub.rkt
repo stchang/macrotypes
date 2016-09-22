@@ -14,12 +14,12 @@
 ;; - records and variants from stlc+reco+var
 
 (define-typed-syntax #%datum
-  [(#%datum . n:number) ≫
+  [(_ . n:number) ≫
    --------
-   [_ ≻ (stlc+sub:#%datum . n)]]
-  [(#%datum . x) ≫
+   [≻ (stlc+sub:#%datum . n)]]
+  [(_ . x) ≫
    --------
-   [_ ≻ (stlc+reco+var:#%datum . x)]])
+   [≻ (stlc+reco+var:#%datum . x)]])
 
 (begin-for-syntax
   (define old-sub? (current-sub?))

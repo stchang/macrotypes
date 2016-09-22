@@ -13,13 +13,13 @@
 (define-type-constructor List)
 
 (define-typed-syntax nil
-  [(nil ~! τi:type-ann) ≫
+  [(_ ~! τi:type-ann) ≫
    --------
-   [⊢ _ ≫ null- ⇒ (List τi.norm)]]
+   [⊢ null- ⇒ (List τi.norm)]]
   ; minimal type inference
-  [nil:id ⇐ (~List τ) ≫
+  [:id ⇐ (~List τ) ≫
    --------
-   [⊢ _ ≫ null- ⇐ _]])
+   [⊢ null-]])
 (define-typed-syntax cons
   [(cons e1 e2) ≫
    [⊢ e1 ≫ e1- ⇒ τ1]
@@ -27,55 +27,55 @@
    --------
    [⊢ _ ≫ (cons- e1- e2-) ⇒ (List τ1)]])
 (define-typed-syntax isnil
-  [(isnil e) ≫
+  [(_ e) ≫
    [⊢ e ≫ e- ⇒ (~List _)]
    --------
-   [⊢ _ ≫ (null?- e-) ⇒ Bool]])
+   [⊢ (null?- e-) ⇒ Bool]])
 (define-typed-syntax head
-  [(head e) ≫
+  [(_ e) ≫
    [⊢ e ≫ e- ⇒ (~List τ)]
    --------
-   [⊢ _ ≫ (car- e-) ⇒ τ]])
+   [⊢ (car- e-) ⇒ τ]])
 (define-typed-syntax tail
-  [(tail e) ≫
+  [(_ e) ≫
    [⊢ e ≫ e- ⇒ τ-lst]
    #:fail-unless (List? #'τ-lst)
    (format "Expected a list type, got: ~a" (type->str #'τ-lst))
    --------
-   [⊢ _ ≫ (cdr- e-) ⇒ τ-lst]])
+   [⊢ (cdr- e-) ⇒ τ-lst]])
 (define-typed-syntax list
-  [(list) ≫
+  [(_) ≫
    --------
-   [_ ≻ nil]]
-  [(list x . rst) ⇐ (~List τ) ≫ ; has expected type
+   [≻ nil]]
+  [(_ x . rst) ⇐ (~List τ) ≫ ; has expected type
    --------
-   [⊢ _ ≫ (cons (add-expected x τ) (list . rst)) ⇐ _]]
-  [(list x . rst) ≫ ; no expected type
+   [⊢ (cons (add-expected x τ) (list . rst))]]
+  [(_ x . rst) ≫ ; no expected type
    --------
-   [_ ≻ (cons x (list . rst))]])
+   [≻ (cons x (list . rst))]])
 (define-typed-syntax reverse
-  [(reverse e) ≫
+  [(_ e) ≫
    [⊢ e ≫ e- ⇒ τ-lst]
    #:fail-unless (List? #'τ-lst)
    (format "Expected a list type, got: ~a" (type->str #'τ-lst))
    --------
-   [⊢ _ ≫ (reverse- e-) ⇒ τ-lst]])
+   [⊢ (reverse- e-) ⇒ τ-lst]])
 (define-typed-syntax length
-  [(length e) ≫
+  [(_ e) ≫
    [⊢ e ≫ e- ⇒ τ-lst]
    #:fail-unless (List? #'τ-lst)
    (format "Expected a list type, got: ~a" (type->str #'τ-lst))
    --------
-   [⊢ _ ≫ (length- e-) ⇒ Int]])
+   [⊢ (length- e-) ⇒ Int]])
 (define-typed-syntax list-ref
-  [(list-ref e n) ≫
+  [(_ e n) ≫
    [⊢ e ≫ e- ⇒ (~List τ)]
    [⊢ n ≫ n- ⇐ Int]
    --------
-   [⊢ _ ≫ (list-ref- e- n-) ⇒ τ]])
+   [⊢ (list-ref- e- n-) ⇒ τ]])
 (define-typed-syntax member
-  [(member v e) ≫
+  [(_ v e) ≫
    [⊢ e ≫ e- ⇒ (~List τ)]
    [⊢ v ≫ v- ⇐ τ]
    --------
-   [⊢ _ ≫ (member- v- e-) ⇒ Bool]])
+   [⊢ (member- v- e-) ⇒ Bool]])

@@ -29,21 +29,21 @@
            [(_ x ...) #'ty]))]))
 
 (define-typed-syntax define
-  [(define x:id : τ:type e:expr) ≫
+  [(_ x:id : τ:type e:expr) ≫
    ;This wouldn't work with mutually recursive definitions
    ;[⊢ [e ≫ e- ⇐ τ.norm]]
    ;So expand to an ann form instead.
    --------
-   [_ ≻ (begin-
-          (define-syntax x (make-rename-transformer (⊢ y : τ.norm)))
-          (define- y (ann e : τ.norm)))]]
-  [(define x:id e) ≫
+   [≻ (begin-
+        (define-syntax x (make-rename-transformer (⊢ y : τ.norm)))
+        (define- y (ann e : τ.norm)))]]
+  [(_ x:id e) ≫
    [⊢ e ≫ e- ⇒ τ]
    #:with y (generate-temporary #'x)
    --------
-   [_ ≻ (begin-
-          (define-syntax x (make-rename-transformer (⊢ y : τ)))
-          (define- y e-))]])
+   [≻ (begin-
+        (define-syntax x (make-rename-transformer (⊢ y : τ)))
+        (define- y e-))]])
 
 
 ; re-define tuples as records
@@ -88,19 +88,19 @@
 
 ;; records
 (define-typed-syntax tup #:datum-literals (=)
-  [(tup [l:id = e] ...) ≫
-   [⊢ [e ≫ e- ⇒ τ] ...]
+  [(_ [l:id = e] ...) ≫
+   [⊢ e ≫ e- ⇒ τ] ...
    --------
-   [⊢ _ ≫ (list- (list- 'l e-) ...) ⇒ (× [l : τ] ...)]])
+   [⊢ (list- (list- 'l e-) ...) ⇒ (× [l : τ] ...)]])
 (define-typed-syntax proj #:literals (quote)
-  [(proj e_rec l:id) ≫
+  [(_ e_rec l:id) ≫
    [⊢ e_rec ≫ e_rec- ⇒ τ_e]
    #:fail-unless (×? #'τ_e)
    (format "Expected expression ~s to have × type, got: ~a"
            (syntax->datum #'e_rec) (type->str #'τ_e))
    #:with τ_l (×-ref #'τ_e #'l)
    --------
-   [⊢ _ ≫ (cadr- (assoc- 'l e_rec-)) ⇒ τ_l]])
+   [⊢ (cadr- (assoc- 'l e_rec-)) ⇒ τ_l]])
 
 (define-type-constructor ∨/internal #:arity >= 0)
 
@@ -146,10 +146,10 @@
        (add-orig res (get-orig res))])))
 
 (define-typed-syntax var #:datum-literals (as =)
-  [(var l:id = e as τ:type) ≫
+  [(_ l:id = e as τ:type) ≫
    --------
-   [_ ≻ (ann (var l = e) : τ.norm)]]
-  [(var l:id = e) ⇐ τ ≫
+   [≻ (ann (var l = e) : τ.norm)]]
+  [(_ l:id = e) ⇐ τ ≫
    #:fail-unless (∨? #'τ)
    (format "Expected the expected type to be a ∨ type, got: ~a" (type->str #'τ))
    #:with τ_e
@@ -159,18 +159,16 @@
                    stx)))
    [⊢ e ≫ e- ⇐ τ_e]
    --------
-   [⊢ _ ≫ (list- 'l e) ⇐ _]])
+   [⊢ (list- 'l e)]])
 
-(define-typed-syntax case
-  #:datum-literals (of =>)
-  [(case e [l:id x:id => e_l] ...) ≫
+(define-typed-syntax case #:datum-literals (of =>)
+  [(_ e [l:id x:id => e_l] ...) ≫
    #:fail-unless (not (null? (syntax->list #'(l ...)))) "no clauses"
    [⊢ e ≫ e- ⇒ (~∨* [l_x : τ_x] ...)]
    #:fail-unless (stx-length=? #'(l ...) #'(l_x ...)) "wrong number of case clauses"
    #:fail-unless (typechecks? #'(l ...) #'(l_x ...)) "case clauses not exhaustive"
    [[x ≫ x- : τ_x] ⊢ e_l ≫ e_l- ⇒ τ_el] ...
    --------
-   [⊢ _ ≫
-         (let- ([l_e (car- e-)])
-               (cond- [(symbol=?- l_e 'l) (let- ([x- (cadr- e-)]) e_l-)] ...))
-         ⇒ (⊔ τ_el ...)]])
+   [⊢ (let- ([l_e (car- e-)])
+            (cond- [(symbol=?- l_e 'l) (let- ([x- (cadr- e-)]) e_l-)] ...))
+      ⇒ (⊔ τ_el ...)]])
