@@ -27,7 +27,8 @@ the following and then hit Control-@litchar{\}.
      conclusion)
    (define-typed-syntax name-id option ... rule ...+))
   #:grammar
-  ([option (code:line @#,racket[syntax-parse] option)]
+  ([option (code:line #:export-as out-name-id)
+           (code:line @#,racket[syntax-parse] option)]
    [rule [pattern ≫
           premise
           ...
@@ -72,7 +73,7 @@ the following and then hit Control-@litchar{\}.
 
 Defines a macro that additionally performs typechecking. It uses
 @racket[syntax-parse] @tech{syntax patterns} and @tech{pattern directives} and
- additionally allows writing type-judgement-like rules that interleave
+ additionally allows writing type-judgement-like clauses that interleave
  typechecking and macro expansion.
 
 Type checking is computed as part of macro expansion and the resulting type is
@@ -86,6 +87,9 @@ Type checking is computed as part of macro expansion and the resulting type is
 Dually, one may write @racket[[⊢ e ≫ e- ⇐ τ]] to check that @racket[e] has type
 @racket[τ]. Here, both @racket[e] and @racket[τ] are inputs (templates) and only
  @racket[e-] is an output (pattern).
+
+A @racket[define-typed-syntax] definition is automatically provided with the
+given name, unless an #:export-as argument is specified.
 }
 
 @defform[(define-syntax-category name-id)]{
