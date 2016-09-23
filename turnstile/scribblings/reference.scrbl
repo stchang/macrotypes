@@ -77,7 +77,7 @@ Defines a macro that additionally performs typechecking. It uses
 
 Type checking is computed as part of macro expansion and the resulting type is
  attached to an expanded expression. In addition, Turnstile supports
- bidirectional declarations. For example
+ bidirectional type checking clauses. For example
 @racket[[⊢ e ≫ e- ⇒ τ]] states that expression @racket[e] expands to @racket[e-]
  and has type @racket[τ], where @racket[e] is the input and, @racket[e-] and
  @racket[τ] outputs. Put another way, @racket[e] is a syntax template position
@@ -94,13 +94,14 @@ A language implemented with Turnstile will typically begin with
  @racket[(define-syntax-category type)], which in turn defines:
  @itemlist[
  @item{@racket[define-base-type]: A form for defining a base type.
+   @defform[(define-base-type name-id)]{
    A call @racket[(define-base-type τ)] additionally defines:
   @itemlist[@item{@racket[τ]: An identifier macro representing type @racket[τ].}
             @item{@racket[τ?]: A predicate recognizing type @racket[τ].}
-            @item{@racket[~τ]: A @tech{pattern expander} recognizing type @racket[τ].}]}
+            @item{@racket[~τ]: A @tech{pattern expander} recognizing type @racket[τ].}]}}
  @item{@racket[define-base-types]: Defines multiple base types.}
  @item{@racket[define-type-constructor]: A form for defining type constructors.
-  @defform[(define-type-constructor Name option ...)
+  @defform[(define-type-constructor name-id option ...)
             #:grammar
            ([option (code:line #:arity op n)
                     (code:line #:bvs op n)
@@ -133,10 +134,12 @@ A language implemented with Turnstile will typically begin with
  @item{@racket[current-is-type?]: A parameter, initialized to @racket[is-type?],
     used to validate types. Useful when reusing type rules in different languages.}
  @item{@racket[mk-type]: Marks a syntax object as a type by attaching @racket[#%type].}
- @item{@racket[type]: A syntax class that recognizes valid types.}
+ @item{@racket[type]: A syntax class that recognizes valid types.
+  The @racket[norm] attribute is bound to the type's expanded representation.}
  @item{@racket[type-bind]: A syntax class that recognizes syntax objects with shape @racket[[x:id (~datum :) τ:type]].}
  @item{@racket[type-ctx]: A syntax class recognizing syntax objects with shape @racket[(b:type-bind ...)].}
- @item{@racket[type-ann]: A syntax class recognizing syntax objects with shape @racket[{τ:type}].}
+ @item{@racket[type-ann]: A syntax class recognizing syntax objects with shape @racket[{τ:type}]
+   where the braces are required.}
  ]
 }
 
@@ -189,3 +192,5 @@ Replaces occurrences of @racket[x], as determined by @racket[cmp], with
                  [cmp (-> any/c any/c boolean?) bound-identifier=?]) expr-stx]{
 Folds @racket[subst] over the given @racket[τs] and @racket[xs].}
 
+@defform[(type-error #:src srx-stx #:msg msg args ...)]{
+Throws a type error using the specified information}
