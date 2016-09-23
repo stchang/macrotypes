@@ -2,6 +2,7 @@
 
 (provide (except-out (all-from-out macrotypes/typecheck) -define-typed-syntax)
          define-typed-syntax
+         (rename-out [define-typed-syntax define-typerule])
          (for-syntax syntax-parse/typed-syntax))
 
 (require (except-in (rename-in
@@ -376,7 +377,7 @@
       [(def name:id
          (~and (~seq kw-stuff ...) :stxparse-kws)
          rule:rule
-         ...)
+         ...+)
        #'(-define-typed-syntax
           name
           kw-stuff ...

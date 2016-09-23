@@ -17,6 +17,7 @@
  (except-out (all-from-out racket/base) #%module-begin)
  (all-from-out syntax/parse/define)
  (for-syntax (all-defined-out)) (all-defined-out)
+ (rename-out [define-syntax-category define-stx-category])
  (for-syntax
   (all-from-out racket syntax/parse racket/syntax syntax/stx
                 "stx-utils.rkt"))
@@ -62,13 +63,13 @@
 
 (define-syntax (define-typed-syntax stx)
   (syntax-parse stx
-    [(_ name:id #:export-as out-name:id stx-parse-clause ...)
+    [(_ name:id #:export-as out-name:id stx-parse-clause ...+)
      #'(begin
          (provide (rename-out [name out-name]))
          (define-syntax (name syntx)
            (syntax-parameterize ([stx (make-rename-transformer #'syntx)])
              (syntax-parse syntx stx-parse-clause ...))))]
-    [(_ name:id stx-parse-clause ...)
+    [(_ name:id stx-parse-clause ...+)
      #'(define-typed-syntax name #:export-as name
          stx-parse-clause ...)]))
 
