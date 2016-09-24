@@ -38,7 +38,7 @@
     (only-in "../stlc+cons.rkt" Unit [List Listof])))
  (only-in "../stlc+union+case.rkt" [~U* ~CU*] [~case-> ~Ccase->] [~→ ~C→])
  (only-in "../stlc+cons.rkt" [~List ~CListof])
- (only-in "../stlc+reco+var.rkt" [define stlc:define] define-primop)
+ (only-in "../stlc+reco+var.rkt" [define stlc:define])
  (rename-in "rosette-util.rkt" [bitvector? lifted-bitvector?]))
 
 ;; copied from rosette.rkt

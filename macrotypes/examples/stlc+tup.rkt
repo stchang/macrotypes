@@ -1,7 +1,5 @@
 #lang s-exp macrotypes/typecheck
 (extends "ext-stlc.rkt")
-
-(require (for-syntax racket/list))
  
 ;; Simply-Typed Lambda Calculus, plus tuples
 ;; Types:

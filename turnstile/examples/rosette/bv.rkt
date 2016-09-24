@@ -1,7 +1,6 @@
 #lang turnstile
 (extends "rosette2.rkt" ; extends typed rosette
          #:except bv bveq bvslt bvult bvsle bvule bvsgt bvugt bvsge bvuge)
-(require (only-in "../stlc+lit.rkt" define-primop))
 (require (prefix-in ro: rosette)) ; untyped 
 (require (only-in sdsl/bv/lang/bvops bvredand bvredor bv bv*)
          (prefix-in bv: (only-in sdsl/bv/lang/bvops BV)))

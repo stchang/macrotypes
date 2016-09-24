@@ -1,8 +1,6 @@
 #lang turnstile/lang
 (extends "ext-stlc.rkt")
 
-(require (for-syntax racket/list))
-
 ;; Simply-Typed Lambda Calculus, plus tuples
 ;; Types:
 ;; - types from ext-stlc.rkt

@@ -1,7 +1,4 @@
 #lang s-exp macrotypes/typecheck
-(provide (for-syntax current-type=? types=?))
-
-(require (for-syntax racket/list))
 
 ;; Simply-Typed Lambda Calculus
 ;; - no base types; can't write any terms
@@ -10,12 +7,6 @@
 ;; - var
 ;; - multi-arg λ (0+)
 ;; - multi-arg #%app (0+)
-;; Other:
-;; - "type" syntax category; defines:
-;;   - define-base-type
-;;   - define-type-constructor
-
-(define-syntax-category type)
 
 (define-type-constructor → #:arity >= 1
   #:arg-variances (λ (stx)
@@ -35,7 +26,8 @@
    #:with [e_fn- (~→ τ_in ... τ_out)] (infer+erase #'e_fn)
    #:with ([e_arg- τ_arg] ...) (infers+erase #'(e_arg ...))
    #:fail-unless (stx-length=? #'(τ_arg ...) #'(τ_in ...))
-   (num-args-fail-msg #'e_fn #'(τ_in ...) #'(e_arg ...))
+                 (num-args-fail-msg #'e_fn #'(τ_in ...) #'(e_arg ...))
    #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
-   (typecheck-fail-msg/multi #'(τ_in ...) #'(τ_arg ...) #'(e_arg ...))
+                 (typecheck-fail-msg/multi 
+                  #'(τ_in ...) #'(τ_arg ...) #'(e_arg ...))
    (⊢ (#%app- e_fn- e_arg- ...) : τ_out)])

@@ -21,8 +21,7 @@
   --------
   [⊢ e- ⇒ ∃τ.norm])
 
-(define-typed-syntax 
-  (open [x:id (~datum <=) e_packed (~datum with) X:id] e) ≫
+(define-typed-syntax (open [x:id (~datum <=) e_packed (~datum with) X:id] e) ≫
    ;; The subst below appears to be a hack, but it's not really.
    ;; It's the (TaPL) type rule itself that is fast and loose.
    ;; Leveraging the macro system's management of binding reveals this.

@@ -1,6 +1,6 @@
 #lang turnstile
 (require
- (prefix-in t/ro: (only-in "../rosette2.rkt" Int Bool type C→ CSolution Unit))
+ (prefix-in t/ro: (only-in "../rosette2.rkt" Int Bool C→ CSolution Unit))
  (prefix-in ro: rosette/lib/synthax))
 
 (provide print-forms)
@@ -10,7 +10,7 @@
    #:with ??/progsrc (datum->syntax #'here 'ro:?? #'qq)
    --------
    [⊢ [_ ≫ (??/progsrc) ⇒ : t/ro:Int]]]
-  [(qq pred : ty:t/ro:type) ≫
+  [(qq pred : ty:type) ≫
    #:with ??/progsrc (datum->syntax #'here 'ro:?? #'qq)
    [⊢ [pred ≫ pred- ⇐ : (t/ro:C→ ty.norm t/ro:Bool)]]
    --------

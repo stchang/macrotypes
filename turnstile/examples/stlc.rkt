@@ -1,7 +1,5 @@
 #lang turnstile/lang
-(provide only-in (for-syntax current-type=? types=?))
 
-(define-syntax-category type)
 (define-type-constructor → #:arity >= 1
   #:arg-variances (λ (stx)
                     (syntax-parse stx
@@ -23,7 +21,7 @@
 (define-typed-syntax (#%app e_fn e_arg ...) ≫
   [⊢ e_fn ≫ e_fn- ⇒ (~→ τ_in ... τ_out)]
   #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
-  (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
+                (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
   [⊢ e_arg ≫ e_arg- ⇐ τ_in] ...
   --------
   [⊢ (#%app- e_fn- e_arg- ...) ⇒ τ_out])

@@ -46,7 +46,7 @@
     [(_ . stuff)
      (syntax/loc this-syntax
        (#%module-begin
-        (provide #%module-begin #%top-interaction #%top require) ; useful racket forms
+        (provide #%module-begin #%top-interaction #%top require only-in) ; useful racket forms
         . stuff))]))
 
 (struct exn:fail:type:runtime exn:fail:user ())
@@ -838,6 +838,23 @@
          (define-syntax define-name-cons
            (syntax-parser
              [(_ (~var x id) . rst)  #'(define-basic-checked-stx x : name . rst)])))]))
+
+;; pre-declare all type-related functions and forms
+(define-syntax-category type)
+
+(define-syntax define-primop
+  (syntax-parser #:datum-literals (:)
+    [(define-primop op:id : τ)
+     #:with op/tc (generate-temporary #'op)
+     #`(begin-
+         (provide- #,(syntax/loc this-syntax (rename-out- [op/tc op])))
+         (define-primop op/tc op : τ))]
+    [(define-primop op/tc op : τ:type)
+     #'(begin-
+         ; rename transformer doesnt seem to expand at the right time
+         ; - op still has no type in #%app
+         (define-syntax op/tc
+           (make-variable-like-transformer (assign-type #'op #'τ))))]))
 
 ; substitution
 (begin-for-syntax
