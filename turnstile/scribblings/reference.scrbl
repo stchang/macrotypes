@@ -141,25 +141,26 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
     The @racket[#:extra-info] argument is useful for attaching additional metainformation
     to types, for example to implement pattern matching.
   }}
- @item{@defproc[(type=? [τ1 is-type?] [τ2 is-type?]) boolean?]{An equality predicate for types that computes
+ @item{@defproc[(type=? [τ1 type?] [τ2 type?]) boolean?]{An equality predicate for types that computes
    structural @racket[free-identifier=?] equality.}}
- @item{@defproc[(types=? [τs1 (listof is-type?)][τs2 (listof is-type?)]) boolean?]{
+ @item{@defproc[(types=? [τs1 (listof type?)][τs2 (listof type?)]) boolean?]{
       Checks that @racket[τs1] and @racket[τs2] are equivalent, pairwise. Thus,
       @racket[τs1] and @racket[τs2] must have the same length.}}
- @item{@defproc[(same-types? [τs (listof is-type?)]) boolean?]{
+ @item{@defproc[(same-types? [τs (listof type?)]) boolean?]{
     A predicate for checking if a list of types are all the same.}}
  @item{@defparam[current-type=? binary-type-pred binary-type-pred]{
     A parameter for computing type equality. Is initialized to @racket[type=?].}}
  @item{@defidform[#%type]{A "kind" used to validate types.}}
- @item{@defproc[(is-type? [x Any]) boolean?]{A predicate used to validate types.
+ @item{@defproc[(#%type? [x Any]) boolean?]{Recognizes @racket[#%type].}}
+ @item{@defproc[(type? [x Any]) boolean?]{A predicate used to validate types.
     Checks that @racket[x] is a syntax object and has syntax propety @racket[#%type].}}
- @item{@defparam[current-is-type? type-pred type-pred]{A parameter, initialized to @racket[is-type?],
+ @item{@defparam[current-type? type-pred type-pred]{A parameter, initialized to @racket[type?],
     used to validate types. Useful when reusing type rules in different languages.}}
- @item{@defproc[(mk-type [stx syntax?]) is-type?]{
+ @item{@defproc[(mk-type [stx syntax?]) type?]{
     Marks a syntax object as a type by attaching @racket[#%type].
   Useful for defining your own type with arbitrary syntax that does not fit with
     @racket[define-base-type] or @racket[define-type-constructor].}}
- @item{@defthing[type stx-class]{A syntax class that calls @racket[current-is-type?]
+ @item{@defthing[type stx-class]{A syntax class that calls @racket[current-type?]
     to validate types.
   Binds a @racket[norm] attribute to the type's expanded representation.}}
  @item{@defthing[type-bind stx-class]{A syntax class recognizing
@@ -205,10 +206,10 @@ since @racket[define-typed-syntax] and other forms already do so.
 Useful for reusing rules that differ only in the type check operation, e.g.,
  equality vs subtyping.}
 
-@defproc[(typecheck? [τ1 is-type?] [τ2 is-type?]) boolean?]{A function that calls
+@defproc[(typecheck? [τ1 type?] [τ2 type?]) boolean?]{A function that calls
  @racket[current-typecheck-relation].}
 
-@defproc[(typechecks? [τs1 (list/c is-type?)] [τs2 (list/c is-type?)]) boolean?]{
+@defproc[(typechecks? [τs1 (list/c type?)] [τs2 (list/c type?)]) boolean?]{
 Maps @racket[typecheck?] over lists of types, pairwise. @racket[τs1] and @racket[τs2]
 must have the same length.}
 
@@ -240,3 +241,11 @@ Folds @racket[subst] over the given @racket[τs] and @racket[xs].}
 
 @defform[(type-error #:src srx-stx #:msg msg args ...)]{
 Throws a type error using the specified information. @racket[msg] is a format string that references @racket[args].}
+
+@section{Miscellaneous Syntax Object Functions}
+
+@defproc[(stx-length [stx syntax?]) Nat]{Analogous to @racket[length].}
+@defproc[(stx-length=? [stx1 syntax?] [stx2 syntax?]) boolean?]{
+ Returns true if two syntax objects are of equal length.}
+@defproc[(stx-andmap [p? (-> syntax? boolean?)] [stx syntax?]) (listof syntax?)]{
+Analogous to @racket[andmap].}

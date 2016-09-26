@@ -289,8 +289,8 @@ language implementation:
  (define-typed-syntax (#%app e_fn e_arg ...) ≫
    [⊢ e_fn ≫ e_fn- ⇒ (~→ τ_in ... τ_out)]
    #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
-   (format "arity mismatch, expected ~a args, given ~a"
-           (stx-length #'[τ_in ...]) #'[e_arg ...])
+                 (format "arity mismatch, expected ~a args, given ~a"
+                         (stx-length #'[τ_in ...]) #'[e_arg ...])
    [⊢ e_arg ≫ e_arg- ⇐ τ_in] ...
    --------
    [⊢ (#%app- e_fn- e_arg- ...) ⇒ τ_out])
