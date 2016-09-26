@@ -2,7 +2,7 @@
 
 @(require (for-label racket/base
                      (except-in turnstile/turnstile ⊢))
-          "doc-utils.rkt")
+          "doc-utils.rkt" "common.rkt")
 
 @title{Guide}
 
@@ -27,8 +27,7 @@ expansion) and type checking. These type judgements rely on two core
            an input in the second relation.
 
            These input and output positions conveniently correspond to
-           @tech{syntax patterns} and
-           @tech{syntax templates}, respectively, as explained below.}]
+           @tech:stx-pats and @tech:stx-templates, respectively, as explained below.}]
 
 For example, here are some rules that check and rewrite simply-typed
 lambda-calculus terms to the untyped lambda-calculus.
@@ -73,9 +72,9 @@ Implementing the above judgements with Turnstile might look like
 The above code assumes some existing bindings:
 @itemlist[
  @item{A @racket[→] type constructor;}
- @item{a @racket[~→] @tech{pattern expander} associated with the type
+ @item{a @racket[~→] @tech:pat-expander associated with the type
   constructor;}
- @item{a @racket[type] @tech{syntax class} recognizing valid types;}
+ @item{a @racket[type] @tech:stx-class recognizing valid types;}
  @item{and core Racket forms, suffixed with @litchar{-}.}
  ]
 A language defined with Turnstile must define or import the first two items
@@ -86,7 +85,7 @@ A @racket[define-typed-syntax] form resembles a conventional Racket
 macro-definition form: the above definitions begin with an input pattern, where
 the leftmost identifier is the name of the macro, followed by a @racket[≫]
 literal, a series of premises, and finally a conclusion (the conclusion includes
-the output @tech{syntax template}.
+the output @tech:stx-template).
 
 The @racket[define-typed-syntax] is roughly an extension of 
 @racket[define-syntax-parser] in that:
@@ -94,9 +93,9 @@ The @racket[define-typed-syntax] is roughly an extension of
  @item{A programmer may specify @racket[syntax-parse]
   options, e.g., @racket[#:datum-literals];}
  @item{a pattern position may use any @racket[syntax-parse] combinators, e.g. 
-  @racket[~and], @racket[~seq], or custom-defined @tech{pattern expanders};}
+  @racket[~and], @racket[~seq], or custom-defined @tech:pat-expanders;}
  @item{and the premises may be interleaved with @racket[syntax-parse]
-  @tech{pattern directives}, e.g., @racket[#:with] or @racket[#:when].}]
+  @tech:pat-directives, e.g., @racket[#:with] or @racket[#:when].}]
 
 @subsection{Judgements vs @racket[define-typed-syntax]}
 
@@ -155,7 +154,7 @@ used to avoid double-expansions of the types.)
 @subsection{@racket[syntax-parse] directives}
 
 A @racket[define-typed-syntax] definition may also use @racket[syntax-parse]
-options and @tech{pattern directives}. Here is an @racket[#%app] that reports a
+options and @|tech:pat-directives|. Here is an @racket[#%app] that reports a
 more precise error for an arity mismatch:
  
 @label-code["Function application with a better error message"
@@ -181,8 +180,8 @@ We next extend our language with a type definition:
 
 The @racket[define-type-constructor] declaration defines the @racket[→]
 function typ as a macro that takes at least one argument, along with the
-aforementioned @racket[~→] @tech{pattern expander} for that type, which makes it
-easier to match on the type in @tech{syntax patterns}.
+aforementioned @racket[~→] @tech:pat-expander for that type, which makes it
+easier to match on the type in @|tech:stx-pats|.
 
 @section{Defining @racket[⇐] rules}
 
@@ -408,5 +407,5 @@ Since the new language uses subtyping, it also defines a @racket[join]
 function, which is needed by conditional forms like @racket[if]. The 
 @racket[if] definition uses the @racket[current-join] parameter, to
 make it reusable by other languages. Observe that the output type in the 
-@racket[if] definition uses @racket[unquote]. In general, all @tech{syntax
- template} positions in Turnstile as @racket[quasiquote]s.
+@racket[if] definition uses @racket[unquote]. In general, all @tech:stx-template
+positions in Turnstile as @racket[quasiquote]s.

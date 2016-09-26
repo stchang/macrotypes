@@ -1,8 +1,6 @@
 #lang scribble/manual
 
-@(require (for-label racket/base
-                     (except-in turnstile/turnstile ⊢)
-                     ))
+@(require (for-label racket/base))
 
 @title{The @racketmodname[turnstile] language}
 

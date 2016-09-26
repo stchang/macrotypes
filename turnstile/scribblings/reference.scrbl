@@ -1,8 +1,8 @@
 #lang scribble/manual
 
 @(require (for-label racket/base
-                     (except-in turnstile/turnstile ⊢)
-                     ))
+                     (except-in turnstile/turnstile ⊢))
+          "doc-utils.rkt" "common.rkt")
 
 @title{Reference}
 
@@ -45,10 +45,10 @@ relevant characters. Type the following and then press Control-@litchar{\}.
           premise ...
           --------
           ⇐-conclusion]]
-   [expr-pattern (code:line @#,racket[syntax-parse] @#,tech{syntax pattern})]
-   [type-pattern (code:line @#,racket[syntax-parse] @#,tech{syntax pattern})]
-   [expr-template (code:line @#,racket[quasisyntax] @#,tech{syntax template})]
-   [type-template (code:line @#,racket[quasisyntax] @#,tech{syntax template})]
+   [expr-pattern (code:line @#,racket[syntax-parse] @#,tech:stx-pat)]
+   [type-pattern (code:line @#,racket[syntax-parse] @#,tech:stx-pat)]
+   [expr-template (code:line @#,racket[quasisyntax] @#,tech:template)]
+   [type-template (code:line @#,racket[quasisyntax] @#,tech:template)]
    [premise (code:line [⊢ inf ...] ooo ...)
             (code:line [ctx ⊢ inf ...] ooo ...)
             (code:line [ctx-elem ... ⊢ inf ...] ooo ...)
@@ -58,7 +58,7 @@ relevant characters. Type the following and then press Control-@litchar{\}.
             (code:line [ctx-elem ... ⊢ . inf-elem] ooo ...)
             (code:line [ctx ctx ⊢ . inf-elem] ooo ...)
             type-relation
-            (code:line @#,racket[syntax-parse] @#,tech{pattern directive})]
+            (code:line @#,racket[syntax-parse] @#,tech:pat-directive)]
    [ctx (ctx-elem ...)]
    [ctx-elem (code:line [id ≫ id : type-template] ooo ...)]
    [inf (code:line inf-elem ooo ...)]
@@ -76,7 +76,7 @@ relevant characters. Type the following and then press Control-@litchar{\}.
  ]{
 
 Defines a macro that additionally performs typechecking. It uses
-@racket[syntax-parse] @tech{syntax patterns} and @tech{pattern directives} and
+@racket[syntax-parse] @tech:stx-pats and @tech:pat-directives and
  additionally allows writing type-judgement-like clauses that interleave
  typechecking and macro expansion.
 
@@ -114,7 +114,7 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
    Defines a base type. A @racket[(define-base-type τ)] additionally defines:
   @itemlist[@item{@racket[τ]: An identifier macro representing type @racket[τ].}
             @item{@racket[τ?]: A predicate recognizing type @racket[τ].}
-            @item{@racket[~τ]: A @tech{pattern expander} recognizing type @racket[τ].}]}}
+            @item{@racket[~τ]: A @tech:pat-expander recognizing type @racket[τ].}]}}
  @item{@defform[(define-base-types base-type-name-id ...)]{Defines multiple base types.}}
  @item{
   @defform[(define-type-constructor name-id option ...)
@@ -128,7 +128,7 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
   @itemlist[@item{@racket[τ]: An macro for constructing an instance of type @racket[τ],
                  with the specified arity. The default arity is @racket[= 1].}
             @item{@racket[τ?]: A predicate recognizing type @racket[τ].}
-            @item{@racket[~τ]: A @tech{pattern expander} recognizing type @racket[τ].}]
+            @item{@racket[~τ]: A @tech:pat-expander recognizing type @racket[τ].}]
   The @racket[#:arity] argument specifies valid shapes for the type. For example
     @racket[(define-type-constructor → #:arity >= 1)] defines an arrow type and
     @racket[(define-type-constructor Pair #:arity = 2)] defines a pair type.
