@@ -408,4 +408,4 @@ function, which is needed by conditional forms like @racket[if]. The
 @racket[if] definition uses the @racket[current-join] parameter, to
 make it reusable by other languages. Observe that the output type in the 
 @racket[if] definition uses @racket[unquote]. In general, all @tech:stx-template
-positions in Turnstile as @racket[quasiquote]s.
+positions in Turnstile are @racket[quasisyntax]es.

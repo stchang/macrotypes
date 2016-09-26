@@ -1,15 +1,18 @@
 #lang racket/base
 (provide (all-defined-out))
-(require scribble/manual)
+(require scribble/manual
+         (for-label racket/base))
 
 (define tech:stx-pats
   (tech #:doc '(lib "syntax/scribblings/syntax.scrbl") "syntax patterns"))
 (define tech:stx-pat
   (tech #:doc '(lib "syntax/scribblings/syntax.scrbl") "syntax pattern"))
 (define tech:stx-templates
-  (list "syntax " (tech #:doc '(lib "scribblings/guide/guide.scrbl") "templates")))
+  (list (racket syntax) " "
+        (tech #:doc '(lib "scribblings/guide/guide.scrbl") "templates")))
 (define tech:stx-template
-  (list "syntax " (tech #:doc '(lib "scribblings/guide/guide.scrbl") "template")))
+  (list (racket syntax) " "
+        (tech #:doc '(lib "scribblings/guide/guide.scrbl") "template")))
 (define tech:templates
   (tech #:doc '(lib "scribblings/guide/guide.scrbl") "templates"))
 (define tech:template
