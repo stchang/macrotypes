@@ -171,7 +171,23 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
  ]
 }
 
-@section{Lower-level functions}
+@section{@racket[require] and @racket[provide]-like Forms}
+
+@defform[(extends base-lang option ...)
+           #:grammar
+         ([option (code:line #:except id ...)
+                  (code:line #:rename [old new] ...)])]{
+Requires all forms from @racket[base-lang] and reexports them. Tries to
+ automatically handle conflicts for commonly used forms like @racket[#%app].
+The imported names are available for use in the current module, with a
+ @tt{base-lang:} prefix.}
+@defform[(reuse name ... #:from base-lang)
+         #:grammar
+         ([name id
+                [old new]])]{
+Reuses @racket[name]s from @racket[base-lang].}
+
+@section{Lower-level Functions}
 
 This section describes lower-level functions. It's usually not necessary to call these directly,
 since @racket[define-typed-syntax] and other forms already do so.
