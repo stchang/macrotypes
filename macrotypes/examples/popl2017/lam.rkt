@@ -1,6 +1,6 @@
 #lang racket
-(require syntax/parse/define)
+(require "abbrv.rkt")
 (provide #%module-begin
          lm)
 
-(define-simple-macro (lm x e) (λ (x) e))
+(define-m (lm x e) #'(λ (x) e))
