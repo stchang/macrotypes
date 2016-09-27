@@ -2,6 +2,7 @@
 (extends "stlc+tup.rkt" #:except × ×? tup proj ~× ~×*)
 (require (only-in "stlc+tup.rkt" [~× ~stlc:×]))
 (provide × ∨ (for-syntax ~× ~×* ~∨ ~∨*))
+(provide (rename-out [tup rcrd] [proj prj])) ; alt names from paper
 
 
 ;; Simply-Typed Lambda Calculus, plus records and variants
