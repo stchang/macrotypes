@@ -1,5 +1,5 @@
 #lang racket
-(require "abbrv.rkt" 
+(require "abbrv.rkt"
          (prefix-in - racket/base)
          (for-syntax syntax/parse racket/syntax syntax/stx)
          (for-meta 2 racket/base syntax/parse))
@@ -8,6 +8,7 @@
 
 ;; pattern expanders (not in paper) (must be at file top)
 (begin-for-syntax
+  ;; a → type must contain the literal →_intrnl identifier
   (define-syntax ~→
     (pattern-expander
      (syntax-parser
@@ -15,6 +16,15 @@
         #'(_ (~literal →_intrnl) tin tout)]
        [(_ tin (~and ooo (~literal ...)) tout)
         #'(_ (~literal →_intrnl) tin ooo tout)]))))
+
+;; figure 3
+(define-m (checked-app-v0 e_fn e_arg) ; v0
+  #:with (~→ τ_in τ_out) (compute-τ #'e_fn)
+  #:with τ_arg (compute-τ #'e_arg)
+  #:when (τ= #'τ_arg #'τ_in)
+  #:with e_fn- (erase-τ #'e_fn) 
+  #:with e_arg- (erase-τ #'e_arg) 
+  (add-τ #'(-#%app e_fn- e_arg-) #'τ_out))
 
 ;; figure 4
 (begin-for-syntax
@@ -32,22 +42,12 @@
       #'[e- τ]))
   (define (τ= τ1 τ2) (stx= τ1 τ2)))
 
-;; figure 3
-(define-m (checked-app-v0 e_fn e_arg) ; v0
-  #:with (~→ τ_in τ_out) (compute-τ #'e_fn)
-  #:with τ_arg (compute-τ #'e_arg)
-  #:when (τ= #'τ_arg #'τ_in)
-  #:with e_fn- (erase-τ #'e_fn) 
-  #:with e_arg- (erase-τ #'e_arg) 
-  (add-τ #'(-#%app e_fn- e_arg-) #'τ_out))
-
 ;; figure 5
 (define-m (checked-app-v1 e_fn e_arg) ; v1
   #:with [e_fn- (~→ τ_in τ_out)] (comp+erase-τ #'e_fn)
   #:with [e_arg- τ_arg] (comp+erase-τ #'e_arg)
   #:when (τ= #'τ_arg #'τ_in)
   (add-τ #'(-#%app e_fn- e_arg-) #'τ_out))
-
 
 ;; figure 6
 (define →_intrnl (λ _ (ERR "cannot use types at runtime")))
@@ -56,17 +56,19 @@
   #:with [(x-) e- τ_out] (comp+erase-τ/ctx #'e #'([x τ_in]))
   (add-τ #'(-λ (x-) e-) #'(→ τ_in τ_out)))
 
+;; ctx is a list of bindings, to accommodate fig 7
 (define-for-syntax (comp+erase-τ/ctx e ctx)
   (syntax-parse ctx
     [([x τ] ...)
+     #:with (y ...) (generate-temporaries #'(x ...))
      #:with ((~literal #%plain-lambda) xs-
              ((~literal let-values) () ((~literal let-values) ()
               e-)))
             (local-expand
-             #`(-λ (x ...)
-                ;; let-syntax == "let-macro"
+             #`(-λ (y ...) ; y fresh
+                ;; "let-macro" == let-syntax + make-rename-transformer
                 (let-syntax ([x (make-rename-transformer 
-                                 (add-τ #'x #'τ))] ...)
+                                 (add-τ #'y #'τ))] ...)
                   #,e))
              'expression null)
      #:with τ_out (get-τ #'e-)
@@ -108,7 +110,7 @@
   #:with [xs- e- τ_out] (comp+erase-τ/ctx #'e #'([x τ_in] ...))
   (add-τ #'(-λ xs- e-) #'(→ τ_in ... τ_out)))
 
-;; the code below is not shown in the paper -----------------------------------
+;; the helper code below is not shown in the paper -------------------------
 
 (define (ERR . args) (apply error args))
 
