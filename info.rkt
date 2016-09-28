@@ -11,5 +11,7 @@
 
 (define build-deps
   '("rackunit-lib"
+    "scribble-lib"
+    "racket-doc"
     ))
 
