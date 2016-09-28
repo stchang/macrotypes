@@ -1,0 +1,7 @@
+README/
+packer_cache/
+*.box
+output-virtualbox-iso/
+popl2017-artifact*
+*.swo
+*.swp

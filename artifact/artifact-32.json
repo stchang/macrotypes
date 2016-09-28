@@ -1,0 +1,51 @@
+{
+  "builders": [{
+    "type": "virtualbox-iso",
+    "guest_os_type": "Ubuntu",
+    "iso_url": "http://releases.ubuntu.com/14.04.3/ubuntu-14.04.3-server-i386.iso",
+    "iso_checksum": "a5c02e25a8f6ab335269adb1a6c176edff075093b90854439b4a90fce9b31f28",
+    "iso_checksum_type": "sha256",
+    "ssh_username": "artifact",
+    "ssh_password": "artifact",
+    "shutdown_command": "echo 'packer' | sudo -S shutdown -P now",
+    "http_directory": ".",
+    "headless": false,
+    "boot_command": [
+      "<esc><esc><enter><wait>",
+      "/install/vmlinuz noapic ",
+      "preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed.cfg ",
+      "debian-installer=en_US auto locale=en_US kbd-chooser/method=us ",
+      "hostname={{ .Name }} ",
+      "fb=false debconf/frontend=noninteractive ",
+      "keyboard-configuration/modelcode=SKIP keyboard-configuration/layout=USA ",
+      "keyboard-configuration/variant=USA console-setup/ask_detect=false ",
+      "initrd=/install/initrd.gz -- <enter>"
+    ]
+  }],
+  "provisioners": [
+    {
+      "type": "shell",
+      "override": {
+        "virtualbox-iso": {
+          "execute_command": "echo 'artifact' | sudo -S sh '{{ .Path }}'"
+        }
+      },
+      "scripts": [ "root-setup.sh" ]
+    },
+    {
+      "type": "file",
+      "source": "popl2017-artifact.tar",
+      "destination": "/home/artifact/popl2017-artifact.tar"
+    },
+    {
+      "type": "shell",
+      "scripts": [ "setup-32.sh" ]
+    }
+  ],
+  "post-processors": [
+    {
+      "type": "vagrant",
+      "keep_input_artifact": true
+    }
+  ]
+}
