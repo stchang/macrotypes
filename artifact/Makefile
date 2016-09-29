@@ -7,7 +7,14 @@ all:
 	packer build artifact-32.json
 
 readme:
-	scribble +m --htmls README.scrbl
+	scribble +m --html README.scrbl
 
 clean:
 	rm -rf output-virtualbox-iso
+	rm README.html
+	rm manual-fonts.css
+	rm manual-racket.css
+	rm manual-racket.js
+	rm manual-style.css
+	rm scribble-common.js
+	rm scribble.css

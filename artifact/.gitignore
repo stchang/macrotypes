@@ -5,3 +5,7 @@ output-virtualbox-iso/
 popl2017-artifact*
 *.swo
 *.swp
+
+*.html
+*.css
+*.js
