@@ -6,6 +6,11 @@
 
 @defmodule[turnstile #:lang #:use-sources (turnstile/turnstile)]
 
+@(author 
+  (author+email "Alex Knauth" "alexander@knauth.org" #:obfuscate? #t)
+  (author+email "Ben Greenman" "types@ccs.neu.edu" #:obfuscate? #t)
+  (author+email "Stephen Chang" "stchang@racket-lang.org" #:obfuscate? #t))
+
 @section{Introduction}
 
 Turnstile aims to help Racket programmers create typed languages. It does so
