@@ -88,7 +88,7 @@
   [⊢ e- ⇒ (∀ ([tv- : bvs.kind] ...) τ_e)])
 
 (define-typed-syntax (inst e τ ...) ≫
-  [⊢ e ≫ e- ⇒ : (~∀ (tv ...) τ_body) (⇒ : (~∀★ k ...))]
+  [⊢ e ≫ e- ⇒ : (~∀ (tv ...) τ_body) (⇒ (~∀★ k ...))]
   [⊢ τ ≫ τ- ⇐ k] ...
   #:with τ-inst (substs #'(τ- ...) #'(tv ...) #'τ_body)
   --------

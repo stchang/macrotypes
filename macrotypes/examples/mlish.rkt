@@ -8,7 +8,7 @@
 (require (only-in "ext-stlc.rkt" → →?))
 (require (only-in "sysf.rkt" ~∀ ∀ ∀? Λ))
 (reuse × tup proj define-type-alias #:from "stlc+rec-iso.rkt")
-(require (only-in "stlc+rec-iso.rkt" ~× ×?)) ; using current-type=? from here
+(require (only-in "stlc+rec-iso.rkt" ~× ×?))
 (provide (rename-out [ext-stlc:and and] [ext-stlc:#%datum #%datum]))
 (reuse member length reverse list-ref cons nil isnil head tail list #:from "stlc+cons.rkt")
 (require (prefix-in stlc+cons: (only-in "stlc+cons.rkt" list cons nil)))

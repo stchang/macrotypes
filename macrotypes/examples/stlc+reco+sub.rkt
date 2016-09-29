@@ -1,14 +1,12 @@
 #lang s-exp macrotypes/typecheck
-(extends "stlc+sub.rkt" #:except #%app #%datum)
+(extends "stlc+sub.rkt" #:except #%datum)
 (extends "stlc+reco+var.rkt" #:except #%datum +)
-;;use type=? and eval-type from stlc+reco+var.rkt, not stlc+sub.rkt
-;; but extend sub? from stlc+sub.rkt
 
 ;; Simply-Typed Lambda Calculus, plus subtyping, plus records
 ;; Types:
 ;; - types from stlc+sub.rkt
 ;; Type relations:
-;; - sub? extended to records
+;; - sub? (from stlc+sub.rkt) extended to records
 ;; Terms:
 ;; - terms from stlc+sub.rkt
 ;; - records and variants from stlc+reco+var

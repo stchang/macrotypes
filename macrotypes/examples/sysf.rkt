@@ -1,10 +1,7 @@
 #lang s-exp macrotypes/typecheck
 (extends "stlc+lit.rkt")
-(reuse #:from "stlc+rec-iso.rkt") ; want this type=?
 
 ;; System F
-;; Type relation:
-;; - extend type=? with ∀
 ;; Types:
 ;; - types from stlc+lit.rkt
 ;; - ∀
