@@ -1,55 +1,57 @@
 #lang scribble/manual
 
-@(require scribble/eval
-          scriblib/autobib
-          )
+@require[scribble/eval
+         scriblib/autobib]
+
 @(define (todo . xs) (elem (bold "TODO: ") xs)) @; DELETE THIS
 
 @(define-cite ~cite citet generate-bibliography)
 
 @(define (rtech pre) (tech pre #:doc '(lib "scribblings/reference.scrble")))
 
-@title{Artifact: TODO}
+@(define file://guide "file:///home/artifact/popl2017-artifact/turnstile/scribblings/turnstile.html")
+@(define file://paper "file:///home/artifact/Desktop/type-systems-as-macros.pdf")
+@(define paper-title "Type Systems as Macros")
 
-@(author (author+email "Alex Knauth" "alexander@knauth.org") @; TODO check email
+@; -----------------------------------------------------------------------------
+
+@title{Artifact: @|paper-title|}
+
+@(author (author+email "Alex Knauth" "alexknauth@ccs.neu.edu")
          (author+email "Ben Greenman" "types@ccs.neu.edu")
          (author+email "Stephen Chang" "stchang@ccs.neu.edu"))
 
-This is a README file for the artifact that accompanies "TODO" in POPL 2017.
+This is a README file for the artifact that accompanies "@|paper-title|" in POPL 2017.
 
 Our artifact is consists of a VM image that contains
 @itemlist[
+  @item{A copy of the POPL 2017 camera-ready}
   @item{A distribution of the Racket programming language}
-  @item{The benchmarking tools used to generate the data in the paper}
-  @item{The source code for the paper}
-  @item{The benchmarks used in the paper}
-  @item{The benchmark data used in the paper}
+  @item{The @racket[turnstile] library and its documentation}
  ]
 
 The goals of this artifact are to
 @itemlist[
-  @item{Make the raw data we collected available for outside analysis}
-  @item{Enable replication of our experimental evaluation}
+  @item{Package the library associated with the paper.}
+  @item{Provide runnable code for each stylized example in the paper.}
  ]
-
-Note TODO
 
 
 @; -----------------------------------------------------------------------------
 @section{Setting up and installing the artifact}
 
-The artifact is available as a virtual machine appliance for VirtualBox. If
-you are already reading this README in the VM, feel free to ignore the
+The artifact is available as a virtual machine appliance for VirtualBox.
+If you are already reading this README in the VM, feel free to ignore the
 rest of this section.
 
 To run the artifact image, open the given @tt{.ovf} file using the
 @tt{File->Import Appliance} menu item. This will create a new VM
 that can be launched after import. We recommend giving the VM at least
-4GB of RAM.
+2GB of RAM, but the examples from the paper will run within 512MB of RAM.
 
-The image is configured to automatically login to the @tt{artifact} user
-account. The account has root privileges using @tt{sudo} without a password.
-The password for the account is @tt{artifact}.
+The image is configured to automatically login to the @tt{artifact} user account.
+The password for the account is also @tt{artifact}.
+The account has root privileges using @tt{sudo} without a password.
 
 
 @; -----------------------------------------------------------------------------
@@ -67,9 +69,29 @@ This directory contains
 
 
 @; -----------------------------------------------------------------------------
-@section[#:tag "run"]{Running Benchmarks}
-@; @section[#:tag "benchmarks"]{Benchmarks}
-@; @section[#:tag "paper"]{Paper}
-@; @section[#:tag "tools"]{Analysis Tools}
-@; @include-section{walkthrough.scrbl}
+@section[#:tag "claims"]{Examples from the paper}
 
+@; TODO
+
+
+@; -----------------------------------------------------------------------------
+@section[#:tag "new"]{Building New Typed Languages}
+
+The @hyperlink[file://guide]{turnstile guide} describes how to build
+and re-use a new typed language.
+
+
+@; -----------------------------------------------------------------------------
+@section[#:tag "resources"]{Resources}
+
+@itemlist[
+@item{
+  POPL 2017 camera ready @hyperlink[file://paper]{[link]}
+}
+@item{
+  Turnstile documentation @hyperlink[file://guide]{[link]}
+}
+@item{
+  Racket documentation @hyperlink["file:///home/artifact/racket/doc/index.html"]{[link]}
+}
+]
