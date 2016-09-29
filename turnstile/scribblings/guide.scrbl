@@ -1,6 +1,7 @@
 #lang scribble/manual
 
-@(require (for-label racket/base
+@(require scribble/example racket/sandbox
+          (for-label racket/base
                      (except-in turnstile/turnstile ⊢))
           "doc-utils.rkt" "common.rkt")
 
@@ -242,7 +243,7 @@ syntax object because the input type is automatically attached to that output.
 We also define an annotation form @racket[ann], which invokes the @racket[⇐]
 clause of a type rule.
 
-@section{Defining Primop}
+@section{Defining Primops}
 
 The previous sections have defined type rules for @racket[#%app] and @racket[λ],
 as well as a function type, but we cannot write any well-typed programs yet
@@ -321,6 +322,31 @@ language implementation:
     --------
     [_ #:error (type-error #:src #'x
                            #:msg "Unsupported literal: ~v" #'x)]]))]
+
+@(define the-eval
+  (parameterize ([sandbox-output 'string]
+                 [sandbox-error-output 'string]
+                 [sandbox-eval-limits #f])
+    (make-base-eval #:lang "../examples/stlc+lit.rkt")))
+
+@(examples #:eval the-eval 
+            (+ 1 2)
+            (((λ ([f : (→ Int Int Int)]) 
+                (λ ([x : Int][y : Int]) 
+                  (f x y))) 
+              +) 
+             1 2))
+
+@#reader scribble/comment-reader
+(racketblock
+  ;; eval:3.0: #%app: type mismatch: expected Int, given (→ Int Int)
+  ;;   expression: (λ ((x : Int)) x)
+  ;;   at: (λ ((x : Int)) x)
+  ;;   in: (#%app + 1 (λ ((x : Int)) x))
+  (+ 1 (λ ([x : Int]) x))
+)
+
+
 
 @section{Extending a Language}
 

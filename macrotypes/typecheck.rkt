@@ -583,13 +583,16 @@
 
 (define-syntax define-basic-checked-id-stx
   (syntax-parser #:datum-literals (:)
-    [(_ τ:id : kind)
+    [(_ τ:id : kind
+        (~optional (~and #:no-provide (~parse no-provide? #'#t))))
      #:with #%tag (format-id #'kind "#%~a" #'kind)
      #:with τ? (mk-? #'τ)
      #:with τ-internal (generate-temporary #'τ)
      #:with τ-expander (format-id #'τ "~~~a" #'τ)
-     #'(begin
-         (provide τ (for-syntax τ? τ-expander))
+     #`(begin
+         #,@(if (attribute no-provide?)
+               #'()
+               #'((provide τ (for-syntax τ? τ-expander))))
          (begin-for-syntax
            (define (τ? t) ;(and (identifier? t) (free-identifier=? t #'τ-internal)))
              (syntax-parse t
@@ -648,9 +651,9 @@
      #:with τ-expander (format-id #'τ "~~~a" #'τ)
      #:with τ-expander* (format-id #'τ-expander "~a*" #'τ-expander)
      #`(begin
-         #,(if (attribute no-provide?)
-               #'(provide)
-               #'(provide τ (for-syntax τ-expander τ-expander* τ?)))
+         #,@(if (attribute no-provide?)
+               #'()
+               #'((provide τ (for-syntax τ-expander τ-expander* τ?))))
          (begin-for-syntax
            (define-syntax τ-expander
              (pattern-expander
@@ -840,7 +843,7 @@
                  (andmap (λ (τ) ((current-name=?) (car τs-lst) τ)) (cdr τs-lst)))))
          (define-syntax define-base-name
            (syntax-parser
-             [(_ (~var x id)) #'(define-basic-checked-id-stx x : name)]))
+             [(_ (~var x id) . rst) #'(define-basic-checked-id-stx x : name . rst)]))
          (define-syntax define-base-names
            (syntax-parser
              [(_ (~var x id) (... ...)) #'(begin (define-base-name x) (... ...))]))
@@ -853,6 +856,9 @@
 
 (define-syntax define-primop
   (syntax-parser #:datum-literals (:)
+    [(define-primop op:id : τ #:no-provide)
+     #:with op/tc (generate-temporary #'op)
+     #'(define-primop op/tc op : τ)]
     [(define-primop op:id : τ)
      #:with op/tc (generate-temporary #'op)
      #`(begin-
