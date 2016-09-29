@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
-# Setup script for POPL 2017 artifact, "Type Systems as Macros"
-# (32-bit version)
+# Setup script for POPL 2017 artifact, "Type Systems as Macros" (32-bit version)
 
 ## -----------------------------------------------------------------------------
 # Global variables
@@ -10,7 +9,7 @@ RKT_INSTALLER="racket-6.6-i386-linux.sh"
 ARTIFACT="popl2017-artifact"
 ARTIFACT_TAR="${ARTIFACT}.tar"
 PAPER_TITLE="type-systems-as-macros"
-DESKTOP="~/Desktop"
+DESKTOP="/home/artifact/Desktop"
 
 ## -----------------------------------------------------------------------------
 # Fundamentals
@@ -29,6 +28,7 @@ chown -R artifact ~/.ssh
 ## -----------------------------------------------------------------------------
 # Install Racket
 
+cd ~
 # first download Racket v6.6
 wget http://mirror.racket-lang.org/installers/6.6/${RKT_INSTALLER}
 # Do a local install. A unix-style install is preferable in some ways, but the
@@ -43,15 +43,15 @@ raco setup -D
 ## -----------------------------------------------------------------------------
 # Set up the artifact files
 
-cd /home/artifact
 tar -xf ${ARTIFACT_TAR}
 rm ${ARTIFACT_TAR}
-cd ${ARTIFACT}/artifact
-raco pkg install --deps search-auto ./turnstile
-raco setup turnstile
+cd ~/${ARTIFACT}
+raco pkg install --deps search-auto ../${ARTIFACT}
+cd ./artifact
 make readme
-ln -s ./README/README.html ${DESKTOP}/README.html
-ln -s ./paper.pdf ${DESKTOP}/${PAPER_TITLE}.pdf
+mkdir -p ${DESKTOP}
+ln -s `pwd`/README.html ${DESKTOP}/README.html
+ln -s `pwd`/paper.pdf ${DESKTOP}/${PAPER_TITLE}.pdf
 cd ${DESKTOP}
 
 ## -----------------------------------------------------------------------------
@@ -84,7 +84,11 @@ chmod +x ${DESKTOP}/DrRacket.desktop
 echo "xfconf-query -n -t int -c xfce4-desktop -p /backdrop/screen0/monitorVBOX0/workspace0/image-style -s 1" >> ~/.profile
 echo "xfconf-query -n -t uint -t uint -t uint -t uint -c xfce4-desktop -p /backdrop/screen0/monitorVBOX0/workspace0/color1 -s 65535 -s 65535 -s 65535 -s 65535" >> ~/.profile
 
+# Setup vimrc
+echo "set background=dark" >> ~/.vimrc
+echo "set nu" >> ~/.vimrc
+echo "set ruler" >> ~/.vimrc
+
 ## -----------------------------------------------------------------------------
 # Cleanup
-rm ${DESKTOP}/${RKT_INSTALLER}
-rm -r ~/${ARTIFACT}
+rm ~/${RKT_INSTALLER}
