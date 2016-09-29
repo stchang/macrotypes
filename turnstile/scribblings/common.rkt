@@ -3,6 +3,10 @@
 (require scribble/manual
          (for-label racket/base))
 
+(define-syntax-rule (lang mod-name)
+  (elem (list (hash-lang) " " (racket mod-name))))
+(define tech:attribute
+  (tech #:doc '(lib "syntax/scribblings/syntax.scrbl") "attribute"))
 (define tech:stx-pats
   (tech #:doc '(lib "syntax/scribblings/syntax.scrbl") "syntax patterns"))
 (define tech:stx-pat

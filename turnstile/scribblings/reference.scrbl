@@ -11,11 +11,13 @@
 @; insert link?
 @; https://docs.racket-lang.org/drracket/Keyboard_Shortcuts.html
 Turnstile utilizes unicode. Here are DrRacket keyboard shortcuts for the
-relevant characters. Type the following and then press Control-@litchar{\}.
+relevant characters. Type the following (or any unique prefix of the following)
+and then press Control-@litchar{\}.
 
 @itemlist[
   @item{@litchar{\vdash} → @litchar{⊢}}
   @item{@litchar{\gg} → @litchar{≫}}
+  @item{@litchar{\rightarrow} → @litchar{→}}
   @item{@litchar{\Rightarrow} → @litchar{⇒}}
   @item{@litchar{\Leftarrow} → @litchar{⇐}}
   @item{@litchar{\succ} → @litchar{≻}}
@@ -93,7 +95,7 @@ Dually, one may write @racket[[⊢ e ≫ e- ⇐ τ]] to check that @racket[e] ha
  @racket[e-] is an output (pattern).
 
 A @racket[define-typed-syntax] definition is automatically provided, either using
- the given name, or with a specified #:export-as name.
+ the given name, or with a specified @racket[#:export-as] name.
 }
 
 @defform[(define-primop op-id : τ)]{
@@ -112,9 +114,9 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
  @itemlist[
  @item{@defform[(define-base-type base-type-name-id)]{
    Defines a base type. A @racket[(define-base-type τ)] additionally defines:
-  @itemlist[@item{@racket[τ]: An identifier macro representing type @racket[τ].}
-            @item{@racket[τ?]: A predicate recognizing type @racket[τ].}
-            @item{@racket[~τ]: A @tech:pat-expander recognizing type @racket[τ].}]}}
+  @itemlist[@item{@racket[τ], an @literal{identifier} macro representing type @racket[τ].}
+            @item{@racket[τ?], a predicate recognizing type @racket[τ].}
+            @item{@racket[~τ], a @tech:pat-expander recognizing type @racket[τ].}]}}
  @item{@defform[(define-base-types base-type-name-id ...)]{Defines multiple base types.}}
  @item{
   @defform[(define-type-constructor name-id option ...)
@@ -125,10 +127,10 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
                     (code:line #:arg-variances expr)
                     (code:line #:extra-info stx)])]{
     Defines a type constructor. Defining a type constructor @racket[τ] defines:
-  @itemlist[@item{@racket[τ]: An macro for constructing an instance of type @racket[τ],
-                 with the specified arity. The default arity is @racket[= 1].}
-            @item{@racket[τ?]: A predicate recognizing type @racket[τ].}
-            @item{@racket[~τ]: A @tech:pat-expander recognizing type @racket[τ].}]
+  @itemlist[@item{@racket[τ], a macro for constructing an instance of type
+                  @racket[τ], with the specified arity.}
+            @item{@racket[τ?], a predicate recognizing type @racket[τ].}
+            @item{@racket[~τ], a @tech:pat-expander recognizing type @racket[τ].}]
   The @racket[#:arity] argument specifies valid shapes for the type. For example
     @racket[(define-type-constructor → #:arity >= 1)] defines an arrow type and
     @racket[(define-type-constructor Pair #:arity = 2)] defines a pair type.
@@ -142,7 +144,7 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
     to types, for example to implement pattern matching.
   }}
  @item{@defproc[(type=? [τ1 type?] [τ2 type?]) boolean?]{An equality predicate for types that computes
-   structural @racket[free-identifier=?] equality.}}
+   structural, @racket[free-identifier=?] equality.}}
  @item{@defproc[(types=? [τs1 (listof type?)][τs2 (listof type?)]) boolean?]{
       Checks that @racket[τs1] and @racket[τs2] are equivalent, pairwise. Thus,
       @racket[τs1] and @racket[τs2] must have the same length.}}

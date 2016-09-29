@@ -72,11 +72,12 @@ Implementing the above judgements with Turnstile might look like
 
 The above code assumes some existing bindings:
 @itemlist[
- @item{A @racket[→] type constructor;}
- @item{a @racket[~→] @tech:pat-expander associated with the type
+ @item{@racket[→], a type constructor;}
+ @item{@racket[~→], a @tech:pat-expander associated with the @racket[→] type
   constructor;}
- @item{a @racket[type] @tech:stx-class recognizing valid types;}
- @item{and core Racket forms, suffixed with @litchar{-}.}
+ @item{@racket[type], a @tech:stx-class recognizing valid types;}
+ @item{and core Racket forms suffixed with @litchar{-}, for example
+  @racket[λ-].}
  ]
 A language defined with Turnstile must define or import the first two items
 (we defer explaining how until later) while the last two items are available by
@@ -103,23 +104,24 @@ The @racket[define-typed-syntax] is roughly an extension of
 Compared to the type judgements in the @secref{judgements} section,
 Turnstile @racket[define-typed-syntax] definitions differ in a few obvious ways:
 @itemlist[
- @item{Each premise and conclusion requires brackets around them.}
+ @item{Each premise and conclusion must be enclosed in brackets.}
  @item{A conclusion is "split" into its inputs (at the top) and outputs (at the
   bottom) to resemble other Racket macro-definition forms, enabling the
   definition to be more easily read as code, top-to-bottom.
 
-  For example, the @racket[λ] definition conclusion input is the initial input
-  pattern @racket[(λ ([x:id : τ_in:type] ...) e)] and the conclusion outputs are
-  the output templates @racket[(λ- (x- ...) e-)] and 
+  For example, the conclusion input in the definition of @racket[λ] is the
+  initial input pattern @racket[(λ ([x:id : τ_in:type] ...) e)] and the
+  conclusion outputs are the output templates @racket[(λ- (x- ...) e-)] and
   @racket[(→ τ_in.norm ... τ_out)]. The initial @racket[≫] separates the input
   pattern from the premises while the @racket[⇒] in the conclusion associates
   the type with the output expression.}
- @item{The rule implementations do not thread through an explicit @racket[Γ].
-  Rather, Turnstile reuses Racket's lexical scope to as the type environment and
+ @item{The rule implementations do not thread through an explicit type
+  environment @racket[Γ].
+  Rather, Turnstile reuses Racket's lexical scope as the type environment and
   thus only new type environment bindings should be specified (to the left of
   the @racket[⊢]), just like a @racket[let].}
  @item{Since type environments use lexical scope, an explicit implementation of
-  the @tt{[VAR]} rule is unneeeded.}]
+  the @tt{[VAR]} rule is unneeded.}]
 
 @subsection{Premises}
 
@@ -148,9 +150,9 @@ reported if the types do not match.
 The @racket[λ] definition above also utilizes a @racket[⇒] premise, except it
 must add bindings to the type environment, which are written to the left of the
 @racket[⊢]. Observe how ellipses may be used in exactly the same manner as
-other Racket macros. (The @racket[norm] is an attribute of the @racket[type]
-syntax class and is bound to the expanded representation of the type. This is
-used to avoid double-expansions of the types.)
+other Racket macros. (The @racket[norm] @tech:attribute comes from the
+@racket[type] syntax class and is bound to the expanded representation of the
+type. This is used to avoid double-expansions of the types.)
 
 @subsection{@racket[syntax-parse] directives}
 
@@ -180,7 +182,7 @@ We next extend our language with a type definition:
  (define-type-constructor → #:arity > 0))]
 
 The @racket[define-type-constructor] declaration defines the @racket[→]
-function typ as a macro that takes at least one argument, along with the
+function type as a macro that takes at least one argument, along with the
 aforementioned @racket[~→] @tech:pat-expander for that type, which makes it
 easier to match on the type in @|tech:stx-pats|.
 
@@ -233,7 +235,7 @@ This revised lambda definition uses an alternate, multi-clause
 @racket[define-simple-macro]).
 
 The first clause is the same as before. The second clause has an additional
-input type pattern and the clause matches only if the both patterns match,
+input type pattern and the clause matches only if both patterns match,
 indicating that the type of the expression can be inferred. Observe that the
 second lambda clause's input parameters have no type annotations. Since the
 lambda body's type is already known, the premise in the second clause uses the 
@@ -243,7 +245,7 @@ syntax object because the input type is automatically attached to that output.
 We also define an annotation form @racket[ann], which invokes the @racket[⇐]
 clause of a type rule.
 
-@section{Defining Primops}
+@section{Defining Primitive Operations (Primops)}
 
 The previous sections have defined type rules for @racket[#%app] and @racket[λ],
 as well as a function type, but we cannot write any well-typed programs yet
@@ -266,21 +268,22 @@ since there are no base types. Let's fix that:
                           #:msg "Unsupported literal: ~v" #'x)]]))]
 
 The code above defines a base type @racket[Int], and attaches type information
-to to both @racket[+] and integer literals.
+to both @racket[+] and integer literals.
 
 @racket[define-primop] creates an identifier macro that attaches the specified
-type to the specified identifier. As with any Racket macro, the @racket[+]
-here is whatever is in scope. By default it is Racket.
+type to the specified identifier. As with any Racket macro, the @tt{+}
+here is whatever is in scope. By default it is Racket's @racket[+].
 
 @section{A Complete Language}
 
-We may now write well-typed programs! For completeness, here is the complete
+We can now write well-typed programs! Here is the complete
 language implementation:
 
-@; how to typeset #lang turnstile?
 @label-code["A complete STLC implementation, created with #lang turnstile"
 @#reader scribble/comment-reader
 (racketblock0
+ #,(lang turnstile)
+
  (define-type-constructor → #:arity > 0)
  (define-base-type Int)
 
@@ -327,7 +330,7 @@ language implementation:
   (parameterize ([sandbox-output 'string]
                  [sandbox-error-output 'string]
                  [sandbox-eval-limits #f])
-    (make-base-eval #:lang "../examples/stlc+lit.rkt")))
+    (make-base-eval #:lang 'macrotypes/examples/stlc+lit )))
 
 @(examples #:eval the-eval 
             (+ 1 2)
@@ -339,11 +342,11 @@ language implementation:
 
 @#reader scribble/comment-reader
 (racketblock
+  (+ 1 (λ ([x : Int]) x))
   ;; eval:3.0: #%app: type mismatch: expected Int, given (→ Int Int)
   ;;   expression: (λ ((x : Int)) x)
   ;;   at: (λ ((x : Int)) x)
   ;;   in: (#%app + 1 (λ ((x : Int)) x))
-  (+ 1 (λ ([x : Int]) x))
 )
 
 
@@ -351,7 +354,7 @@ language implementation:
 @section{Extending a Language}
 
 Imagine our language from the previous section is named @tt{STLC}. Since it
-consists of just a series of macros, like any other Racket #lang, its forms may
+consists of just a series of macros, like any other Racket @hash-lang[], its forms may
 be imported and exported and may be easily reused in other languages. Let's see
 how we can reuse the above implementation to implement a subtyping language.
 
@@ -416,11 +419,11 @@ This language uses subtyping instead of type equality as its "typecheck
 relation". Specifically, the language defines a @racket[sub?] subtyping relation
 and sets it as the @racket[current-typecheck-relation]. Thus it is able to reuse
 the @racket[λ] and @racket[#%app] rules from the previous sections without
-modification. The @racket[extends] is useful for declaring this. It automatically
-@racket[require]s and @racket[provide]s the previous rules and re-exports them
-with the new language.
+modification. The @racket[extends] clause is useful for declaring this. It
+automatically @racket[require]s and @racket[provide]s the previous rules and
+re-exports them with the new language.
 
-It does not reuse @racket[#%datum] and @racket[+], however, since the the
+It does not reuse @racket[#%datum] and @racket[+], however, since the
 subtyping language updates these forms. Specifically, the new language defines a
 hierarchy of numeric base types, gives @racket[+] a more general type, and
 redefines @racket[#%datum] to assign more precise types to numeric literals.
