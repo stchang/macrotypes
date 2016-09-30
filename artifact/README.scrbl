@@ -3,7 +3,7 @@
 @require[scribble/eval
          scriblib/autobib]
 
-@(define (todo . xs) (elem (bold "TODO: ") xs)) @; DELETE THIS
+@(define (TODO . xs) (elem (bold "TODO: ") xs)) @; DELETE THIS
 
 @(define-cite ~cite citet generate-bibliography)
 
@@ -41,6 +41,11 @@ The goals of this artifact are to
 @section{Setting up and installing the artifact}
 
 The artifact is available as a virtual machine appliance for VirtualBox.
+Alternatively, you can download the @TODO{popl2017-artifact}
+release from the @tt{turnstile} repository on Bitbucket and follow the
+instructions in @tt{artifact/README.md}.
+@margin-note{VM applicance: @hyperlink["http://www.ccs.neu.edu/home/stchang/popl2017/type-systems-as-macros.tar.gz"]{[link]}}
+
 If you are already reading this README in the VM, feel free to ignore the
 rest of this section.
 
