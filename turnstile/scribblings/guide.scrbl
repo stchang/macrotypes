@@ -5,7 +5,7 @@
                      (except-in turnstile/turnstile ⊢))
           "doc-utils.rkt" "common.rkt")
 
-@title{Guide}
+@title{The Turnstile Guide}
 
 This guide explains how to use Turnstile to implement a series of languages with
 some common type system features.

@@ -1,7 +1,7 @@
 #lang info
 
 (define scribblings
-  '(["scribblings/turnstile.scrbl" ()]))
+  '(["scribblings/turnstile.scrbl" (multi-page)]))
 
 (define compile-omit-paths 
   '("examples/rosette"

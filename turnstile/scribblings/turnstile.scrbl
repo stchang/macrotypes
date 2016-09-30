@@ -2,16 +2,14 @@
 
 @(require (for-label racket/base))
 
-@title{The @racketmodname[turnstile] language}
+@title[#:style '(toc)]{The @racketmodname[turnstile] language}
 
 @defmodule[turnstile #:lang #:use-sources (turnstile/turnstile)]
 
-@(author 
+@(author
+  (author+email "Stephen Chang" "stchang@racket-lang.org" #:obfuscate? #t)
   (author+email "Alex Knauth" "alexander@knauth.org" #:obfuscate? #t)
-  (author+email "Ben Greenman" "types@ccs.neu.edu" #:obfuscate? #t)
-  (author+email "Stephen Chang" "stchang@racket-lang.org" #:obfuscate? #t))
-
-@section{Introduction}
+  (author+email "Ben Greenman" "types@ccs.neu.edu" #:obfuscate? #t))
 
 Turnstile aims to help Racket programmers create typed languages. It does so
 with extensions of Racket's macro-definition forms that facilitate
@@ -22,9 +20,7 @@ Thus, a complete typed language implementation remains a series of macro
 definitions that may be imported and exported in the standard way that Racket
 programmers are accustomed to.
 
-@itemlist[
- @item[@secref{Guide}]
- @item[@secref{Reference}]]
+@local-table-of-contents[]
 
 @include-section{guide.scrbl}
 @include-section{reference.scrbl}

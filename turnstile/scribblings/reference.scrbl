@@ -5,7 +5,7 @@
                      (except-in turnstile/turnstile ⊢ stx))
           "doc-utils.rkt" "common.rkt")
 
-@title{Reference}
+@title{The Turnstile Reference}
 
 @section{Typing Unicode Characters}
 
