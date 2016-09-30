@@ -4,7 +4,7 @@
          (only-in "stlc-with-racket.rkt" [λ stlc:λ] [#%app stlc:#%app]))
 (require 
  (for-syntax (only-in "../../stx-utils.rkt" make-variable-like-transformer)))
-(provide #%module-begin
+(provide #%module-begin require
          (rename-out [stlc:λ λ]
                      [stlc:#%app #%app]
                      [checked+ +]

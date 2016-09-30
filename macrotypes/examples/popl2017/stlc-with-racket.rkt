@@ -3,7 +3,7 @@
          (prefix-in - racket/base)
          (for-syntax syntax/parse racket/syntax syntax/stx)
          (for-meta 2 racket/base syntax/parse))
-(provide #%module-begin
+(provide #%module-begin require
          (rename-out [checked-app #%app] [checked-λ λ] [checked-→ →])
          (for-syntax add-τ add-κ))
 
