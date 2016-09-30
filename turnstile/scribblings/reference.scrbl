@@ -59,20 +59,20 @@ and then press Control-@litchar{\}.
    [expr-template (code:line @#,racket[quasisyntax] @#,tech:template)]
    [type-template (code:line @#,racket[quasisyntax] @#,tech:template)]
    [key identifier?]
-   [premise (code:line [⊢ inf ...] ooo ...)
-            (code:line [ctx ⊢ inf ...] ooo ...)
-            (code:line [ctx-elem ... ⊢ inf ...] ooo ...)
-            (code:line [ctx ctx ⊢ inf ...] ooo ...)
-            (code:line [⊢ . inf-elem] ooo ...)
-            (code:line [ctx ⊢ . inf-elem] ooo ...)
-            (code:line [ctx-elem ... ⊢ . inf-elem] ooo ...)
-            (code:line [ctx ctx ⊢ . inf-elem] ooo ...)
+   [premise (code:line [⊢ tc ...] ooo ...)
+            (code:line [ctx ⊢ tc ...] ooo ...)
+            (code:line [ctx-elem ... ⊢ tc ...] ooo ...)
+            (code:line [ctx ctx ⊢ tc ...] ooo ...)
+            (code:line [⊢ . tc-elem] ooo ...)
+            (code:line [ctx ⊢ . tc-elem] ooo ...)
+            (code:line [ctx-elem ... ⊢ . tc-elem] ooo ...)
+            (code:line [ctx ctx ⊢ . tc-elem] ooo ...)
             type-relation
             (code:line @#,racket[syntax-parse] @#,tech:pat-directive)]
    [ctx (ctx-elem ...)]
    [ctx-elem (code:line [id ≫ id : type-template] ooo ...)]
-   [inf (code:line inf-elem ooo ...)]
-   [inf-elem [expr-template ≫ expr-pattern ⇒ type-pattern]
+   [tc (code:line tc-elem ooo ...)]
+   [tc-elem [expr-template ≫ expr-pattern ⇒ type-pattern]
              [expr-template ≫ expr-pattern ⇒ key type-pattern]
              [expr-template ≫ expr-pattern (⇒ key type-pattern) ooo ...]
              [expr-template ≫ expr-pattern ⇐ type-template]

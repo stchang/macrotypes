@@ -30,17 +30,17 @@
     (define es*- (lens-set flat es* #'es-))
     (list #'tvxs- #'xs- es*-))
   ;; infers/depths
-  (define (infers/depths clause-depth inf-depth tvctxs/ctxs/ess/origss*)
+  (define (infers/depths clause-depth tc-depth tvctxs/ctxs/ess/origss*)
     (define flat (stx-flatten/depth-lens clause-depth))
     (define tvctxs/ctxs/ess/origss
       (lens-view flat tvctxs/ctxs/ess/origss*))
-    (define infs
+    (define tcs
       (for/list ([tvctx/ctx/es/origs (in-list (stx->list tvctxs/ctxs/ess/origss))])
         (match-define (list tvctx ctx es origs)
           (stx->list tvctx/ctx/es/origs))
-        (infer/depth #:tvctx tvctx #:ctx ctx inf-depth es origs)))
+        (infer/depth #:tvctx tvctx #:ctx ctx tc-depth es origs)))
     (define res
-      (lens-set flat tvctxs/ctxs/ess/origss* infs))
+      (lens-set flat tvctxs/ctxs/ess/origss* tcs))
     res)
   (define (raise-⇐-expected-type-error ⇐-stx body expected-type existing-type)
     (raise-syntax-error
@@ -159,83 +159,81 @@
     [pattern (~seq ctx1:id+props+≫ ...)
              #:with [x- ...] #'[ctx1.x- ... ...]
              #:with [ctx ...] #'[ctx1.ctx ... ...]])
-  (define-splicing-syntax-class inf
+  (define-syntax-class tc-elem
     #:datum-literals (⊢ ⇒ ⇐ ≫ :)
-    #:attributes (depth es-stx es-stx-orig es-pat)
-    [pattern (~or (~seq e-stx* ≫ e-pat* props:⇒-props (~parse (ooo ...) #'()))
-                  (~seq [e-stx* ≫ e-pat* props:⇒-props] ooo:elipsis ...))
-             #:with depth (stx-length #'[ooo ...])
-             #:with es-stx (with-depth #'e-stx* #'[ooo ...])
-             #:with es-stx-orig (with-depth #'e-stx* #'[ooo ...])
-             #:with es-pat
-             #`(~post
-                #,(with-depth
-                   #'(~and props.e-pat
-                           e-pat*)
-                   #'[ooo ...]))]
-    [pattern (~or (~seq e-stx* ≫ e-pat* props:⇐-props (~parse (ooo ...) #'()))
-                  (~seq [e-stx* ≫ e-pat* props:⇐-props] ooo:elipsis ...))
+    #:attributes (e-stx e-stx-orig e-pat)
+    [pattern [e-stx ≫ e-pat* props:⇒-props]
+             #:with e-stx-orig #'e-stx
+             #:with e-pat #'(~and props.e-pat e-pat*)]
+    [pattern [e-stx* ≫ e-pat* props:⇐-props]
              #:with e-tmp (generate-temporary #'e-pat*)
              #:with τ-tmp (generate-temporary 'τ)
              #:with τ-exp-tmp (generate-temporary 'τ_expected)
+             #:with e-stx #'(add-expected e-stx* props.τ-stx)
+             #:with e-stx-orig #'e-stx*
+             #:with e-pat #'(~and props.e-pat e-pat*)])
+  (define-splicing-syntax-class tc
+    #:attributes (depth es-stx es-stx-orig es-pat)
+    [pattern (~seq tc:tc-elem ooo:elipsis ...)
              #:with depth (stx-length #'[ooo ...])
-             #:with es-stx (with-depth #'(add-expected e-stx* props.τ-stx) #'[ooo ...])
-             #:with es-stx-orig (with-depth #'e-stx* #'[ooo ...])
+             #:with es-stx (with-depth #'tc.e-stx #'[ooo ...])
+             #:with es-stx-orig (with-depth #'tc.e-stx-orig #'[ooo ...])
              #:with es-pat
              #`(~post
-                #,(with-depth
-                   #'(~and props.e-pat
-                           e-pat*)
-                   #'[ooo ...]))]
-    )
-  (define-splicing-syntax-class inf*
+                #,(with-depth #'tc.e-pat #'[ooo ...]))])
+  (define-syntax-class tc*
     #:attributes (depth es-stx es-stx-orig es-pat)
-    [pattern (~seq inf:inf ...)
-             #:do [(define ds (stx-map syntax-e #'[inf.depth ...]))
+    [pattern tc:tc-elem
+             #:with depth 0
+             #:with es-stx #'tc.e-stx
+             #:with es-stx-orig #'tc.e-stx-orig
+             #:with es-pat #'tc.e-pat]
+    [pattern (tc:tc ...)
+             #:do [(define ds (stx-map syntax-e #'[tc.depth ...]))
                    (define max-d (apply max 0 ds))]
              #:with depth (add1 max-d)
              #:with [[es-stx* es-stx-orig* es-pat*] ...]
-             (for/list ([inf-es-stx (in-list (syntax->list #'[inf.es-stx ...]))]
-                        [inf-es-stx-orig (in-list (syntax->list #'[inf.es-stx-orig ...]))]
-                        [inf-es-pat (in-list (syntax->list #'[inf.es-pat ...]))]
+             (for/list ([tc-es-stx (in-list (syntax->list #'[tc.es-stx ...]))]
+                        [tc-es-stx-orig (in-list (syntax->list #'[tc.es-stx-orig ...]))]
+                        [tc-es-pat (in-list (syntax->list #'[tc.es-pat ...]))]
                         [d (in-list ds)])
                (list
-                (add-lists inf-es-stx (- max-d d))
-                (add-lists inf-es-stx-orig (- max-d d))
-                (add-lists inf-es-pat (- max-d d))))
+                (add-lists tc-es-stx (- max-d d))
+                (add-lists tc-es-stx-orig (- max-d d))
+                (add-lists tc-es-pat (- max-d d))))
              #:with es-stx #'[es-stx* ...]
              #:with es-stx-orig #'[es-stx-orig* ...]
              #:with es-pat #'[es-pat* ...]])
-  (define-splicing-syntax-class inf-clause
+  (define-splicing-syntax-class tc-clause
     #:attributes (pat)
     #:datum-literals (⊢)
-    [pattern (~or (~seq [⊢ inf:inf*] ooo:elipsis ...
+    [pattern (~or (~seq [⊢ . tc:tc*] ooo:elipsis ...
                         (~parse ((ctx.x- ctx.ctx tvctx.x- tvctx.ctx) ...) #'()))
-                  (~seq [ctx:id-props+≫* ⊢ inf:inf*] ooo:elipsis ...
+                  (~seq [ctx:id-props+≫* ⊢ . tc:tc*] ooo:elipsis ...
                         (~parse ((tvctx.x- tvctx.ctx) ...) #'()))
-                  (~seq [(ctx:id-props+≫*) ⊢ inf:inf*] ooo:elipsis ...
+                  (~seq [(ctx:id-props+≫*) ⊢ . tc:tc*] ooo:elipsis ...
                         (~parse ((tvctx.x- tvctx.ctx) ...) #'()))
-                  (~seq [(tvctx:id-props+≫*) (ctx:id-props+≫*) ⊢ inf:inf*] ooo:elipsis ...))
+                  (~seq [(tvctx:id-props+≫*) (ctx:id-props+≫*) ⊢ . tc:tc*] ooo:elipsis ...))
              #:with clause-depth (stx-length #'[ooo ...])
-             #:with infs-pat
+             #:with tcs-pat
              (with-depth
-              #'[(tvctx.x- ...) (ctx.x- ...) inf.es-pat]
+              #'[(tvctx.x- ...) (ctx.x- ...) tc.es-pat]
               #'[ooo ...])
              #:with tvctxs/ctxs/ess/origs
              (with-depth
-              #'[(tvctx.ctx ...) (ctx.ctx ...) inf.es-stx inf.es-stx-orig]
+              #'[(tvctx.ctx ...) (ctx.ctx ...) tc.es-stx tc.es-stx-orig]
               #'[ooo ...])
              #:with pat
              #'(~post
                 (~post
                  (~parse
-                  infs-pat
-                  (infers/depths 'clause-depth 'inf.depth #'tvctxs/ctxs/ess/origs))))]
+                  tcs-pat
+                  (infers/depths 'clause-depth 'tc.depth #'tvctxs/ctxs/ess/origs))))]
     )
   (define-splicing-syntax-class clause
     #:attributes (pat)
     #:datum-literals (τ⊑)
-    [pattern :inf-clause]
+    [pattern :tc-clause]
     [pattern [a τ⊑ b]
              #:with pat
              #'(~post
