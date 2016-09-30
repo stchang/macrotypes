@@ -1,6 +1,6 @@
 #lang racket
 (require "lam-prog.rkt") ; #%app err
-(require "lc-prog.rkt") ; loops
+;(require "lc-prog.rkt") ; loops
 (require "stlc-with-racket-prog.rkt") ; arity err
 (require "stlc-with-turnstile-prog.rkt") ; arity err
 (require "stlc+prim-prog.rkt")

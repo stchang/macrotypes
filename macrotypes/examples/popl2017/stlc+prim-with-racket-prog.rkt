@@ -2,7 +2,7 @@
 (require "../tests/rackunit-typechecking.rkt")
 
 ;; this file contains the same tests as stlc+prim-prog.rkt;
-;; the only difference is the language
+;; the only difference is the #lang language
 
 3
 (+ 1 2)

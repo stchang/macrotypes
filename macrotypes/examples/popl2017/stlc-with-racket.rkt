@@ -3,11 +3,11 @@
          (prefix-in - racket/base)
          (for-syntax syntax/parse racket/syntax syntax/stx)
          (for-meta 2 racket/base syntax/parse))
-(provide #%module-begin require
+(provide #%module-begin #%top-interaction require
          (rename-out [checked-app #%app] [checked-λ λ] [checked-→ →])
          (for-syntax add-τ add-κ))
 
-;; pattern expanders (not in paper) (must be at file top)
+;; pattern expanders (not shown in paper) (must be at file top)
 (begin-for-syntax
   ;; a → type must contain the literal →_intrnl identifier
   (define-syntax ~→
@@ -57,7 +57,7 @@
   #:with [(x-) e- τ_out] (comp+erase-τ/ctx #'e #'([x τ_in]))
   (add-τ #'(-λ (x-) e-) #'(→ τ_in τ_out)))
 
-;; ctx is a list of bindings, to accommodate fig 7
+;; ctx is a list of bindings instead of one, to accommodate fig 7
 (define-for-syntax (comp+erase-τ/ctx e ctx)
   (syntax-parse ctx
     [([x τ] ...)
@@ -89,7 +89,8 @@
   (add-τ #'(-#%app e_fn- e_arg- ...) #'τ_out))
 
 (define-m (checked-λ-v1 ([x (~datum :) τ_in] ...) e) ; v1
-  #:with [xs- e- τ_out] (comp+erase-τ/ctx #'e #'([x τ_in] ...))
+  #:with [xs- e- τ_out] 
+         (comp+erase-τ/ctx #'e #'([x τ_in] ...))
   (add-τ #'(-λ xs- e-) #'(→ τ_in ... τ_out)))
 
 ;; figure 8
@@ -108,7 +109,8 @@
 (define-m (checked-λ ([x (~datum :) τ_in] ...) e) ; v2
   #:fail-unless (stx-andmap valid-τ? #'(τ_in ...))
                 (fmt "λ given invalid types: ~a" #'(τ_in ...))
-  #:with [xs- e- τ_out] (comp+erase-τ/ctx #'e #'([x τ_in] ...))
+  #:with [xs- e- τ_out] 
+         (comp+erase-τ/ctx #'e #'([x τ_in] ...))
   (add-τ #'(-λ xs- e-) #'(→ τ_in ... τ_out)))
 
 

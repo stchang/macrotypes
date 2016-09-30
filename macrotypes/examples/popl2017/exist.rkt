@@ -4,6 +4,8 @@
 ;; A language with existential types
 
 ;; extend current-type=? to handle binding forms
+;; Turnstile's type=? already does this, but we reimplement it
+;; here to mimic the code from the paper
 (begin-for-syntax
   ;; binds? from paper is bound-identifier=?
   (define (binds? x y) (bound-identifier=? x y))
@@ -23,7 +25,7 @@
 
   (define stlc:type=? (current-type=?)) ; old type=?
 
-  ;; extend current-type=? to handle ∃, but in general lambdas
+  ;; extend current-type=? to handle ∃ (ie, lambdas)
   (define (type=? τ1 τ2)
     (syntax-parse (list τ1 τ2)
       [(((~literal #%plain-lambda) (x:id ...) t1 ...)

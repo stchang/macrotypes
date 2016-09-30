@@ -1,9 +1,12 @@
 #lang turnstile/lang
 
+;; figure 11
+
 (define-type-constructor → #:arity > 0)
 
 ;; figure 11 #%app
-;; uncomment, to see bad arity err msg
+;; uncomment to use this version, 
+;; which does special case the err msg for arity mismatch
 #;(define-typerule (#%app e_fn e_arg ...) ≫
   [⊢ e_fn ≫ e_fn- ⇒ (~→ τ_in ... τ_out)]
   [⊢ e_arg ≫ e_arg- ⇐ τ_in] ...

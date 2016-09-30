@@ -10,7 +10,7 @@
 ;(define-base-type Unit) ; already imported
 (define-type-constructor Ref #:arity = 1)
 
-;; some helper code (not in paper) (must be at top)
+;; some helper code (not shown in paper) (must be at top)
 (define-syntax-rule (locs loc ...)
   '(loc ...))
 (begin-for-syntax
