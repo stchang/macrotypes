@@ -1,6 +1,7 @@
 #lang scribble/manual
 
-@(require (for-label racket/base
+@(require scribble/example racket/sandbox
+          (for-label racket/base
                      (except-in turnstile/turnstile ⊢))
           "doc-utils.rkt" "common.rkt")
 
@@ -8,10 +9,16 @@
 
 @section{Typing Unicode Characters}
 
+@(define the-eval
+  (parameterize ([sandbox-output 'string]
+                 [sandbox-error-output 'string]
+                 [sandbox-eval-limits #f])
+    (make-base-eval #:lang 'turnstile)))
+
 @; insert link?
 @; https://docs.racket-lang.org/drracket/Keyboard_Shortcuts.html
 Turnstile utilizes unicode. Here are DrRacket keyboard shortcuts for the
-relevant characters. Type the following (or any unique prefix of the following)
+relevant characters. Type (any unique prefix of) the following
 and then press Control-@litchar{\}.
 
 @itemlist[
@@ -43,7 +50,7 @@ and then press Control-@litchar{\}.
           premise ...
           --------
           ⇐-conclusion]
-         [expr-pattern ⇐ : type-pattern ≫
+         [expr-pattern ⇐ key type-pattern ≫
           premise ...
           --------
           ⇐-conclusion]]
@@ -51,6 +58,7 @@ and then press Control-@litchar{\}.
    [type-pattern (code:line @#,racket[syntax-parse] @#,tech:stx-pat)]
    [expr-template (code:line @#,racket[quasisyntax] @#,tech:template)]
    [type-template (code:line @#,racket[quasisyntax] @#,tech:template)]
+   [key identifier?]
    [premise (code:line [⊢ inf ...] ooo ...)
             (code:line [ctx ⊢ inf ...] ooo ...)
             (code:line [ctx-elem ... ⊢ inf ...] ooo ...)
@@ -65,11 +73,16 @@ and then press Control-@litchar{\}.
    [ctx-elem (code:line [id ≫ id : type-template] ooo ...)]
    [inf (code:line inf-elem ooo ...)]
    [inf-elem [expr-template ≫ expr-pattern ⇒ type-pattern]
-             [expr-template ≫ expr-pattern ⇐ type-template]]
+             [expr-template ≫ expr-pattern ⇒ key type-pattern]
+             [expr-template ≫ expr-pattern (⇒ key type-pattern) ooo ...]
+             [expr-template ≫ expr-pattern ⇐ type-template]
+             [expr-template ≫ expr-pattern ⇐ key type-template]
+             [expr-template ≫ expr-pattern (⇐ key type-template) ooo ...]]
    [type-relation (code:line [type-template τ⊑ type-template] ooo ...)
                   (code:line [type-template τ⊑ type-template #:for expr-template] ooo ...)]
-   [conclusion [⊢ expr-template ⇒ type-template]
+   [conclusion [⊢ expr-template ⇒ key type-template]
                [⊢ [_ ≫ expr-template ⇒ type-template]]
+               [⊢ [_ ≫ expr-template (⇒ key type-template) ooo ...]]
                [≻ expr-template]
                [_ ≻ expr-template]]
    [⇐-conclusion [⊢ expr-template]
@@ -89,6 +102,8 @@ Type checking is computed as part of macro expansion and the resulting type is
  and has type @racket[τ], where @racket[e] is the input and, @racket[e-] and
  @racket[τ] outputs. Syntactically, @racket[e] is a syntax template position
  and @racket[e-] @racket[τ] are syntax pattern positions.
+
+A programmer may use the generalized form @racket[[⊢ e ≫ e- (⇒ key τ) ...]] to specify propagation of arbitrary values, associated with any number of keys. For example, a type and effect system may wish to additionally propagate source locations of allocations and mutations. When no key is specified, @litchar{:}, i.e., the "type" key, is used.
  
 Dually, one may write @racket[[⊢ e ≫ e- ⇐ τ]] to check that @racket[e] has type
 @racket[τ]. Here, both @racket[e] and @racket[τ] are inputs (templates) and only
@@ -101,7 +116,7 @@ A @racket[define-typed-syntax] definition is automatically provided, either usin
 @defform[(define-primop op-id : τ)]{
 Attaches type @racket[τ] to identifier @racket[op-id], e.g.
               @racket[(define-primop + : (→ Int Int))].
-Automatically provides @racket[op-id].}
+Automatically provides the new @racket[op-id].}
 
 @defform[(define-syntax-category name-id)]{
 Defines a new "category" of syntax by defining a series of forms and functions.
@@ -110,13 +125,16 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
 
  Note: It's typically not necessary to
  use any forms other than @racket[define-base-type] and
- @racket[define-type-constructor] in conjunction with @racket[define-typed-syntax].
+ @racket[define-type-constructor] in conjunction with @racket[define-typed-syntax]. The other forms are considered "low-level" and are automatically used by @racket[define-typed-syntax].
  @itemlist[
- @item{@defform[(define-base-type base-type-name-id)]{
+ @item{@defform[(define-base-type base-type-name-id option ...)
+                 #:grammar
+                ([option (code:line #:no-provide)])]{
    Defines a base type. A @racket[(define-base-type τ)] additionally defines:
   @itemlist[@item{@racket[τ], an identifier macro representing type @racket[τ].}
             @item{@racket[τ?], a predicate recognizing type @racket[τ].}
-            @item{@racket[~τ], a @tech:pat-expander recognizing type @racket[τ].}]}}
+            @item{@racket[~τ], a @tech:pat-expander recognizing type @racket[τ].}]
+  Automatically provides the defined type unless @racket[#:no-provide] is specified.}}
  @item{@defform[(define-base-types base-type-name-id ...)]{Defines multiple base types.}}
  @item{
   @defform[(define-type-constructor name-id option ...)
@@ -125,7 +143,8 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
                     (code:line #:bvs op n)
                     (code:line #:arr tycon)
                     (code:line #:arg-variances expr)
-                    (code:line #:extra-info stx)])]{
+                    (code:line #:extra-info stx)
+                    (code:line #:no-provide)])]{
     Defines a type constructor. Defining a type constructor @racket[τ] defines:
   @itemlist[@item{@racket[τ], a macro for constructing an instance of type
                   @racket[τ], with the specified arity.}
@@ -137,29 +156,56 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
     The default arity is @racket[= 1].
     
     Use the @racket[#:bvs] argument to define binding types, eg
-    @racket[(define-type-constructor ∀ #:bvs = 1 #:arity = 1)] defines a type with
+    @racket[(define-type-constructor ∀ #:arity = 1 #:bvs = 1)] defines a type with
     shape @racket[(∀ (X) τ)], where @racket[τ] may reference @racket[X].
 
     The @racket[#:extra-info] argument is useful for attaching additional metainformation
     to types, for example to implement pattern matching.
+
+    Automatically provides the defined type, unless @racket[#:no-provide] is specified.
   }}
- @item{@defproc[(type=? [τ1 type?] [τ2 type?]) boolean?]{An equality predicate for types that computes
-   structural, @racket[free-identifier=?] equality.}}
+
+ @item{@defproc[(type=? [τ1 type?] [τ2 type?]) boolean?]{A phase 1 equality
+predicate for types that computes structural, @racket[free-identifier=?]
+equality, but includes alpha-equivalence.
+
+@examples[#:eval the-eval
+(define-base-type Int #:no-provide)
+(define-base-type String #:no-provide)
+(begin-for-syntax (displayln (type=? #'Int #'Int)))
+(begin-for-syntax (displayln (type=? #'Int #'String)))
+(define-type-constructor → #:arity > 0 #:no-provide)
+(define-type-constructor ∀ #:arity = 1 #:bvs = 1 #:no-provide)
+(begin-for-syntax 
+  (displayln 
+   (type=? ((current-type-eval) #'(∀ (X) X))
+           ((current-type-eval) #'(∀ (Y) Y)))))
+(begin-for-syntax 
+  (displayln 
+   (type=? ((current-type-eval) #'(∀ (X) (∀ (Y) (→ X Y))))
+           ((current-type-eval) #'(∀ (Y) (∀ (X) (→ Y X)))))))
+ (begin-for-syntax 
+   (displayln 
+    (type=? ((current-type-eval) #'(∀ (Y) (∀ (X) (→ Y X))))
+            ((current-type-eval) #'(∀ (X) (∀ (X) (→ X X)))))))
+]
+}}
+
  @item{@defproc[(types=? [τs1 (listof type?)][τs2 (listof type?)]) boolean?]{
-      Checks that @racket[τs1] and @racket[τs2] are equivalent, pairwise. Thus,
+      A phase 1 predicate checking that @racket[τs1] and @racket[τs2] are equivalent, pairwise. Thus,
       @racket[τs1] and @racket[τs2] must have the same length.}}
  @item{@defproc[(same-types? [τs (listof type?)]) boolean?]{
-    A predicate for checking if a list of types are all the same.}}
+    A phase 1 predicate for checking if a list of types are all the same.}}
  @item{@defparam[current-type=? binary-type-pred binary-type-pred]{
-    A parameter for computing type equality. Is initialized to @racket[type=?].}}
- @item{@defidform[#%type]{A "kind" used to validate types.}}
- @item{@defproc[(#%type? [x Any]) boolean?]{Recognizes @racket[#%type].}}
- @item{@defproc[(type? [x Any]) boolean?]{A predicate used to validate types.
+    A phase 1 parameter for computing type equality. Is initialized to @racket[type=?].}}
+ @item{@defidform[#%type]{The default "kind" used to validate types.}}
+ @item{@defproc[(#%type? [x Any]) boolean?]{Phase 1 predicate recognizing @racket[#%type].}}
+ @item{@defproc[(type? [x Any]) boolean?]{A phase 1 predicate used to validate types.
     Checks that @racket[x] is a syntax object and has syntax propety @racket[#%type].}}
- @item{@defparam[current-type? type-pred type-pred]{A parameter, initialized to @racket[type?],
+ @item{@defparam[current-type? type-pred type-pred]{A phase 1 parameter, initialized to @racket[type?],
     used to validate types. Useful when reusing type rules in different languages.}}
  @item{@defproc[(mk-type [stx syntax?]) type?]{
-    Marks a syntax object as a type by attaching @racket[#%type].
+    Phase 1 function that marks a syntax object as a type by attaching @racket[#%type].
   Useful for defining your own type with arbitrary syntax that does not fit with
     @racket[define-base-type] or @racket[define-type-constructor].}}
  @item{@defthing[type stx-class]{A syntax class that calls @racket[current-type?]
@@ -196,35 +242,38 @@ This section describes lower-level functions. It's usually not necessary to call
 since @racket[define-typed-syntax] and other forms already do so.
 
 @defparam[current-type-eval type-eval type-eval]{
- Parameter for controlling "type evaluation". A @racket[type-eval] function consumes and
- produces syntax and defaults to @racket[syntax-local-expand-expression],
- extended to store extra surface syntax information used for error reporting.
+ A phase 1 parameter for controlling "type evaluation". A @racket[type-eval] function consumes and
+ produces syntax.
+
+ It defaults to full expansion, i.e., @racket[(lambda (stx) (local-expand stx 'expression null))];
+ the default also stores extra surface syntax information used for error reporting.
  This is called before a type is attached to a syntax object,
  i.e., by @racket[assign-type].}
 
 @defparam[current-typecheck-relation type-pred type-pred]{
- Parameter for controlling type checking. A @racket[type-pred] function consumes
- two types and returns true if they "type check". Not necessarily a symmetric relation.
+ A phase 1 parameter for controlling type checking. A @racket[type-pred] function consumes
+ two types and returns true if they "type check". It defaults to @racket[type=?] though it does not have to be a symmetric relation.
 Useful for reusing rules that differ only in the type check operation, e.g.,
  equality vs subtyping.}
 
-@defproc[(typecheck? [τ1 type?] [τ2 type?]) boolean?]{A function that calls
+@defproc[(typecheck? [τ1 type?] [τ2 type?]) boolean?]{A phase 1 function that calls
  @racket[current-typecheck-relation].}
 
-@defproc[(typechecks? [τs1 (list/c type?)] [τs2 (list/c type?)]) boolean?]{
-Maps @racket[typecheck?] over lists of types, pairwise. @racket[τs1] and @racket[τs2]
+@defproc[(typechecks? [τs1 (or/c (list/c type?) (stx-list/c type?))]
+                      [τs2 (or/c (list/c type?) (stx-list/c type?))]) boolean?]{
+Phase 1 function mapping @racket[typecheck?] over lists of types, pairwise. @racket[τs1] and @racket[τs2]
 must have the same length.}
 
 @defproc[(assign-type [e syntax?] [τ syntax?]) syntax?]{
-Calls @racket[current-type-eval] on @racket[τ] and attaches it to @racket[e]}
+Phase 1 function that calls @racket[current-type-eval] on @racket[τ] and attaches it to @racket[e]}
 
 @defproc[(typeof [e expr-stx]) type-stx]{
-Returns type of @racket[e].}
+Phase 1 function returning type of @racket[e].}
 
 @defproc[(infer [es (listof expr-stx)]
                 [#:ctx ctx (listof bindings) null]
                 [#:tvctx tvctx (listof tyvar-bindings) null]) (list tvs xs es τs)]{
-Expands a list of expressions, in the given contexts and computes their types.
+Phase 1 function expanding a list of expressions, in the given contexts and computes their types.
  Returns the expanded expressions, their types, and expanded identifiers from the
  contexts, e.g. @racket[(infer (list #'(+ x 1)) #:ctx ([x : Int]))].}
 
@@ -232,19 +281,21 @@ Expands a list of expressions, in the given contexts and computes their types.
                 [x id]
                 [e expr-stx]
                 [cmp (-> identifier? identifier? boolean?) bound-identifier=?]) expr-stx]{
-Replaces occurrences of @racket[x], as determined by @racket[cmp], with
+Phase 1 function that replaces occurrences of @racket[x], as determined by @racket[cmp], with
  @racket[τ] in @racket[e].}
 
 @defproc[(substs [τs (listof type-stx)]
                  [xs (listof id)]
                  [e expr-stx]
                  [cmp (-> identifier? identifier? boolean?) bound-identifier=?]) expr-stx]{
-Folds @racket[subst] over the given @racket[τs] and @racket[xs].}
+Phase 1 function folding @racket[subst] over the given @racket[τs] and @racket[xs].}
 
 @defform[(type-error #:src srx-stx #:msg msg args ...)]{
-Throws a type error using the specified information. @racket[msg] is a format string that references @racket[args].}
+Phase 1 form that throws a type error using the specified information. @racket[msg] is a format string that references @racket[args].}
 
 @section{Miscellaneous Syntax Object Functions}
+
+These are all phase 1 functions.
 
 @defproc[(stx-length [stx syntax?]) Nat]{Analogous to @racket[length].}
 @defproc[(stx-length=? [stx1 syntax?] [stx2 syntax?]) boolean?]{
