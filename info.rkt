@@ -6,7 +6,6 @@
   '("base"
     "sweet-exp-lib"
     "lens"
-    "rosette"
     ))
 
 (define build-deps
