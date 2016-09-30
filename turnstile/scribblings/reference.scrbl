@@ -114,7 +114,7 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
  @itemlist[
  @item{@defform[(define-base-type base-type-name-id)]{
    Defines a base type. A @racket[(define-base-type τ)] additionally defines:
-  @itemlist[@item{@racket[τ], an @literal{identifier} macro representing type @racket[τ].}
+  @itemlist[@item{@racket[τ], an identifier macro representing type @racket[τ].}
             @item{@racket[τ?], a predicate recognizing type @racket[τ].}
             @item{@racket[~τ], a @tech:pat-expander recognizing type @racket[τ].}]}}
  @item{@defform[(define-base-types base-type-name-id ...)]{Defines multiple base types.}}

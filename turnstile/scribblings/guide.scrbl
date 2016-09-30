@@ -338,17 +338,8 @@ language implementation:
                 (λ ([x : Int][y : Int]) 
                   (f x y))) 
               +) 
-             1 2))
-
-@#reader scribble/comment-reader
-(racketblock
-  (+ 1 (λ ([x : Int]) x))
-  ;; eval:3.0: #%app: type mismatch: expected Int, given (→ Int Int)
-  ;;   expression: (λ ((x : Int)) x)
-  ;;   at: (λ ((x : Int)) x)
-  ;;   in: (#%app + 1 (λ ((x : Int)) x))
-)
-
+             1 2)
+            (eval:error (+ 1 (λ ([x : Int]) x))))
 
 
 @section{Extending a Language}
@@ -360,6 +351,7 @@ how we can reuse the above implementation to implement a subtyping language.
 
 @label-code["A language with subtyping that reuses STLC"
 @(racketblock0 #:escape esc
+(esc(lang turnstile))
 (extends STLC #:except #%datum +)
 
 (define-base-types Top Num Nat)
