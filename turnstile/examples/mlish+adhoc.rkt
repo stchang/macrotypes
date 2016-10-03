@@ -421,51 +421,43 @@
              #`(app 
                 #,(assign-type #'Cons? #'(∀ (X ...) (ext-stlc:→ (Name X ...) Bool))) 
                 . rst)])) ...
-         (define-syntax- (Cons stx)
-           (syntax-parse stx
-             ; no args and not polymorphic
-             [C:id #:when (and (stx-null? #'(X ...)) (stx-null? #'(τ ...))) #'(C)]
-             ; no args but polymorphic, check inferred type
-             [C:id
-              #:when (stx-null? #'(τ ...))
-              #:with τ-expected (syntax-property #'C 'expected-type)
-              #:fail-unless (syntax-e #'τ-expected)
-                            (raise
-                              (exn:fail:type:infer
-                                (string-append
-                                  (format "TYPE-ERROR: ~a (~a:~a): "
-                                          (syntax-source stx) (syntax-line stx) (syntax-column stx))
-                                  (format "cannot infer type of ~a; add annotations" 
-                                          (syntax->datum #'C)))
-                                (current-continuation-marks)))
-              #:with (NameExpander τ-expected-arg (... ...)) ((current-type-eval) #'τ-expected)
-              #'(C {τ-expected-arg (... ...)})]
-             [_:id (⊢ StructName (∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))] ; HO fn
-             [(C τs e_arg ...)
-              #:when (brace? #'τs) ; commit to this clause
-              #:with {~! τ_X:type (... ...)} #'τs
-              #:with (τ_in:type (... ...)) ; instantiated types
-                     (stx-map
-                      (λ (t) (substs #'(τ_X.norm (... ...)) #'(X ...) t))
-                      #'(τ ...))
-              #:with ([e_arg- τ_arg] ...)
-                     (stx-map
-                      (λ (e τ_e)
-                        (infer+erase (set-stx-prop/preserved e 'expected-type τ_e)))
-                      #'(e_arg ...) #'(τ_in.norm (... ...)))
-              #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in.norm (... ...)))
-                           (mk-app-err-msg (syntax/loc stx (#%app C e_arg ...))
-                            #:expected #'(τ_in.norm (... ...)) #:given #'(τ_arg ...)
-                            #:name (format "constructor ~a" 'Cons))
-              (⊢ (StructName e_arg- ...) : (Name τ_X (... ...)))]
-             [(C . args) ; no type annotations, must infer instantiation
-              #:with StructName/ty 
-                     (set-stx-prop/preserved
-                      (⊢ StructName : (∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))
-                      'orig
-                      (list #'C))
-              ; stx/loc transfers expected-type
-              (syntax/loc stx (mlish:#%app StructName/ty . args))]))
+         (define-typed-syntax Cons
+           ; no args and not polymorphic
+           [C:id ≫
+            #:when (and (stx-null? #'(X ...)) (stx-null? #'(τ ...)))
+            --------
+            [≻ (C)]]
+           ; no args but polymorphic, check inferred type
+           [C:id ⇐ : (NameExpander τ-expected-arg (... ...)) ≫
+            #:when (stx-null? #'(τ ...))
+            --------
+            [⊢ (StructName)]]
+           [_:id ≫
+            #:when (not (stx-null? #'(τ ...)))
+            --------
+            [⊢ StructName ⇒ (∀ (X ...) (ext-stlc:→ τ ... (Name X ...)))]] ; HO fn
+           [(C τs e_arg ...) ≫
+            #:when (brace? #'τs) ; commit to this clause
+            #:with {~! τ_X:type (... ...)} #'τs
+            #:with (τ_in:type (... ...)) ; instantiated types
+                   (stx-map
+                    (λ (t) (substs #'(τ_X.norm (... ...)) #'(X ...) t))
+                    #'(τ ...))
+            ;; e_arg* is only used to get the ellipses to align
+            #:with (τ_arg ...) #'(τ_in.norm (... ...))
+;            #:with (e_arg* (... ...)) #'(e_arg ...)
+            [⊢ e_arg ≫ e_arg- ⇐ τ_arg] ...
+ ;           #:with (e_arg- ...) #'(e_arg*- (... ...))
+            --------
+            [⊢ (StructName e_arg- ...) ⇒ (Name τ_X.norm (... ...))]]
+           [(C . args) ≫ ; no type annotations, must infer instantiation
+            #:with StructName/ty
+            (set-stx-prop/preserved
+             (⊢ StructName : (∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))
+             'orig
+             (list #'C))
+            --------
+            [≻ (mlish:#%app StructName/ty . args)]])
          ...)]))
 
 ;; match --------------------------------------------------
@@ -648,26 +640,24 @@
     (stx-map (lambda (p) (list (get-ctx p ty) (compile-pat p ty))) pats))
   )
 
-(define-syntax (match2 stx)
- (syntax-parse stx #:datum-literals (with)
-   [(_ e with . clauses)
-    #:fail-when (null? (syntax->list #'clauses)) "no clauses"
-    #:with [e- τ_e] (infer+erase #'e)
-    (syntax-parse #'clauses #:datum-literals (->)
-     [([(~seq p ...) -> e_body] ...)
-      #:with (pat ...) (stx-map ; use brace to indicate root pattern
-                         (lambda (ps) (syntax-parse ps [(pp ...) (syntax/loc stx {pp ...})]))
-                         #'((p ...) ...)) 
-      #:with ([(~and ctx ([x ty] ...)) pat-] ...) (compile-pats #'(pat ...) #'τ_e)
-      #:with ty-expected (get-expected-type stx)
-      #:with ([(x- ...) e_body- ty_body] ...) 
-             (stx-map 
-               infer/ctx+erase 
-               #'(ctx ...) #'((add-expected e_body ty-expected) ...))
-      #:when (check-exhaust #'(pat- ...) #'τ_e)
-      #:with τ_out (stx-foldr (current-join) (stx-car #'(ty_body ...)) (stx-cdr #'(ty_body ...)))
-      (⊢ (match- e- [pat- (let- ([x- x] ...) e_body-)] ...) : τ_out)
-      ])]))
+(define-typed-syntax match2
+  [(_ e (~datum with) . clauses) ≫
+   #:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"
+   [⊢ e ≫ e- ⇒ τ_e]
+   #:with ([(~seq p ...) (~datum ->) e_body] ...) #'clauses
+   #:with (pat ...) (stx-map ; use brace to indicate root pattern
+                     (lambda (ps) (syntax-parse ps [(pp ...) (syntax/loc stx {pp ...})]))
+                     #'((p ...) ...))
+     #:with ([(~and ctx ([x ty] ...)) pat-] ...) (compile-pats #'(pat ...) #'τ_e)
+     #:with ty-expected (get-expected-type stx)
+     #:with ([(x- ...) e_body- ty_body] ...) 
+            (stx-map 
+             infer/ctx+erase 
+             #'(ctx ...) #'((add-expected e_body ty-expected) ...))
+     #:when (check-exhaust #'(pat- ...) #'τ_e)
+     #:with τ_out (stx-foldr (current-join) (stx-car #'(ty_body ...)) (stx-cdr #'(ty_body ...)))
+   ----
+   (⊢ (match- e- [pat- (let- ([x- x] ...) e_body-)] ...) ⇒ τ_out)])
 
 (define-typed-syntax match #:datum-literals (with)
    [(_ e with . clauses) ≫
