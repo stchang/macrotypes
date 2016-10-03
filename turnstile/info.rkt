@@ -7,3 +7,6 @@
   '("examples/rosette"
     "examples/tests/rosette"))
 
+(define test-omit-paths
+  '("examples/rosette"
+    "examples/tests/rosette"))
