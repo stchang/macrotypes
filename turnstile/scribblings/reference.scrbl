@@ -78,7 +78,9 @@ and then press Control-@litchar{\}.
              [expr-template ≫ expr-pattern ⇐ type-template]
              [expr-template ≫ expr-pattern ⇐ key type-template]
              [expr-template ≫ expr-pattern (⇐ key type-template) ooo ...]]
-   [type-relation (code:line [type-template τ⊑ type-template] ooo ...)
+   [type-relation (code:line [type-template τ= type-template] ooo ...)
+                  (code:line [type-template τ= type-template #:for expr-template] ooo ...)
+                  (code:line [type-template τ⊑ type-template] ooo ...)
                   (code:line [type-template τ⊑ type-template #:for expr-template] ooo ...)]
    [conclusion [⊢ expr-template ⇒ key type-template]
                [⊢ [_ ≫ expr-template ⇒ type-template]]

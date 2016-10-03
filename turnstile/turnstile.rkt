@@ -232,7 +232,7 @@
     )
   (define-splicing-syntax-class clause
     #:attributes (pat)
-    #:datum-literals (τ⊑)
+    #:datum-literals (τ⊑ τ=)
     [pattern :tc-clause]
     [pattern [a τ⊑ b]
              #:with pat
@@ -253,6 +253,26 @@
              #:with pat
              #'(~post
                 (~fail #:unless (typechecks? #'[a ooo] #'[b ooo])
+                       (typecheck-fail-msg/multi #'[b ooo] #'[a ooo] #'[e ooo])))]
+    [pattern [a τ= b]
+             #:with pat
+             #'(~post
+                (~fail #:unless ((current-type=?) #'a #'b)
+                       (typecheck-fail-msg/1/no-expr #'b #'a)))]
+    [pattern [a τ= b #:for e]
+             #:with pat
+             #'(~post
+                (~fail #:unless ((current-type=?) #'a #'b)
+                       (typecheck-fail-msg/1 #'b #'a #'e)))]
+    [pattern (~seq [a τ= b] ooo:elipsis)
+             #:with pat
+             #'(~post
+                (~fail #:unless (types=? #'[a ooo] #'[b ooo])
+                       (typecheck-fail-msg/multi/no-exprs #'[b ooo] #'[a ooo])))]
+    [pattern (~seq [a τ= b #:for e] ooo:elipsis)
+             #:with pat
+             #'(~post
+                (~fail #:unless (types=? #'[a ooo] #'[b ooo])
                        (typecheck-fail-msg/multi #'[b ooo] #'[a ooo] #'[e ooo])))]
     [pattern (~seq #:when condition:expr)
              #:with pat
