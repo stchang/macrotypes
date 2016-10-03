@@ -86,7 +86,9 @@ and then press Control-@litchar{\}.
                [⊢ [_ ≫ expr-template ⇒ type-template]]
                [⊢ [_ ≫ expr-template (⇒ key type-template) ooo ...]]
                [≻ expr-template]
-               [_ ≻ expr-template]]
+               [_ ≻ expr-template]
+               [#:error expr-template]
+               [_ #:error expr-template]]
    [⇐-conclusion [⊢ expr-template]
                  [⊢ [_ ≫ expr-template ⇐ _]]]
    [ooo ...])
