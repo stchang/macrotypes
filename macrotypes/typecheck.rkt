@@ -392,6 +392,9 @@
   (define (infer/tyctx+erase ctx e)
     (syntax-parse (infer (list e) #:tvctx ctx)
       [(tvs _ (e+) (τ)) (list #'tvs #'e+ #'τ)]))
+  (define (infers/tyctx+erase ctx es)
+    (syntax-parse (infer es #:tvctx ctx)
+      [(tvs+ _ es+ tys) (list #'tvs+ #'es+ #'tys)]))
 
   ; extra indirection, enables easily overriding type=? with sub?
   ; to add subtyping, without changing any other definitions
@@ -517,7 +520,9 @@
       [(stx-pair? τ) (string-join (stx-map type->str τ)
                                   #:before-first "("
                                   #:after-last ")")]
-      [else (format "~s" (syntax->datum τ))])))
+      [else (format "~s" (syntax->datum τ))]))
+  (define (types->str tys #:sep [sep ", "])
+    (string-join (stx-map type->str tys) sep)))
 
 (begin-for-syntax
   (define (mk-? id) (format-id id "~a?" id))
@@ -578,7 +583,15 @@
         ((~literal #%plain-lambda) bvs
          ((~literal #%expression) ((~literal quote) extra-info-macro)) . tys))
        (expand/df #'(extra-info-macro . tys))]
-      [_ #f])))
+      [_ #f]))
+;; gets the internal id in a type representation
+  (define (get-type-tag t)
+    (syntax-parse t
+      [((~literal #%plain-app) tycons . _) #'tycons]
+      [X:id #'X]
+      [_ (type-error #:src t #:msg "Can't get internal id: ~a" t)]))
+  (define (get-type-tags ts)
+    (stx-map get-type-tag ts)))
 
 
 (define-syntax define-basic-checked-id-stx

@@ -15,6 +15,9 @@
 (define (stx-flatten stxs)
   (apply append (stx-map stx->list stxs)))
 
+(define (stx-filter p? stxs)
+  (filter p? (stx->list stxs)))
+
 (define (curly-parens? stx)
   (define paren-prop (syntax-property stx 'paren-shape))
   (and paren-prop (char=? #\{ paren-prop)))
@@ -56,8 +59,8 @@
 
 (define (stx-append stx1 stx2)
   (append (stx->list stx1) (stx->list stx2)))
-(define (stx-appendmap f stx)
-  (stx-flatten (stx-map f stx)))
+(define (stx-appendmap f . stxs)
+  (stx-flatten (apply stx-map f stxs)))
 
 (define (stx-remove-dups Xs)
   (remove-duplicates (stx->list Xs) free-identifier=?))
