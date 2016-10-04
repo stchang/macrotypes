@@ -81,51 +81,50 @@ This directory contains
 
 For clarity and conciseness, the paper stylizes code with colors and
 abbreviations. Runnable versions of the paper's examples are available in the
-VM.
+VM, in the indicated directories.
 
 @subsection{Paper Section 2}
 
 @tt{/home/artifact/popl2017-artifact/macrotypes/examples/popl2017/}
-@itemlist[@item{@tt{lam.rkt}: defines only single-argument lambda}
-          @item{@tt{lam-prog.rkt}: example program using language @tt{lam.rkt}.
+@itemlist[@item{@tt{lam.rkt}: defines a language with only single-argument lambda}
+          @item{@tt{lam-prog.rkt}: a program using @tt{lam.rkt} as its language.
           Attempting to apply functions results in a syntax error.
-           This file uses our custom unit-testing framework so that to catch and
+           This file uses our custom unit-testing framework to catch and
           check errors.}
           @item{@tt{lc.rkt}: extends @tt{lam.rkt} with function application}
-          @item{@tt{lc-prog}: example program using @tt{lc.rkt} language.
+          @item{@tt{lc-prog.rkt}: a program using @tt{lc.rkt} as its language.
            This program will loop forever when run.}]
           
 @subsection{Paper Section 3}
 
 @tt{/home/artifact/popl2017-artifact/macrotypes/examples/popl2017/}
-@itemlist[@item{@tt{stlc-with-racket.rkt}: runnable version of code from paper, figures 3-8.}
+@itemlist[@item{@tt{stlc-with-racket.rkt}: runnable version of code from figures 3-8}
           @item{@tt{stlc-with-racket-prog.rkt}:
-           Program using @tt{stlc-with-racket.rkt} as its language. Shows a few type errors.}]
+           a program that uses @tt{stlc-with-racket.rkt} as its language. Shows a few type errors.}]
 
 @subsection{Paper Section 4}
 
 @tt{/home/artifact/popl2017-artifact/macrotypes/examples/popl2017/}
-@itemlist[@item{@tt{stlc-with-turnstile.rkt}: runnable version of code from paper,
-           figure 11, as well as the @tt{#%app} extended with extra error reporting from section 4.2.}
+@itemlist[@item{@tt{stlc-with-turnstile.rkt}: runnable version of code from figure 11, as well as the extended @tt{#%app} from section 4.2.}
           @item{@tt{stlc-with-turnstile-prog.rkt}:
-                 same as @tt{stlc-with-racket-prog.rkt}, but using @tt{stlc-with-turnstile.rkt} as its language.}
-          @item{@tt{stlc+prim.rkt}: language from figure 12.}
-          @item{@tt{stlc+prim-prog.rkt}: some examples (not shown in paper) using @tt{stlc+prim.rkt} language.}
-          @item{@tt{stlc+prim-with-racket.rkt}: (not shown in paper) same language implementation as @tt{stlc+prim.rkt}, but not using Turnstile.}
+           same as @tt{stlc-with-racket-prog.rkt}, but using @tt{stlc-with-turnstile.rkt} as its language}
+          @item{@tt{stlc+prim.rkt}: language from figure 12 that extends @tt{stlc-with-turnstile.rkt} with integers}
+          @item{@tt{stlc+prim-prog.rkt}: some examples (not shown in paper) using the @tt{stlc+prim.rkt} language}
+          @item{@tt{stlc+prim-with-racket.rkt}: (not shown in paper) same language implementation as @tt{stlc+prim.rkt}, but using base Racket instead of Turnstile}
           @item{@tt{stlc+prim-with-racket-prog.rkt}: (not shown in paper) same as @tt{stlc+prim-prog.rkt}, but using @tt{stlc+prim-with-racket.rkt} as its language}]
 
 @subsection{Paper Section 5}
 
 @tt{/home/artifact/popl2017-artifact/macrotypes/examples/popl2017/}
 
-@itemlist[@item{@tt{exist.rkt}: language with existential types}
-          @item{@tt{exist-prog.rkt}: counter example from paper}
-          @item{@tt{stlc+sub.rkt}: language with subtyping; reuses rules from @tt{stlc+prim.rkt}}
-          @item{@tt{stlc+sub-prog.rkt}: some examples (not shown in paper) using @tt{stlc+sub.rkt} language}
-          @item{@tt{fomega.rkt}: F-omega language from the paper}
-          @item{@tt{fomega-prog.rkt}: some examples (not shown in paper) using @tt{fomega.rkt}}
-          @item{@tt{effect.rkt}: language with type-and-effect system}
-          @item{@tt{effect-prog.rkt}: some examples (not shown in paper) using @tt{effect.rkt} language}]
+@itemlist[@item{@tt{exist.rkt}: language with existential types from figure 13}
+          @item{@tt{exist-prog.rkt}: the "counter" example from the paper}
+          @item{@tt{stlc+sub.rkt}: language with subtyping from figure 14; reuses rules from @tt{stlc+prim.rkt}}
+          @item{@tt{stlc+sub-prog.rkt}: some examples (not shown in paper) using the @tt{stlc+sub.rkt} language}
+          @item{@tt{fomega.rkt}: F-omega language from figure 16}
+          @item{@tt{fomega-prog.rkt}: some examples (not shown in paper) using the @tt{fomega.rkt} language}
+          @item{@tt{effect.rkt}: language with type-and-effect system from figure 17}
+          @item{@tt{effect-prog.rkt}: some examples (not shown in paper) using the @tt{effect.rkt} language}]
 
 @subsection{Paper Section 6}
 The paper presents simplistic snippets of the MLish language implementation,
@@ -136,37 +135,37 @@ inference algorithm.
 
 @tt{/home/artifact/popl2017-artifact/turnstile/examples/}
 @itemlist[@item{@tt{mlish.rkt}: MLish language (no type classes)}
-          @item{@tt{mlish+adhoc.rkt}: MLish language (with type classes.
+          @item{@tt{mlish+adhoc.rkt}: MLish language (with type classes);
            @tt{define-tc} in the paper is @tt{define-typeclass}.}]
 
 @subsection{Other files}
 @tt{/home/artifact/popl2017-artifact/macrotypes/examples/popl2017/}
 @itemlist[@item{@tt{abbrv.rkt}: defines abbreviations from the paper, like @tt{define-m}}
-          @item{@tt{run-all-examples.rkt}: runs all the @tt{-prog.rkt} example programs.}]
+          @item{@tt{run-all-examples.rkt}: runs all the @tt{-prog.rkt} example programs}]
            
 @section[#:tag "tables"]{Tables from the paper}
 
 We implemented two versions of each language:
 @itemlist[#:style 'ordered
-          @item{a version using Racket, as described in Section 3. These implementations can be found at:
+          @item{a version using Racket, as described in Section 3 of the paper. These implementations can be found at:
 
           @tt{/home/artifact/popl2017-artifact/macrotypes/examples/}}
-          @item{a version using Turnstile, as described in Sections 4-6. These implementations can be found at:
+          @item{a version using Turnstile, as described in Sections 4-6 of the paper. These implementations can be found at:
 
                 @tt{/home/artifact/popl2017-artifact/turnstile/examples/}}]
 
 These languages try to build and extend each other, and attempt to reuse as much code as possible.
 
 @subsection{Table 1}
-Table 1 was compiled primarily using the Racket implementations (#1). Table 1 is still roughly accurate for the Turnstile versions (#2), except that Turnstile automatically defines a few parameters like @tt{τ=}.
+Table 1 was compiled primarily using the Racket implementations (#1 above). Table 1 is still roughly accurate for the Turnstile versions (#2), except that Turnstile defines a few things, like @tt{τ=}, automatically.
 
 @subsection{Table 2}
 
-Column 1 in table 2 reports the exact line numbers of the Turnstile implementations (#2 above). They have slightly changed since the paper was last edited.
+Column 1 in table 2 reports the exact line numbers of the Turnstile implementations (#2 above). They may have slightly changed since the paper was last edited.
 
-Column 2 in table 2 roughly estimates the number of lines required without reuse by adding up the involved files from column 1. Column 2 counts lines from all files that were entirely needed to implement the language in question, but excludes files from which only a few lines are reused. We rounded to 2 significant figures.
+Column 2 in table 2 roughly estimates the number of lines required to implement each language, without reusing any other languages, by adding up the files for the relevant languages from column 1. Column 2 only counts lines from files that were @emph{entirely} needed to implement the language in question, and excludes files from which only a few lines are reused. We rounded to 2 significant figures.
 
-Column 3 tries to add up all the lines of code required by the non-Turnstile implementations (#2 above). Since we practiced standard software engineering and grouped common operations in libraries, this was difficult to estimate accurately. To get a rough idea, we simply added all the language implementations and common files together. We rounded to 2 significant figures.
+Column 3 tries to add up all the lines of code required by the non-Turnstile implementations (#2 above). Since we programmed according to standard software development practices, and grouped common operations in libraries, this was difficult to estimate accurately. To get a rough idea, we simply added all the language implementations and common library files together. We rounded to 2 significant figures.
 
 @subsection{Table 3}
 
