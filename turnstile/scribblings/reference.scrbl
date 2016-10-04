@@ -242,17 +242,22 @@ Reuses @racket[name]s from @racket[base-lang].}
 
 @section{Lower-level Functions}
 
-This section describes lower-level functions. It's usually not necessary to call these directly,
-since @racket[define-typed-syntax] and other forms already do so.
+This section describes lower-level functions and parameters. It's usually not
+necessary to call these directly, since @racket[define-typed-syntax] and other
+forms already do so, but some type systems may require extending some
+functionality.
 
 @defparam[current-type-eval type-eval type-eval]{
- A phase 1 parameter for controlling "type evaluation". A @racket[type-eval] function consumes and
- produces syntax.
+ A phase 1 parameter for controlling "type evaluation". A @racket[type-eval]
+function consumes and produces syntax. It is typically used to convert a type
+into a canonical representation. The @racket[(current-type-eval)] is called
+immediately before attacing a type to a syntax object, i.e., by
+@racket[assign-type].
 
- It defaults to full expansion, i.e., @racket[(lambda (stx) (local-expand stx 'expression null))];
- the default also stores extra surface syntax information used for error reporting.
- This is called before a type is attached to a syntax object,
- i.e., by @racket[assign-type].}
+ It defaults to full expansion, i.e., @racket[(lambda (stx) (local-expand stx 'expression null))], and also stores extra surface syntax information used for error reporting.
+
+One should extend @racket[current-type-eval] if canonicalization of types
+depends on combinations of different types, e.g., type lambdas and type application in F-omega. }
 
 @defparam[current-typecheck-relation type-pred type-pred]{
  A phase 1 parameter for controlling type checking. A @racket[type-pred] function consumes
