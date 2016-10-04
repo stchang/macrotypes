@@ -130,9 +130,8 @@
 (typecheck-fail
   (define-instance (Num Int)
     [add +] [sub -] [mul fl*])
- #:with-msg (string-append "Type error defining typeclass instance \\(Num Int\\).*"
-              (expected "(→ Int Int Int), (→ Int Int Int), (→ Int Int Int)"
-                #:given "(→ Int Int Int), (→ Int Int Int), (→ Float Float Float)")))
+  #:with-msg
+  "define\\-instance\\: type mismatch\\: expected \\(→ Int Int Int\\), given \\(→ Float Float Float\\).*at.*fl\\*")
 
 (define-instance (Num Int)
   [add +] [sub -] [mul *])

@@ -3,9 +3,7 @@
 
 (extends "ext-stlc.rkt" #:except #%app λ → + - * void = zero? sub1 add1 not let let* and #%datum begin
           #:rename [~→ ~ext-stlc:→])
-;(reuse [inst sysf:inst] #:from "sysf.rkt") 
 (require (rename-in (only-in "sysf.rkt" inst) [inst sysf:inst]))
-(provide inst)
 (require (only-in "ext-stlc.rkt" →?))
 (require (only-in "sysf.rkt" ~∀ ∀ ∀? Λ))
 (reuse × tup proj define-type-alias #:from "stlc+rec-iso.rkt")
@@ -917,10 +915,8 @@
 ;   #:when (printf "app: ~a\n" (syntax->datum #'(e_fn . e_args)))
    ;; ) compute fn type (ie ∀ and →) 
    [⊢ e_fn ≫ e_fn- ⇒ (~and ty_fn (~∀ Xs ty_fnX))]
-;   #:with [e_fn- (~and ty_fn (~∀ Xs ty_fnX))] (infer+erase #'e_fn)
    --------
    [≻ 
-;   #:with out
     #,(cond 
        [(stx-null? #'Xs)
         (define/with-syntax tyX_args
@@ -1127,11 +1123,10 @@
 (define-base-type Thread)
 
 ;; threads
-(define-typed-syntax thread
-  [(_ th) ≫
-   #:with (th- (~∀ () (~ext-stlc:→ τ_out))) (infer+erase #'th)
-   --------
-   [⊢ (thread- th-) ⇒ Thread]])
+(define-typed-syntax (thread th) ≫
+  [⊢ th ≫ th- ⇒  (~∀ () (~ext-stlc:→ τ_out))]
+  --------
+  [⊢ (thread- th-) ⇒ Thread])
 
 (define-primop random : (→ Int Int))
 (define-primop integer->char : (→ Int Char))
@@ -1546,7 +1541,6 @@
           ⇒ Int])
 
 (define-typed-syntax (inst e ty ...) ≫
-  #:with [ee tyty] (infer+erase #'e)
   [⊢ (sysf:inst e ty ...) ≫ e- ⇒ ty_e]
   --------
   [⊢ e- ⇒ #,(cond
@@ -1647,8 +1641,8 @@
 (define-typed-syntax define-instance
   ;; base type, possibly with subclasses  ------------------------------------
   [(_ (Name ty ...) [generic-op concrete-op] ...) ≫
-   #:with (~=> TC ... (~TC [generic-op-expected ty-concrete-op-expected] ...))
-          (expand/df #'(Name ty ...))
+   [⊢ (Name ty ...) ≫ 
+      (~=> TC ... (~TC [generic-op-expected ty-concrete-op-expected] ...)) ⇒ _]
    #:when (TCs-exist? #'(TC ...) #:ctx stx)
    #:fail-unless (set=? (syntax->datum #'(generic-op ...)) 
                         (syntax->datum #'(generic-op-expected ...)))
@@ -1672,13 +1666,7 @@
               #'([generic-op concrete-op] ...)))
            #'(generic-op-expected ...))
    ;; typecheck type of given concrete-op with expected type from define-typeclass
-   #:with ([concrete-op+ ty-concrete-op] ...) (infers+erase #'(concrete-op-sorted ...))
-   #:fail-unless (typechecks? #'(ty-concrete-op ...) #'(ty-concrete-op-expected ...))
-                 (mk-app-err-msg (syntax/loc stx (#%app (Name ty ...) concrete-op ...))
-                  #:expected #'(ty-concrete-op-expected ...)
-                  #:given #'(ty-concrete-op ...)
-                  #:action "defining typeclass instance"
-                  #:name (format "~a" (syntax->datum #'(Name ty ...))))
+   [⊢ concrete-op-sorted ≫ concrete-op+ ⇐ ty-concrete-op-expected] ...
    ;; generate mangled name from tags in input types
    #:with (ty_in-tags ...) 
           (stx-map 
@@ -1709,6 +1697,7 @@
                      (~TC [generic-op-expected ty-concrete-op-expected] ...)))
            _)
            (infers/tyctx+erase #'([X : #%type] ...) #'(TC ... (Name ty ...)))
+   ;; this produces #%app bad stx err, so manually call infer for now
    ;; [([X ≫ X- : #%type] ...) () ⊢ (TC ... (Name ty ...)) ≫
    ;;                                (TC+ ... 
    ;;                                 (~=> TCsub ... 
