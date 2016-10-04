@@ -407,12 +407,12 @@
     (lambda (stx)
       (syntax-parse stx
         [(stxparse
-          stx-id:id
+          stx-expr
           (~and (~seq kw-stuff ...) :stxparse-kws)
           rule:rule
           ...)
          #'(syntax-parse
-               stx-id
+               stx-expr
              kw-stuff ...
              rule.norm
              ...)]))))

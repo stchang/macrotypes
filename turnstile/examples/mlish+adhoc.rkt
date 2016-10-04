@@ -648,16 +648,12 @@
    #:with (pat ...) (stx-map ; use brace to indicate root pattern
                      (lambda (ps) (syntax-parse ps [(pp ...) (syntax/loc stx {pp ...})]))
                      #'((p ...) ...))
-     #:with ([(~and ctx ([x ty] ...)) pat-] ...) (compile-pats #'(pat ...) #'τ_e)
-     #:with ty-expected (get-expected-type stx)
-     #:with ([(x- ...) e_body- ty_body] ...) 
-            (stx-map 
-             infer/ctx+erase 
-             #'(ctx ...) #'((add-expected e_body ty-expected) ...))
-     #:when (check-exhaust #'(pat- ...) #'τ_e)
-     #:with τ_out (stx-foldr (current-join) (stx-car #'(ty_body ...)) (stx-cdr #'(ty_body ...)))
+   #:with ([(~and ctx ([x ty] ...)) pat-] ...) (compile-pats #'(pat ...) #'τ_e)
+   #:with ty-expected (get-expected-type stx)
+   [[x ≫ x- : ty] ... ⊢ [(add-expected e_body ty-expected) ≫ e_body- ⇒ ty_body]] ...
+   #:when (check-exhaust #'(pat- ...) #'τ_e)
    ----
-   (⊢ (match- e- [pat- (let- ([x- x] ...) e_body-)] ...) ⇒ τ_out)])
+   [⊢ (match- e- [pat- (let- ([x- x] ...) e_body-)] ...) ⇒ (⊔ ty_body ...)]])
 
 (define-typed-syntax match #:datum-literals (with)
    [(_ e with . clauses) ≫
@@ -667,36 +663,34 @@
     #:with out
     (cond
      [(×? #'τ_e) ;; e is tuple
-      (syntax-parse #'clauses #:datum-literals (->)
-       [([x ... -> e_body])
+      (syntax-parse/typed-syntax #'clauses
+       [([x ... (~datum ->) e_body]) ≫
         #:with (~× ty ...) #'τ_e
         #:fail-unless (stx-length=? #'(ty ...) #'(x ...))
                       "match clause pattern not compatible with given tuple"
-        #:with [(x- ...) e_body- ty_body] (infer/ctx+erase #'([x ty] ...) 
-                                            #'(add-expected e_body t_expect))
+        [[x ≫ x- : ty] ... ⊢ (add-expected e_body t_expect) ≫ e_body- ⇒ ty_body]
         #:with (acc ...) (for/list ([(a i) (in-indexed (syntax->list #'(x ...)))])
                            #`(lambda (s) (list-ref s #,(datum->syntax #'here i))))
         #:with z (generate-temporary)
-        (⊢ (let- ([z e-])
+        --------
+        [⊢ (let- ([z e-])
              (let- ([x- (acc z)] ...) e_body-))
-           : ty_body)])]
+           ⇒ ty_body]])]
      [(List? #'τ_e) ;; e is List
-      (syntax-parse #'clauses #:datum-literals (-> ::)
+      (syntax-parse/typed-syntax #'clauses
        [([(~or (~and (~and xs [x ...]) (~parse rst (generate-temporary)))
-               (~and (~seq (~seq x ::) ... rst:id) (~parse xs #'())))
-          -> e_body] ...+)
+               (~and (~seq (~seq x (~datum ::)) ... rst:id) (~parse xs #'())))
+          (~datum ->) e_body] ...+) ≫
         #:fail-unless (stx-ormap 
                         (lambda (xx) (and (brack? xx) (zero? (stx-length xx)))) 
-                        #'(xs ...))
+                        #'(xs ...)) 
                       "match: missing empty list case"
         #:fail-when (and (stx-andmap brack? #'(xs ...))
                          (= 1 (stx-length #'(xs ...))))
                     "match: missing non-empty list case"
         #:with (~List ty) #'τ_e
-        #:with ([(x- ... rst-) e_body- ty_body] ...)
-               (stx-map (lambda (ctx e) (infer/ctx+erase ctx e)) 
-                 #'(([x ty] ... [rst (List ty)]) ...) #'((add-expected e_body t_expect) ...))
-        #:with τ_out (stx-foldr (current-join) (stx-car #'(ty_body ...)) (stx-cdr #'(ty_body ...)))
+        [[x ≫ x- : ty] ... [rst ≫ rst- : (List ty)]
+         ⊢ (add-expected e_body t_expect) ≫ e_body- ⇒ ty_body]  ...
         #:with (len ...) (stx-map (lambda (p) #`#,(stx-length p)) #'((x ...) ...))
         #:with (lenop ...) (stx-map (lambda (p) (if (brack? p) #'=- #'>=-)) #'(xs ...))
         #:with (pred? ...) (stx-map
@@ -708,16 +702,17 @@
                                         #`(lambda (lst) (list-ref lst #,(datum->syntax #'here i)))))
                                   #'((x ...) ...))
         #:with (acc2 ...) (stx-map (lambda (l) #`(lambda (lst) (list-tail lst #,l))) #'(len ...))
-        (⊢ (let- ([z e-])
+        --------
+        [⊢ (let- ([z e-])
              (cond- 
               [(pred? z)
                (let- ([x- (acc1 z)] ... [rst- (acc2 z)]) e_body-)] ...))
-           : τ_out)])]
+           ⇒ (⊔ ty_body ...)]])]
      [else  ;; e is variant
-      (syntax-parse #'clauses #:datum-literals (->)
+      (syntax-parse/typed-syntax #'clauses
        [([Clause:id x:id ... 
              (~optional (~seq #:when e_guard) #:defaults ([e_guard #'(ext-stlc:#%datum . #t)]))
-             -> e_c_un] ...+) ; un = unannotated with expected ty
+             (~datum ->) e_c_un] ...+) ≫ ; un = unannotated with expected ty
         ;; length #'clauses may be > length #'info, due to guards
         #:with info-body (get-extra-info #'τ_e)
         #:with (_ (_ (_ ConsAll) . _) ...) #'info-body
@@ -747,21 +742,16 @@
         ;;                            #`(lambda (s) (unsafe-struct*-ref s #,(datum->syntax #'here i)))))
         ;;                         #'((acc-fn ...) ...))
         #:with (e_c ...+) (stx-map (lambda (ec) (add-expected-ty ec #'t_expect)) #'(e_c_un ...))
-        #:with (((x- ...) (e_guard- e_c-) (τ_guard τ_ec)) ...)
-               (stx-map 
-                   (λ (bs eg+ec) (infers/ctx+erase bs eg+ec)) 
-                 #'(([x : τ] ...) ...) #'((e_guard e_c) ...))
-        #:fail-unless (and (same-types? #'(τ_guard ...))
-                           (Bool? (stx-car #'(τ_guard ...))))
-                      "guard expression(s) must have type bool"
-        #:with τ_out (stx-foldr (current-join) (stx-car #'(τ_ec ...)) (stx-cdr #'(τ_ec ...)))
+        [[x ≫ x- : τ] ... ⊢ [e_guard ≫ e_guard- ⇐ Bool] 
+                             [e_c ≫ e_c- ⇒ τ_ec]] ...
         #:with z (generate-temporary) ; dont duplicate eval of test expr
-        (⊢ (let- ([z e-])
+        --------
+        [⊢ (let- ([z e-])
              (cond- 
               [(and- (Cons? z) 
                      (let- ([x- (acc z)] ...) e_guard-))
                (let- ([x- (acc z)] ...) e_c-)] ...))
-           : τ_out)])])
+           ⇒ (⊔ τ_ec ...)]])])
     --------
     [≻ out]])
 
@@ -926,21 +916,24 @@
   [(_ e_fn . e_args) ≫
 ;   #:when (printf "app: ~a\n" (syntax->datum #'(e_fn . e_args)))
    ;; ) compute fn type (ie ∀ and →) 
-   #:with [e_fn- (~and ty_fn (~∀ Xs ty_fnX))] (infer+erase #'e_fn)
-   #:with out
-   (cond 
-    [(stx-null? #'Xs)
-     (define/with-syntax tyX_args
-       (syntax-parse #'ty_fnX
-         [(~ext-stlc:→ . tyX_args) #'tyX_args]))
-     (syntax-parse #'(e_args tyX_args)
-       [((e_arg ...) (τ_inX ... _))
-        #:fail-unless (stx-length=? #'(e_arg ...) #'(τ_inX ...))
-                      (mk-app-err-msg stx #:expected #'(τ_inX ...) 
-                                      #:note "Wrong number of arguments.")
-        #:with e_fn/ty (⊢ e_fn- : (ext-stlc:→ . tyX_args))
-        #'(ext-stlc:#%app e_fn/ty (add-expected e_arg τ_inX) ...)])]
-    [else
+   [⊢ e_fn ≫ e_fn- ⇒ (~and ty_fn (~∀ Xs ty_fnX))]
+;   #:with [e_fn- (~and ty_fn (~∀ Xs ty_fnX))] (infer+erase #'e_fn)
+   --------
+   [≻ 
+;   #:with out
+    #,(cond 
+       [(stx-null? #'Xs)
+        (define/with-syntax tyX_args
+          (syntax-parse #'ty_fnX
+            [(~ext-stlc:→ . tyX_args) #'tyX_args]))
+        (syntax-parse #'(e_args tyX_args)
+          [((e_arg ...) (τ_inX ... _))
+           #:fail-unless (stx-length=? #'(e_arg ...) #'(τ_inX ...))
+           (mk-app-err-msg stx #:expected #'(τ_inX ...) 
+                           #:note "Wrong number of arguments.")
+           #:with e_fn/ty (⊢ e_fn- : (ext-stlc:→ . tyX_args))
+           #'(ext-stlc:#%app e_fn/ty (add-expected e_arg τ_inX) ...)])]
+       [else
      (syntax-parse #'ty_fnX
       ;; TODO: combine these two clauses
       ;; no typeclasses, duplicate code for now --------------------------------
@@ -1068,9 +1061,7 @@
                               (unless (→? #'τ_out)
                                 (raise-app-poly-infer-error stx #'(τ_in ...) #'(τ_arg ...) #'e_fn))
                               #'(∀ (unsolved-X ... Y ...) τ_out)]))
-          (⊢ ((#%app- e_fn- op ...) e_arg- ...) : τ_out*)])])])
-   --------
-   [≻ out]]
+          (⊢ ((#%app- e_fn- op ...) e_arg- ...) : τ_out*)])])])]]
   [(_ e_fn . e_args) ≫ ; err case; e_fn is not a function
    [⊢ e_fn ≫ e_fn- ⇒ τ_fn]
    --------
@@ -1083,29 +1074,31 @@
 ;; cond and other conditionals
 (define-typed-syntax cond
   [(_ [(~or (~and (~datum else) (~parse test #'(ext-stlc:#%datum . #t)))
-         test)
-       b ... body] ...+) ≫
-   #:with (test- ...) (⇑s (test ...) as Bool)
-   #:with ty-expected (get-expected-type stx)
-   #:with ([body- ty_body] ...) (infers+erase #'((add-expected body ty-expected) ...))
-   #:with (([b- ty_b] ...) ...) (stx-map infers+erase #'((b ...) ...))
-   #:with τ_out (stx-foldr (current-join) (stx-car #'(ty_body ...)) (stx-cdr #'(ty_body ...)))
+            test)
+       b ... body] ...+) ⇐ τ_expected ≫
+   [⊢ test ≫ test- ⇐ Bool] ...
+   [⊢ (begin b ... body) ≫ body- ⇐ τ_expected] ...
    --------
-   [⊢ (cond- [test- b- ... body-] ...) ⇒ τ_out]])
+   [⊢ (cond- [test- body-] ...)]]
+  [(cond [(~or (~and (~datum else) (~parse test #'(ext-stlc:#%datum . #t)))
+               test)
+          b ... body] ...+) ≫
+   [⊢ test ≫ test- ⇐ Bool] ...
+   [⊢ (begin b ... body) ≫ body- ⇒ τ_body] ...
+   --------
+   [⊢ (cond- [test- body-] ...) ⇒ (⊔ τ_body ...)]])
 (define-typed-syntax when
   [(_ test body ...) ≫
-;   #:with test- (⇑ test as Bool)
-   #:with [test- _] (infer+erase #'test)
-   #:with [(body- _) ...] (infers+erase #'(body ...))
+   [⊢ test ≫ test- ⇒ _] ; non-false true
+   [⊢ body ≫ body- ⇒ _] ...
    --------
-   [⊢ (when- test- body- ...) ⇒ Unit]])
+   [⊢ (when- test- body- ... (void-)) ⇒ Unit]])
 (define-typed-syntax unless
   [(_ test body ...) ≫
-;   #:with test- (⇑ test as Bool)
-   #:with [test- _] (infer+erase #'test)
-   #:with [(body- _) ...] (infers+erase #'(body ...))
+   [⊢ test ≫ test- ⇒ _]
+   [⊢ body ≫ body- ⇒ _] ...
    --------
-   [⊢ (unless- test- body- ...) ⇒ Unit]])
+   [⊢ (unless- test- body- ... (void-)) ⇒ Unit]])
 
 ;; sync channels and threads
 (define-type-constructor Channel)
@@ -1116,17 +1109,18 @@
    --------
    [⊢ (make-channel-) ⇒ (Channel ty)]])
 (define-typed-syntax channel-get
+  [(_ c) ⇐ ty ≫
+   [⊢ c ≫ c- ⇐ (Channel ty)]
+   --------
+   [⊢ (channel-get- c-)]]
   [(_ c) ≫
-   #:with (c- (ty)) (⇑ c as Channel)
+   [⊢ c ≫ c- ⇒ (~Channel ty)]
    --------
    [⊢ (channel-get- c-) ⇒ ty]])
 (define-typed-syntax channel-put
   [(_ c v) ≫
-   #:with (c- (ty)) (⇑ c as Channel)
-   #:with [v- ty_v] (infer+erase #'v)
-   #:fail-unless (typechecks? #'ty_v #'ty)
-                 (format "Cannot send ~a value on ~a channel."
-                         (type->str #'ty_v) (type->str #'ty))
+   [⊢ c ≫ c- ⇒ (~Channel ty)]
+   [⊢ v ≫ v- ⇐ ty]
    --------
    [⊢ (channel-put- c- v-) ⇒ Unit]])
 
@@ -1143,18 +1137,19 @@
 (define-primop integer->char : (→ Int Char))
 (define-primop string->list : (→ String (List Char)))
 (define-primop string->number : (→ String Int))
-;(define-primop number->string : (→ Int String))
-(define-typed-syntax num->str #:export-as number->string
- [f:id ≫ 
-  --------
-  [⊢ number->string ⇒ (→ Int String)]]
- [(_ n) ≫
-  --------
-  [≻ (num->str n (ext-stlc:#%datum . 10))]]
- [(_ n rad) ≫
-  #:with args- (⇑s (n rad) as Int)
-  --------
-  [⊢ (number->string- . args-) ⇒ String]])
+(define-typed-syntax number->string
+  [_:id ≫
+   --------
+   [⊢ number->string- ⇒ (→ Int String)]]
+  [(_ n) ≫
+   --------
+   [≻ (number->string n (ext-stlc:#%datum . 10))]]
+  [(_ n rad) ≫
+   [⊢ n ≫ n- ⇐ Int]
+   [⊢ rad ≫ rad- ⇐ Int]
+   --------
+   [⊢ (number->string- n rad) ⇒ String]])
+
 (define-primop string : (→ Char String))
 (define-primop sleep : (→ Int Unit))
 (define-primop string=? : (→ String String Bool))
@@ -1169,10 +1164,10 @@
 (define-primop char>=? : (→ Char Char Bool))
 
 (define-typed-syntax string-append
-  [(_ . strs) ≫
-   #:with strs- (⇑s strs as String)
+  [(_ str ...) ≫
+   [⊢ str ≫ str- ⇐ String] ...
    --------
-   [⊢ (string-append- . strs-) ⇒ String]])
+   [⊢ (string-append- str- ...) ⇒ String]])
 
 ;; vectors
 (define-type-constructor Vector)
@@ -1182,284 +1177,269 @@
    #:when (brace? #'tys)
    --------
    [⊢ (vector-) ⇒ (Vector ty)]]
+  [(_ v ...) ⇐ (Vector ty) ≫
+   [⊢ v ≫ v- ⇐ ty] ...
+   --------
+   [⊢ (vector- v- ...)]]
   [(_ v ...) ≫
-   #:with ([v- ty] ...) (infers+erase #'(v ...))
+   [⊢ v ≫ v- ⇒ ty] ...
    #:when (same-types? #'(ty ...))
    #:with one-ty (stx-car #'(ty ...))
    --------
    [⊢ (vector- v- ...) ⇒ (Vector one-ty)]])
-(define-typed-syntax make-vector/tc #:export-as make-vector
-  [(_ n) ≫ 
+(define-typed-syntax make-vector
+  [(_ n) ≫
    --------
-   [≻ (make-vector/tc n (ext-stlc:#%datum . 0))]]
+   [≻ (make-vector n (ext-stlc:#%datum . 0))]]
   [(_ n e) ≫
-   #:with n- (⇑ n as Int)
-   #:with [e- ty] (infer+erase #'e)
+   [⊢ n ≫ n- ⇐ Int]
+   [⊢ e ≫ e- ⇒ ty]
    --------
    [⊢ (make-vector- n- e-) ⇒ (Vector ty)]])
-(define-typed-syntax vector-length
-  [(_ e) ≫
-   #:with [e- _] (⇑ e as Vector)
-   --------
-   [⊢ (vector-length- e-) ⇒ Int]])
+(define-typed-syntax (vector-length e) ≫
+  [⊢ e ≫ e- ⇒ (~Vector _)]
+  --------
+  [⊢ (vector-length- e-) ⇒ Int])
 (define-typed-syntax vector-ref
+  [(_ e n) ⇐ ty ≫
+   [⊢ e ≫ e- ⇐  (Vector ty)]
+   [⊢ n ≫ n- ⇐  Int]
+   --------
+   [⊢ (vector-ref- e- n-)]]
   [(_ e n) ≫
-   #:with n- (⇑ n as Int)
-   #:with [e- (ty)] (⇑ e as Vector)
+   [⊢ e ≫ e- ⇒ (~Vector ty)]
+   [⊢ n ≫ n- ⇐ Int]
    --------
    [⊢ (vector-ref- e- n-) ⇒ ty]])
-(define-typed-syntax vector-set!
-  [(_ e n v) ≫
-   #:with n- (⇑ n as Int)
-   #:with [e- (ty)] (⇑ e as Vector)
-   #:with [v- ty_v] (infer+erase #'v)
-   #:when (typecheck? #'ty_v #'ty)
-   --------
-   [⊢ (vector-set!- e- n- v-) ⇒ Unit]])
-(define-typed-syntax vector-copy!
-  [(_ dest start src) ≫
-   #:with start- (⇑ start as Int)
-   #:with [dest- (ty_dest)] (⇑ dest as Vector)
-   #:with [src- (ty_src)] (⇑ src as Vector)
-   #:when (typecheck? #'ty_dest #'ty_src)
-   --------
-   [⊢ (vector-copy!- dest- start- src-) ⇒ Unit]])
-
+(define-typed-syntax (vector-set! e n v) ≫
+  [⊢ e ≫ e- ⇒ (~Vector ty)]
+  [⊢ n ≫ n- ⇐ Int]
+  [⊢ v ≫ v- ⇐ ty]
+  --------
+  [⊢ (vector-set!- e- n- v-) ⇒ Unit])
+(define-typed-syntax (vector-copy! dest start src) ≫
+  [⊢ dest ≫ dest- ⇒ (~Vector ty)]
+  [⊢ start ≫ start- ⇐ Int]
+  [⊢ src ≫ src- ⇐ (Vector ty)]
+  --------
+  [⊢ (vector-copy!- dest- start- src-) ⇒ Unit])
 
 ;; sequences and for loops
 
 (define-type-constructor Sequence)
 
-(define-typed-syntax in-range/tc #:export-as in-range
+(define-typed-syntax in-range
   [(_ end) ≫
    --------
-   [≻ (in-range/tc (ext-stlc:#%datum . 0) end (ext-stlc:#%datum . 1))]]
+   [≻ (in-range (ext-stlc:#%datum . 0) end (ext-stlc:#%datum . 1))]]
   [(_ start end) ≫
    --------
-   [≻ (in-range/tc start end (ext-stlc:#%datum . 1))]]
+   [≻ (in-range start end (ext-stlc:#%datum . 1))]]
   [(_ start end step) ≫
-   #:with (e- ...) (⇑s (start end step) as Int)
+   [⊢ start ≫ start- ⇐ Int]
+   [⊢ end ≫ end- ⇐ Int]
+   [⊢ step ≫ step- ⇐ Int]
    --------
-   [⊢ (in-range- e- ...) ⇒ (Sequence Int)]])
+   [⊢ (in-range- start- end- step-) ⇒ (Sequence Int)]])
 
-(define-typed-syntax in-naturals/tc #:export-as in-naturals
+(define-typed-syntax in-naturals
  [(_) ≫
   --------
-  [≻ (in-naturals/tc (ext-stlc:#%datum . 0))]]
+  [≻ (in-naturals (ext-stlc:#%datum . 0))]]
  [(_ start) ≫
-  #:with start- (⇑ start as Int)
-   --------
+  [⊢ start ≫ start- ⇐ Int]
+  --------
   [⊢ (in-naturals- start-) ⇒ (Sequence Int)]])
- 
 
-(define-typed-syntax in-vector
-  [(_ e) ≫
-   #:with [e- (ty)] (⇑ e as Vector)
-   --------
-   (⊢ (in-vector- e-) ⇒ (Sequence ty))])
 
-(define-typed-syntax in-list
-  [(_ e) ≫
-   #:with [e- (ty)] (⇑ e as List)
-   --------
-   (⊢ (in-list- e-) ⇒ (Sequence ty))])
+(define-typed-syntax (in-vector e) ≫
+  [⊢ e ≫ e- ⇒ (~Vector ty)]
+  --------
+  [⊢ (in-vector- e-) ⇒ (Sequence ty)])
 
-(define-typed-syntax in-lines
-  [(_ e) ≫
-   #:with e- (⇑ e as String)
-   --------
-   (⊢ (in-lines- (open-input-string- e-)) ⇒ (Sequence String))])
+(define-typed-syntax (in-list e) ≫
+  [⊢ e ≫ e- ⇒ (~List ty)]
+  --------
+  [⊢ (in-list- e-) ⇒  (Sequence ty)])
 
-(define-typed-syntax for
-  [(_ ([x:id e]...) b ... body) ≫
-   #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
-   #:with [(x- ...) (b- ... body-) (ty_b ... ty_body)] 
-          (infers/ctx+erase #'([x : ty] ...) #'(b ... body))
-   --------
-   (⊢ (for- ([x- e-] ...) b- ... body-) ⇒ Unit)])
-(define-typed-syntax for*
-  [(_ ([x:id e]...) body) ≫
-   #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
-   #:with [(x- ...) body- ty_body] (infer/ctx+erase #'([x : ty] ...) #'body)
-   --------
-   (⊢ (for*- ([x- e-] ...) body-) ⇒ Unit)])
+(define-typed-syntax (in-lines e) ≫
+  [⊢ e ≫ e- ⇐ String]
+  --------
+  [⊢ (in-lines- (open-input-string- e-)) ⇒ (Sequence String)])
 
-(define-typed-syntax for/list
-  [(_ ([x:id e]...) body) ≫
-   #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
-   #:with [(x- ...) body- ty_body] (infer/ctx+erase #'([x : ty] ...) #'body)
-   --------
-   (⊢ (for/list- ([x- e-] ...) body-) ⇒ (List ty_body))])
-(define-typed-syntax for/vector
-  [(_ ([x:id e]...) body) ≫
-   #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
-   #:with [(x- ...) body- ty_body] (infer/ctx+erase #'([x : ty] ...) #'body)
-   --------
-   (⊢ (for/vector- ([x- e-] ...) body-) ⇒ (Vector ty_body))])
-(define-typed-syntax for*/vector
-  [(_ ([x:id e]...) body) ≫
-   #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
-   #:with [(x- ...) body- ty_body] (infer/ctx+erase #'([x : ty] ...) #'body)
-   --------
-   (⊢ (for*/vector- ([x- e-] ...) body-) ⇒ (Vector ty_body))])
-(define-typed-syntax for*/list
-  [(_ ([x:id e]...) body) ≫
-   #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
-   #:with [(x- ...) body- ty_body] (infer/ctx+erase #'([x : ty] ...) #'body)
-   --------
-   (⊢ (for*/list- ([x- e-] ...) body-) ⇒ (List ty_body))])
+(define-typed-syntax (for ([x:id e]...) b ...+) ≫
+  [⊢ e ≫ e- ⇒ (~Sequence ty)] ...
+  [[x ≫ x- : ty] ... ⊢ [b ≫ b- ⇒ _] ...]
+  --------
+  [⊢ (for- ([x- e-] ...) b- ...) ⇒ Unit])
+(define-typed-syntax (for* ([x:id e]...) b ...+) ≫
+  [⊢ e ≫ e- ⇒ (~Sequence ty)] ...
+  [[x ≫ x- : ty] ... ⊢ [b ≫ b- ⇒ _] ...]
+  --------
+  [⊢ (for*- ([x- e-] ...) b- ...) ⇒ Unit])
+
+(define-typed-syntax (for/list ([x:id e]...) body) ≫
+  [⊢ e ≫ e- ⇒ (~Sequence ty)] ...
+  [[x ≫ x- : ty] ... ⊢ [body ≫ body- ⇒ ty_body]]
+  --------
+  [⊢ (for/list- ([x- e-] ...) body-) ⇒ (List ty_body)])
+(define-typed-syntax (for/vector ([x:id e]...) body) ≫
+  [⊢ e ≫ e- ⇒ (~Sequence ty)] ...
+  [[x ≫ x- : ty] ... ⊢ [body ≫ body- ⇒ ty_body]]
+  --------
+  [⊢ (for/vector- ([x- e-] ...) body-) ⇒ (Vector ty_body)])
+(define-typed-syntax (for*/vector ([x:id e]...) body) ≫
+  [⊢ e ≫ e- ⇒ (~Sequence ty)] ...
+  [[x ≫ x- : ty] ... ⊢ [body ≫ body- ⇒ ty_body]]
+  --------
+  [⊢ (for*/vector- ([x- e-] ...) body-) ⇒ (Vector ty_body)])
+(define-typed-syntax (for*/list ([x:id e]...) body) ≫
+  [⊢ e ≫ e- ⇒ (~Sequence ty)] ...
+  [[x ≫ x- : ty] ... ⊢ [body ≫ body- ⇒ ty_body]]
+  --------
+  [⊢ (for*/list- ([x- e-] ...) body-) ⇒ (List ty_body)])
 (define-typed-syntax for/fold
+  [(_ ([acc init]) ([x:id e] ...) body) ⇐ τ_expected ≫
+   [⊢ init ≫ init- ⇐ τ_expected]
+   [⊢ e ≫ e- ⇒ (~Sequence ty)] ...
+   [[acc ≫ acc- : τ_expected] [x ≫ x- : ty] ... ⊢ body ≫ body- ⇐ τ_expected]
+   --------
+   [⊢ (for/fold- ([acc- init-]) ([x- e-] ...) body-)]]
   [(_ ([acc init]) ([x:id e] ...) body) ≫
-   #:with [init- ty_init] (infer+erase #`(pass-expected init #,stx))
-   #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
-   #:with [(acc- x- ...) body- ty_body] 
-          (infer/ctx+erase #'([acc : ty_init][x : ty] ...) #'body)
-   #:fail-unless (typecheck? #'ty_body #'ty_init)
-                 (type-error #:src stx
-                  #:msg 
-                  "for/fold: Type of body and initial accumulator must be the same, given ~a and ~a"
-                  #'ty_init #'ty_body)
+   [⊢ init ≫ init- ⇒ : τ_init]
+   [⊢ e ≫ e- ⇒ (~Sequence ty)] ...
+   [[acc ≫ acc- : τ_init] [x ≫ x- : ty] ... ⊢ body ≫ body- ⇐ τ_init]
    --------
-   (⊢ (for/fold- ([acc- init-]) ([x- e-] ...) body-) ⇒ ty_body)])
+   [⊢ (for/fold- ([acc- init-]) ([x- e-] ...) body-) ⇒ τ_init]])
 
-(define-typed-syntax for/hash
-  [(_ ([x:id e]...) body) ≫
-   #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
-   #:with [(x- ...) body- (~× ty_k ty_v)] 
-          (infer/ctx+erase #'([x : ty] ...) #'body)
+(define-typed-syntax (for/hash ([x:id e]...) body) ≫
+   [⊢ e ≫ e- ⇒ (~Sequence ty)] ...
+   [[x ≫ x- : ty] ... ⊢ body ≫ body- ⇒ (~× ty_k ty_v)]
    --------
-   (⊢ (for/hash- ([x- e-] ...) (let- ([t body-]) (values- (car- t) (cadr- t))))
-        ⇒ (Hash ty_k ty_v))])
+   [⊢ (for/hash- ([x- e-] ...)
+       (let- ([t body-])
+         (values- (car- t) (cadr- t)))) ⇒ (Hash ty_k ty_v)])
 
-(define-typed-syntax for/sum
-  [(_ ([x:id e]... 
-       (~optional (~seq #:when guard) #:defaults ([guard #'#t])))
-      body) ≫
-   #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
-   #:with [(x- ...) (guard- body-) (_ ty_body)]
-          (infers/ctx+erase #'([x : ty] ...) #'(guard body))
-   #:when (Int? #'ty_body)
+(define-typed-syntax 
+  (for/sum 
+    ([x:id e]... 
+     (~optional (~seq #:when guard) #:defaults ([guard #'#t])))
+    body) ≫
+   [⊢ e ≫ e- ⇒ (~Sequence ty)] ...
+   [[x ≫ x- : ty] ... ⊢ [guard ≫ guard- ⇒ _] [body ≫ body- ⇐ Int]]
    --------
-   (⊢ (for/sum- ([x- e-] ... #:when guard-) body-) ⇒ Int)])
+   [⊢ (for/sum- ([x- e-] ... #:when guard-) body-) ⇒ Int])
 
 ; printing and displaying
-(define-typed-syntax printf
-  [(_ str e ...) ≫
-   #:with s- (⇑ str as String)
-   #:with ([e- ty] ...) (infers+erase #'(e ...))
-   --------
-   (⊢ (printf- s- e- ...) ⇒ Unit)])
-(define-typed-syntax format
-  [(_ str e ...) ≫
-   #:with s- (⇑ str as String)
-   #:with ([e- ty] ...) (infers+erase #'(e ...))
-   --------
-   (⊢ (format- s- e- ...) ⇒ String)])
-(define-typed-syntax display
-  [(_ e) ≫
-   #:with [e- _] (infer+erase #'e)
-   --------
-   (⊢ (display- e-) ⇒ Unit)])
-(define-typed-syntax displayln
-  [(_ e) ≫
-   #:with [e- _] (infer+erase #'e)
-   --------
-   (⊢ (displayln- e-) ⇒ Unit)])
+(define-typed-syntax (printf str e ...) ≫
+  [⊢ str ≫ s- ⇐ String]
+  [⊢ e ≫ e- ⇒ ty] ...
+  --------
+  [⊢ (printf- s- e- ...) ⇒ Unit])
+(define-typed-syntax (format str e ...) ≫
+  [⊢ str ≫ s- ⇐ String]
+  [⊢ e ≫ e- ⇒ ty] ...
+  --------
+  [⊢ (format- s- e- ...) ⇒ String])
+(define-typed-syntax (display e) ≫
+  [⊢ e ≫ e- ⇒ _]
+  --------
+  [⊢ (display- e-) ⇒ Unit])
+(define-typed-syntax (displayln e) ≫
+  [⊢ e ≫ e- ⇒ _]
+  --------
+  [⊢ (displayln- e-) ⇒ Unit])
 (define-primop newline : (→ Unit))
 
 (define-typed-syntax list->vector
-  [(_ e) ≫
-   #:with [e- (ty)] (⇑ e as List)
+  [(_ e) ⇐ (~Vector ty) ≫
+   [⊢ e ≫ e- ⇐ (List ty)]
    --------
-   (⊢ (list->vector- e-) ⇒ (Vector ty))])
+   [⊢ (list->vector- e-)]]
+  [(_ e) ≫
+   [⊢ e ≫ e- ⇒ (~List ty)]
+   --------
+   [⊢ (list->vector- e-) ⇒ (Vector ty)]])
 
 (define-typed-syntax let
   [(_ name:id (~datum :) ty:type ~! ([x:id e] ...) b ... body) ≫
-   #:with ([e- ty_e] ...) (infers+erase #'(e ...))
-   #:with [(name- . xs-) (body- ...) (_ ... ty_body)] 
-          (infers/ctx+erase #'([name : (→ ty_e ... ty.norm)][x : ty_e] ...) 
-                            #'(b ... body))
-   #:fail-unless (typecheck? #'ty_body #'ty.norm)
-                 (format "type of let body ~a does not match expected typed ~a"
-                         (type->str #'ty_body) (type->str #'ty))
+   [⊢ e ≫ e- ⇒ ty_e] ...
+   [[name ≫ name- : (→ ty_e ... ty.norm)] [x ≫ x- : ty_e] ...
+    ⊢ [b ≫ b- ⇒ _] ... [body ≫ body- ⇐ ty.norm]]
    --------
-   (⊢ (letrec- ([name- (λ- xs- body- ...)]) 
+   [⊢ (letrec- ([name- (λ- (x- ...) b- ... body-)])
         (name- e- ...))
-      ⇒ ty_body)]
+       ⇒ ty.norm]]
   [(_ ([x:id e] ...) body ...) ≫
    --------
-   [≻ (ext-stlc:let ([x e] ...) (begin/tc body ...))]])
-(define-typed-syntax let*
-  [(_ ([x:id e] ...) body ...) ≫
-   --------
-   [≻ (ext-stlc:let* ([x e] ...) (begin/tc body ...))]])
-
-(define-typed-syntax begin/tc #:export-as begin
- [(_ body ... b) ≫
-  #:with expected (get-expected-type stx)
-  #:with b_ann #'(add-expected b expected)
+   [≻ (ext-stlc:let ([x e] ...) (begin body ...))]])
+(define-typed-syntax (let* ([x:id e] ...) body ...) ≫
   --------
-  [≻ (ext-stlc:begin body ... b_ann)]])
+  [≻ (ext-stlc:let* ([x e] ...) (begin body ...))])
+
+(define-typed-syntax begin
+  [(_ body ... b) ⇐ τ_expected ≫
+   [⊢ body ≫ body- ⇒ _] ...
+   [⊢ b ≫ b- ⇐ τ_expected]
+   --------
+   [⊢ (begin- body- ... b-)]]
+  [(_ body ... b) ≫
+   [⊢ body ≫ body- ⇒ _] ...
+   [⊢ b ≫ b- ⇒ τ]
+   --------
+   [⊢ (begin- body- ... b-) ⇒ τ]])
 
 ;; hash
 (define-type-constructor Hash #:arity = 2)
 
-(define-typed-syntax in-hash
-  [(_ e) ≫
-   #:with [e- (ty_k ty_v)] (⇑ e as Hash)
-   --------
-   (⊢ (map- (λ- (k+v) (list- (car- k+v) (cdr- k+v))) (hash->list- e-)) 
-;   (⊢ (hash->list e-)
-      ⇒ (Sequence (stlc+rec-iso:× ty_k ty_v)))])
+(define-typed-syntax (in-hash e) ≫
+  [⊢ e ≫ e- ⇒ (~Hash ty_k ty_v)]
+  --------
+  [⊢ (hash-map- e- list-) ⇒ (Sequence (stlc+rec-iso:× ty_k ty_v))])
 
 ; mutable hashes
 (define-typed-syntax hash
   [(_ (~and tys {ty_key ty_val})) ≫
    #:when (brace? #'tys)
    --------
-   (⊢ (make-hash-) ⇒ (Hash ty_key ty_val))]
+   [⊢ (make-hash-) ⇒ (Hash ty_key ty_val)]]
   [(_ (~seq k v) ...) ≫
-   #:with ([k- ty_k] ...) (infers+erase #'(k ...))
-   #:with ([v- ty_v] ...) (infers+erase #'(v ...))
+   [⊢ k ≫ k- ⇒ ty_k] ...
+   [⊢ v ≫ v- ⇒ ty_v] ...
    #:when (same-types? #'(ty_k ...))
    #:when (same-types? #'(ty_v ...))
    #:with ty_key (stx-car #'(ty_k ...))
    #:with ty_val (stx-car #'(ty_v ...))
    --------
-   (⊢ (make-hash- (list- (cons- k- v-) ...)) ⇒ (Hash ty_key ty_val))])
-(define-typed-syntax hash-set!
-  [(_ h k v) ≫
-   #:with [h- (ty_key ty_val)] (⇑ h as Hash)
-   #:with [k- ty_k] (infer+erase #'k)
-   #:with [v- ty_v] (infer+erase #'v)
-   #:when (typecheck? #'ty_k #'ty_key)
-   #:when (typecheck? #'ty_v #'ty_val)
-   --------
-   (⊢ (hash-set!- h- k- v-) ⇒ Unit)])
-(define-typed-syntax hash-ref/tc #:export-as hash-ref
-  [(_ h k) ≫ 
-   --------
-   [≻ (hash-ref/tc h k (ext-stlc:#%datum . #f))]]
-  [(_ h k fail) ≫
-   #:with [h- (ty_key ty_val)] (⇑ h as Hash)
-   #:with [k- ty_k] (infer+erase #'k)
-   #:when (typecheck? #'ty_k #'ty_key)
-   #:with (fail- _) (infer+erase #'fail) ; default val can be any
-   --------
-   (⊢ (hash-ref- h- k- fail-) ⇒ ty_val)])
-(define-typed-syntax hash-has-key?
+   [⊢ (make-hash- (list- (cons- k- v-) ...)) ⇒ (Hash ty_key ty_val)]])
+(define-typed-syntax (hash-set! h k v) ≫
+  [⊢ h ≫ h- ⇒ (~Hash ty_k ty_v)]
+  [⊢ k ≫ k- ⇐ ty_k]
+  [⊢ v ≫ v- ⇐ ty_v]
+  --------
+  [⊢ (hash-set!- h- k- v-) ⇒ Unit])
+(define-typed-syntax hash-ref
   [(_ h k) ≫
-   #:with [h- (ty_key _)] (⇑ h as Hash)
-   #:with [k- ty_k] (infer+erase #'k)
-   #:when (typecheck? #'ty_k #'ty_key)
+   [⊢ h ≫ h- ⇒ (~Hash ty_k ty_v)]
+   [⊢ k ≫ k- ⇐ ty_k]
    --------
-   (⊢ (hash-has-key?- h- k-) ⇒ Bool)])
+   [⊢ (hash-ref- h- k-) ⇒ ty_v]]
+  [(_ h k fail) ≫
+   [⊢ h ≫ h- ⇒ (~Hash ty_k ty_v)]
+   [⊢ k ≫ k- ⇐ ty_k]
+   [⊢ fail ≫ fail- ⇐ (→ ty_v)]
+   --------
+   [⊢ (hash-ref- h- k- fail-) ⇒ ty_val]])
+(define-typed-syntax (hash-has-key? h k) ≫
+  [⊢ h ≫ h- ⇒ (~Hash ty_k _)]
+  [⊢ k ≫ k- ⇐ ty_k]
+  --------
+  [⊢ (hash-has-key?- h- k-) ⇒ Bool])
 
-(define-typed-syntax hash-count
-  [(_ h) ≫
-   #:with [h- _] (⇑ h as Hash)
-   --------
-   (⊢ (hash-count- h-) ⇒ Int)])
+(define-typed-syntax (hash-count h) ≫
+  [⊢ h ≫ h- ⇒ (~Hash _ _)]
+  --------
+  [⊢ (hash-count- h-) ⇒ Int])
 
 (define-base-type String-Port)
 (define-base-type Input-Port)
@@ -1467,39 +1447,38 @@
 (define-primop get-output-string : (→ String-Port String))
 (define-primop string-upcase : (→ String String))
 
-(define-typed-syntax write-string/tc #:export-as write-string
+(define-typed-syntax write-string
  [(_ str out) ≫
-   --------
-  [≻ (write-string/tc str out (ext-stlc:#%datum . 0) (string-length/tc str))]]
+  --------
+  [≻ (write-string str out (ext-stlc:#%datum . 0) (string-length str))]]
  [(_ str out start end) ≫
-   #:with str- (⇑ str as String)
-   #:with out- (⇑ out as String-Port)
-   #:with start- (⇑ start as Int)
-   #:with end- (⇑ end as Int)
-   --------
-   (⊢ (write-string- str- out- start- end-) ⇒ Unit)])
+  [⊢ str ≫ str- ⇐ String]
+  [⊢ out ≫ out- ⇐ String-Port]
+  [⊢ start ≫ start- ⇐ Int]
+  [⊢ end ≫ end- ⇐ Int]
+  --------
+  [⊢ (begin- (write-string- str- out- start- end-) (void-)) ⇒ Unit]])
 
-(define-typed-syntax string-length/tc #:export-as string-length
- [(_ str) ≫
-  #:with str- (⇑ str as String)
-   --------
-  (⊢ (string-length- str-) ⇒ Int)])
+(define-typed-syntax (string-length str) ≫
+  [⊢ str ≫ str- ⇐ String]
+  --------
+  [⊢ (string-length- str-) ⇒ Int])
 (define-primop make-string : (→ Int String))
 (define-primop string-set! : (→ String Int Char Unit))
 (define-primop string-ref : (→ String Int Char))
-(define-typed-syntax string-copy!/tc #:export-as string-copy!
+(define-typed-syntax string-copy!
   [(_ dest dest-start src) ≫
    --------
-   [≻ (string-copy!/tc 
-       dest dest-start src (ext-stlc:#%datum . 0) (string-length/tc src))]]
+   [≻ (string-copy!
+       dest dest-start src (ext-stlc:#%datum . 0) (string-length src))]]
   [(_ dest dest-start src src-start src-end) ≫
-   #:with dest- (⇑ dest as String)
-   #:with src- (⇑ src as String)
-   #:with dest-start- (⇑ dest-start as Int)
-   #:with src-start- (⇑ src-start as Int)
-   #:with src-end- (⇑ src-end as Int)
+   [⊢ dest ≫ dest- ⇐ String]
+   [⊢ src ≫ src- ⇐ String]
+   [⊢ dest-start ≫ dest-start- ⇐ Int]
+   [⊢ src-start ≫ src-start- ⇐ Int]
+   [⊢ src-end ≫ src-end- ⇐ Int]
    --------
-   (⊢ (string-copy!- dest- dest-start- src- src-start- src-end-) ⇒ Unit)])
+   [⊢ (string-copy!- dest- dest-start- src- src-start- src-end-) ⇒ Unit]])
 
 (define-primop fl+ : (→ Float Float Float))
 (define-primop fl- : (→ Float Float Float))
@@ -1513,77 +1492,67 @@
 (define-primop char->integer : (→ Char Int))
 (define-primop real->decimal-string : (→ Float Int String))
 (define-primop fx->fl : (→ Int Float))
-(define-typed-syntax quotient+remainder
-  [(_ x y) ≫
-   #:with x- (⇑ x as Int)
-   #:with y- (⇑ y as Int)
-   --------
-   (⊢ (call-with-values- (λ- () (quotient/remainder- x- y-)) list-)
-      ⇒ (stlc+rec-iso:× Int Int))])
+(define-typed-syntax (quotient+remainder x y) ≫
+  [⊢ x ≫ x- ⇐ Int]
+  [⊢ y ≫ y- ⇐ Int]
+  --------
+  [⊢ (let-values- ([[a b] (quotient/remainder- x- y-)])
+       (list- a b))
+     ⇒ (stlc+rec-iso:× Int Int)])
 (define-primop quotient : (→ Int Int Int))
 
-(define-typed-syntax set!
- [(_ x:id e) ≫
-  #:with [x- ty_x] (infer+erase #'x)
-  #:with [e- ty_e] (infer+erase #'e)
-  #:when (typecheck? #'ty_e #'ty_x)
-   --------
-  (⊢ (set!- x e-) ⇒ Unit)])
+(define-typed-syntax (set! x:id e) ≫
+  [⊢ x ≫ x- ⇒ ty_x]
+  [⊢ e ≫ e- ⇐ ty_x]
+  --------
+  [⊢ (set!- x e-) ⇒ Unit])
 
-(define-typed-syntax provide-type 
-  [(_ ty ...) ≫ 
-   --------
-   [≻ (provide- ty ...)]])
+(define-typed-syntax (provide-type ty ...) ≫
+  --------
+  [≻ (provide- ty ...)])
 
-(define-typed-syntax provide
-  [(_ x:id ...) ≫
-   #:with ([x- ty_x] ...) (infers+erase #'(x ...))
-   ; TODO: use hash-code to generate this tmp
-   #:with (x-ty ...) (stx-map (lambda (y) (format-id y "~a-ty" y)) #'(x ...)) 
-   --------
-   [≻ (begin-
-        (provide- x ...)
-        (stlc+rec-iso:define-type-alias x-ty ty_x) ...
-        (provide- x-ty ...))]])
-(define-typed-syntax require-typed
-  [(_ x:id ... #:from mod) ≫
-   #:with (x-ty ...) (stx-map (lambda (y) (format-id y "~a-ty" y)) #'(x ...))
-   #:with (y ...) (generate-temporaries #'(x ...))
-   --------
-   [≻ (begin-
-        (require- (rename-in- (only-in- mod x ... x-ty ...) [x y] ...))
-        (define-syntax- x (make-rename-transformer (assign-type #'y #'x-ty))) ...)]])
+(define-typed-syntax (provide x:id ...) ≫
+  [⊢ x ≫ x- ⇒ ty_x] ...
+  ; TODO: use hash-code to generate this tmp
+  #:with (x-ty ...) (stx-map (lambda (y) (format-id y "~a-ty" y)) #'(x ...))
+  --------
+  [≻ (begin-
+       (provide- x ...)
+       (stlc+rec-iso:define-type-alias x-ty ty_x) ...
+       (provide- x-ty ...))])
+(define-typed-syntax (require-typed x:id ... #:from mod) ≫
+  #:with (x-ty ...) (stx-map (lambda (y) (format-id y "~a-ty" y)) #'(x ...))
+  #:with (y ...) (generate-temporaries #'(x ...))
+  --------
+  [≻ (begin-
+       (require- (rename-in (only-in mod x ... x-ty ...) [x y] ...))
+       (define-syntax x (make-rename-transformer (assign-type #'y #'x-ty))) ...)])
 
 (define-base-type Regexp)
 (define-primop regexp-match : (→ Regexp String (List String)))
 (define-primop regexp : (→ String Regexp))
 
-(define-typed-syntax equal?
-  [(_ e1 e2) ≫
-   #:with [e1- ty1] (infer+erase #'e1)
-   #:with [e2- ty2] (infer+erase #'(add-expected e2 ty1))
-   #:fail-unless (typecheck? #'ty1 #'ty2) "arguments to equal? have different types"
-   --------
-   (⊢ (equal?- e1- e2-) ⇒ Bool)])
+(define-typed-syntax (equal? e1 e2) ≫
+  [⊢ e1 ≫ e1- ⇒ ty1]
+  [⊢ e2 ≫ e2- ⇐ ty1]
+  --------
+  [⊢ (equal?- e1- e2-) ⇒ Bool])
 
-(define-syntax (inst stx)
-  (syntax-parse stx
-    [(_ e ty ...)
-     #:with [ee tyty] (infer+erase #'e)
-     #:with [e- ty_e] (infer+erase #'(sysf:inst e ty ...))
-     #:with ty_out (cond
-                    [(→? #'ty_e) #'(∀ () ty_e)]
-                    [(=>? #'ty_e) #'(∀ () ty_e)]
-                    [else #'ty_e])
-     (⊢ e- : ty_out)]))
+(define-typed-syntax (read-int) ≫
+  --------
+  [⊢ (let- ([x (read-)])
+       (cond- [(exact-integer?- x) x]
+              [else (error- 'read-int "expected an int, given: ~v" x)]))
+          ⇒ Int])
 
-(define-typed-syntax read
-  [(_) ≫
-   --------
-   (⊢ (let- ([x (read-)])
-        (cond- [(eof-object?- x) ""]
-              [(number?- x) (number->string- x)]
-              [(symbol?- x) (symbol->string- x)])) ⇒ String)])
+(define-typed-syntax (inst e ty ...) ≫
+  #:with [ee tyty] (infer+erase #'e)
+  [⊢ (sysf:inst e ty ...) ≫ e- ⇒ ty_e]
+  --------
+  [⊢ e- ⇒ #,(cond
+             [(→? #'ty_e) #'(∀ () ty_e)]
+             [(=>? #'ty_e) #'(∀ () ty_e)]
+             [else #'ty_e])])
 
 (begin-for-syntax
  ;; - this function should be wrapped with err handlers,
@@ -1675,123 +1644,135 @@
                 #`(=> TC ... #,(mk-type #'(('op ty) ...)))
                 #'(Name X ...))])))]))
 
-(define-syntax (define-instance stx)
-  (syntax-parse stx
-    ;; base type, possibly with subclasses  ------------------------------------
-    [(_ (Name ty ...) [generic-op concrete-op] ...)
-     #:with (~=> TC ... (~TC [generic-op-expected ty-concrete-op-expected] ...))
-            (expand/df #'(Name ty ...))
-     #:when (TCs-exist? #'(TC ...) #:ctx stx)
-     #:fail-unless (set=? (syntax->datum #'(generic-op ...)) 
-                          (syntax->datum #'(generic-op-expected ...)))
-                   (type-error #:src stx
-                    #:msg (format "Type class instance ~a incomplete, missing: ~a"
-                            (syntax->datum #'(Name ty ...))
-                            (string-join
-                             (map symbol->string 
-                              (set-subtract (syntax->datum #'(generic-op-expected ...)) 
-                                            (syntax->datum #'(generic-op ...))))
-                             ", ")))
-     ;; sort, using order from define-typeclass
-     #:with ([generic-op-sorted concrete-op-sorted] ...) 
-            (stx-map
-              (lambda (expected-op) 
-                  (stx-findf
-                    (lambda (gen+conc) 
-                      (equal? (syntax->datum (stx-car gen+conc)) 
-                              (syntax->datum expected-op)))
-                  #'([generic-op concrete-op] ...)))
-              #'(generic-op-expected ...))
-     ;; typecheck type of given concrete-op with expected type from define-typeclass
-     #:with ([concrete-op+ ty-concrete-op] ...) (infers+erase #'(concrete-op-sorted ...))
-     #:fail-unless (typechecks? #'(ty-concrete-op ...) #'(ty-concrete-op-expected ...))
-                   (mk-app-err-msg (syntax/loc stx (#%app (Name ty ...) concrete-op ...))
-                     #:expected #'(ty-concrete-op-expected ...)
-                     #:given #'(ty-concrete-op ...)
-                     #:action "defining typeclass instance"
-                     #:name (format "~a" (syntax->datum #'(Name ty ...))))
-     ;; generate mangled name from tags in input types
-     #:with (ty_in-tags ...) 
-            (stx-map 
-              (syntax-parser
-                [(~∀ _ (~ext-stlc:→ ty_in ... _))
-                 (get-type-tags #'(ty_in ...))])
-              #'(ty-concrete-op-expected ...))
-     ;; use input types
-     #:with (mangled-op ...) (stx-map mangle #'(generic-op ...) #'(ty_in-tags ...))
-     #'(begin-
-         (define-syntax- (mangled-op stx) 
-           (syntax-parse stx [_:id (assign-type #'concrete-op+ #'ty-concrete-op-expected)]))
-         ...)]
-    ;; tycon, possibly with subclasses -----------------------------------------
-    [(_ TC ... (~datum =>) (Name ty ...) [generic-op concrete-op] ...)
-     #:with (X ...) (compute-tyvars #'(ty ...))
-     ;; ok to drop TCsub ...? I think yes
-     ;; - the same TCsubs will be part of TC+,
-     ;;   so proper op will be looked up, depending on input args, 
-     ;;   using inherited ops in TC+
-     ;; This is assuming Name and TC ... are the same typeclass
-     ;; Won't work for, eg (TC1 (List X)) that depends on some other (TC2 X)
-     #:with (Xs+ 
-             (TC+ ... 
-              (~=> TCsub ... 
-                   (~TC [generic-op-expected ty-concrete-op-expected] ...)))
-             _)
-            (infers/tyctx+erase #'([X : #%type] ...) #'(TC ... (Name ty ...)))
-     #:when (TCs-exist? #'(TCsub ...) #:ctx stx)
-     ;; simulate as if the declared concrete-op* has TC ... predicates
-     ;; TODO: fix this manual deconstruction and assembly
-     #:with ((app fa (lam _ ei ty_fn)) ...) #'(ty-concrete-op-expected ...)
-     #:with (ty-concrete-op-expected-withTC ...) 
-            (stx-map (current-type-eval) #'((app fa (lam Xs+ ei (=> TC+ ... ty_fn))) ...))
-     #:fail-unless (set=? (syntax->datum #'(generic-op ...)) 
-                          (syntax->datum #'(generic-op-expected ...)))
-                   (type-error #:src stx
-                    #:msg (format "Type class instance ~a incomplete, missing: ~a"
-                            (syntax->datum #'(Name ty ...))
-                            (string-join
-                             (map symbol->string 
-                              (set-subtract (syntax->datum #'(generic-op-expected ...)) 
-                                            (syntax->datum #'(generic-op ...))))
-                             ", ")))
-     ;; - sort, using order from define-typeclass
-     ;; - insert TC ... if lambda
-     #:with ([generic-op-sorted concrete-op-sorted] ...) 
-            (stx-map
-              (lambda (expected-op) 
-                (syntax-parse
-                  (stx-findf
-                    (lambda (gen+conc) 
-                      (equal? (syntax->datum (stx-car gen+conc)) 
-                              (syntax->datum expected-op)))
+(define-typed-syntax define-instance
+  ;; base type, possibly with subclasses  ------------------------------------
+  [(_ (Name ty ...) [generic-op concrete-op] ...) ≫
+   #:with (~=> TC ... (~TC [generic-op-expected ty-concrete-op-expected] ...))
+          (expand/df #'(Name ty ...))
+   #:when (TCs-exist? #'(TC ...) #:ctx stx)
+   #:fail-unless (set=? (syntax->datum #'(generic-op ...)) 
+                        (syntax->datum #'(generic-op-expected ...)))
+                 (type-error #:src stx
+                  #:msg (format "Type class instance ~a incomplete, missing: ~a"
+                          (syntax->datum #'(Name ty ...))
+                          (string-join
+                           (map symbol->string 
+                                (set-subtract 
+                                 (syntax->datum #'(generic-op-expected ...)) 
+                                 (syntax->datum #'(generic-op ...))))
+                           ", ")))
+   ;; sort, using order from define-typeclass
+   #:with ([generic-op-sorted concrete-op-sorted] ...) 
+          (stx-map
+           (lambda (expected-op) 
+             (stx-findf
+              (lambda (gen+conc) 
+                (equal? (syntax->datum (stx-car gen+conc)) 
+                        (syntax->datum expected-op)))
+              #'([generic-op concrete-op] ...)))
+           #'(generic-op-expected ...))
+   ;; typecheck type of given concrete-op with expected type from define-typeclass
+   #:with ([concrete-op+ ty-concrete-op] ...) (infers+erase #'(concrete-op-sorted ...))
+   #:fail-unless (typechecks? #'(ty-concrete-op ...) #'(ty-concrete-op-expected ...))
+                 (mk-app-err-msg (syntax/loc stx (#%app (Name ty ...) concrete-op ...))
+                  #:expected #'(ty-concrete-op-expected ...)
+                  #:given #'(ty-concrete-op ...)
+                  #:action "defining typeclass instance"
+                  #:name (format "~a" (syntax->datum #'(Name ty ...))))
+   ;; generate mangled name from tags in input types
+   #:with (ty_in-tags ...) 
+          (stx-map 
+           (syntax-parser
+             [(~∀ _ (~ext-stlc:→ ty_in ... _))
+              (get-type-tags #'(ty_in ...))])
+           #'(ty-concrete-op-expected ...))
+   ;; use input types
+   #:with (mangled-op ...) (stx-map mangle #'(generic-op ...) #'(ty_in-tags ...))
+  --------
+  [≻ (begin-
+        (define-syntax- (mangled-op stx) 
+          (syntax-parse stx 
+            [_:id (assign-type #'concrete-op+ #'ty-concrete-op-expected)]))
+         ...)]]
+  ;; tycon, possibly with subclasses -----------------------------------------
+  [(_ TC ... (~datum =>) (Name ty ...) [generic-op concrete-op] ...) ≫
+   #:with (X ...) (compute-tyvars #'(ty ...))
+   ;; ok to drop TCsub ...? I think yes
+   ;; - the same TCsubs will be part of TC+,
+   ;;   so proper op will be looked up, depending on input args, 
+   ;;   using inherited ops in TC+
+   ;; This is assuming Name and TC ... are the same typeclass
+   ;; Won't work for, eg (TC1 (List X)) that depends on some other (TC2 X)
+   #:with (Xs+ 
+           (TC+ ... 
+                (~=> TCsub ... 
+                     (~TC [generic-op-expected ty-concrete-op-expected] ...)))
+           _)
+           (infers/tyctx+erase #'([X : #%type] ...) #'(TC ... (Name ty ...)))
+   ;; [([X ≫ X- : #%type] ...) () ⊢ (TC ... (Name ty ...)) ≫
+   ;;                                (TC+ ... 
+   ;;                                 (~=> TCsub ... 
+   ;;                                  (~TC [generic-op-expected ty-concrete-op-expected] ...)))
+   ;;                                ⇒ _]
+   ;; #:with Xs+ #'(X- ...)
+   #:when (TCs-exist? #'(TCsub ...) #:ctx stx)
+   ;; simulate as if the declared concrete-op* has TC ... predicates
+   ;; TODO: fix this manual deconstruction and assembly
+   #:with ((app fa (lam _ ei ty_fn)) ...) #'(ty-concrete-op-expected ...)
+   #:with (ty-concrete-op-expected-withTC ...) 
+          (stx-map (current-type-eval) #'((app fa (lam Xs+ ei (=> TC+ ... ty_fn))) ...))
+   #:fail-unless (set=? (syntax->datum #'(generic-op ...)) 
+                        (syntax->datum #'(generic-op-expected ...)))
+                 (type-error #:src stx
+                  #:msg (format "Type class instance ~a incomplete, missing: ~a"
+                          (syntax->datum #'(Name ty ...))
+                          (string-join
+                           (map symbol->string 
+                                (set-subtract 
+                                 (syntax->datum #'(generic-op-expected ...)) 
+                                 (syntax->datum #'(generic-op ...))))
+                           ", ")))
+   ;; - sort, using order from define-typeclass
+   ;; - insert TC ... if lambda
+   #:with ([generic-op-sorted concrete-op-sorted] ...) 
+          (stx-map
+           (lambda (expected-op) 
+             (syntax-parse
+                 (stx-findf
+                  (lambda (gen+conc) 
+                    (equal? (syntax->datum (stx-car gen+conc)) 
+                            (syntax->datum expected-op)))
                   #'([generic-op concrete-op] ...))
-                  [(g c) 
-                   (syntax-parse #'c
-                     ;; add TCs to (unexpanded) lambda
-                     [((~and lam (~literal liftedλ)) (args ...) . body) 
-                      #'(g (lam (args ... #:where TC ...) . body))]
-                     [_ #'(g c)])]))
-              #'(generic-op-expected ...))
-     ;; ;; for now, dont expand (and typecheck) concrete-op
-     ;; #:with ([concrete-op+ ty-concrete-op] ...) (infers+erase #'(concrete-op ...))
-     ;; #:when (typechecks? #'(ty-concrete-op ...) #'(ty-concrete-op-expected ...))
-     ;; TODO: right now, dont recur to get nested tags
-     ;; but may need to do so, ie if an instance needs to define more than one concrete op,
-     ;; eg (define-instance (Eq (List Int)) ...)
-     #:with (ty_in-tags ...) 
-            (stx-map 
-              (syntax-parser
-                [(~∀ _ (~ext-stlc:→ ty_in ... _))
-                 (get-type-tags #'(ty_in ...))]
-                #;[(~∀ _ (~=> _ ... (~ext-stlc:→ ty_in ... _)))
-                 (get-type-tags #'(ty_in ...))])
-              #'(ty-concrete-op-expected ...))
-     #:with (mangled-op ...) (stx-map mangle #'(generic-op ...) #'(ty_in-tags ...))
-     ;; need a name for concrete-op because concrete-op and generic-op may be
-     ;; mutually recursive, eg (Eq (List X))
-     #:with (f ...) (generate-temporaries #'(concrete-op-sorted ...))
-     #'(begin-
-         (define- f concrete-op-sorted) ...
-         (define-syntax- (mangled-op stx) 
-           (syntax-parse stx [_:id (assign-type #'f #'ty-concrete-op-expected-withTC)]))
-         ...)]))
+               [(g c) 
+                (syntax-parse #'c
+                  ;; add TCs to (unexpanded) lambda
+                  [((~and lam (~literal liftedλ)) (args ...) . body) 
+                   #'(g (lam (args ... #:where TC ...) . body))]
+                  [_ #'(g c)])]))
+           #'(generic-op-expected ...))
+   ;; ;; for now, dont expand (and typecheck) concrete-op
+   ;; #:with ([concrete-op+ ty-concrete-op] ...) (infers+erase #'(concrete-op ...))
+   ;; #:when (typechecks? #'(ty-concrete-op ...) #'(ty-concrete-op-expected ...))
+   ;; TODO: right now, dont recur to get nested tags
+   ;; but may need to do so, ie if an instance needs to define more than one concrete op,
+   ;; eg (define-instance (Eq (List Int)) ...)
+   #:with (ty_in-tags ...) 
+          (stx-map 
+           (syntax-parser
+             [(~∀ _ (~ext-stlc:→ ty_in ... _))
+              (get-type-tags #'(ty_in ...))]
+             #;[(~∀ _ (~=> _ ... (~ext-stlc:→ ty_in ... _)))
+                (get-type-tags #'(ty_in ...))])
+           #'(ty-concrete-op-expected ...))
+   #:with (mangled-op ...) (stx-map mangle #'(generic-op ...) #'(ty_in-tags ...))
+   ;; need a name for concrete-op because concrete-op and generic-op may be
+   ;; mutually recursive, eg (Eq (List X))
+   #:with (f ...) (generate-temporaries #'(concrete-op-sorted ...))
+  --------
+  [≻ (begin-
+        (define- f concrete-op-sorted) ...
+        (define-syntax- (mangled-op stx) 
+          (syntax-parse stx 
+            [_:id (assign-type #'f #'ty-concrete-op-expected-withTC)]))
+        ...)]])
+
