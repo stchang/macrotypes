@@ -11,7 +11,7 @@
                      [checked-datum #%datum]))
 (provide Int →)
 
-;; this code is not in the paper'
+;; this code is not in the paper
 ;; it is included to show that stlc+prim-prog.rkt runs with either:
 ;; - stlc+prim.rkt (implemented with Turnstile)
 ;; - stl+prim-with-racket.rkt (implemented with Racket)

@@ -44,7 +44,7 @@ The artifact is available as a virtual machine appliance for VirtualBox.
 Alternatively, you can download the @TODO{popl2017-artifact}
 release from the @tt{turnstile} repository on Bitbucket and follow the
 instructions in @tt{artifact/README.md}.
-@margin-note{VM applicance: @hyperlink["http://www.ccs.neu.edu/home/stchang/popl2017/type-systems-as-macros.tar.gz"]{[link]}}
+@margin-note{VM appliance: @hyperlink["http://www.ccs.neu.edu/home/stchang/popl2017/type-systems-as-macros.tar.gz"]{[link]}}
 
 If you are already reading this README in the VM, feel free to ignore the
 rest of this section.
@@ -65,18 +65,118 @@ The relevant files are in @tt{/home/artifact/Desktop/}.
 This directory contains
 @itemlist[
   @item{@tt{README.html}: This page}
-  @item{@tt{paper/}: A directory with the source code of the paper and the data used in the paper}
-  @item{@tt{tools/}: A directory with the tools used to run the benchmarks and process the data generated}
-  @item{@tt{benchmarks/}: A directory with the benchmarks used in the paper}
-  @item{@tt{run.sh}: A script to run a particular benchmark}
-  @item{@tt{run-all.sh}: A script to run all benchmarks in the @tt{benchmark/} directory. This may take as long as 2 months to complete.}
+  @item{@tt{paper.pdf}: The camera-ready version of the paper.}
+  @item{@tt{DrRacket}: DrRacket IDE for Racket v6.6
+
+  One may run example files by opening them in DrRacket and pressing the "Run" button.
+  
+ Alternatively, one may run files from the command line with command:
+
+  @tt{racket <filename.rkt>}}
  ]
 
 
 @; -----------------------------------------------------------------------------
-@section[#:tag "claims"]{Examples from the paper}
+@section[#:tag "examples"]{Code from the paper}
 
-@; TODO
+For clarity and conciseness, the paper stylizes code with colors and
+abbreviations. Runnable versions of the paper's examples are available in the
+VM.
+
+@subsection{Paper Section 2}
+
+@tt{/home/artifact/popl2017-artifact/macrotypes/examples/popl2017/}
+@itemlist[@item{@tt{lam.rkt}: defines only single-argument lambda}
+          @item{@tt{lam-prog.rkt}: example program using language @tt{lam.rkt}.
+          Attempting to apply functions results in a syntax error.
+           This file uses our custom unit-testing framework so that to catch and
+          check errors.}
+          @item{@tt{lc.rkt}: extends @tt{lam.rkt} with function application}
+          @item{@tt{lc-prog}: example program using @tt{lc.rkt} language.
+           This program will loop forever when run.}]
+          
+@subsection{Paper Section 3}
+
+@tt{/home/artifact/popl2017-artifact/macrotypes/examples/popl2017/}
+@itemlist[@item{@tt{stlc-with-racket.rkt}: runnable version of code from paper, figures 3-8.}
+          @item{@tt{stlc-with-racket-prog.rkt}:
+           Program using @tt{stlc-with-racket.rkt} as its language. Shows a few type errors.}]
+
+@subsection{Paper Section 4}
+
+@tt{/home/artifact/popl2017-artifact/macrotypes/examples/popl2017/}
+@itemlist[@item{@tt{stlc-with-turnstile.rkt}: runnable version of code from paper,
+           figure 11, as well as the @tt{#%app} extended with extra error reporting from section 4.2.}
+          @item{@tt{stlc-with-turnstile-prog.rkt}:
+                 same as @tt{stlc-with-racket-prog.rkt}, but using @tt{stlc-with-turnstile.rkt} as its language.}
+          @item{@tt{stlc+prim.rkt}: language from figure 12.}
+          @item{@tt{stlc+prim-prog.rkt}: some examples (not shown in paper) using @tt{stlc+prim.rkt} language.}
+          @item{@tt{stlc+prim-with-racket.rkt}: (not shown in paper) same language implementation as @tt{stlc+prim.rkt}, but not using Turnstile.}
+          @item{@tt{stlc+prim-with-racket-prog.rkt}: (not shown in paper) same as @tt{stlc+prim-prog.rkt}, but using @tt{stlc+prim-with-racket.rkt} as its language}]
+
+@subsection{Paper Section 5}
+
+@tt{/home/artifact/popl2017-artifact/macrotypes/examples/popl2017/}
+
+@itemlist[@item{@tt{exist.rkt}: language with existential types}
+          @item{@tt{exist-prog.rkt}: counter example from paper}
+          @item{@tt{stlc+sub.rkt}: language with subtyping; reuses rules from @tt{stlc+prim.rkt}}
+          @item{@tt{stlc+sub-prog.rkt}: some examples (not shown in paper) using @tt{stlc+sub.rkt} language}
+          @item{@tt{fomega.rkt}: F-omega language from the paper}
+          @item{@tt{fomega-prog.rkt}: some examples (not shown in paper) using @tt{fomega.rkt}}
+          @item{@tt{effect.rkt}: language with type-and-effect system}
+          @item{@tt{effect-prog.rkt}: some examples (not shown in paper) using @tt{effect.rkt} language}]
+
+@subsection{Paper Section 6}
+The paper presents simplistic snippets of the MLish language implementation,
+optimized for readability. The actual implementation can be found in the files
+listed below. It fills in the gaps from the paper and in addition may differ
+from the paper due to improved error message reported and a more efficient type
+inference algorithm.
+
+@tt{/home/artifact/popl2017-artifact/turnstile/examples/}
+@itemlist[@item{@tt{mlish.rkt}: MLish language (no type classes)}
+          @item{@tt{mlish+adhoc.rkt}: MLish language (with type classes.
+           @tt{define-tc} in the paper is @tt{define-typeclass}.}]
+
+@subsection{Other files}
+@tt{/home/artifact/popl2017-artifact/macrotypes/examples/popl2017/}
+@itemlist[@item{@tt{abbrv.rkt}: defines abbreviations from the paper, like @tt{define-m}}
+          @item{@tt{run-all-examples.rkt}: runs all the @tt{-prog.rkt} example programs.}]
+           
+@section[#:tag "tables"]{Tables from the paper}
+
+We implemented two versions of each language:
+@itemlist[#:style 'ordered
+          @item{a version using Racket, as described in Section 3. These implementations can be found at:
+
+          @tt{/home/artifact/popl2017-artifact/macrotypes/examples/}}
+          @item{a version using Turnstile, as described in Sections 4-6. These implementations can be found at:
+
+                @tt{/home/artifact/popl2017-artifact/turnstile/examples/}}]
+
+These languages try to build and extend each other, and attempt to reuse as much code as possible.
+
+@subsection{Table 1}
+Table 1 was compiled primarily using the Racket implementations (#1). Table 1 is still roughly accurate for the Turnstile versions (#2), except that Turnstile automatically defines a few parameters like @tt{τ=}.
+
+@subsection{Table 2}
+
+Column 1 in table 2 reports the exact line numbers of the Turnstile implementations (#2 above). They have slightly changed since the paper was last edited.
+
+Column 2 in table 2 roughly estimates the number of lines required without reuse by adding up the involved files from column 1. Column 2 counts lines from all files that were entirely needed to implement the language in question, but excludes files from which only a few lines are reused. We rounded to 2 significant figures.
+
+Column 3 tries to add up all the lines of code required by the non-Turnstile implementations (#2 above). Since we practiced standard software engineering and grouped common operations in libraries, this was difficult to estimate accurately. To get a rough idea, we simply added all the language implementations and common files together. We rounded to 2 significant figures.
+
+@subsection{Table 3}
+
+The tests for the core languages are available at:
+
+ @tt{/home/artifact/popl2017-artifact/turnstile/examples/tests/}
+
+The tests for MLish are available at:
+
+ @tt{/home/artifact/popl2017-artifact/turnstile/examples/tests/mlish}
 
 
 @; -----------------------------------------------------------------------------
