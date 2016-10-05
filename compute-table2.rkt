@@ -1,5 +1,7 @@
 #lang racket
 
+;; this file computes numbers in Table 2 of the paper
+
 ;; T = Turnstile
 ;; R = Racket
 
