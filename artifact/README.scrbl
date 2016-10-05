@@ -207,7 +207,7 @@ The languages in each directory try to build and extend each other, and attempt
 to reuse as much code as possible.
 
 @subsection{Table 1}
-Table 1 was compiled primarily using the
+Table 1 was compiled using the
 @hyperlink[@file://[POPL-EXAMPLES]]{Racket implementations} (#1 above).
 Table 1 is still roughly accurate for the
 @hyperlink[@file://[TURNSTILE-EXAMPLES]]{Turnstile versions} (#2), except that
@@ -215,9 +215,10 @@ Turnstile defines a few things, like @tt{τ=}, automatically.
 
 @subsection{Table 2}
 
+The numbers in Table 2 may be computed by running @file-url[REPO]{compute-table2.rkt}.
+
 Column 1 in table 2 reports the exact line numbers of the
 @hyperlink[@file://[TURNSTILE-EXAMPLES]]{Turnstile implementations} (#2 above).
-They may have slightly changed since the paper was last edited.
 
 Column 2 in table 2 roughly estimates the number of lines required to implement
 each language, without reusing any other languages, by adding up the files for
@@ -234,16 +235,11 @@ accurately. To get a rough idea, we simply added all the language
 implementations and common library files together. We rounded to 2 significant
 figures.
 
-We used the following command to compute line counts:
-
-@tt{wc -l <filename.rkt>}
-
-but since the paper was published, it is now possible to count non-whitespace,
-non-comment lines of code via:
-
-@tt{raco sloc <filename.rkt>}
+All line counts include comments.
 
 @subsection{Table 3}
+
+The numbers in Table 3 may be computed by running @file-url[REPO]{compute-table3.rkt}.
 
 The tests for the core languages are available at:
 
@@ -273,6 +269,7 @@ Particular files of interest are:
          }
 ]
 
+All line counts include comments.
 
 @; -----------------------------------------------------------------------------
 @section[#:tag "new"]{Building New Typed Languages}
