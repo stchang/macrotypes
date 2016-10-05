@@ -5,11 +5,11 @@
 ;; figure 11 #%app
 ;; uncomment to use this version, 
 ;; which does not special case the err msg for arity mismatch
-#;(define-typerule (#%app e_fn e_arg ...) ≫
-  [⊢ e_fn ≫ e_fn- ⇒ (~→ τ_in ... τ_out)]
-  [⊢ e_arg ≫ e_arg- ⇐ τ_in] ...
-  --------
-  [⊢ (#%app- e_fn- e_arg- ...) ⇒ τ_out])
+;(define-typerule (#%app e_fn e_arg ...) ≫
+;  [⊢ e_fn ≫ e_fn- ⇒ (~→ τ_in ... τ_out)]
+;  [⊢ e_arg ≫ e_arg- ⇐ τ_in] ...
+;  --------
+;  [⊢ (#%app- e_fn- e_arg- ...) ⇒ τ_out])
 
 ;; #%app extended with improved arity err msg
 (define-typed-syntax (#%app e_fn e_arg ...) ≫

@@ -21,7 +21,7 @@
 
 @(define REPO-URL "https://bitbucket.com/stchang/macrotypes")
 @(define POPL-URL "http://www.ccs.neu.edu/home/stchang/popl2017")
-@(define VM-URL (string-append POPL-URL "/" "type-systems-as-macros.tar.gz"))
+@(define VM-URL (string-append POPL-URL "/" "type-systems-as-macros.ova"))
 
 @(define (file:// p) ;; Path -> String
    (string-append "file://" (path->string p)))
@@ -34,9 +34,9 @@
 
 @title{Artifact: @|PAPER-TITLE|}
 
-@(author (author+email "Alex Knauth" "alexknauth@ccs.neu.edu")
-         (author+email "Ben Greenman" "types@ccs.neu.edu")
-         (author+email "Stephen Chang" "stchang@ccs.neu.edu"))
+@(author (author+email "Stephen Chang" "stchang@ccs.neu.edu")
+         (author+email "Alex Knauth" "alexknauth@ccs.neu.edu")
+         (author+email "Ben Greenman" "types@ccs.neu.edu"))
 
 This is a README file for the artifact that accompanies "@|PAPER-TITLE|" in
 POPL 2017.  If you have any questions, please email any (or all) of the
@@ -44,7 +44,7 @@ authors.
 
 Our artifact is consists of a VM image that contains
 @itemlist[
-  @item{A copy of the POPL 2017 camera-ready}
+  @item{A copy of the POPL 2017 camera-ready @hyperlink[@file://[(build-path DESKTOP PAPER-PDF)]]{[link]}}
   @item{A distribution of the Racket programming language}
   @item{The @racket[turnstile] library and its documentation}
  ]
@@ -59,14 +59,15 @@ The goals of this artifact are to
 @; -----------------------------------------------------------------------------
 @section{Setting up and installing the artifact}
 
-The artifact is available as a virtual machine appliance for VirtualBox.
-Alternatively, you can download the @tt{popl2017-artifact} release from the
+The artifact is available as a virtual machine appliance for
+@hyperlink["https://www.virtualbox.org/wiki/Downloads"]{VirtualBox}.
+Alternatively, you can download the @tt{popl2017-artifact} branch from the
 @tt{turnstile} @hyperlink[REPO-URL]{repository} on Bitbucket and follow the
 instructions in @hyperlink[@file://[(build-path ARTIFACT
 "README.md")]]{artifact/README.md}.  @margin-note{VM appliance:
 @hyperlink[VM-URL]{[link]}}
 
-To run the artifact image, open the given @tt{.ovf} file using the
+To run the artifact image, open the given @tt{.ova} file using the
 @tt{File->Import Appliance} menu item. This will create a new VM
 that can be launched after import. We recommend giving the VM at least
 2GB of RAM.
@@ -102,6 +103,10 @@ button.
 For clarity and conciseness, the paper stylizes code with colors and
 abbreviations. Runnable versions of the paper's examples are available in the
 VM, in the indicated directories.
+
+The links below open in the browser by default.
+
+Open with DrRacket to run them.
 
 @subsection{Paper Section 2}
 
