@@ -3,25 +3,44 @@
 @require[scribble/eval
          scriblib/autobib]
 
-@(define (TODO . xs) (elem (bold "TODO: ") xs)) @; DELETE THIS
+@(define HOME (find-system-path 'home-dir))
+@(define DESKTOP (build-path HOME "Desktop"))
+@(define REPO (build-path HOME "popl2017-artifact"))
+@(define ARTIFACT (build-path REPO "artifact"))
+@(define TURNSTILE (build-path REPO "turnstile"))
+@(define MACROTYPES (build-path REPO "macrotypes"))
+@(define GUIDE (build-path TURNSTILE "doc" "turnstile" "index.html"))
+@(define POPL-EXAMPLES (build-path MACROTYPES "examples" "popl2017"))
+@(define TURNSTILE-EXAMPLES (build-path TURNSTILE "examples"))
+@(define TURNSTILE-TEST (build-path TURNSTILE-EXAMPLES "tests"))
+@(define MLISH-TEST (build-path TURNSTILE-TEST "mlish"))
 
-@(define-cite ~cite citet generate-bibliography)
+@(define PAPER-TITLE  "Type Systems as Macros")
+@(define PAPER-PDF  "type-systems-as-macros.pdf")
+@(define PAPER (build-path DESKTOP PAPER-TITLE))
 
-@(define (rtech pre) (tech pre #:doc '(lib "scribblings/reference.scrble")))
+@(define REPO-URL "https://bitbucket.com/stchang/macrotypes")
+@(define POPL-URL "http://www.ccs.neu.edu/home/stchang/popl2017")
+@(define VM-URL (string-append POPL-URL "/" "type-systems-as-macros.tar.gz"))
 
-@(define file://guide "file:///home/artifact/popl2017-artifact/turnstile/scribblings/turnstile.html")
-@(define file://paper "file:///home/artifact/Desktop/type-systems-as-macros.pdf")
-@(define paper-title "Type Systems as Macros")
+@(define (file:// p) ;; Path -> String
+   (string-append "file://" (path->string p)))
+
+@(define (file-url prefix [suffix #f]) ;; Path (U String #f) -> Elem
+   (define p (if suffix (build-path prefix suffix) prefix))
+   (hyperlink (file:// p) (tt (if suffix suffix (path->string p)))))
 
 @; -----------------------------------------------------------------------------
 
-@title{Artifact: @|paper-title|}
+@title{Artifact: @|PAPER-TITLE|}
 
 @(author (author+email "Alex Knauth" "alexknauth@ccs.neu.edu")
          (author+email "Ben Greenman" "types@ccs.neu.edu")
          (author+email "Stephen Chang" "stchang@ccs.neu.edu"))
 
-This is a README file for the artifact that accompanies "@|paper-title|" in POPL 2017.
+This is a README file for the artifact that accompanies "@|PAPER-TITLE|" in
+POPL 2017.  If you have any questions, please email any (or all) of the
+authors.
 
 Our artifact is consists of a VM image that contains
 @itemlist[
@@ -41,18 +60,16 @@ The goals of this artifact are to
 @section{Setting up and installing the artifact}
 
 The artifact is available as a virtual machine appliance for VirtualBox.
-Alternatively, you can download the @TODO{popl2017-artifact}
-release from the @tt{turnstile} repository on Bitbucket and follow the
-instructions in @tt{artifact/README.md}.
-@margin-note{VM appliance: @hyperlink["http://www.ccs.neu.edu/home/stchang/popl2017/type-systems-as-macros.tar.gz"]{[link]}}
-
-If you are already reading this README in the VM, feel free to ignore the
-rest of this section.
+Alternatively, you can download the @tt{popl2017-artifact} release from the
+@tt{turnstile} @hyperlink[REPO-URL]{repository} on Bitbucket and follow the
+instructions in @hyperlink[@file://[(build-path ARTIFACT
+"README.md")]]{artifact/README.md}.  @margin-note{VM appliance:
+@hyperlink[VM-URL]{[link]}}
 
 To run the artifact image, open the given @tt{.ovf} file using the
 @tt{File->Import Appliance} menu item. This will create a new VM
 that can be launched after import. We recommend giving the VM at least
-2GB of RAM, but the examples from the paper will run within 512MB of RAM.
+2GB of RAM.
 
 The image is configured to automatically login to the @tt{artifact} user account.
 The password for the account is also @tt{artifact}.
@@ -61,14 +78,17 @@ The account has root privileges using @tt{sudo} without a password.
 
 @; -----------------------------------------------------------------------------
 @section{Artifact Overview}
-The relevant files are in @tt{/home/artifact/Desktop/}.
-This directory contains
+
+
+The relevant files are in @file-url[DESKTOP].
+This directory contains:
 @itemlist[
-  @item{@tt{README.html}: This page}
-  @item{@tt{paper.pdf}: The camera-ready version of the paper.}
+  @item{@file-url[DESKTOP]{README.html}: This page}
+  @item{@file-url[DESKTOP PAPER-PDF]: The camera-ready version of the paper.}
   @item{@tt{DrRacket}: DrRacket IDE for Racket v6.6
 
-  One may run example files by opening them in DrRacket and pressing the "Run" button.
+  One may run example files by opening them in DrRacket and pressing the "Run"
+button.
   
  Alternatively, one may run files from the command line with command:
 
@@ -85,46 +105,69 @@ VM, in the indicated directories.
 
 @subsection{Paper Section 2}
 
-@tt{/home/artifact/popl2017-artifact/macrotypes/examples/popl2017/}
-@itemlist[@item{@tt{lam.rkt}: defines a language with only single-argument lambda}
-          @item{@tt{lam-prog.rkt}: a program using @tt{lam.rkt} as its language.
-          Attempting to apply functions results in a syntax error.
-           This file uses our custom unit-testing framework to catch and
-          check errors.}
-          @item{@tt{lc.rkt}: extends @tt{lam.rkt} with function application}
-          @item{@tt{lc-prog.rkt}: a program using @tt{lc.rkt} as its language.
-           This program will loop forever when run.}]
+@file-url[POPL-EXAMPLES]
+@itemlist[@item{@file-url[POPL-EXAMPLES]{lam.rkt}: defines a language with only
+                single-argument lambda}
+          @item{@file-url[POPL-EXAMPLES]{lam-prog.rkt}: a program using
+                @tt{lam.rkt} as its language.
+                Attempting to apply functions results in a syntax error.
+                This file uses our custom unit-testing framework to catch and
+                check errors.}
+          @item{@file-url[POPL-EXAMPLES]{lc.rkt}: extends @tt{lam.rkt} with
+                function application}
+          @item{@file-url[POPL-EXAMPLES]{lc-prog.rkt}: a program using
+                @tt{lc.rkt} as its language.
+                This program will loop forever when run.}]
           
 @subsection{Paper Section 3}
 
-@tt{/home/artifact/popl2017-artifact/macrotypes/examples/popl2017/}
-@itemlist[@item{@tt{stlc-with-racket.rkt}: runnable version of code from figures 3-8}
-          @item{@tt{stlc-with-racket-prog.rkt}:
-           a program that uses @tt{stlc-with-racket.rkt} as its language. Shows a few type errors.}]
+@file-url[POPL-EXAMPLES]
+@itemlist[@item{@file-url[POPL-EXAMPLES]{stlc-with-racket.rkt}: runnable version
+                of code from figures 3 through 8}
+          @item{@file-url[POPL-EXAMPLES]{stlc-with-racket-prog.rkt}:
+                a program that uses @tt{stlc-with-racket.rkt} as its language.
+                Shows a few type errors.}]
 
 @subsection{Paper Section 4}
 
-@tt{/home/artifact/popl2017-artifact/macrotypes/examples/popl2017/}
-@itemlist[@item{@tt{stlc-with-turnstile.rkt}: runnable version of code from figure 11, as well as the extended @tt{#%app} from section 4.2.}
-          @item{@tt{stlc-with-turnstile-prog.rkt}:
-           same as @tt{stlc-with-racket-prog.rkt}, but using @tt{stlc-with-turnstile.rkt} as its language}
-          @item{@tt{stlc+prim.rkt}: language from figure 12 that extends @tt{stlc-with-turnstile.rkt} with integers}
-          @item{@tt{stlc+prim-prog.rkt}: some examples (not shown in paper) using the @tt{stlc+prim.rkt} language}
-          @item{@tt{stlc+prim-with-racket.rkt}: (not shown in paper) same language implementation as @tt{stlc+prim.rkt}, but using base Racket instead of Turnstile}
-          @item{@tt{stlc+prim-with-racket-prog.rkt}: (not shown in paper) same as @tt{stlc+prim-prog.rkt}, but using @tt{stlc+prim-with-racket.rkt} as its language}]
+@file-url[POPL-EXAMPLES]
+@itemlist[@item{@file-url[POPL-EXAMPLES]{stlc-with-turnstile.rkt}: runnable
+                version of code from figure 11, as well as the extended
+                @tt{#%app} from section 4.2.}
+          @item{@file-url[POPL-EXAMPLES]{stlc-with-turnstile-prog.rkt}:
+                same as @tt{stlc-with-racket-prog.rkt}, but using
+                @tt{stlc-with-turnstile.rkt} as its language}
+          @item{@file-url[POPL-EXAMPLES]{stlc+prim.rkt}: language from figure 12
+                that extends @tt{stlc-with-turnstile.rkt} with integers}
+          @item{@file-url[POPL-EXAMPLES]{stlc+prim-prog.rkt}: some examples
+                (not shown in paper) using the @tt{stlc+prim.rkt} language}
+          @item{@file-url[POPL-EXAMPLES]{stlc+prim-with-racket.rkt}:
+                (not shown in paper) same language implementation as
+                @tt{stlc+prim.rkt}, but using base Racket instead of Turnstile}
+          @item{@file-url[POPL-EXAMPLES]{stlc+prim-with-racket-prog.rkt}:
+                (not shown in paper) same as @tt{stlc+prim-prog.rkt}, but using
+                @tt{stlc+prim-with-racket.rkt} as its language}]
 
 @subsection{Paper Section 5}
 
-@tt{/home/artifact/popl2017-artifact/macrotypes/examples/popl2017/}
+@file-url[POPL-EXAMPLES]
 
-@itemlist[@item{@tt{exist.rkt}: language with existential types from figure 13}
-          @item{@tt{exist-prog.rkt}: the "counter" example from the paper}
-          @item{@tt{stlc+sub.rkt}: language with subtyping from figure 14; reuses rules from @tt{stlc+prim.rkt}}
-          @item{@tt{stlc+sub-prog.rkt}: some examples (not shown in paper) using the @tt{stlc+sub.rkt} language}
-          @item{@tt{fomega.rkt}: F-omega language from figure 16}
-          @item{@tt{fomega-prog.rkt}: some examples (not shown in paper) using the @tt{fomega.rkt} language}
-          @item{@tt{effect.rkt}: language with type-and-effect system from figure 17}
-          @item{@tt{effect-prog.rkt}: some examples (not shown in paper) using the @tt{effect.rkt} language}]
+@itemlist[@item{@file-url[POPL-EXAMPLES]{exist.rkt}: language with existential
+                types from figure 13}
+          @item{@file-url[POPL-EXAMPLES]{exist-prog.rkt}: the "counter" example
+                from the paper}
+          @item{@file-url[POPL-EXAMPLES]{stlc+sub.rkt}: language with subtyping
+                from figure 14; reuses rules from @tt{stlc+prim.rkt}}
+          @item{@file-url[POPL-EXAMPLES]{stlc+sub-prog.rkt}: some examples
+                (not shown in paper) using the @tt{stlc+sub.rkt} language}
+          @item{@file-url[POPL-EXAMPLES]{fomega.rkt}: F-omega language from
+                figure 16}
+          @item{@file-url[POPL-EXAMPLES]{fomega-prog.rkt}: some examples
+                (not shown in paper) using the @tt{fomega.rkt} language}
+          @item{@file-url[POPL-EXAMPLES]{effect.rkt}: language with
+                type-and-effect system from figure 17}
+          @item{@file-url[POPL-EXAMPLES]{effect-prog.rkt}: some examples
+                (not shown in paper) using the @tt{effect.rkt} language}]
 
 @subsection{Paper Section 6}
 The paper presents simplistic snippets of the MLish language implementation,
@@ -133,69 +176,110 @@ listed below. It fills in the gaps from the paper and in addition may differ
 from the paper due to improved error message reported and a more efficient type
 inference algorithm.
 
-@tt{/home/artifact/popl2017-artifact/turnstile/examples/}
-@itemlist[@item{@tt{mlish.rkt}: MLish language (no type classes)}
-          @item{@tt{mlish+adhoc.rkt}: MLish language (with type classes);
-           @tt{define-tc} in the paper is @tt{define-typeclass}.}]
+@file-url[TURNSTILE-EXAMPLES]
+@itemlist[@item{@file-url[TURNSTILE-EXAMPLES]{mlish.rkt}: MLish language
+                (no type classes)}
+          @item{@file-url[TURNSTILE-EXAMPLES]{mlish+adhoc.rkt}: MLish language
+                (with type classes); @tt{define-tc} in the paper is
+                @tt{define-typeclass}.}]
 
 @subsection{Other files}
-@tt{/home/artifact/popl2017-artifact/macrotypes/examples/popl2017/}
-@itemlist[@item{@tt{abbrv.rkt}: defines abbreviations from the paper, like @tt{define-m}}
-          @item{@tt{run-all-examples.rkt}: runs all the @tt{-prog.rkt} example programs}]
+@file-url[POPL-EXAMPLES]
+@itemlist[@item{@file-url[POPL-EXAMPLES]{abbrv.rkt}: defines abbreviations from
+                the paper, like @tt{define-m}}
+          @item{@file-url[POPL-EXAMPLES]{run-all-examples.rkt}: runs all the
+                @tt{-prog.rkt} example programs}]
            
 @section[#:tag "tables"]{Tables from the paper}
 
 We implemented two versions of each language:
 @itemlist[#:style 'ordered
-          @item{a version using Racket, as described in Section 3 of the paper. These implementations can be found at:
+          @item{a version using Racket, as described in Section 3 of the paper.
+                These implementations can be found at:
 
-          @tt{/home/artifact/popl2017-artifact/macrotypes/examples/}}
-          @item{a version using Turnstile, as described in Sections 4-6 of the paper. These implementations can be found at:
+                @file-url[(build-path MACROTYPES "examples")]}
+          @item{a version using Turnstile, as described in Sections 4-6 of the
+                paper. These implementations can be found at:
 
-                @tt{/home/artifact/popl2017-artifact/turnstile/examples/}}]
+                @file-url[TURNSTILE-EXAMPLES]}]
 
-These languages try to build and extend each other, and attempt to reuse as much code as possible.
+The languages in each directory try to build and extend each other, and attempt
+to reuse as much code as possible.
 
 @subsection{Table 1}
-Table 1 was compiled primarily using the Racket implementations (#1 above). Table 1 is still roughly accurate for the Turnstile versions (#2), except that Turnstile defines a few things, like @tt{τ=}, automatically.
+Table 1 was compiled primarily using the
+@hyperlink[@file://[POPL-EXAMPLES]]{Racket implementations} (#1 above).
+Table 1 is still roughly accurate for the
+@hyperlink[@file://[TURNSTILE-EXAMPLES]]{Turnstile versions} (#2), except that
+Turnstile defines a few things, like @tt{τ=}, automatically.
 
 @subsection{Table 2}
 
-Column 1 in table 2 reports the exact line numbers of the Turnstile implementations (#2 above). They may have slightly changed since the paper was last edited.
+Column 1 in table 2 reports the exact line numbers of the
+@hyperlink[@file://[TURNSTILE-EXAMPLES]]{Turnstile implementations} (#2 above).
+They may have slightly changed since the paper was last edited.
 
-Column 2 in table 2 roughly estimates the number of lines required to implement each language, without reusing any other languages, by adding up the files for the relevant languages from column 1. Column 2 only counts lines from files that were @emph{entirely} needed to implement the language in question, and excludes files from which only a few lines are reused. We rounded to 2 significant figures.
+Column 2 in table 2 roughly estimates the number of lines required to implement
+each language, without reusing any other languages, by adding up the files for
+the relevant languages from column 1. Column 2 only counts lines from files
+that were @emph{entirely} needed to implement the language in question, and
+excludes files from which only a few lines are reused. We rounded to 2
+significant figures.
 
-Column 3 tries to add up all the lines of code required by the non-Turnstile implementations (#2 above). Since we programmed according to standard software development practices, and grouped common operations in libraries, this was difficult to estimate accurately. To get a rough idea, we simply added all the language implementations and common library files together. We rounded to 2 significant figures.
+Column 3 tries to add up all the lines of code required by the
+@hyperlink[POPL-EXAMPLES]{non-Turnstile implementations} (#1 above).
+Since we programmed according to standard software development practices, and
+grouped common operations in libraries, this was difficult to estimate
+accurately. To get a rough idea, we simply added all the language
+implementations and common library files together. We rounded to 2 significant
+figures.
+
+We used the following command to compute line counts:
+
+@tt{wc -l <filename.rkt>}
+
+but since the paper was published, it is now possible to count non-whitespace,
+non-comment lines of code via:
+
+@tt{raco sloc <filename.rkt>}
 
 @subsection{Table 3}
 
 The tests for the core languages are available at:
 
- @tt{/home/artifact/popl2017-artifact/turnstile/examples/tests/}
+ @file-url[TURNSTILE-TEST]
 
 The tests for MLish are available at:
 
- @tt{/home/artifact/popl2017-artifact/turnstile/examples/tests/mlish}
+ @file-url[MLISH-TEST]
+
+Particular files of interest are:
+@itemize[@item{@file-url[MLISH-TEST]{generic.rkt}: example typeclass operations
+         }
+         @item{@file-url[MLISH-TEST]{infer-variance.rkt}: stress tests for type
+           inference
+         }
+         @item{@file-url[MLISH-TEST]{listpats.rkt}: pattern matching for
+           built-in lists
+         }
+         @item{@file-url[(build-path MLISH-TEST "bg")]{okasaki.rkt}:
+           tests from @emph{Purely Functional Data Structures}
+         }
+         @item{@file-url[MLISH-TEST]{polyrecur.rkt}: polymorphic, recursive
+           type definitions
+         }
+         @item{@file-url[MLISH-TEST]{queens.rkt}: solution to the nqueens
+           problem
+         }
+]
 
 
 @; -----------------------------------------------------------------------------
 @section[#:tag "new"]{Building New Typed Languages}
 
-The @hyperlink[file://guide]{turnstile guide} describes how to build
+@file-url[GUIDE]
+
+The @hyperlink[@file://[GUIDE]]{turnstile guide} describes how to build
 and re-use a new typed language.
 
 
-@; -----------------------------------------------------------------------------
-@section[#:tag "resources"]{Resources}
-
-@itemlist[
-@item{
-  POPL 2017 camera ready @hyperlink[file://paper]{[link]}
-}
-@item{
-  Turnstile documentation @hyperlink[file://guide]{[link]}
-}
-@item{
-  Racket documentation @hyperlink["file:///home/artifact/racket/doc/index.html"]{[link]}
-}
-]
