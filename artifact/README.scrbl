@@ -9,7 +9,9 @@
 @(define ARTIFACT (build-path REPO "artifact"))
 @(define TURNSTILE (build-path REPO "turnstile"))
 @(define MACROTYPES (build-path REPO "macrotypes"))
-@(define GUIDE (build-path TURNSTILE "doc" "turnstile" "index.html"))
+@(define DOCS (build-path TURNSTILE "doc" "turnstile" "index.html"))
+@(define GUIDE (build-path TURNSTILE "doc" "turnstile" "The_Turnstile_Guide.html"))
+@(define REF (build-path TURNSTILE "doc" "turnstile" "The_Turnstile_Reference.html"))
 @(define POPL-EXAMPLES (build-path MACROTYPES "examples" "popl2017"))
 @(define TURNSTILE-EXAMPLES (build-path TURNSTILE "examples"))
 @(define TURNSTILE-TEST (build-path TURNSTILE-EXAMPLES "tests"))
@@ -212,21 +214,22 @@ The languages in each directory try to build and extend each other, and attempt
 to reuse as much code as possible.
 
 @subsection{Table 1}
+
 Table 1 was compiled using the
 @hyperlink[@file://[POPL-EXAMPLES]]{Racket implementations} (#1 above).
 Table 1 is still roughly accurate for the
 @hyperlink[@file://[TURNSTILE-EXAMPLES]]{Turnstile versions} (#2), except that
 Turnstile defines a few things, like @tt{τ=}, automatically.
 
-@subsection{Table 2}
+The (Excel) source for Table 1 is viewable at @file-url[REPO]{extension-table.xlsm}.
 
-The numbers in Table 2 may be computed by running @file-url[REPO]{compute-table2.rkt}.
+@subsection{Table 2}
 
 Column 1 in table 2 reports the exact line numbers of the
 @hyperlink[@file://[TURNSTILE-EXAMPLES]]{Turnstile implementations} (#2 above).
 
 Column 2 in table 2 roughly estimates the number of lines required to implement
-each language, without reusing any other languages, by adding up the files for
+each language, without reusing any other languages, by adding up the lines for
 the relevant languages from column 1. Column 2 only counts lines from files
 that were @emph{entirely} needed to implement the language in question, and
 excludes files from which only a few lines are reused. We rounded to 2
@@ -240,11 +243,11 @@ accurately. To get a rough idea, we simply added all the language
 implementations and common library files together. We rounded to 2 significant
 figures.
 
+The numbers in Table 2 may be computed by running @file-url[REPO]{compute-table2.rkt}.
+
 All line counts include comments.
 
 @subsection{Table 3}
-
-The numbers in Table 3 may be computed by running @file-url[REPO]{compute-table3.rkt}.
 
 The tests for the core languages are available at:
 
@@ -255,33 +258,45 @@ The tests for MLish are available at:
  @file-url[MLISH-TEST]
 
 Particular files of interest are:
-@itemize[@item{@file-url[MLISH-TEST]{generic.rkt}: example typeclass operations
+@itemize[@item{@file-url[MLISH-TEST]{generic.mlish}: example typeclass operations
          }
-         @item{@file-url[MLISH-TEST]{infer-variance.rkt}: stress tests for type
-           inference
+         @item{@file-url[MLISH-TEST]{term.mlish}: some tests from
+          @hyperlink["https://realworldocaml.org/"]{@emph{Real-World OCaml}}
          }
-         @item{@file-url[MLISH-TEST]{listpats.rkt}: pattern matching for
-           built-in lists
+         @item{@file-url[MLISH-TEST]{nbody.mlish},
+               @file-url[MLISH-TEST]{fasta.mlish},
+               @file-url[MLISH-TEST]{chameneos.mlish}:
+          some tests from
+          @hyperlink["http://benchmarksgame.alioth.debian.org/"]{The Computer Language Benchmarks Game}
          }
-         @item{@file-url[(build-path MLISH-TEST "bg")]{okasaki.rkt}:
+         @item{@file-url[MLISH-TEST]{listpats.mlish},
+               @file-url[MLISH-TEST]{match2.mlish}:
+          pattern matching tests for lists, tuples, and user-defined datatypes
+         }
+         @item{@file-url[(build-path MLISH-TEST "bg")]{okasaki.mlish}:
            tests from @emph{Purely Functional Data Structures}
          }
-         @item{@file-url[MLISH-TEST]{polyrecur.rkt}: polymorphic, recursive
+         @item{@file-url[MLISH-TEST]{polyrecur.mlish}: polymorphic, recursive
            type definitions
          }
-         @item{@file-url[MLISH-TEST]{queens.rkt}: solution to the nqueens
-           problem
+         @item{@file-url[MLISH-TEST]{queens.mlish},
+               @file-url[(build-path MLISH-TEST "bg")]{huffman.mlish}:
+          a few other common example programs
          }
 ]
+
+The numbers in Table 3 may be computed by running @file-url[REPO]{compute-table3.rkt}.
 
 All line counts include comments.
 
 @; -----------------------------------------------------------------------------
 @section[#:tag "new"]{Building New Typed Languages}
 
-@file-url[GUIDE]
+Here is a link to the official Turnstile documentation: @file-url[DOCS]
 
-The @hyperlink[@file://[GUIDE]]{turnstile guide} describes how to build
+The @hyperlink[@file://[GUIDE]]{Turnstile guide} describes how to build
 and re-use a new typed language.
 
+The @hyperlink[@file://[REF]]{Turnstile reference} describes all the forms provided
+by Turnstile.
 
