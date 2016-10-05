@@ -308,7 +308,7 @@
                   [⊢ [e-stx props:⇒-props/conclusion]])
              #:with :last-clause #'[⊢ [_ ≫ e-stx . props]]]
     ;; ⇐ conclusion
-    [pattern (~or [⊢ [e-stx]] [⊢ (~and e-stx (~not [_ ≫ . rst]))])
+    [pattern [⊢ (~and e-stx (~not [_ ≫ . rst]))]
              #:with :last-clause #'[⊢ [_ ≫ e-stx ⇐ : _]]]
     [pattern (~or [⊢ pat* ≫ e-stx ⇐ τ-pat]
                   [⊢ pat* ≫ e-stx ⇐ : τ-pat]
