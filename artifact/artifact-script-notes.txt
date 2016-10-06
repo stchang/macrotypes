@@ -4,6 +4,7 @@ steps not included in script that builds artifact VM:
 - disable unneeded tools
 - open in tab by default
 - line numbers
+- reduce recent file list?
 2) does not set FireFox prefs
 - default to unicode 
   - need to check Automatically detect encoding -> Japanese

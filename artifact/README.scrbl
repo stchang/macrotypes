@@ -74,7 +74,7 @@ The artifact is available as a virtual machine appliance for
 @margin-note{VM appliance:
 @hyperlink[VM-URL]{[link]}}
 
-To run the artifact image, open the given @tt{.ova} file using the
+To run the artifact image, open the downloaded @tt{.ova} file using the
 @tt{File->Import Appliance} menu item. This will create a new VM
 that can be launched after import. We recommend giving the VM at least
 2GB of RAM.
@@ -88,12 +88,15 @@ The account has root privileges using @tt{sudo} without a password.
 Follow these instructions to manually install the artifact only if
 the VirtualBox image is somehow not working.
 
-We have only tested these steps with a Linux setup.
+(We have only tested these steps with Linux.)
 
-These steps assume that the Racket @tt{bin} directory is in the @tt{PATH}.
+@itemlist[@item{Install @hyperlink["http://download.racket-lang.org"]{Racket
+            6.6}.
 
-@itemlist[@item{Install @hyperlink["http://download.racket-lang.org"]{Racket 6.6}.
-                Add the Racket @tt{bin} directory to your @tt{PATH}.}
+           Add the Racket @tt{bin} directory to your @tt{PATH}. The
+           remaining steps assume that the Racket @tt{bin} directory is in the 
+           @tt{PATH}.}
+           
           @item{Clone the repository into the directory @tt{popl2017}:
 
                 @tt{git clone https://bitbucket.org/stchang/macrotypes popl2017}}
@@ -140,14 +143,19 @@ The following files may also be accessed via the VM Desktop:
 @; -----------------------------------------------------------------------------
 @section[#:tag "examples"]{Code from the paper}
 
-For clarity and conciseness, the paper stylizes code with colors and
-abbreviations. Runnable versions of the paper's examples are available in the
-VM, in the indicated directories.
+For readability and conciseness, the paper presents simplified code that is
+stylized with colors and abbreviations. Thus code examples from the paper may
+not run as presented. However, runnable versions of the paper's examples are
+available in this artifact and are explained in this section.
+
+Note that code presented in the paper and code used for evaluation (see the 
+@seclink["tables"]{next section}) may differ slightly, e.g., in the quality of
+their error messages. This artifact always points to the exact code being
+discussed.
 
 The links below open in the browser by default. (If not viewing in the VM, you
-may need to adjust your browser's "Text Encoding" to display Unicode.)
-
-Open with DrRacket to run them.
+may need to adjust your browser's "Text Encoding" to display Unicode.) Open with
+DrRacket to run the files.
 
 @subsection{Paper Section 2}
 
@@ -238,7 +246,7 @@ inference algorithm.
            
 @section[#:tag "tables"]{Tables from the paper}
 
-We implemented two versions of each language:
+To evaluate Turnstile, we implemented two versions of several example languages:
 @itemlist[#:style 'ordered
           @item{a version using Racket, as described in Section 3 of the paper.
                 These implementations can be found at:
@@ -249,18 +257,20 @@ We implemented two versions of each language:
 
                 @file-url[TURNSTILE-EXAMPLES]}]
 
-The languages in each directory try to build and extend each other, and attempt
-to reuse as much code as possible.
+The languages in each directory extend and reuse components from each other when
+appropriate.
 
 @subsection{Table 1}
 
 Table 1 was compiled using the
 @hyperlink[@file://[RACKET-EXAMPLES]]{Racket implementations} (#1 above).
-Table 1 is still roughly accurate for the
+Table 1 remains roughly accurate for the
 @hyperlink[@file://[TURNSTILE-EXAMPLES]]{Turnstile versions} (#2), except that
-Turnstile defines a few things, like @tt{τ=}, automatically.
+Turnstile defines more things, like @tt{τ=}, automatically.
 
-The (Excel) source for Table 1 is at @file-url[REPO]{extension-table.xlsm}, though unfortunately this VM cannot open the file. It is publicly downloadable from the repository though.
+The (Excel) source for Table 1 is at @file-url[REPO]{extension-table.xlsm}.
+Unfortunately this VM cannot open the file, though it is publicly downloadable
+from our repository.
 
 @subsection{Table 2}
 
@@ -269,22 +279,23 @@ Column 1 in table 2 reports the exact line numbers of the
 
 Column 2 in table 2 roughly estimates the number of lines required to implement
 each language, without reusing any other languages, by adding up the lines for
-the relevant languages from column 1. Column 2 only counts lines from files
-that were @emph{entirely} needed to implement the language in question, and
-excludes files from which only a few lines are reused. We rounded to 2
-significant figures.
+the relevant languages from column 1. Column 2 is an approximation because it
+only counts lines from files that were @emph{entirely} needed to implement the
+language in question, and excludes files from which only a few lines are reused.
 
-Column 3 tries to add up all the lines of code required by the
-@hyperlink[RACKET-EXAMPLES]{non-Turnstile implementations} (#1 above).
-Since we programmed according to standard software development practices, and
-grouped common operations in libraries, this was difficult to estimate
-accurately. To get a rough idea, we simply added all the language
-implementations and common library files together. We rounded to 2 significant
-figures.
+Column 3 tries to add up all the lines of code required by the 
+@hyperlink[RACKET-EXAMPLES]{non-Turnstile implementations} (#1 above). Since we
+did not explicitly implement every permutation of every language, and instead
+followed standard software development practices such as moving common
+operations to libraries, column 3 was difficult to estimate accurately. To get a
+rough idea, we simply added all the language implementations and common library
+files together.
+
+All line counts include comments and all approximate numbers are rounded to two
+significant figures. Despite the approximations, this table remains useful for
+understanding the degree of reuse achieved by using Turnstile.
 
 The numbers in Table 2 may be recomputed by running @file-url[REPO]{compute-table2.rkt}.
-
-All line counts include comments.
 
 @subsection{Table 3}
 
