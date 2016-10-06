@@ -103,7 +103,7 @@ These steps assume that the Racket @tt{bin} directory is in the @tt{PATH}.
           @item{From the repository root, check out the @tt{popl2017-artifact} branch:
 
                 @tt{git checkout popl2017-artifact}}
-          @item{From the repository root, install Turnstile as a Racket package:
+          @item{From the repository root, install Turnstile (may take ~30min-1hr):
 
                 @tt{raco pkg install }@literal{--}@tt{auto}}
           @item{Register the documentation:
@@ -123,7 +123,7 @@ These steps assume that the Racket @tt{bin} directory is in the @tt{PATH}.
 
 The relevant files are in @file-url[REPO].
 
-These files are also be available on the VM Desktop:
+These files also have a shortcut on the VM Desktop:
 @itemlist[
   @item{@file-url[ARTIFACT]{README.html}: This page}
   @item{@file-url[ARTIFACT PAPER-PDF]: The camera-ready version of the paper.}
