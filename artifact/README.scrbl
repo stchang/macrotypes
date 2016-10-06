@@ -91,29 +91,30 @@ We have only tested these steps with a Linux setup.
 
 These steps assume that the Racket @tt{bin} directory is in the @tt{PATH}.
 
-@itemlist[@item{@hyperlink["http://racket-lang.org"]{install Racket 6.6}}
-          @item{clone the repository into the directory @tt{popl2017}:
+@itemlist[@item{Install @hyperlink["http://download.racket-lang.org"]{Racket 6.6}.
+                Add the Racket @tt{bin} directory to your @tt{PATH}.}
+          @item{Clone the repository into the directory @tt{popl2017}:
 
                 @tt{git clone https://bitbucket.org/stchang/macrotypes popl2017}}
-          @item{change directory to the repository root
+          @item{Change directory to the repository root:
 
                 @tt{cd popl2017}}
-          @item{from the repository root, check out the @tt{popl2017-artifact} branch:
+          @item{From the repository root, check out the @tt{popl2017-artifact} branch:
 
                 @tt{git checkout popl2017-artifact}}
-          @item{from the repository root, install Turnstile as a Racket package:
+          @item{From the repository root, install Turnstile as a Racket package:
 
                 @tt{raco pkg install }@literal{--}@tt{auto}}
-          @item{register the documentation
+          @item{Register the documentation:
 
                 @tt{raco setup }@literal{--}@tt{doc-index}}
-          @item{from the repository root, change to the @tt{artifact} directory
+          @item{From the repository root, change to the @tt{artifact} directory:
 
                 @tt{cd artifact}}
-          @item{build the readme
+          @item{Build the readme:
 
                 @tt{make readme}}
-          @item{open the produced @tt{README.html} file}]
+          @item{Open the produced @tt{README.html} file.}]
 
 @; -----------------------------------------------------------------------------
 @section{Artifact Overview}
