@@ -260,7 +260,7 @@ Table 1 is still roughly accurate for the
 @hyperlink[@file://[TURNSTILE-EXAMPLES]]{Turnstile versions} (#2), except that
 Turnstile defines a few things, like @tt{τ=}, automatically.
 
-The (Excel) source for Table 1 is at @file-url[REPO]{extension-table.xlsm}, though unfortunately this VM cannot open the file. It is publicly available from the repository though.
+The (Excel) source for Table 1 is at @file-url[REPO]{extension-table.xlsm}, though unfortunately this VM cannot open the file. It is publicly downloadable from the repository though.
 
 @subsection{Table 2}
 
@@ -292,9 +292,13 @@ The tests for the core languages are available at:
 
  @file-url[TURNSTILE-TEST]
 
+Run all (non-MLish) tests by running @file-url[(build-path TURNSTILE-TEST "run-all-tests.rkt")].
+
 The tests for MLish are available at:
 
  @file-url[MLISH-TEST]
+
+Run all the MLish tests by running @file-url[(build-path TURNSTILE-TEST "run-all-mlish-tests.rkt")].
 
 Particular files of interest are:
 @itemize[@item{@file-url[MLISH-TEST]{generic.mlish}: example typeclass operations
