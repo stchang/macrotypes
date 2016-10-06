@@ -1,11 +1,11 @@
 #lang scribble/manual
 
 @require[scribble/eval
-         scriblib/autobib]
+         scriblib/autobib
+         racket/list]
 
 @(define HOME (find-system-path 'home-dir))
-@(define DESKTOP (build-path HOME "Desktop"))
-@(define REPO (build-path HOME "popl2017-artifact"))
+@(define REPO (apply build-path (drop-right (explode-path (current-directory)) 1)))
 @(define ARTIFACT (build-path REPO "artifact"))
 @(define TURNSTILE (build-path REPO "turnstile"))
 @(define MACROTYPES (build-path REPO "macrotypes"))
@@ -18,8 +18,8 @@
 @(define MLISH-TEST (build-path TURNSTILE-TEST "mlish"))
 
 @(define PAPER-TITLE  "Type Systems as Macros")
-@(define PAPER-PDF  "type-systems-as-macros.pdf")
-@(define PAPER (build-path DESKTOP PAPER-TITLE))
+@(define PAPER-PDF  "paper.pdf")
+@(define PAPER (build-path ARTIFACT PAPER-PDF))
 
 @(define REPO-URL "https://bitbucket.com/stchang/macrotypes")
 @(define POPL-URL "http://www.ccs.neu.edu/home/stchang/popl2017")
@@ -46,7 +46,7 @@ authors.
 
 Our artifact is consists of a VM image that contains
 @itemlist[
-  @item{A copy of the POPL 2017 camera-ready @hyperlink[@file://[(build-path DESKTOP PAPER-PDF)]]{[link]}}
+  @item{A copy of the POPL 2017 camera-ready @hyperlink[@file://[PAPER]]{[link]}}
   @item{A distribution of the Racket programming language}
   @item{The @racket[turnstile] library and its documentation}
  ]
@@ -61,12 +61,16 @@ The goals of this artifact are to
 @; -----------------------------------------------------------------------------
 @section{Setting up and installing the artifact}
 
+Skip this section if you are already reading this document from within the VM.
+
+The artifact may be installed in two ways, described below.
+Using the VirtualBox VM is recommended.
+
+@subsection{VirtualBox VM Image}
+
 The artifact is available as a virtual machine appliance for
 @hyperlink["https://www.virtualbox.org/wiki/Downloads"]{VirtualBox}.
-Alternatively, you can download the @tt{popl2017-artifact} branch from the
-@tt{turnstile} @hyperlink[REPO-URL]{repository} on Bitbucket and follow the
-instructions in @hyperlink[@file://[(build-path ARTIFACT
-"README.md")]]{artifact/README.md}.  @margin-note{VM appliance:
+@margin-note{VM appliance:
 @hyperlink[VM-URL]{[link]}}
 
 To run the artifact image, open the given @tt{.ova} file using the
@@ -78,24 +82,50 @@ The image is configured to automatically login to the @tt{artifact} user account
 The password for the account is also @tt{artifact}.
 The account has root privileges using @tt{sudo} without a password.
 
+@subsection{Manual Installation}
+
+Follow these instructions to manually install the artifact only if
+the VirtualBox image is somehow not working.
+
+We have only tested these steps with a Linux setup.
+
+@itemlist[@item{@hyperlink["http://racket-lang.org"]{install Racket 6.6}}
+          @item{clone the repository into the directory @tt{popl2017-artifact}:
+
+                @tt{git clone https://bitbucket.org/stchang/macrotypes popl2017}}
+          @item{change directory to the repository root
+
+                @tt{cd popl2017}}
+          @item{from the repository root, check out the @tt{popl2017-artifact} branch:
+
+                @tt{git checkout popl2017-artifact}}
+          @item{from the repository root, install Turnstile as a Racket package:
+
+                @literal{raco pkg install --auto}}
+          @item{from the repository root, change to the @tt{artifact} directory
+
+                @tt{cd artifact}}
+          @item{build the readme
+
+                @tt{make readme}}
+          @item{open the produced @tt{README.html} file}]
 
 @; -----------------------------------------------------------------------------
 @section{Artifact Overview}
 
 
-The relevant files are in @file-url[DESKTOP].
+The relevant files are in @file-url[REPO]. They should also be available on the VM Desktop.
 This directory contains:
 @itemlist[
-  @item{@file-url[DESKTOP]{README.html}: This page}
-  @item{@file-url[DESKTOP PAPER-PDF]: The camera-ready version of the paper.}
+  @item{@file-url[ARTIFACT]{README.html}: This page}
+  @item{@file-url[ARTIFACT PAPER-PDF]: The camera-ready version of the paper.}
   @item{@tt{DrRacket}: DrRacket IDE for Racket v6.6
 
-  One may run example files by opening them in DrRacket and pressing the "Run"
-button.
+  Run example files by opening them in DrRacket and pressing the "Run" button.
   
- Alternatively, one may run files from the command line with command:
+ Alternatively, run files from the command line with @tt{racket}:
 
-  @tt{racket <filename.rkt>}}
+  @tt{racket <Racket filename>}}
  ]
 
 
@@ -221,7 +251,7 @@ Table 1 is still roughly accurate for the
 @hyperlink[@file://[TURNSTILE-EXAMPLES]]{Turnstile versions} (#2), except that
 Turnstile defines a few things, like @tt{τ=}, automatically.
 
-The (Excel) source for Table 1 is viewable at @file-url[REPO]{extension-table.xlsm}.
+The (Excel) source for Table 1 is at @file-url[REPO]{extension-table.xlsm}, though unfortunately this VM cannot open the file. It is publicly available from the repository though.
 
 @subsection{Table 2}
 
@@ -243,7 +273,7 @@ accurately. To get a rough idea, we simply added all the language
 implementations and common library files together. We rounded to 2 significant
 figures.
 
-The numbers in Table 2 may be computed by running @file-url[REPO]{compute-table2.rkt}.
+The numbers in Table 2 may be recomputed by running @file-url[REPO]{compute-table2.rkt}.
 
 All line counts include comments.
 
@@ -285,7 +315,7 @@ Particular files of interest are:
          }
 ]
 
-The numbers in Table 3 may be computed by running @file-url[REPO]{compute-table3.rkt}.
+The numbers in Table 3 may be recomputed by running @file-url[REPO]{compute-table3.rkt}.
 
 All line counts include comments.
 
