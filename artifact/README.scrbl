@@ -292,13 +292,13 @@ The tests for the core languages are available at:
 
  @file-url[TURNSTILE-TEST]
 
-Run all (non-MLish) tests by running @file-url[(build-path TURNSTILE-TEST "run-all-tests.rkt")].
+Run all (non-MLish) tests by running @file-url[TURNSTILE-TEST]{run-all-tests.rkt}.
 
 The tests for MLish are available at:
 
  @file-url[MLISH-TEST]
 
-Run all the MLish tests by running @file-url[(build-path TURNSTILE-TEST "run-all-mlish-tests.rkt")].
+Run all the MLish tests by running @file-url[TURNSTILE-TEST]{run-all-mlish-tests.rkt}.
 
 Particular files of interest are:
 @itemize[@item{@file-url[MLISH-TEST]{generic.mlish}: example typeclass operations
