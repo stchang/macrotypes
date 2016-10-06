@@ -89,8 +89,10 @@ the VirtualBox image is somehow not working.
 
 We have only tested these steps with a Linux setup.
 
+These steps assume that the Racket @tt{bin} directory is in the @tt{PATH}.
+
 @itemlist[@item{@hyperlink["http://racket-lang.org"]{install Racket 6.6}}
-          @item{clone the repository into the directory @tt{popl2017-artifact}:
+          @item{clone the repository into the directory @tt{popl2017}:
 
                 @tt{git clone https://bitbucket.org/stchang/macrotypes popl2017}}
           @item{change directory to the repository root
@@ -101,7 +103,10 @@ We have only tested these steps with a Linux setup.
                 @tt{git checkout popl2017-artifact}}
           @item{from the repository root, install Turnstile as a Racket package:
 
-                @literal{raco pkg install --auto}}
+                @tt{raco pkg install }@literal{--}@tt{auto}}
+          @item{register the documentation
+
+                @tt{raco setup }@literal{--}@tt{doc-index}}
           @item{from the repository root, change to the @tt{artifact} directory
 
                 @tt{cd artifact}}
@@ -136,7 +141,8 @@ For clarity and conciseness, the paper stylizes code with colors and
 abbreviations. Runnable versions of the paper's examples are available in the
 VM, in the indicated directories.
 
-The links below open in the browser by default.
+The links below open in the browser by default. (If not viewing in the VM, you
+may need to adjust your browser's encoding to display Unicode.)
 
 Open with DrRacket to run them.
 
@@ -322,11 +328,14 @@ All line counts include comments.
 @; -----------------------------------------------------------------------------
 @section[#:tag "new"]{Building New Typed Languages}
 
-Here is a link to the official Turnstile documentation: @file-url[DOCS]
+Here is a link to the official @racketmodname[turnstile] documentation.
 
-The @hyperlink[@file://[GUIDE]]{Turnstile guide} describes how to build
-and re-use a new typed language.
+@secref["The_Turnstile_Guide"
+         #:doc '(lib "turnstile/scribblings/turnstile.scrbl")]
+describes how to build and re-use a new typed language.
 
-The @hyperlink[@file://[REF]]{Turnstile reference} describes all the forms provided
+@secref["The_Turnstile_Reference"
+         #:doc '(lib "turnstile/scribblings/turnstile.scrbl")]
+describes all the forms provided
 by Turnstile.
 
