@@ -13,6 +13,7 @@
 @(define GUIDE (build-path TURNSTILE "doc" "turnstile" "The_Turnstile_Guide.html"))
 @(define REF (build-path TURNSTILE "doc" "turnstile" "The_Turnstile_Reference.html"))
 @(define POPL-EXAMPLES (build-path MACROTYPES "examples" "popl2017"))
+@(define RACKET-EXAMPLES (build-path MACROTYPES "examples"))
 @(define TURNSTILE-EXAMPLES (build-path TURNSTILE "examples"))
 @(define TURNSTILE-TEST (build-path TURNSTILE-EXAMPLES "tests"))
 @(define MLISH-TEST (build-path TURNSTILE-TEST "mlish"))
@@ -120,8 +121,9 @@ These steps assume that the Racket @tt{bin} directory is in the @tt{PATH}.
 @section{Artifact Overview}
 
 
-The relevant files are in @file-url[REPO]. They should also be available on the VM Desktop.
-This directory contains:
+The relevant files are in @file-url[REPO].
+
+These files are also be available on the VM Desktop:
 @itemlist[
   @item{@file-url[ARTIFACT]{README.html}: This page}
   @item{@file-url[ARTIFACT PAPER-PDF]: The camera-ready version of the paper.}
@@ -143,7 +145,7 @@ abbreviations. Runnable versions of the paper's examples are available in the
 VM, in the indicated directories.
 
 The links below open in the browser by default. (If not viewing in the VM, you
-may need to adjust your browser's encoding to display Unicode.)
+may need to adjust your browser's "Text Encoding" to display Unicode.)
 
 Open with DrRacket to run them.
 
@@ -241,7 +243,7 @@ We implemented two versions of each language:
           @item{a version using Racket, as described in Section 3 of the paper.
                 These implementations can be found at:
 
-                @file-url[(build-path MACROTYPES "examples")]}
+                @file-url[RACKET-EXAMPLES]}
           @item{a version using Turnstile, as described in Sections 4-6 of the
                 paper. These implementations can be found at:
 
@@ -253,7 +255,7 @@ to reuse as much code as possible.
 @subsection{Table 1}
 
 Table 1 was compiled using the
-@hyperlink[@file://[POPL-EXAMPLES]]{Racket implementations} (#1 above).
+@hyperlink[@file://[RACKET-EXAMPLES]]{Racket implementations} (#1 above).
 Table 1 is still roughly accurate for the
 @hyperlink[@file://[TURNSTILE-EXAMPLES]]{Turnstile versions} (#2), except that
 Turnstile defines a few things, like @tt{τ=}, automatically.
@@ -273,7 +275,7 @@ excludes files from which only a few lines are reused. We rounded to 2
 significant figures.
 
 Column 3 tries to add up all the lines of code required by the
-@hyperlink[POPL-EXAMPLES]{non-Turnstile implementations} (#1 above).
+@hyperlink[RACKET-EXAMPLES]{non-Turnstile implementations} (#1 above).
 Since we programmed according to standard software development practices, and
 grouped common operations in libraries, this was difficult to estimate
 accurately. To get a rough idea, we simply added all the language
