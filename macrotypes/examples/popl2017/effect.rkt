@@ -4,7 +4,7 @@
 
 ;; STLC with mutable references and side-effect analysis
 
-;; whereas the paper version only tracks mutations,
+;; whereas the paper version only tracks allocations,
 ;; this implementation tracks mutations, allocations, and references.
 
 ;(define-base-type Unit) ; already imported

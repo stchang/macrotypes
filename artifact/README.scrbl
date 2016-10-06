@@ -55,23 +55,26 @@ Our artifact is a VM image that contains:
 The goals of this artifact are to:
 @itemlist[
   @item{package the library associated with the paper,}
-  @item{and provide runnable code for each stylized example in the paper.}
+  @item{provide runnable code for each stylized example in the paper,}
+  @item{and show how the tables in the paper were computed.}
  ]
 
 
 @; -----------------------------------------------------------------------------
 @section{Setting up and installing the artifact}
 
-Skip this section if you are already reading this document from within the VM.
+The artifact may be installed in two ways:
+@itemlist[@item{@secref{vm} (recommended)}
+          @item{@secref{manual}}]
 
-The artifact may be installed in two ways, described below.
-Using the VirtualBox VM is recommended.
+The VM image is configured to automatically login to the @tt{artifact} user
+account. The password for the account is also @tt{artifact}. The account has
+root privileges using @tt{sudo} without a password.
 
-The image is configured to automatically login to the @tt{artifact} user account.
-The password for the account is also @tt{artifact}.
-The account has root privileges using @tt{sudo} without a password.
+Skip the rest of this section if you are already reading this document from
+within the VM.
 
-@subsection{VirtualBox VM Image}
+@subsection[#:tag "vm"]{VirtualBox VM Image}
 
 The artifact is available as a virtual machine appliance for
 @hyperlink["https://www.virtualbox.org/wiki/Downloads"]{VirtualBox}.
@@ -83,7 +86,7 @@ To run the artifact image, open the downloaded @tt{.ova} file using the
 that can be launched after import. We recommend giving the VM at least
 2GB of RAM.
 
-@subsection{Manual Installation}
+@subsection[#:tag "manual"]{Manual Installation}
 
 Follow these instructions to manually install the artifact only if
 the VirtualBox image is somehow not working.
@@ -94,10 +97,10 @@ the VirtualBox image is somehow not working.
             6.6}.
 
            Add the Racket @tt{bin} directory to your @tt{PATH}. The
-           remaining steps assume that the Racket @tt{bin} directory is in the 
+           remaining steps assume that Racket's @tt{bin} directory is in the 
            @tt{PATH}.}
            
-          @item{Clone the repository into the directory @tt{popl2017}:
+          @item{Clone the repository into the @tt{popl2017} directory:
 
                 @tt{git clone https://bitbucket.org/stchang/macrotypes popl2017}}
           @item{Change directory to the repository root:
@@ -148,10 +151,10 @@ stylized with colors and abbreviations. Thus code examples from the paper may
 not run as presented. However, runnable versions of the paper's examples are
 available in this artifact and are explained in this section.
 
-Note that code presented in the paper and code used for evaluation (see the 
-@seclink["tables"]{next section}) may differ slightly, e.g., in the quality of
-their error messages. This artifact always points to the exact code being
-discussed.
+Note that code presented in the paper (this section) may differ slightly from
+the code used for evaluation (@seclink["tables"]{next section}), e.g., in the
+quality of their error messages. This artifact always points to the code
+being discussed.
 
 The links below open in the browser by default. (If not viewing in the VM, you
 may need to adjust your browser's "Text Encoding" to display Unicode.) Open with
@@ -161,14 +164,14 @@ DrRacket to run the files.
 
 @file-url[POPL-EXAMPLES]
 @itemlist[@item{@file-url[POPL-EXAMPLES]{lam.rkt}: defines a language with only
-                single-argument lambda}
+                single-argument lambda.}
           @item{@file-url[POPL-EXAMPLES]{lam-prog.rkt}: a program using
                 @tt{lam.rkt} as its language.
                 Attempting to apply functions results in a syntax error.
                 This file uses our custom unit-testing framework to catch and
                 check errors.}
           @item{@file-url[POPL-EXAMPLES]{lc.rkt}: extends @tt{lam.rkt} with
-                function application}
+                function application.}
           @item{@file-url[POPL-EXAMPLES]{lc-prog.rkt}: a program using
                 @tt{lc.rkt} as its language.
                 This program will loop forever when run.}]
@@ -177,7 +180,7 @@ DrRacket to run the files.
 
 @file-url[POPL-EXAMPLES]
 @itemlist[@item{@file-url[POPL-EXAMPLES]{stlc-with-racket.rkt}: runnable version
-                of code from figures 3 through 8}
+                of code from figures 3 through 8.}
           @item{@file-url[POPL-EXAMPLES]{stlc-with-racket-prog.rkt}:
                 a program that uses @tt{stlc-with-racket.rkt} as its language.
                 Shows a few type errors.}]
@@ -190,38 +193,38 @@ DrRacket to run the files.
                 @tt{#%app} from section 4.2.}
           @item{@file-url[POPL-EXAMPLES]{stlc-with-turnstile-prog.rkt}:
                 same as @tt{stlc-with-racket-prog.rkt}, but using
-                @tt{stlc-with-turnstile.rkt} as its language}
-          @item{@file-url[POPL-EXAMPLES]{stlc+prim.rkt}: language from figure 12
-                that extends @tt{stlc-with-turnstile.rkt} with integers}
+                @tt{stlc-with-turnstile.rkt} as its language.}
+          @item{@file-url[POPL-EXAMPLES]{stlc+prim.rkt}: language implementation from figure 12
+                that extends @tt{stlc-with-turnstile.rkt} with integers and addition.}
           @item{@file-url[POPL-EXAMPLES]{stlc+prim-prog.rkt}: some examples
-                (not shown in paper) using the @tt{stlc+prim.rkt} language}
+                (not shown in paper) using the @tt{stlc+prim.rkt} language.}
           @item{@file-url[POPL-EXAMPLES]{stlc+prim-with-racket.rkt}:
                 (not shown in paper) same language implementation as
-                @tt{stlc+prim.rkt}, but using base Racket instead of Turnstile}
+                @tt{stlc+prim.rkt}, but using base Racket instead of Turnstile.}
           @item{@file-url[POPL-EXAMPLES]{stlc+prim-with-racket-prog.rkt}:
                 (not shown in paper) same as @tt{stlc+prim-prog.rkt}, but using
-                @tt{stlc+prim-with-racket.rkt} as its language}]
+                @tt{stlc+prim-with-racket.rkt} as its language.}]
 
 @subsection{Paper Section 5}
 
 @file-url[POPL-EXAMPLES]
 
 @itemlist[@item{@file-url[POPL-EXAMPLES]{exist.rkt}: language with existential
-                types from figure 13}
+                types from figure 13, including @tt{subst} and @tt{τ=}.}
           @item{@file-url[POPL-EXAMPLES]{exist-prog.rkt}: the "counter" example
-                from the paper}
+                from the paper.}
           @item{@file-url[POPL-EXAMPLES]{stlc+sub.rkt}: language with subtyping
-                from figure 14; reuses rules from @tt{stlc+prim.rkt}}
+                from figure 14; reuses rules from @tt{stlc+prim.rkt}.}
           @item{@file-url[POPL-EXAMPLES]{stlc+sub-prog.rkt}: some examples
-                (not shown in paper) using the @tt{stlc+sub.rkt} language}
+                (not shown in paper) using the @tt{stlc+sub.rkt} language.}
           @item{@file-url[POPL-EXAMPLES]{fomega.rkt}: F-omega language from
-                figure 16}
+                figure 16.}
           @item{@file-url[POPL-EXAMPLES]{fomega-prog.rkt}: some examples
-                (not shown in paper) using the @tt{fomega.rkt} language}
+                (not shown in paper) using the @tt{fomega.rkt} language.}
           @item{@file-url[POPL-EXAMPLES]{effect.rkt}: language with
-                type-and-effect system from figure 17}
+                type-and-effect system from figure 17.}
           @item{@file-url[POPL-EXAMPLES]{effect-prog.rkt}: some examples
-                (not shown in paper) using the @tt{effect.rkt} language}]
+                (not shown in paper) using the @tt{effect.rkt} language.}]
 
 @subsection{Paper Section 6}
 The paper presents simplistic snippets of the MLish language implementation,
@@ -232,7 +235,7 @@ inference algorithm.
 
 @file-url[TURNSTILE-EXAMPLES]
 @itemlist[@item{@file-url[TURNSTILE-EXAMPLES]{mlish.rkt}: MLish language
-                (no type classes)}
+                (no type classes).}
           @item{@file-url[TURNSTILE-EXAMPLES]{mlish+adhoc.rkt}: MLish language
                 (with type classes); @tt{define-tc} in the paper is
                 @tt{define-typeclass}.}]
@@ -240,9 +243,9 @@ inference algorithm.
 @subsection{Other files}
 @file-url[POPL-EXAMPLES]
 @itemlist[@item{@file-url[POPL-EXAMPLES]{abbrv.rkt}: defines abbreviations from
-                the paper, like @tt{define-m}}
+                the paper, like @tt{define-m}.}
           @item{@file-url[POPL-EXAMPLES]{run-all-examples.rkt}: runs all the
-                @tt{-prog.rkt} example programs}]
+                @tt{-prog.rkt} example programs.}]
            
 @section[#:tag "tables"]{Tables from the paper}
 
@@ -258,7 +261,7 @@ To evaluate Turnstile, we implemented two versions of several example languages:
                 @file-url[TURNSTILE-EXAMPLES]}]
 
 The languages in each directory extend and reuse components from each other when
-appropriate.
+possible.
 
 @subsection{Table 1: Summary of Reuse (visual)}
 
@@ -266,7 +269,7 @@ Table 1 was compiled using the
 @hyperlink[@file://[RACKET-EXAMPLES]]{Racket implementations} (#1 above).
 Table 1 remains roughly accurate for the
 @hyperlink[@file://[TURNSTILE-EXAMPLES]]{Turnstile versions} (#2), except that
-Turnstile defines more things, like @tt{τ=}, automatically.
+Turnstile defines more things, e.g., @tt{τ=}, automatically.
 
 The (Excel) source for Table 1 is at @file-url[REPO]{extension-table.xlsm}. This
 VM cannot open the file locally but the file is viewable with Google Sheets. It
@@ -274,22 +277,22 @@ is also publicly downloadable from our repository.
 
 @subsection{Table 2: Summary of Reuse (line counts)}
 
-Column 1 in table 2 reports the exact line numbers of the
-@hyperlink[@file://[TURNSTILE-EXAMPLES]]{Turnstile implementations} (#2 above).
+@itemlist[@item{Column 1: reports the exact line numbers of the
+@hyperlink[@file://[TURNSTILE-EXAMPLES]]{Turnstile implementations} (#2 above).}
 
-Column 2 in table 2 roughly estimates the number of lines required to implement
+@item{Column 2: estimates the number of lines required to implement
 each language, without reusing any other languages, by adding up the lines for
 the relevant languages from column 1. Column 2 is an approximation because it
 only counts lines from files that were @emph{entirely} needed to implement the
-language in question, and excludes files from which only a few lines are reused.
+language in question, and excludes files from which only a few lines are reused.}
 
-Column 3 tries to add up all the lines of code required by the 
+@item{Column 3: estimates all the lines of code required by the 
 @hyperlink[RACKET-EXAMPLES]{non-Turnstile implementations} (#1 above). Since we
 did not explicitly implement every permutation of every language, and instead
 followed standard software development practices such as moving common
-operations to libraries, column 3 was difficult to estimate accurately. To get a
-rough idea, we simply added all the language implementations and common library
-files together.
+operations to libraries, column 3 was difficult to compute accurately. To get a
+rough idea, we simply added all the lines of code in the language implementations and common library
+files together.}]
 
 All line counts include comments and whitespace and all approximate numbers are
 rounded to two significant figures. Despite the approximations, this table
@@ -300,24 +303,26 @@ The numbers in Table 2 may be recomputed by running @file-url[REPO]{compute-tabl
 
 @subsection{Table 3: Tests (line counts)}
 
-The tests for the core languages are available at:
+@itemlist[@item{Column 1: number of lines of tests for the core languages, available at:
 
  @file-url[TURNSTILE-TEST]
 
-Run all (non-MLish) tests by running @file-url[TURNSTILE-TEST]{run-all-tests.rkt}.
+Run all (non-MLish) tests by running @file-url[TURNSTILE-TEST]{run-all-tests.rkt}.}
 
-The tests for MLish are available at:
+@item{Column 2: number of lines of tests for MLish, available at:
 
  @file-url[MLISH-TEST]
 
-Run all the MLish tests by running @file-url[TURNSTILE-TEST]{run-all-mlish-tests.rkt}.
+Run all the MLish tests by running @file-url[TURNSTILE-TEST]{run-all-mlish-tests.rkt}.}]
+
+All line counts include comments and whitespace.
 
 @margin-note{To completely re-compile and re-run all tests (may take ~30-60min):
  @itemlist[@item{@tt{raco setup -c turnstile macrotypes}}
            @item{@tt{raco setup turnstile macrotypes}}
            @item{@tt{raco test turnstile macrotypes}}]}
 
-Particular files of interest are:
+Particular files of interest are (for MLish) tests:
 @itemize[@item{@file-url[MLISH-TEST]{generic.mlish}: example typeclass operations
          }
          @item{@file-url[MLISH-TEST]{term.mlish}: some tests from
@@ -347,12 +352,11 @@ Particular files of interest are:
 
 The numbers in Table 3 may be recomputed by running @file-url[REPO]{compute-table3.rkt}.
 
-All line counts include comments.
-
 @; -----------------------------------------------------------------------------
 @section[#:tag "new"]{Building New Typed Languages}
 
-Here is a link to the official @racketmodname[turnstile] documentation.
+To learn more about @racketmodname[turnstile], view the official 
+@racketmodname[turnstile] documentation.
 
 @secref["The_Turnstile_Guide"
          #:doc '(lib "turnstile/scribblings/turnstile.scrbl")]
