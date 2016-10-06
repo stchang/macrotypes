@@ -1,11 +1,6 @@
 #lang s-exp "../../../mlish.rkt"
 (require "../../rackunit-typechecking.rkt")
 
-;; TODO
-;; - cannot inst polymorphic function `bq-empty`
-;; - cannot inst `(BQ (Nil {A}) (Nil {A}))`
-;; - cannot use bq-snoc directly in a foldl (need wrapper λ)
-
 ;; -----------------------------------------------------------------------------
 
 (define-type (Option A)
