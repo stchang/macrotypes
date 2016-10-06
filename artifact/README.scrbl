@@ -123,7 +123,7 @@ These steps assume that the Racket @tt{bin} directory is in the @tt{PATH}.
 
 The relevant files are in @file-url[REPO].
 
-These files also have a shortcut on the VM Desktop:
+The following files may also be accessed via the VM Desktop:
 @itemlist[
   @item{@file-url[ARTIFACT]{README.html}: This page}
   @item{@file-url[ARTIFACT PAPER-PDF]: The camera-ready version of the paper.}
