@@ -45,17 +45,17 @@ This is a README file for the artifact that accompanies "@|PAPER-TITLE|" in
 POPL 2017.  If you have any questions, please email any (or all) of the
 authors.
 
-Our artifact is consists of a VM image that contains
+Our artifact is a VM image that contains:
 @itemlist[
-  @item{A copy of the POPL 2017 camera-ready @hyperlink[@file://[PAPER]]{[link]}}
-  @item{A distribution of the Racket programming language}
-  @item{The @racket[turnstile] library and its documentation}
+  @item{a copy of the POPL 2017 camera-ready @hyperlink[@file://[PAPER]]{[link]},}
+  @item{a distribution of the Racket programming language (v6.6),}
+  @item{and the @racket[turnstile] library and its documentation.}
  ]
 
-The goals of this artifact are to
+The goals of this artifact are to:
 @itemlist[
-  @item{Package the library associated with the paper.}
-  @item{Provide runnable code for each stylized example in the paper.}
+  @item{package the library associated with the paper,}
+  @item{and provide runnable code for each stylized example in the paper.}
  ]
 
 
@@ -66,6 +66,10 @@ Skip this section if you are already reading this document from within the VM.
 
 The artifact may be installed in two ways, described below.
 Using the VirtualBox VM is recommended.
+
+The image is configured to automatically login to the @tt{artifact} user account.
+The password for the account is also @tt{artifact}.
+The account has root privileges using @tt{sudo} without a password.
 
 @subsection{VirtualBox VM Image}
 
@@ -78,10 +82,6 @@ To run the artifact image, open the downloaded @tt{.ova} file using the
 @tt{File->Import Appliance} menu item. This will create a new VM
 that can be launched after import. We recommend giving the VM at least
 2GB of RAM.
-
-The image is configured to automatically login to the @tt{artifact} user account.
-The password for the account is also @tt{artifact}.
-The account has root privileges using @tt{sudo} without a password.
 
 @subsection{Manual Installation}
 
@@ -260,7 +260,7 @@ To evaluate Turnstile, we implemented two versions of several example languages:
 The languages in each directory extend and reuse components from each other when
 appropriate.
 
-@subsection{Table 1}
+@subsection{Table 1: Summary of Reuse (visual)}
 
 Table 1 was compiled using the
 @hyperlink[@file://[RACKET-EXAMPLES]]{Racket implementations} (#1 above).
@@ -268,11 +268,11 @@ Table 1 remains roughly accurate for the
 @hyperlink[@file://[TURNSTILE-EXAMPLES]]{Turnstile versions} (#2), except that
 Turnstile defines more things, like @tt{τ=}, automatically.
 
-The (Excel) source for Table 1 is at @file-url[REPO]{extension-table.xlsm}.
-Unfortunately this VM cannot open the file, though it is publicly downloadable
-from our repository.
+The (Excel) source for Table 1 is at @file-url[REPO]{extension-table.xlsm}. This
+VM cannot open the file locally but the file is viewable with Google Sheets. It
+is also publicly downloadable from our repository.
 
-@subsection{Table 2}
+@subsection{Table 2: Summary of Reuse (line counts)}
 
 Column 1 in table 2 reports the exact line numbers of the
 @hyperlink[@file://[TURNSTILE-EXAMPLES]]{Turnstile implementations} (#2 above).
@@ -291,13 +291,14 @@ operations to libraries, column 3 was difficult to estimate accurately. To get a
 rough idea, we simply added all the language implementations and common library
 files together.
 
-All line counts include comments and all approximate numbers are rounded to two
-significant figures. Despite the approximations, this table remains useful for
-understanding the degree of reuse achieved by using Turnstile.
+All line counts include comments and whitespace and all approximate numbers are
+rounded to two significant figures. Despite the approximations, this table
+remains useful for understanding the degree of reuse achieved by using
+Turnstile.
 
 The numbers in Table 2 may be recomputed by running @file-url[REPO]{compute-table2.rkt}.
 
-@subsection{Table 3}
+@subsection{Table 3: Tests (line counts)}
 
 The tests for the core languages are available at:
 
@@ -310,6 +311,11 @@ The tests for MLish are available at:
  @file-url[MLISH-TEST]
 
 Run all the MLish tests by running @file-url[TURNSTILE-TEST]{run-all-mlish-tests.rkt}.
+
+@margin-note{To completely re-compile and re-run all tests (may take ~30-60min):
+ @itemlist[@item{@tt{raco setup -c turnstile macrotypes}}
+           @item{@tt{raco setup turnstile macrotypes}}
+           @item{@tt{raco test turnstile macrotypes}}]}
 
 Particular files of interest are:
 @itemize[@item{@file-url[MLISH-TEST]{generic.mlish}: example typeclass operations
