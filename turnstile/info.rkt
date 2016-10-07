@@ -5,7 +5,7 @@
 
 (define compile-omit-paths 
   '("examples/rosette"
-    "examples/tests/rosette"))
+    "examples/tests"))
 
 (define test-omit-paths
   '("examples/rosette"
