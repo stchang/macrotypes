@@ -61,7 +61,7 @@ The goals of this artifact are to:
 
 
 @; -----------------------------------------------------------------------------
-@section{Setting up and installing the artifact}
+@section{Artifact Setup and Installation}
 
 The artifact may be installed in two ways:
 @itemlist[@item{@secref{vm} (recommended)}
@@ -74,7 +74,7 @@ root privileges using @tt{sudo} without a password.
 Skip the rest of this section if you are already reading this document from
 within the VM.
 
-@subsection[#:tag "vm"]{VirtualBox VM Image}
+@subsection[#:tag "vm"]{VirtualBox VM image}
 
 The artifact is available as a virtual machine appliance for
 @hyperlink["https://www.virtualbox.org/wiki/Downloads"]{VirtualBox}.
@@ -86,7 +86,7 @@ To run the artifact image, open the downloaded @tt{.ova} file using the
 that can be launched after import. We recommend giving the VM at least
 2GB of RAM.
 
-@subsection[#:tag "manual"]{Manual Installation}
+@subsection[#:tag "manual"]{Manual installation}
 
 Follow these instructions to manually install the artifact only if
 the VirtualBox image is somehow not working.
@@ -100,7 +100,7 @@ the VirtualBox image is somehow not working.
            remaining steps assume that Racket's @tt{bin} directory is in the 
            @tt{PATH}.}
            
-          @item{Clone the repository into the @tt{popl2017} directory:
+          @item{Clone the repository into the @tt{popl2017} directory (or any directory):
 
                 @tt{git clone https://bitbucket.org/stchang/macrotypes popl2017}}
           @item{Change directory to the repository root:
@@ -144,7 +144,7 @@ The following files may also be accessed via the VM Desktop:
 
 
 @; -----------------------------------------------------------------------------
-@section[#:tag "examples"]{Code from the paper}
+@section[#:tag "examples"]{Code From the Paper (sections 2-5)}
 
 For readability and conciseness, the paper presents simplified code that is
 stylized with colors and abbreviations. Thus code examples from the paper may
@@ -152,15 +152,15 @@ not run as presented. However, runnable versions of the paper's examples are
 available in this artifact and are explained in this section.
 
 Note that code presented in the paper (this section) may differ slightly from
-the code used for evaluation (@seclink["tables"]{next section}), e.g., in the
+the code used for evaluation (@seclink["tables"]{section 5}), e.g., in the
 quality of their error messages. This artifact always points to the code
 being discussed.
 
-The links below open in the browser by default. (If not viewing in the VM, you
-may need to adjust your browser's "Text Encoding" to display Unicode.) Open with
-DrRacket to run the files.
+The file links below open in the browser by default. (If not viewing in the VM,
+you may need to adjust your browser's "Text Encoding" to display Unicode.) Open
+with DrRacket to run the files.
 
-@subsection{Paper Section 2}
+@subsection{Paper section 2}
 
 @file-url[POPL-EXAMPLES]
 @itemlist[@item{@file-url[POPL-EXAMPLES]{lam.rkt}: defines a language with only
@@ -176,7 +176,7 @@ DrRacket to run the files.
                 @tt{lc.rkt} as its language.
                 This program will loop forever when run.}]
           
-@subsection{Paper Section 3}
+@subsection{Paper section 3}
 
 @file-url[POPL-EXAMPLES]
 @itemlist[@item{@file-url[POPL-EXAMPLES]{stlc-with-racket.rkt}: runnable version
@@ -185,7 +185,7 @@ DrRacket to run the files.
                 a program that uses @tt{stlc-with-racket.rkt} as its language.
                 Shows a few type errors.}]
 
-@subsection{Paper Section 4}
+@subsection{Paper section 4}
 
 @file-url[POPL-EXAMPLES]
 @itemlist[@item{@file-url[POPL-EXAMPLES]{stlc-with-turnstile.rkt}: runnable
@@ -205,7 +205,7 @@ DrRacket to run the files.
                 (not shown in paper) same as @tt{stlc+prim-prog.rkt}, but using
                 @tt{stlc+prim-with-racket.rkt} as its language.}]
 
-@subsection{Paper Section 5}
+@subsection{Paper section 5}
 
 @file-url[POPL-EXAMPLES]
 
@@ -226,12 +226,18 @@ DrRacket to run the files.
           @item{@file-url[POPL-EXAMPLES]{effect-prog.rkt}: some examples
                 (not shown in paper) using the @tt{effect.rkt} language.}]
 
-@subsection{Paper Section 6}
+@subsection{Other files}
+@file-url[POPL-EXAMPLES]
+@itemlist[@item{@file-url[POPL-EXAMPLES]{abbrv.rkt}: defines abbreviations from
+                the paper, like @tt{define-m}.}
+          @item{@file-url[POPL-EXAMPLES]{run-all-examples.rkt}: runs all the
+                @tt{-prog.rkt} example programs.}]
+
+@; -----------------------------------------------------------------------------
+@section{Paper Section 6: MLish}
 The paper presents simplistic snippets of the MLish language implementation,
 optimized for readability. The actual implementation can be found in the files
-listed below. It fills in the gaps from the paper and in addition may differ
-from the paper due to improved error message reported and a more efficient type
-inference algorithm.
+listed below.
 
 @file-url[TURNSTILE-EXAMPLES]
 @itemlist[@item{@file-url[TURNSTILE-EXAMPLES]{mlish.rkt}: MLish language
@@ -240,14 +246,20 @@ inference algorithm.
                 (with type classes); @tt{define-tc} in the paper is
                 @tt{define-typeclass}.}]
 
-@subsection{Other files}
-@file-url[POPL-EXAMPLES]
-@itemlist[@item{@file-url[POPL-EXAMPLES]{abbrv.rkt}: defines abbreviations from
-                the paper, like @tt{define-m}.}
-          @item{@file-url[POPL-EXAMPLES]{run-all-examples.rkt}: runs all the
-                @tt{-prog.rkt} example programs.}]
-           
-@section[#:tag "tables"]{Tables from the paper}
+These implementations fill in the gaps from the paper. The actual
+implementations may additionally differ from the paper in other ways, for
+example with improved error message reporting and a more efficient type
+inference algorithm.
+
+Feel free to experiment with creating your own MLish program. Look at examples
+in the @file-url[TURNSTILE-EXAMPLES]{tests/mlish} directory to help get started.
+
+For example, @file-url[MLISH-TEST]{trees.mlish} and
+@file-url[MLISH-TEST]{trees-tests.mlish} contain the trees example from the
+paper.
+
+@; -----------------------------------------------------------------------------
+@section[#:tag "tables"]{Tables From the Paper}
 
 To evaluate Turnstile, we implemented two versions of several example languages:
 @itemlist[#:style 'ordered
@@ -263,7 +275,7 @@ To evaluate Turnstile, we implemented two versions of several example languages:
 The languages in each directory extend and reuse components from each other when
 possible.
 
-@subsection{Table 1: Summary of Reuse (visual)}
+@subsection{Table 1: Summary of reuse (visual)}
 
 Table 1 was compiled using the
 @hyperlink[@file://[RACKET-EXAMPLES]]{Racket implementations} (#1 above).
@@ -271,17 +283,17 @@ Table 1 remains roughly accurate for the
 @hyperlink[@file://[TURNSTILE-EXAMPLES]]{Turnstile versions} (#2), except that
 Turnstile defines more things, e.g., @tt{τ=}, automatically.
 
-The (Excel) source for Table 1 is at @file-url[REPO]{extension-table.xlsm}. This
-VM cannot open the file locally but the file is viewable with Google Sheets. It
-is also publicly downloadable from our repository.
+The (Excel) source for Table 1 is at @file-url[REPO]{extension-table.xlsm}. The
+VM does not have a local viewer for the file but the file is viewable with
+Google Sheets. It is also publicly downloadable from our repository.
 
-@subsection{Table 2: Summary of Reuse (line counts)}
+@subsection{Table 2: Summary of reuse (line counts)}
 
 @itemlist[@item{Column 1: reports the exact line numbers of the
 @hyperlink[@file://[TURNSTILE-EXAMPLES]]{Turnstile implementations} (#2 above).}
 
 @item{Column 2: estimates the number of lines required to implement
-each language, without reusing any other languages, by adding up the lines for
+each language without reusing any other languages by adding up the lines for
 the relevant languages from column 1. Column 2 is an approximation because it
 only counts lines from files that were @emph{entirely} needed to implement the
 language in question, and excludes files from which only a few lines are reused.}
@@ -322,7 +334,7 @@ All line counts include comments and whitespace.
            @item{@tt{raco setup turnstile macrotypes}}
            @item{@tt{raco test turnstile macrotypes}}]}
 
-Particular files of interest are (for MLish) tests:
+Particular files of interest for MLish tests:
 @itemize[@item{@file-url[MLISH-TEST]{generic.mlish}: example typeclass operations
          }
          @item{@file-url[MLISH-TEST]{term.mlish}: some tests from
