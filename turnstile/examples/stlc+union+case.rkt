@@ -13,16 +13,17 @@
 ;; - terms from stlc+union.rkt
 ;; Other: updated current-sub?
 
+(provide (typed-out [add1 : (case→ (→ Nat Nat)
+                                   (→ Int Int))]
+                    [sub1 : (case→ (→ Zero NegInt)
+                                   (→ PosInt Nat)
+                                   (→ NegInt NegInt)
+                                   (→ Nat Nat)
+                                   (→ Int Int))]))
+
 (define-type-constructor case-> #:arity > 0)
 (define-syntax case→ (make-rename-transformer #'case->))
 
-(define-primop add1 : (case→ (→ Nat Nat)
-                             (→ Int Int)))
-(define-primop sub1 : (case→ (→ Zero NegInt)
-                             (→ PosInt Nat)
-                             (→ NegInt NegInt)
-                             (→ Nat Nat)
-                             (→ Int Int)))
 
 (define-typed-syntax app #:export-as #%app
   [(_ e_fn e_arg ...) ≫

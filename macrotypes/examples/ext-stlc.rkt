@@ -1,6 +1,5 @@
 #lang s-exp macrotypes/typecheck
 (extends "stlc+lit.rkt" #:except #%datum)
-(provide ⊔ (for-syntax current-join))
  
 ;; Simply-Typed Lambda Calculus, plus extensions (TAPL ch11)
 ;; Types:
@@ -17,10 +16,22 @@
 ;; - ascription (ann)
 ;; - let, let*, letrec
 
-(define-base-type Bool)
-(define-base-type String)
-(define-base-type Float)
-(define-base-type Char)
+(provide (for-syntax current-join)
+         ⊔ zero? =
+         (rename-out [typed- -] [typed* *])
+         ;; test all variations of typed-out
+         (typed-out [add1 (→ Int Int)]
+                    [sub1 : (→ Int Int)]
+                    [[not- (→ Bool Bool)] not]
+                    [[void- : (→ Unit)] void]))
+
+(define-base-types Bool String Float Char Unit)
+
+;; test all variations of define-primop-out
+(define-primop zero? (→ Int Bool))
+(define-primop = : (→ Int Int Bool))
+(define-primop typed- - (→ Int Int Int))
+(define-primop typed* * : (→ Int Int Int))
 
 (define-typed-syntax #%datum
   [(#%datum . b:boolean) (⊢ #,(syntax/loc stx (#%datum- . b)) : Bool)]
@@ -28,13 +39,6 @@
   [(#%datum . f) #:when (flonum? (syntax-e #'f)) (⊢ #,(syntax/loc stx (#%datum- . f)) : Float)]
   [(#%datum . c:char) (⊢ #,(syntax/loc stx (#%datum- . c)) : Char)]
   [(#%datum . x) (syntax/loc stx (stlc+lit:#%datum . x))])
-
-(define-primop zero? : (→ Int Bool))
-(define-primop = : (→ Int Int Bool))
-(define-primop - : (→ Int Int Int))
-(define-primop add1 : (→ Int Int))
-(define-primop sub1 : (→ Int Int))
-(define-primop not : (→ Bool Bool))
 
 (define-typed-syntax and
   [(and e1 e2)
@@ -79,9 +83,6 @@
    #:with (e1- τ1) (infer+erase #'e1_ann)
    #:with (e2- τ2) (infer+erase #'e2_ann)
    (⊢ (if- e_tst- e1- e2-) : (⊔ τ1 τ2))])
-
-(define-base-type Unit)
-(define-primop void : (→ Unit))
 
 (define-typed-syntax begin
   [(begin e_unit ... e)

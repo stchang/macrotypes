@@ -42,10 +42,19 @@
  (rename-in "rosette-util.rkt" [bitvector? lifted-bitvector?]))
 
 ;; copied from rosette.rkt
-(define-simple-macro (define-rosette-primop op:id : ty)
-  (begin-
-    (require (only-in rosette [op op]))
-    (define-primop op : ty)))
+(provide rosette-typed-out)
+(define-for-syntax (mk-ro:-id id) (format-id id "ro:~a" id))
+
+(define-syntax rosette-typed-out
+  (make-provide-pre-transformer
+   (lambda (stx modes)
+     (syntax-parse stx #:datum-literals (:)
+       ;; cannot write ty:type bc provides might precede type def
+       [(_ (~and (~or (~and [out-x:id (~optional :) ty] (~parse x #'out-x))
+                      [[x:id (~optional :) ty] out-x:id])) ...)
+        #:with (ro-x ...) (stx-map mk-ro:-id #'(x ...))
+        (pre-expand-export (syntax/loc stx (typed-out [[ro-x ty] out-x] ...))
+                           modes)]))))
 
 ;; ---------------------------------
 ;; Concrete and Symbolic union types
@@ -397,113 +406,110 @@
                                                 #'(CIVectorof (CU τ ...))
                                                 #'(CIVectorof (U τ ...)))]]])
 ;; ---------------------------------
-;; IO
+;; IO and other built-in ops
 
-(define-rosette-primop printf : (Ccase-> (C→ CString CUnit)
-                                         (C→ CString Any CUnit)
-                                         (C→ CString Any Any CUnit)))
-(define-rosette-primop error : (C→ (CU CString CSymbol) Nothing))
-(define-rosette-primop void : (C→ CUnit))
+(provide (rosette-typed-out [printf : (Ccase-> (C→ CString CUnit)
+                                               (C→ CString Any CUnit)
+                                               (C→ CString Any Any CUnit))]
+                            [error : (C→ (CU CString CSymbol) Nothing)]
+                            [void : (C→ CUnit)]
 
-;; ---------------------------------
-;; Types for built-in operations
+                            [equal? : (C→ Any Any Bool)]
+                            [eq? : (C→ Any Any Bool)]
 
-(define-rosette-primop equal? : (C→ Any Any Bool))
-(define-rosette-primop eq? : (C→ Any Any Bool))
+                            [pi : CNum]
 
-(define-rosette-primop pi : CNum)
+                            [add1 : (Ccase-> (C→ CNegInt (CU CNegInt CZero))
+                                             (C→ NegInt (U NegInt Zero))
+                                             (C→ CZero CPosInt)
+                                             (C→ Zero PosInt)
+                                             (C→ CPosInt CPosInt)
+                                             (C→ PosInt PosInt)
+                                             (C→ CNat CPosInt)
+                                             (C→ Nat PosInt)
+                                             (C→ CInt CInt)
+                                             (C→ Int Int))]
+                            [sub1 : (Ccase-> (C→ CNegInt CNegInt)
+                                             (C→ NegInt NegInt)
+                                             (C→ CZero CNegInt)
+                                             (C→ Zero NegInt)
+                                             (C→ CPosInt CNat)
+                                             (C→ PosInt Nat)
+                                             (C→ CNat CInt)
+                                             (C→ Nat Int)
+                                             (C→ CInt CInt)
+                                             (C→ Int Int))]
+                            [+ : (Ccase-> (C→ CNat CNat CNat)
+                                          (C→ CNat CNat CNat CNat)
+                                          (C→ CNat CNat CNat CNat CNat)
+                                          (C→ Nat Nat Nat)
+                                          (C→ Nat Nat Nat Nat)
+                                          (C→ Nat Nat Nat Nat Nat)
+                                          (C→ CInt CInt CInt)
+                                          (C→ CInt CInt CInt CInt)
+                                          (C→ CInt CInt CInt CInt CInt)
+                                          (C→ Int Int Int)
+                                          (C→ Int Int Int Int)
+                                          (C→ Int Int Int Int Int)
+                                          (C→ CNum CNum CNum)
+                                          (C→ CNum CNum CNum CNum)
+                                          (C→ CNum CNum CNum CNum CNum)
+                                          (C→ Num Num Num)
+                                          (C→ Num Num Num Num)
+                                          (C→ Num Num Num Num Num))]
+                            [* : (Ccase-> (C→ CNat CNat CNat)
+                                          (C→ CNat CNat CNat CNat)
+                                          (C→ CNat CNat CNat CNat CNat)
+                                          (C→ Nat Nat Nat)
+                                          (C→ Nat Nat Nat Nat)
+                                          (C→ Nat Nat Nat Nat Nat)
+                                          (C→ CInt CInt CInt)
+                                          (C→ CInt CInt CInt CInt)
+                                          (C→ CInt CInt CInt CInt CInt)
+                                          (C→ Int Int Int)
+                                          (C→ Int Int Int Int)
+                                          (C→ Int Int Int Int Int)
+                                          (C→ CNum CNum CNum)
+                                          (C→ CNum CNum CNum CNum)
+                                          (C→ CNum CNum CNum CNum CNum)
+                                          (C→ Num Num Num)
+                                          (C→ Num Num Num Num)
+                                          (C→ Num Num Num Num Num))]
+                            [= : (Ccase-> (C→ CNum CNum CBool)
+                                          (C→ Num Num Bool))]
+                            [< : (Ccase-> (C→ CNum CNum CBool)
+                                          (C→ Num Num Bool))]
+                            [> : (Ccase-> (C→ CNum CNum CBool)
+                                          (C→ Num Num Bool))]
+                            [<= : (Ccase-> (C→ CNum CNum CBool)
+                                           (C→ Num Num Bool))]
+                            [>= : (Ccase-> (C→ CNum CNum CBool)
+                                           (C→ Num Num Bool))]
 
-(define-rosette-primop add1 : (Ccase-> (C→ CNegInt (CU CNegInt CZero))
-                                       (C→ NegInt (U NegInt Zero))
-                                       (C→ CZero CPosInt)
-                                       (C→ Zero PosInt)
-                                       (C→ CPosInt CPosInt)
-                                       (C→ PosInt PosInt)
-                                       (C→ CNat CPosInt)
-                                       (C→ Nat PosInt)
-                                       (C→ CInt CInt)
-                                       (C→ Int Int)))
-(define-rosette-primop sub1 : (Ccase-> (C→ CNegInt CNegInt)
-                                       (C→ NegInt NegInt)
-                                       (C→ CZero CNegInt)
-                                       (C→ Zero NegInt)
-                                       (C→ CPosInt CNat)
-                                       (C→ PosInt Nat)
-                                       (C→ CNat CInt)
-                                       (C→ Nat Int)
-                                       (C→ CInt CInt)
-                                       (C→ Int Int)))
-(define-rosette-primop + : (Ccase-> (C→ CNat CNat CNat)
-                                    (C→ CNat CNat CNat CNat)
-                                    (C→ CNat CNat CNat CNat CNat)
-                                    (C→ Nat Nat Nat)
-                                    (C→ Nat Nat Nat Nat)
-                                    (C→ Nat Nat Nat Nat Nat)
-                                    (C→ CInt CInt CInt)
-                                    (C→ CInt CInt CInt CInt)
-                                    (C→ CInt CInt CInt CInt CInt)
-                                    (C→ Int Int Int)
-                                    (C→ Int Int Int Int)
-                                    (C→ Int Int Int Int Int)
-                                    (C→ CNum CNum CNum)
-                                    (C→ CNum CNum CNum CNum)
-                                    (C→ CNum CNum CNum CNum CNum)
-                                    (C→ Num Num Num)
-                                    (C→ Num Num Num Num)
-                                    (C→ Num Num Num Num Num)))
-(define-rosette-primop * : (Ccase-> (C→ CNat CNat CNat)
-                                    (C→ CNat CNat CNat CNat)
-                                    (C→ CNat CNat CNat CNat CNat)
-                                    (C→ Nat Nat Nat)
-                                    (C→ Nat Nat Nat Nat)
-                                    (C→ Nat Nat Nat Nat Nat)
-                                    (C→ CInt CInt CInt)
-                                    (C→ CInt CInt CInt CInt)
-                                    (C→ CInt CInt CInt CInt CInt)
-                                    (C→ Int Int Int)
-                                    (C→ Int Int Int Int)
-                                    (C→ Int Int Int Int Int)
-                                    (C→ CNum CNum CNum)
-                                    (C→ CNum CNum CNum CNum)
-                                    (C→ CNum CNum CNum CNum CNum)
-                                    (C→ Num Num Num)
-                                    (C→ Num Num Num Num)
-                                    (C→ Num Num Num Num Num)))
-(define-rosette-primop = : (Ccase-> (C→ CNum CNum CBool)
-                                    (C→ Num Num Bool)))
-(define-rosette-primop < : (Ccase-> (C→ CNum CNum CBool)
-                                    (C→ Num Num Bool)))
-(define-rosette-primop > : (Ccase-> (C→ CNum CNum CBool)
-                                    (C→ Num Num Bool)))
-(define-rosette-primop <= : (Ccase-> (C→ CNum CNum CBool)
-                                     (C→ Num Num Bool)))
-(define-rosette-primop >= : (Ccase-> (C→ CNum CNum CBool)
-                                     (C→ Num Num Bool)))
+                            [abs : (Ccase-> (C→ CPosInt CPosInt)
+                                            (C→ PosInt PosInt)
+                                            (C→ CZero CZero)
+                                            (C→ Zero Zero)
+                                            (C→ CNegInt CPosInt)
+                                            (C→ NegInt PosInt)
+                                            (C→ CInt CInt)
+                                            (C→ Int Int)
+                                            (C→ CNum CNum)
+                                            (C→ Num Num))]
 
-(define-rosette-primop abs : (Ccase-> (C→ CPosInt CPosInt)
-                                      (C→ PosInt PosInt)
-                                      (C→ CZero CZero)
-                                      (C→ Zero Zero)
-                                      (C→ CNegInt CPosInt)
-                                      (C→ NegInt PosInt)
-                                      (C→ CInt CInt)
-                                      (C→ Int Int)
-                                      (C→ CNum CNum)
-                                      (C→ Num Num)))
+                            [not : (C→ Any Bool)]
+                            [false? : (C→ Any Bool)]
 
-(define-rosette-primop not : (C→ Any Bool))
-(define-rosette-primop false? : (C→ Any Bool))
+                            ;; TODO: fix types of these predicates
+                            [boolean? : (C→ Any Bool)]
+                            [integer? : (C→ Any Bool)]
+                            [real? : (C→ Any Bool)]
+                            [positive? : (Ccase-> (C→ CNum CBool)
+                                                  (C→ Num Bool))]
 
-;; TODO: fix types of these predicates
-(define-rosette-primop boolean? : (C→ Any Bool))
-(define-rosette-primop integer? : (C→ Any Bool))
-(define-rosette-primop real? : (C→ Any Bool))
-(define-rosette-primop positive? : (Ccase-> (C→ CNum CBool)
-                                            (C→ Num Bool)))
-
-;; rosette-specific
-(define-rosette-primop asserts : (C→ (CListof Bool)))
-(define-rosette-primop clear-asserts! : (C→ CUnit))
+                            ;; rosette-specific
+                            [asserts : (C→ (CListof Bool))]
+                            [clear-asserts! : (C→ CUnit)]))
 
 ;; ---------------------------------
 ;; BV Types and Operations
@@ -522,63 +528,63 @@
    --------
    [⊢ [_ ≫ (ro:current-bitwidth e-) ⇒ : CUnit]]])
 
-(define-named-type-alias BV (add-predm (U CBV) bv?))
+(define-named-type-alias BV (add-predm (U CBV) ro:bv?))
 (define-symbolic-named-type-alias BVPred (C→ BV Bool) #:pred lifted-bitvector?)
 
-(define-rosette-primop bv : (Ccase-> (C→ CInt CBVPred CBV)
-                                     (C→ CInt CPosInt CBV)))
-(define-rosette-primop bv? : (C→ Any Bool))
-(define-rosette-primop bitvector : (C→ CPosInt CBVPred))
-(define-rosette-primop bitvector? : (C→ Any Bool))
+(provide (rosette-typed-out [bv : (Ccase-> (C→ CInt CBVPred CBV)
+                                           (C→ CInt CPosInt CBV))]
+                            [bv? : (C→ Any Bool)]
+                            [bitvector : (C→ CPosInt CBVPred)]
+                            [bitvector? : (C→ Any Bool)]
 
-(define-rosette-primop bveq : (C→ BV BV Bool))
-(define-rosette-primop bvslt : (C→ BV BV Bool))
-(define-rosette-primop bvult : (C→ BV BV Bool))
-(define-rosette-primop bvsle : (C→ BV BV Bool))
-(define-rosette-primop bvule : (C→ BV BV Bool))
-(define-rosette-primop bvsgt : (C→ BV BV Bool))
-(define-rosette-primop bvugt : (C→ BV BV Bool))
-(define-rosette-primop bvsge : (C→ BV BV Bool))
-(define-rosette-primop bvuge : (C→ BV BV Bool))
+                            [bveq : (C→ BV BV Bool)]
+                            [bvslt : (C→ BV BV Bool)]
+                            [bvult : (C→ BV BV Bool)]
+                            [bvsle : (C→ BV BV Bool)]
+                            [bvule : (C→ BV BV Bool)]
+                            [bvsgt : (C→ BV BV Bool)]
+                            [bvugt : (C→ BV BV Bool)]
+                            [bvsge : (C→ BV BV Bool)]
+                            [bvuge : (C→ BV BV Bool)]
 
-(define-rosette-primop bvnot : (C→ BV BV))
+                            [bvnot : (C→ BV BV)]
 
-(define-rosette-primop bvand : (C→ BV BV BV))
-(define-rosette-primop bvor : (C→ BV BV BV))
-(define-rosette-primop bvxor : (C→ BV BV BV))
+                            [bvand : (C→ BV BV BV)]
+                            [bvor : (C→ BV BV BV)]
+                            [bvxor : (C→ BV BV BV)]
 
-(define-rosette-primop bvshl : (C→ BV BV BV))
-(define-rosette-primop bvlshr : (C→ BV BV BV))
-(define-rosette-primop bvashr : (C→ BV BV BV))
-(define-rosette-primop bvneg : (C→ BV BV))
+                            [bvshl : (C→ BV BV BV)]
+                            [bvlshr : (C→ BV BV BV)]
+                            [bvashr : (C→ BV BV BV)]
+                            [bvneg : (C→ BV BV)]
 
-(define-rosette-primop bvadd : (C→ BV BV BV))
-(define-rosette-primop bvsub : (C→ BV BV BV))
-(define-rosette-primop bvmul : (C→ BV BV BV))
+                            [bvadd : (C→ BV BV BV)]
+                            [bvsub : (C→ BV BV BV)]
+                            [bvmul : (C→ BV BV BV)]
 
-(define-rosette-primop bvsdiv : (C→ BV BV BV))
-(define-rosette-primop bvudiv : (C→ BV BV BV))
-(define-rosette-primop bvsrem : (C→ BV BV BV))
-(define-rosette-primop bvurem : (C→ BV BV BV))
-(define-rosette-primop bvsmod : (C→ BV BV BV))
+                            [bvsdiv : (C→ BV BV BV)]
+                            [bvudiv : (C→ BV BV BV)]
+                            [bvsrem : (C→ BV BV BV)]
+                            [bvurem : (C→ BV BV BV)]
+                            [bvsmod : (C→ BV BV BV)]
 
-(define-rosette-primop concat : (C→ BV BV BV))
-(define-rosette-primop extract : (C→ Int Int BV BV))
-(define-rosette-primop sign-extend : (C→ BV CBVPred BV))
-(define-rosette-primop zero-extend : (C→ BV BVPred BV))
+                            [concat : (C→ BV BV BV)]
+                            [extract : (C→ Int Int BV BV)]
+                            [sign-extend : (C→ BV CBVPred BV)]
+                            [zero-extend : (C→ BV BVPred BV)]
 
-(define-rosette-primop bitvector->integer : (C→ BV Int))
-(define-rosette-primop bitvector->natural : (C→ BV Nat))
-(define-rosette-primop integer->bitvector : (C→ Int BVPred BV))
+                            [bitvector->integer : (C→ BV Int)]
+                            [bitvector->natural : (C→ BV Nat)]
+                            [integer->bitvector : (C→ Int BVPred BV)]
 
-(define-rosette-primop bitvector-size : (C→ CBVPred CPosInt))
+                            [bitvector-size : (C→ CBVPred CPosInt)]
 
 
 ;; ---------------------------------
 ;; Logic operators
 
-(define-rosette-primop ! : (C→ Bool Bool))
-(define-rosette-primop <=> : (C→ Bool Bool Bool))
+                            [! : (C→ Bool Bool)]
+                            [<=> : (C→ Bool Bool Bool)]))
 
 (define-typed-syntax &&
   [(_ e ...) ≫
@@ -596,13 +602,13 @@
 
 (define-base-types CSolution CPict)
 
-(define-rosette-primop core : (C→ Any Any))
-(define-rosette-primop sat? : (C→ Any Bool))
-(define-rosette-primop unsat? : (C→ Any Bool))
-(define-rosette-primop unsat : (Ccase-> (C→ CSolution)
-                                        (C→ (CListof Bool) CSolution)))
-(define-rosette-primop forall : (C→ (CListof Any) Bool Bool))
-(define-rosette-primop exists : (C→ (CListof Any) Bool Bool))
+(provide (rosette-typed-out [core : (C→ Any Any)]
+                            [sat? : (C→ Any Bool)]
+                            [unsat? : (C→ Any Bool)]
+                            [unsat : (Ccase-> (C→ CSolution)
+                                              (C→ (CListof Bool) CSolution))]
+                            [forall : (C→ (CListof Any) Bool Bool)]
+                            [exists : (C→ (CListof Any) Bool Bool)]))
 
 (define-typed-syntax verify
   [(_ e) ≫

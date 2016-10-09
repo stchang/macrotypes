@@ -1,6 +1,6 @@
 #lang s-exp macrotypes/typecheck
 (extends "stlc+sub.rkt" #:except #%datum)
-(extends "stlc+cons.rkt" #:except + #%datum and tup × proj ~× list)
+(extends "stlc+cons.rkt" #:except + * #%datum and tup × proj ~× list)
 (reuse tup × proj #:from "stlc+tup.rkt")
 (require (only-in "stlc+tup.rkt" ~×))
 

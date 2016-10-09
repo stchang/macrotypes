@@ -7,14 +7,18 @@
 (require (prefix-in ro: rosette/lib/synthax))
 (provide BVPred (rename-out [ro:#%module-begin #%module-begin]))
 
-(define-simple-macro (define-rosette-primop op:id : ty)
-  (begin
-    (require (only-in rosette [op op]))
-    (define-primop op : ty)))
-(define-simple-macro (define-rosette-primop* op1:id op2:id : ty)
-  (begin
-    (require (only-in rosette [op1 op2]))
-    (define-primop op2 : ty)))
+(define-for-syntax (mk-ro:-id id) (format-id id "ro:~a" id))
+
+(define-syntax rosette-typed-out
+  (make-provide-pre-transformer
+   (lambda (stx modes)
+     (syntax-parse stx #:datum-literals (:)
+       ;; cannot write ty:type bc provides might precede type def
+       [(_ (~and (~or (~and [out-x:id (~optional :) ty] (~parse x #'out-x))
+                      [[x:id (~optional :) ty] out-x:id])) ...)
+        #:with (ro-x ...) (stx-map mk-ro:-id #'(x ...))
+        (pre-expand-export (syntax/loc stx (typed-out [[ro-x ty] out-x] ...))
+                           modes)]))))
 
 ;; ----------------------------------------------------------------------------
 ;; Rosette stuff
@@ -92,24 +96,24 @@
 
 (define-type-constructor Param #:arity = 1)
 
-(define-rosette-primop boolean? : (→ Bool Bool))
-(define-rosette-primop integer? : (→ Int Bool))
-(define-rosette-primop string? : (→ String Bool))
-(define-rosette-primop pregexp : (→ String Regexp))
+(provide (rosette-typed-out [boolean? : (→ Bool Bool)]
+                            [integer? : (→ Int Bool)]
+                            [string? : (→ String Bool)]
+                            [pregexp : (→ String Regexp)]
 
-(define-rosette-primop add1 : (case-> (→ NegInt (U NegInt Zero))
-                                      (→ Zero PosInt)
-                                      (→ PosInt PosInt)
-                                      (→ Nat PosInt)
-                                      (→ Int Int)))
-(define-rosette-primop sub1 : (case-> (→ NegInt NegInt)
-                                      (→ Zero NegInt)
-                                      (→ PosInt Nat)
-                                      (→ Nat Int)
-                                      (→ Int Int)))
-(define-rosette-primop + : (case-> (→ Nat Nat Nat)
-                                   (→ Int Int Int)
-                                   (→ Num Num Num)))
+                            [add1 : (case-> (→ NegInt (U NegInt Zero))
+                                            (→ Zero PosInt)
+                                            (→ PosInt PosInt)
+                                            (→ Nat PosInt)
+                                            (→ Int Int))]
+                            [sub1 : (case-> (→ NegInt NegInt)
+                                            (→ Zero NegInt)
+                                            (→ PosInt Nat)
+                                            (→ Nat Int)
+                                            (→ Int Int))]
+                            [+ : (case-> (→ Nat Nat Nat)
+                                         (→ Int Int Int)
+                                         (→ Num Num Num))]))
 
 (define-typed-syntax equal?
   [(equal? e1 e2) ≫
@@ -168,29 +172,25 @@
 (define-named-type-alias BVPred (→ BV Bool))
 
 ;; support higher order case with case-> types
-(define-rosette-primop bv : (case-> (→ Int BVPred BV)
-                                    (→ Int PosInt BV)))
-
-(define-rosette-primop bv? : (→ BV Bool))
-(define-rosette-primop bitvector : (→ PosInt BVPred))
-(define-rosette-primop bitvector? : (→ BVPred Bool))
-(define-rosette-primop* bitvector bvpred : (→ PosInt BVPred))
-(define-rosette-primop* bitvector? bvpred? : (→ BVPred Bool))
-(define-rosette-primop bitvector-size : (→ BVPred PosInt))
-(define-rosette-primop* bitvector-size bvpred-size : (→ BVPred PosInt))
-
-(define-rosette-primop bveq : (→ BV BV Bool))
-(define-rosette-primop bvslt : (→ BV BV Bool))
-(define-rosette-primop bvult : (→ BV BV Bool))
-(define-rosette-primop bvsle : (→ BV BV Bool))
-(define-rosette-primop bvule : (→ BV BV Bool))
-(define-rosette-primop bvsgt : (→ BV BV Bool))
-(define-rosette-primop bvugt : (→ BV BV Bool))
-(define-rosette-primop bvsge : (→ BV BV Bool))
-(define-rosette-primop bvuge : (→ BV BV Bool))
-
-(define-rosette-primop bvnot : (→ BV BV))
-
+(provide (rosette-typed-out [bv : (case-> (→ Int BVPred BV)
+                                          (→ Int PosInt BV))]
+                            [bv? : (→ BV Bool)]
+                            [bitvector : (→ PosInt BVPred)]
+                            [bitvector? : (→ BVPred Bool)]
+                            [[bitvector : (→ PosInt BVPred)] bvpred]
+                            [[bitvector? : (→ BVPred Bool)] bvpred?]
+                            [bitvector-size : (→ BVPred PosInt)]
+                            [[bitvector-size : (→ BVPred PosInt)] bvpred-size]
+                            [bveq : (→ BV BV Bool)]
+                            [bvslt : (→ BV BV Bool)]
+                            [bvult : (→ BV BV Bool)]
+                            [bvsle : (→ BV BV Bool)]
+                            [bvule : (→ BV BV Bool)]
+                            [bvsgt : (→ BV BV Bool)]
+                            [bvugt : (→ BV BV Bool)]
+                            [bvsge : (→ BV BV Bool)]
+                            [bvuge : (→ BV BV Bool)]
+                            [bvnot : (→ BV BV)]))
 
 (define-typed-syntax bvand
   [f:id ≫ ; TODO: implement variable arity types
@@ -217,10 +217,10 @@
    --------
    [⊢ [_ ≫ (ro:bvxor e- ...) ⇒ : BV]]])
 
-(define-rosette-primop bvshl : (→ BV BV BV))
-(define-rosette-primop bvlshr : (→ BV BV BV))
-(define-rosette-primop bvashr : (→ BV BV BV))
-(define-rosette-primop bvneg : (→ BV BV))
+(provide (rosette-typed-out [bvshl : (→ BV BV BV)]
+                            [bvlshr : (→ BV BV BV)]
+                            [bvashr : (→ BV BV BV)]
+                            [bvneg : (→ BV BV)]))
 
 (define-typed-syntax bvadd
   [f:id ≫ ; TODO: implement variable arity types
@@ -247,11 +247,11 @@
    --------
    [⊢ [_ ≫ (ro:bvmul e- ...) ⇒ : BV]]])
 
-(define-rosette-primop bvsdiv : (→ BV BV BV))
-(define-rosette-primop bvudiv : (→ BV BV BV))
-(define-rosette-primop bvsrem : (→ BV BV BV))
-(define-rosette-primop bvurem : (→ BV BV BV))
-(define-rosette-primop bvsmod : (→ BV BV BV))
+(provide (rosette-typed-out [bvsdiv : (→ BV BV BV)]
+                            [bvudiv : (→ BV BV BV)]
+                            [bvsrem : (→ BV BV BV)]
+                            [bvurem : (→ BV BV BV)]
+                            [bvsmod : (→ BV BV BV)]))
 
 (define-typed-syntax concat
   [(_ e ...+) ≫
@@ -259,11 +259,10 @@
    --------
    [⊢ [_ ≫ (ro:concat e- ...) ⇒ : BV]]])
 
-(define-rosette-primop extract : (→ Int Int BV BV))
-;; TODO: additionally support union in 2nd arg
-(define-rosette-primop sign-extend : (→ BV BVPred BV))
-(define-rosette-primop zero-extend : (→ BV BVPred BV))
-
-(define-rosette-primop bitvector->integer : (→ BV Int))
-(define-rosette-primop bitvector->natural : (→ BV Int))
-(define-rosette-primop integer->bitvector : (→ Int BVPred BV))
+(provide (rosette-typed-out [extract : (→ Int Int BV BV)]
+                            ;; TODO: support union in 2nd arg
+                            [sign-extend : (→ BV BVPred BV)]
+                            [zero-extend : (→ BV BVPred BV)]
+                            [bitvector->integer : (→ BV Int)]
+                            [bitvector->natural : (→ BV Int)]
+                            [integer->bitvector : (→ Int BVPred BV)]))

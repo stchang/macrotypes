@@ -14,7 +14,7 @@
 ;; - current-promote, expose
 ;; - extend current-sub? to call current-promote
 
-(define-primop + : (→ Nat Nat Nat))
+(provide (typed-out [+ : (→ Nat Nat Nat)]))
 
 ; can't just call expose in type-eval,
 ; otherwise typevars will have bound as type, rather than instantiated type

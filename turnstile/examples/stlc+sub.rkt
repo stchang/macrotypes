@@ -20,12 +20,10 @@
 ;; - also *
 ;; Other: sub? current-sub?
 
-(define-base-type Top)
-(define-base-type Num)
-(define-base-type Nat)
+(provide (typed-out [+ : (→ Num Num Num)]
+                    [* : (→ Num Num Num)]))
 
-(define-primop + : (→ Num Num Num))
-(define-primop * : (→ Num Num Num))
+(define-base-types Top Num Nat)
 
 (define-typed-syntax #%datum
   [(_ . n:nat) ≫

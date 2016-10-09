@@ -117,10 +117,15 @@ A @racket[define-typed-syntax] definition is automatically provided, either usin
  the given name, or with a specified @racket[#:export-as] name.
 }
 
-@defform[(define-primop op-id : τ)]{
-Attaches type @racket[τ] to identifier @racket[op-id], e.g.
-              @racket[(define-primop + : (→ Int Int))].
-Automatically provides the new @racket[op-id].}
+@defform*[((define-primop op-id τ)
+           (define-primop op-id : τ)
+           (define-primop typed-op-id op-id τ)
+           (define-primop typed-op-id op-id : τ))]{
+Defines @racket[typed-op-id] by attaching type @racket[τ] to (untyped) 
+identifier @racket[op-id], e.g. @racket[(define-primop typed+ + : (→ Int Int))].
+
+When not specified, @racket[typed-op-id] is @racket[op-id] suffixed with
+@litchar{-} (see @secref{racket-}).}
 
 @defform[(define-syntax-category name-id)]{
 Defines a new "category" of syntax by defining a series of forms and functions.
@@ -224,7 +229,23 @@ equality, but includes alpha-equivalence.
  ]
 }
 
-@section{@racket[require] and @racket[provide]-like Forms}
+@section{@racket[require] and @racket[provide]-related Forms}
+
+@defform[(typed-out x+ty+maybe-rename ...)
+         #:grammar
+         ([x+ty+maybe-rename 
+           (code:line [x ty])
+           (code:line [x : ty])
+           (code:line [[x ty] out-x])
+           (code:line [[x : ty] out-x])]
+          [x identifier?]
+          [out-x identifier?]
+          [ty type?])]{
+A provide-spec that adds type @racket[ty] to untyped @racket[x] and provides
+that typed identifier as either @racket[x], or @racket[out-x] if it's specified.
+
+Equivalent to a @racket[define-primop] that automatically provides its
+definition.}
 
 @defform[(extends base-lang option ...)
            #:grammar
@@ -239,6 +260,12 @@ The imported names are available for use in the current module, with a
          ([name id
                 [old new]])]{
 Reuses @racket[name]s from @racket[base-lang].}
+
+@section[#:tag "racket-"]{Suffixed Racket bindings}
+
+To help avoid name conflicts, Turnstile re-provides all Racket bindings with a
+@litchar{-} suffix. These bindings are automatically used in some cases, e.g.,
+@racket[define-primop].
 
 @section{Lower-level Functions}
 

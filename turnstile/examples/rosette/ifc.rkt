@@ -11,23 +11,31 @@
 
 (define-base-types Prog Instr Machine Witness)
 
-(define-primop Halt : Instr)
-(define-primop Noop : Instr)
-(define-primop Push : Instr)
-(define-primop Pop : Instr)
-(define-primop Load* : Instr)
-(define-primop Store*AB : Instr)
-(define-primop Store*B : Instr)
-(define-primop Add* : Instr)
-(define-primop Load : Instr)
-(define-primop Store : Instr)
-(define-primop Add : Instr)
+(provide (typed-out [Halt : Instr]
+                    [Noop : Instr]
+                    [Push : Instr]
+                    [Pop : Instr]
+                    [Load* : Instr]
+                    [Store*AB : Instr]
+                    [Store*B : Instr]
+                    [Add* : Instr]
+                    [Load : Instr]
+                    [Store : Instr]
+                    [Add : Instr]
 
-(define-primop init : (→ Prog Machine))
-(define-primop halted? : (→ Machine Bool))
-(define-primop mem≈ : (→ Machine Machine Bool))
+                    [init : (→ Prog Machine)]
+                    [halted? : (→ Machine Bool)]
+                    [mem≈ : (→ Machine Machine Bool)]
+                    
+                    [program : (→ Int (List Instr) Prog)]
 
-(define-primop program : (→ Int (List Instr) Prog))
+                    [verify-EENI* : (→ (→ Prog Machine)
+                                       (→ Machine Bool)
+                                       (→ Machine Machine Bool)
+                                       Prog Bool 
+                                       Witness)]
+                    [EENI-witness? : (→ Witness Bool)]))
+
 #;(define-typed-syntax program
   [(_ n procs) ≫
    [⊢ [n ≫ n- ⇐ : Int]]
@@ -35,9 +43,3 @@
    --------
    [⊢ [_ ≫ (ifc:program n- procs-) ⇒ : Prog]]])
 
-(define-primop verify-EENI* : (→ (→ Prog Machine)
-                                 (→ Machine Bool)
-                                 (→ Machine Machine Bool)
-                                 Prog Bool 
-                                 Witness))
-(define-primop EENI-witness? : (→ Witness Bool))

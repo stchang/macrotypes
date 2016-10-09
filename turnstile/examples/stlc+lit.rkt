@@ -1,5 +1,6 @@
 #lang turnstile/lang
 (extends "stlc.rkt")
+(provide (typed-out [+ : (→ Int Int Int)]))
 
 ;; Simply-Typed Lambda Calculus, plus numeric literals and primitives
 ;; Types:
@@ -11,8 +12,6 @@
 ;; - prim +
 
 (define-base-type Int)
-
-(define-primop + : (→ Int Int Int))
 
 (define-typed-syntax #%datum
   [(_ . n:integer) ≫

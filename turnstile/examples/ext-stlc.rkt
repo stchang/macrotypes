@@ -1,6 +1,5 @@
 #lang turnstile/lang
 (extends "stlc+lit.rkt" #:except #%datum)
-(provide ⊔ (for-syntax current-join))
 
 ;; Simply-Typed Lambda Calculus, plus extensions (TAPL ch11)
 ;; Types:
@@ -17,10 +16,21 @@
 ;; - ascription (ann)
 ;; - let, let*, letrec
 
-(define-base-type Bool)
-(define-base-type String)
-(define-base-type Float)
-(define-base-type Char)
+(provide (for-syntax current-join)
+         ⊔ zero? =
+         (rename-out [typed- -] [typed* *])
+         (typed-out [add1 (→ Int Int)]
+                    [sub1 : (→ Int Int)]
+                    [[not- (→ Bool Bool)] not]
+                    [[void- : (→ Unit)] void]))
+
+(define-base-types Bool String Float Char Unit)
+
+;; test all variations of define-primop and typed-out
+(define-primop zero? (→ Int Bool))
+(define-primop = : (→ Int Int Bool))
+(define-primop typed- - (→ Int Int Int))
+(define-primop typed* * : (→ Int Int Int))
 
 (define-typed-syntax #%datum
   [(_ . b:boolean) ≫
@@ -39,14 +49,6 @@
   [(_ . x) ≫
    --------
    [≻ (stlc+lit:#%datum . x)]])
-
-(define-primop zero? : (→ Int Bool))
-(define-primop = : (→ Int Int Bool))
-(define-primop - : (→ Int Int Int))
-(define-primop * : (→ Int Int Int))
-(define-primop add1 : (→ Int Int))
-(define-primop sub1 : (→ Int Int))
-(define-primop not : (→ Bool Bool))
 
 (define-typed-syntax (and e ...) ≫
   [⊢ e ≫ e- ⇐ Bool] ...
@@ -88,9 +90,6 @@
    [⊢ e2 ≫ e2- ⇒ τ2]
    --------
    [⊢ (if- e_tst- e1- e2-) ⇒ (⊔ τ1 τ2)]])
-
-(define-base-type Unit)
-(define-primop void : (→ Unit))
 
 (define-typed-syntax begin
   [(_ e_unit ... e) ⇐ τ_expected ≫

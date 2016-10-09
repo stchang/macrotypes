@@ -10,9 +10,9 @@
 ;; - numeric literals
 ;; - prim +
 
-(define-base-type Int)
+(provide (typed-out [+ : (→ Int Int Int)]))
 
-(define-primop + : (→ Int Int Int))
+(define-base-type Int)
 
 (define-typed-syntax #%datum #:literals (#%datum)
   [(#%datum . n:integer) (⊢ #,(syntax/loc stx (#%datum- . n)) : Int)]

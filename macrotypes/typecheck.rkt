@@ -6,11 +6,16 @@
   (postfix-in - racket/match)
   (postfix-in - racket/promise)
   (for-syntax (except-in racket extends)
-              syntax/parse racket/syntax syntax/stx racket/stxparam syntax/parse/define
+              syntax/parse racket/syntax syntax/stx racket/stxparam 
+              syntax/parse/define
+              (only-in racket/provide-transform 
+                       make-provide-pre-transformer pre-expand-export)
               "stx-utils.rkt")
-  (for-meta 2 racket/base syntax/parse racket/syntax syntax/stx "stx-utils.rkt")
+  (for-meta 2 racket/base syntax/parse racket/syntax syntax/stx 
+            "stx-utils.rkt")
   (for-meta 3 racket/base syntax/parse racket/syntax)
-  racket/bool racket/provide racket/require racket/match racket/promise syntax/parse/define)
+  racket/bool racket/provide racket/require racket/match racket/promise 
+  syntax/parse/define)
 (provide
  postfix-in
  symbol=?- match- delay-
@@ -20,6 +25,7 @@
  (rename-out [define-syntax-category define-stx-category])
  (for-syntax
   (all-from-out racket syntax/parse racket/syntax syntax/stx
+                racket/provide-transform
                 "stx-utils.rkt"))
  (for-meta 2 (all-from-out racket/base syntax/parse racket/syntax)))
 
@@ -867,22 +873,32 @@
 ;; pre-declare all type-related functions and forms
 (define-syntax-category type)
 
+(define-syntax typed-out
+  (make-provide-pre-transformer
+   (lambda (stx modes)
+     (syntax-parse stx #:datum-literals (:)
+       ;; cannot write ty:type bc provides might precede type def
+       [(_ (~and (~or (~and [out-x:id (~optional :) ty] (~parse x #'out-x))
+                      [[x:id (~optional :) ty] out-x:id])) ...)
+        #:with (x/tc ...) (generate-temporaries #'(x ...))
+        #:when (stx-map
+                syntax-local-lift-module-end-declaration
+                ;; use define-primop to validate type
+                #'((define-primop x/tc x ty) ...))
+        (pre-expand-export (syntax/loc stx (rename-out [x/tc out-x] ...))
+                           modes)]))))
+
+;; colon is optional to make it easier to use define-primop in macros
 (define-syntax define-primop
   (syntax-parser #:datum-literals (:)
-    [(define-primop op:id : τ #:no-provide)
-     #:with op/tc (generate-temporary #'op)
-     #'(define-primop op/tc op : τ)]
-    [(define-primop op:id : τ)
-     #:with op/tc (generate-temporary #'op)
-     #`(begin-
-         (provide- #,(syntax/loc this-syntax (rename-out- [op/tc op])))
-         (define-primop op/tc op : τ))]
-    [(define-primop op/tc op : τ:type)
-     #'(begin-
-         ; rename transformer doesnt seem to expand at the right time
-         ; - op still has no type in #%app
-         (define-syntax op/tc
-           (make-variable-like-transformer (assign-type #'op #'τ))))]))
+    [(define-primop op:id (~optional :) τ)
+     #:with op- (format-id #'op "~a-" #'op)
+     #'(define-primop op op- τ)]
+    [(define-primop op/tc:id (~optional #:as) op:id (~optional :) τ:type)
+     ; rename-transformer doesnt seem to expand at the right time
+     ; - op still has no type in #%app
+     #'(define-syntax op/tc
+         (make-variable-like-transformer (assign-type #'op #'τ)))]))
 
 ; substitution
 (begin-for-syntax

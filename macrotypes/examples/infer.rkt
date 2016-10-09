@@ -12,22 +12,22 @@
 
 ;; a language with partial (local) type inference using bidirectional type checking
 
+(provide (typed-out [+ : (→ Int Int Int)]
+                    [- : (→ Int Int Int)]
+                    [void : (→ Unit)]
+                    [= : (→ Int Int Bool)]
+                    [zero? : (→ Int Bool)]
+                    [sub1 : (→ Int Int)]
+                    [add1 : (→ Int Int)]
+                    [not : (→ Bool Bool)]
+                    [abs : (→ Int Int)]))
+
 (define-syntax → ; wrapping →
   (syntax-parser
     [(→ (~and Xs {X:id ...}) . rst)
      #:when (brace? #'Xs)
      (add-orig #'(∀ (X ...) (ext-stlc:→ . rst)) (get-orig this-syntax))]
     [(→ . rst) (add-orig #'(∀ () (ext-stlc:→ . rst)) (get-orig this-syntax))]))
-
-(define-primop + : (→ Int Int Int))
-(define-primop - : (→ Int Int Int))
-(define-primop void : (→ Unit))
-(define-primop = : (→ Int Int Bool))
-(define-primop zero? : (→ Int Bool))
-(define-primop sub1 : (→ Int Int))
-(define-primop add1 : (→ Int Int))
-(define-primop not : (→ Bool Bool))
-(define-primop abs : (→ Int Int))
 
 (begin-for-syntax
   ;; find-free-Xs : (Stx-Listof Id) Type -> (Listof Id)

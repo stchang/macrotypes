@@ -809,24 +809,24 @@
      #'(?∀ Xs (ext-stlc:→ . rst))]))
 
 ; redefine these to use lifted →
-(define-primop + : (→ Int Int Int))
-(define-primop - : (→ Int Int Int))
-(define-primop * : (→ Int Int Int))
-(define-primop max : (→ Int Int Int))
-(define-primop min : (→ Int Int Int))
-(define-primop void : (→ Unit))
-(define-primop = : (→ Int Int Bool))
-(define-primop <= : (→ Int Int Bool))
-(define-primop < : (→ Int Int Bool))
-(define-primop > : (→ Int Int Bool))
-(define-primop modulo : (→ Int Int Int))
-(define-primop zero? : (→ Int Bool))
-(define-primop sub1 : (→ Int Int))
-(define-primop add1 : (→ Int Int))
-(define-primop not : (→ Bool Bool))
-(define-primop abs : (→ Int Int))
-(define-primop even? : (→ Int Bool))
-(define-primop odd? : (→ Int Bool))
+(provide (typed-out [+ : (→ Int Int Int)]
+                    [- : (→ Int Int Int)]
+                    [* : (→ Int Int Int)]
+                    [max : (→ Int Int Int)]
+                    [min : (→ Int Int Int)]
+                    [void : (→ Unit)]
+                    [= : (→ Int Int Bool)]
+                    [<= : (→ Int Int Bool)]
+                    [< : (→ Int Int Bool)]
+                    [> : (→ Int Int Bool)]
+                    [modulo : (→ Int Int Int)]
+                    [zero? : (→ Int Bool)]
+                    [sub1 : (→ Int Int)]
+                    [add1 : (→ Int Int)]
+                    [not : (→ Bool Bool)]
+                    [abs : (→ Int Int)]
+                    [even? : (→ Int Bool)]
+                    [odd? : (→ Int Bool)]))
 
 ; all λs have type (?∀ (X ...) (→ τ_in ... τ_out))
 (define-typed-syntax λ #:datum-literals (:)
@@ -951,11 +951,10 @@
    --------
    [⊢ [_ ≫ (thread- th-) ⇒ : Thread]]])
 
-(define-primop random : (→ Int Int))
-(define-primop integer->char : (→ Int Char))
-(define-primop string->list : (→ String (List Char)))
-(define-primop string->number : (→ String Int))
-;(define-primop number->string : (→ Int String))
+(provide (typed-out [random : (→ Int Int)]
+                    [integer->char : (→ Int Char)]
+                    [string->list : (→ String (List Char))]
+                    [string->number : (→ String Int)]))
 (define-typed-syntax number->string
   [number->string:id ≫
    --------
@@ -968,10 +967,10 @@
    [⊢ [rad ≫ rad- ⇐ : Int]]
    --------
    [⊢ [_ ≫ (number->string- n rad) ⇒ : String]]])
-(define-primop string : (→ Char String))
-(define-primop sleep : (→ Int Unit))
-(define-primop string=? : (→ String String Bool))
-(define-primop string<=? : (→ String String Bool))
+(provide (typed-out [string : (→ Char String)]
+                    [sleep : (→ Int Unit)]
+                    [string=? : (→ String String Bool)]
+                    [string<=? : (→ String String Bool)]))
 
 (define-typed-syntax string-append
   [(string-append str ...) ≫
@@ -1182,7 +1181,7 @@
    [⊢ [e ≫ e- ⇒ : _]]
    --------
    [⊢ [_ ≫ (displayln- e-) ⇒ : Unit]]])
-(define-primop newline : (→ Unit))
+(provide (typed-out [newline : (→ Unit)]))
 
 (define-typed-syntax list->vector
   [(list->vector e) ⇐ : (~Vector ty) ≫
@@ -1281,9 +1280,9 @@
 
 (define-base-type String-Port)
 (define-base-type Input-Port)
-(define-primop open-output-string : (→ String-Port))
-(define-primop get-output-string : (→ String-Port String))
-(define-primop string-upcase : (→ String String))
+(provide (typed-out [open-output-string : (→ String-Port)]
+                    [get-output-string : (→ String-Port String)]
+                    [string-upcase : (→ String String)]))
 
 (define-typed-syntax write-string
  [(write-string str out) ≫
@@ -1302,9 +1301,9 @@
   [⊢ [str ≫ str- ⇐ : String]]
   --------
   [⊢ [_ ≫ (string-length- str-) ⇒ : Int]]])
-(define-primop make-string : (→ Int String))
-(define-primop string-set! : (→ String Int Char Unit))
-(define-primop string-ref : (→ String Int Char))
+(provide (typed-out [make-string : (→ Int String)]
+                    [string-set! : (→ String Int Char Unit)]
+                    [string-ref : (→ String Int Char)]))
 (define-typed-syntax string-copy!
   [(string-copy! dest dest-start src) ≫
    --------
@@ -1319,17 +1318,17 @@
    --------
    [⊢ [_ ≫ (string-copy!- dest- dest-start- src- src-start- src-end-) ⇒ : Unit]]])
 
-(define-primop fl+ : (→ Float Float Float))
-(define-primop fl- : (→ Float Float Float))
-(define-primop fl* : (→ Float Float Float))
-(define-primop fl/ : (→ Float Float Float))
-(define-primop flsqrt : (→ Float Float))
-(define-primop flceiling : (→ Float Float))
-(define-primop inexact->exact : (→ Float Int))
-(define-primop exact->inexact : (→ Int Float))
-(define-primop char->integer : (→ Char Int))
-(define-primop real->decimal-string : (→ Float Int String))
-(define-primop fx->fl : (→ Int Float))
+(provide (typed-out [fl+ : (→ Float Float Float)]
+                    [fl- : (→ Float Float Float)]
+                    [fl* : (→ Float Float Float)]
+                    [fl/ : (→ Float Float Float)]
+                    [flsqrt : (→ Float Float)]
+                    [flceiling : (→ Float Float)]
+                    [inexact->exact : (→ Float Int)]
+                    [exact->inexact : (→ Int Float)]
+                    [char->integer : (→ Char Int)]
+                    [real->decimal-string : (→ Float Int String)]
+                    [fx->fl : (→ Int Float)]))
 (define-typed-syntax quotient+remainder
   [(quotient+remainder x y) ≫
    [⊢ [x ≫ x- ⇐ : Int]]
@@ -1338,7 +1337,7 @@
    [⊢ [_ ≫ (let-values- ([[a b] (quotient/remainder- x- y-)])
              (list- a b))
        ⇒ : (stlc+rec-iso:× Int Int)]]])
-(define-primop quotient : (→ Int Int Int))
+(provide (typed-out [quotient : (→ Int Int Int)]))
 
 (define-typed-syntax set!
   [(set! x:id e) ≫
@@ -1352,7 +1351,7 @@
    --------
    [_ ≻ (provide- ty ...)]])
 
-(define-typed-syntax provide
+(define-typed-syntax mlish-provide #:export-as provide
   [(provide x:id ...) ≫
    [⊢ [x ≫ x- ⇒ : ty_x] ...]
    ; TODO: use hash-code to generate this tmp
@@ -1372,8 +1371,8 @@
           (define-syntax x (make-rename-transformer (assign-type #'y #'x-ty))) ...)]])
 
 (define-base-type Regexp)
-(define-primop regexp-match : (→ Regexp String (List String)))
-(define-primop regexp : (→ String Regexp))
+(provide (typed-out [regexp-match : (→ Regexp String (List String))]
+                    [regexp : (→ String Regexp)]))
 
 (define-typed-syntax equal?
   [(equal? e1 e2) ≫

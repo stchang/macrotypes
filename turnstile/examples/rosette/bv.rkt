@@ -21,25 +21,26 @@
    --------
    [⊢ [_ ≫ (bv:BV e-) ⇒ : CUnit]]])
 
-(define-primop bv : (Ccase-> (C→ CInt CBV)
-                             (C→ CInt CBVPred CBV)
-                             (C→ CInt CPosInt CBV)))
-(define-primop bv* : (Ccase-> (C→ BV)
-                              (C→ CBVPred BV)))
-
+(provide (typed-out [bv : (Ccase-> (C→ CInt CBV)
+                                   (C→ CInt CBVPred CBV)
+                                   (C→ CInt CPosInt CBV))]
+                    [bv* : (Ccase-> (C→ BV)
+                                    (C→ CBVPred BV))]
+                    [bvredor : (C→ BV BV)]
+                    [bvredand : (C→ BV BV)]))
 
 (define-syntax-rule (bv:bool->bv b) 
   (ro:if b 
          (bv (rosette2:#%datum . 1)) 
          (bv (rosette2:#%datum . 0))))
-(define-primop bvredor : (C→ BV BV))
-(define-primop bvredand : (C→ BV BV))
 
 (define-simple-macro (define-comparators id ...)
   #:with (op ...) (stx-map (lambda (o) (format-id o "ro:~a" o)) #'(id ...))
+  #:with (id/tc ...) (generate-temporaries #'(id ...))
   (begin- 
       (define- (id x y) (bv:bool->bv (ro:#%app op x y))) ...
-      (define-primop id : (C→ BV BV BV)) ...))
+      (provide (rename-out [id/tc id] ...))
+      (define-primop id/tc id (C→ BV BV BV)) ...))
 
 (define-comparators bveq bvslt bvult bvsle bvule bvsgt bvugt bvsge bvuge)
 

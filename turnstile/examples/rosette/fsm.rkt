@@ -47,11 +47,11 @@
    [⊢ [_ ≫ (fsm:automaton init-state- 
              [state- : (label arr target-) ...] ...) ⇒  : FSM]]])
 
-(define-primop reject : State)
+(provide (typed-out [reject : State]
+                    [verify-automaton : (→ FSM Regexp (List Symbol))]
+                    [debug-automaton : (→ FSM Regexp (List Symbol) Pict)]
+                    [synthesize-automaton : (→ FSM Regexp Unit)]))
 
 ;; (define (apply-FSM f v) (f v))
 ;; (define-primop apply-FSM : (→ FSM (List Symbol) Bool))
 
-(define-primop verify-automaton : (→ FSM Regexp (List Symbol)))
-(define-primop debug-automaton : (→ FSM Regexp (List Symbol) Pict))
-(define-primop synthesize-automaton : (→ FSM Regexp Unit))

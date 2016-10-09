@@ -3,9 +3,6 @@
  #:except #%app #%datum + add1 sub1 *
           Int Int? ~Int Float Float? ~Float Bool ~Bool Bool?)
 (reuse define-type-alias #:from "stlc+reco+var.rkt")
-(provide Int Num Nat U Bool
-         define-named-type-alias
-         (for-syntax current-sub? prune+sort))
 
 ;; Simply-Typed Lambda Calculus, plus union types
 ;; Types:
@@ -22,6 +19,14 @@
 ;; - terms from stlc+lit.rkt, except redefined: datum and +
 ;; - also *
 ;; Other: sub? current-sub?
+
+(provide Int Num Nat U Bool
+         define-named-type-alias
+         (for-syntax current-sub? prune+sort)
+         (typed-out [+ : (→ Num Num Num)]
+                    [* : (→ Num Num Num)]
+                    [add1 : (→ Int Int)]
+                    [sub1 : (→ Int Int)]))
 
 (define-syntax define-named-type-alias
   (syntax-parser
@@ -65,11 +70,6 @@
    (add-orig #'(U NegInt Nat) #'Int)))
 (define-syntax Num 
   (make-variable-like-transformer (add-orig #'(U Float Int) #'Num)))
-
-(define-primop + : (→ Num Num Num))
-(define-primop * : (→ Num Num Num))
-(define-primop add1 : (→ Int Int))
-(define-primop sub1 : (→ Int Int))
 
 (define-typed-syntax datum #:export-as #%datum
   [(_ . b:boolean) ≫
