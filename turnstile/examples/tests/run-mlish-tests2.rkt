@@ -22,3 +22,6 @@
 (require "mlish/alex.mlish")
 (require "mlish/inst.mlish")
 (require "mlish/result.mlish")
+
+; don't run this file for testing:
+(module test racket/base)

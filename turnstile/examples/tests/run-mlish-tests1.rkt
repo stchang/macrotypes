@@ -20,3 +20,6 @@
 ;; (require "mlish/knuc.mlish")
 ;; (require "mlish/matrix.mlish")
 ;; (require "mlish/nbody.mlish")
+
+; don't run this file for testing:
+(module test racket/base)

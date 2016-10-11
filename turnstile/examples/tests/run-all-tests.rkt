@@ -38,3 +38,6 @@
 
 ;; type and effects
 (require "stlc+effect-tests.rkt")
+
+; don't run this file for testing:
+(module test racket/base)
