@@ -138,8 +138,8 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
  @item{@defform[(define-base-type base-type-name-id)]{
    Defines a base type. A @racket[(define-base-type τ)] additionally defines:
   @itemlist[@item{@racket[τ], an identifier macro representing type @racket[τ].}
-            @item{@racket[τ?], a predicate recognizing type @racket[τ].}
-            @item{@racket[~τ], a @tech:pat-expander recognizing type @racket[τ].}]}}
+            @item{@racket[τ?], a phase 1 predicate recognizing type @racket[τ].}
+            @item{@racket[~τ], a phase 1 @tech:pat-expander recognizing type @racket[τ].}]}}
  @item{@defform[(define-base-types base-type-name-id ...)]{Defines multiple base types.}}
  @item{
   @defform[(define-type-constructor name-id option ...)
@@ -152,23 +152,25 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
     Defines a type constructor. Defining a type constructor @racket[τ] defines:
   @itemlist[@item{@racket[τ], a macro for constructing an instance of type
                   @racket[τ], with the specified arity.}
-            @item{@racket[τ?], a predicate recognizing type @racket[τ].}
-            @item{@racket[~τ], a @tech:pat-expander recognizing type @racket[τ].}]
-  The @racket[#:arity] argument specifies valid shapes for the type. For example
+            @item{@racket[τ?], a phase 1 predicate recognizing type @racket[τ].}
+            @item{@racket[~τ], a phase 1 @tech:pat-expander recognizing type @racket[τ].}]
+
+  The @racket[#:arity] and @racket[#:bvs] arguments specify the valid shapes
+    for the type. For example
     @racket[(define-type-constructor → #:arity >= 1)] defines an arrow type and
     @racket[(define-type-constructor Pair #:arity = 2)] defines a pair type.
     The default arity is @racket[= 1].
     
-    Use the @racket[#:bvs] argument to define binding types, eg
-    @racket[(define-type-constructor ∀ #:arity = 1 #:bvs = 1)] defines a type with
-    shape @racket[(∀ (X) τ)], where @racket[τ] may reference @racket[X].
+    Use the @racket[#:bvs] argument to define binding types, e.g.,
+    @racket[(define-type-constructor ∀ #:arity = 1 #:bvs = 1)] defines a type
+    with shape @racket[(∀ (X) τ)], where @racket[τ] may reference @racket[X].
 
-    The @racket[#:extra-info] argument is useful for attaching additional metainformation
-    to types, for example to implement pattern matching.}}
+    The @racket[#:extra-info] argument is useful for attaching additional
+    metainformation to types, for example to implement pattern matching.}}
 @item{
 @defform[(type-out ty-id)]{
-A provide spec that, given @racket[ty-id], provides @racket[ty-id], 
-a predicate @racket[ty-id?], and a @tech:pat-expander @racket[~ty-id].}}
+A @racket[provide]-spec that, given @racket[ty-id], provides @racket[ty-id], 
+and provides @racket[for-syntax] a predicate @racket[ty-id?] and a @tech:pat-expander @racket[~ty-id].}}
 
  @item{@defproc[(type=? [τ1 type?] [τ2 type?]) boolean?]{A phase 1 equality
 predicate for types that computes structural, @racket[free-identifier=?]
