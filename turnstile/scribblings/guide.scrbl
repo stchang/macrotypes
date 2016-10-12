@@ -2,7 +2,7 @@
 
 @(require scribble/example racket/sandbox
           (for-label racket/base
-                     (except-in turnstile/turnstile ⊢))
+                     (except-in turnstile/turnstile ⊢ mk-~ mk-?))
           "doc-utils.rkt" "common.rkt")
 
 @title{The Turnstile Guide}
@@ -24,7 +24,7 @@ expansion) and type checking. These type judgements rely on two core
            reads: "In context Γ, @racket[e] expands to @racket[e-] and must
            have type τ."
 
-           The key difference is that τ is an output in the first relation, and
+           The key difference is that τ is an output in the first relation, ande
            an input in the second relation.
 
            These input and output positions conveniently correspond to
@@ -286,62 +286,63 @@ here is whatever is in scope. By default it is Racket's @racket[+].
 @section{A Complete Language}
 
 We can now write well-typed programs! Here is the complete
-language implementation:
+language implementation, with some examples:
 
-@label-code["STLC"
-@#reader scribble/comment-reader
-(racketblock0
- #,(lang turnstile)
+@; using `racketmod` because `examples` doesnt work with provide
+@(racketmod0 #:file "STLC"
+turnstile
+(provide → Int λ #%app #%datum + ann)
 
- (define-type-constructor → #:arity > 0)
- (define-base-type Int)
-
- (define-primop + : (→ Int Int Int))
-
- ;; [APP]
- (define-typed-syntax (#%app e_fn e_arg ...) ≫
-   [⊢ e_fn ≫ e_fn- ⇒ (~→ τ_in ... τ_out)]
-   #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
-                 (format "arity mismatch, expected ~a args, given ~a"
-                         (stx-length #'[τ_in ...]) #'[e_arg ...])
-   [⊢ e_arg ≫ e_arg- ⇐ τ_in] ...
-   --------
-   [⊢ (#%app- e_fn- e_arg- ...) ⇒ τ_out])
+(define-base-type Int)
+(define-type-constructor → #:arity > 0)
  
- ;; [LAM]
- (define-typed-syntax λ #:datum-literals (:)
-   [(_ ([x:id : τ_in:type] ...) e) ≫
-    [[x ≫ x- : τ_in.norm] ... ⊢ e ≫ e- ⇒ τ_out]
-    -------
-    [⊢ (λ- (x- ...) e-) ⇒ (→ τ_in.norm ... τ_out)]]
-   [(_ (x:id ...) e) ⇐ (~→ τ_in ... τ_out) ≫
-    [[x ≫ x- : τ_in] ... ⊢ e ≫ e- ⇐ τ_out]
-    ---------
-    [⊢ (λ- (x- ...) e-)]])
+(define-primop + : (→ Int Int Int))
 
- ;; [ANN]
- (define-typed-syntax (ann e (~datum :) τ:type) ≫
-   [⊢ e ≫ e- ⇐ τ.norm]
+(code:comment "[APP]")
+(define-typed-syntax (#%app e_fn e_arg ...) ≫
+  [⊢ e_fn ≫ e_fn- ⇒ (~→ τ_in ... τ_out)]
+  #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
+                (format "arity mismatch, expected ~a args, given ~a"
+                        (stx-length #'[τ_in ...]) #'[e_arg ...])
+  [⊢ e_arg ≫ e_arg- ⇐ τ_in] ...
+  --------
+  [⊢ (#%app- e_fn- e_arg- ...) ⇒ τ_out])
+ 
+(code:comment "[LAM]")
+(define-typed-syntax λ #:datum-literals (:)
+  [(_ ([x:id : τ_in:type] ...) e) ≫
+   [[x ≫ x- : τ_in.norm] ... ⊢ e ≫ e- ⇒ τ_out]
+   -------
+   [⊢ (λ- (x- ...) e-) ⇒ (→ τ_in.norm ... τ_out)]]
+  [(_ (x:id ...) e) ⇐ (~→ τ_in ... τ_out) ≫
+   [[x ≫ x- : τ_in] ... ⊢ e ≫ e- ⇐ τ_out]
+   ---------
+   [⊢ (λ- (x- ...) e-)]])
+
+(code:comment "[ANN]")
+(define-typed-syntax (ann e (~datum :) τ:type) ≫
+  [⊢ e ≫ e- ⇐ τ.norm]
+  --------
+  [⊢ e- ⇒ τ.norm])
+
+(code:comment "[DATUM]")
+(define-typed-syntax #%datum
+  [(_ . n:integer) ≫
    --------
-   [⊢ e- ⇒ τ.norm])
+   [⊢ (#%datum- . n) ⇒ Int]]
+  [(_ . x) ≫
+   --------
+   [_ #:error (type-error #:src #'x
+                          #:msg "Unsupported literal: ~v" #'x)]]))
 
- ;; [DATUM]
- (define-typed-syntax #%datum
-   [(_ . n:integer) ≫
-    --------
-    [⊢ (#%datum- . n) ⇒ Int]]
-   [(_ . x) ≫
-    --------
-    [_ #:error (type-error #:src #'x
-                           #:msg "Unsupported literal: ~v" #'x)]]))]
-
+@;TODO: how to run examples with the typeset code?
 @(define stlc-eval
   (parameterize ([sandbox-output 'string]
                  [sandbox-error-output 'string]
                  [sandbox-eval-limits #f])
-    (make-base-eval #:lang 'turnstile/examples/stlc+lit )))
+    (make-base-eval #:lang 'turnstile/examples/stlc+lit)))
 
-@examples[#:eval stlc-eval 
+@examples[#:eval stlc-eval #:label "STLC Examples:" #:no-inset
   1
   (eval:error "1")
   (+ 1 2)
@@ -364,10 +365,11 @@ Since @tt{STLC} consists of just a series of macros, like any other Racket
 in other languages. Let's see how we can reuse the above implementation to
 implement a subtyping language.
 
-@label-code["A language with subtyping that reuses STLC"
-@(racketblock0 #:escape esc
-(esc(lang turnstile))
+@(racketmod0 #:file "STLC+SUB" #:escape UNSYNTAX
+turnstile
 (extends STLC #:except #%datum +)
+
+(provide Top Num Nat + add1 #%datum if)
 
 (define-base-types Top Num Nat)
 
@@ -415,13 +417,13 @@ implement a subtyping language.
       [else #'Top]))
   (define current-join (make-parameter join)))
 
-@code:comment{[IF]}
+(code:comment "[IF]")
 (define-typed-syntax (if e_tst e1 e2) ≫
-  [⊢ e_tst ≫ e_tst- ⇒ _] @code:comment{a non-false value is truthy}
+  [⊢ e_tst ≫ e_tst- ⇒ _] (code:comment "a non-false value is truthy")
   [⊢ e1 ≫ e1- ⇒ τ1]
   [⊢ e2 ≫ e2- ⇒ τ2]
   --------
-  [⊢ (if- e_tst- e1- e2-) ⇒ @#,((current-join) #'τ1 #'τ2)]))]
+  [⊢ (if- e_tst- e1- e2-) ⇒ #,((current-join) #'τ1 #'τ2)]))
 
 This language uses subtyping instead of type equality as its "typecheck
 relation". Specifically, the language defines a @racket[sub?] subtyping relation
@@ -453,7 +455,7 @@ positions in Turnstile are @racket[quasisyntax]es.
                  [sandbox-eval-limits #f])
     (make-base-eval #:lang 'turnstile/examples/stlc+sub)))
 
-@examples[#:eval stlc+sub-eval 
+@examples[#:eval stlc+sub-eval #:label "STLC+SUB Examples:" #:no-inset
  ((λ ([x : Top]) x) -1)
  ((λ ([x : Num]) x) -1)
  ((λ ([x : Int]) x) -1)
