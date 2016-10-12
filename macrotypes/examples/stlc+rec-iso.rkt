@@ -18,13 +18,13 @@
 
 (define-typed-syntax unfld
   [(_ τ:type-ann e)
-   #:with (~μ* (tv) τ_body) #'τ.norm
+   #:with (~μ (tv) τ_body) #'τ.norm
    #:with [e- τ_e] (infer+erase #'e)
    #:when (typecheck? #'τ_e #'τ.norm)
    (⊢ e- : #,(subst #'τ.norm #'tv #'τ_body))])
 (define-typed-syntax fld
   [(_ τ:type-ann e)
-   #:with (~μ* (tv) τ_body) #'τ.norm
+   #:with (~μ (tv) τ_body) #'τ.norm
    #:with [e- τ_e] (infer+erase #'e)
    #:when (typecheck? #'τ_e (subst #'τ.norm #'tv #'τ_body))
    (⊢ e- : τ.norm)])

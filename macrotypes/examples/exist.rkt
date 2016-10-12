@@ -15,7 +15,7 @@
 
 (define-typed-syntax pack
   [(_ (τ:type e) as ∃τ:type)
-   #:with (~∃* (τ_abstract) τ_body) #'∃τ.norm
+   #:with (~∃ (τ_abstract) τ_body) #'∃τ.norm
    #:with [e- τ_e] (infer+erase #'e)
    #:when (typecheck? #'τ_e  (subst #'τ.norm #'τ_abstract #'τ_body))
    (⊢ e- : ∃τ.norm)])

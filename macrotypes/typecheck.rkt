@@ -61,7 +61,6 @@
 
 (begin-for-syntax
   (define (mk-? id) (format-id id "~a?" id))
-  (define (mk-* id) (format-id id "~a*" id))
   (define (mk-~ id) (format-id id "~~~a" id))
   (define-for-syntax (mk-? id) (format-id id "~a?" id))
   (define-for-syntax (mk-~ id) (format-id id "~~~a" id))
@@ -595,7 +594,6 @@
   (define (get-type-tags ts)
     (stx-map get-type-tag ts)))
 
-
 (define-syntax define-basic-checked-id-stx
   (syntax-parser #:datum-literals (:)
     [(_ τ:id : kind)
@@ -656,7 +654,6 @@
      #:with τ-internal (generate-temporary #'τ)
      #:with τ? (mk-? #'τ)
      #:with τ-expander (mk-~ #'τ)
-     #:with τ-expander* (mk-* #'τ-expander)
      #`(begin
          (begin-for-syntax
            (define-syntax τ-expander
@@ -689,19 +686,6 @@
                                                   #'expanded-τ)
                                    bvs-pat
                                    . pat))])))
-           (define-syntax τ-expander*
-             (pattern-expander
-              (syntax-parser
-                [(_ . pat)
-                 #'(~or
-                    (τ-expander . pat)
-                    (~and
-                     any
-                     (~do
-                      (type-error #:src #'any
-                                  #:msg
-                                  "Expected ~a type, got: ~a"
-                                  #'τ #'any))))])))
            (define arg-variances arg-variances-stx)
            (define (τ? t)
              (syntax-parse t
@@ -772,8 +756,6 @@
      #:with same-names? (format-id #'name "same-~as?" #'name)
      #:with name-out (format-id #'name "~a-out" #'name)
      #'(begin
-         ;; (provide (for-syntax current-is-name? is-name? #%tag? mk-name name name-bind name-ann name-ctx same-names?)
-         ;;          #%tag define-base-name define-base-names define-name-cons)
          (define #%tag void)
          (begin-for-syntax
            (define (#%tag? t) (and (identifier? t) (free-identifier=? t #'#%tag)))
@@ -806,19 +788,17 @@
              (pattern ((~var || name-bind) (... ...))))
            (define-syntax-class name-ann ; type instantiation
              #:attributes (norm)
-             (pattern stx
-                      #:when (stx-pair? #'stx)
-                      #:when (brace? #'stx)
-                      #:with ((~var t name)) #'stx
+             (pattern (~and (_)
+                            (~fail #:unless (brace? this-syntax))
+                            ((~var t name) ~!))
                       #:attr norm (delay #'t.norm))
              (pattern any
                       #:fail-when #t
-                      (type-error #:src #'any #:msg 
-                       (format
-                        (string-append
+                      (format
+                       (string-append
                         "Improperly formatted ~a annotation: ~a; should have shape {τ}, "
                         "where τ is a valid ~a.")
-                       'name (type->str #'any) 'name))
+                       'name (type->str #'any) 'name)
                       #:attr norm #f))
            (define (name=? t1 t2)
              ;(printf "(τ=) t1 = ~a\n" #;τ1 (syntax->datum t1))

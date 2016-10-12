@@ -14,7 +14,7 @@
 (define-type-constructor ∃ #:bvs = 1)
 
 (define-typed-syntax (pack (τ:type e) as ∃τ:type) ≫
-  #:with (~∃* (τ_abstract) τ_body) #'∃τ.norm
+  #:with (~∃ (τ_abstract) τ_body) #'∃τ.norm
   #:with τ_e (subst #'τ.norm #'τ_abstract #'τ_body)
   [⊢ e ≫ e- ⇐ τ_e]
   --------

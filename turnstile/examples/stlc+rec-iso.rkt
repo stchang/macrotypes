@@ -17,12 +17,12 @@
 (define-type-constructor μ #:bvs = 1)
 
 (define-typed-syntax (unfld τ:type-ann e) ≫
-  #:with (~μ* (tv) τ_body) #'τ.norm
+  #:with (~μ (tv) τ_body) #'τ.norm
   [⊢ e ≫ e- ⇐ τ.norm]
   --------
   [⊢ e- ⇒ #,(subst #'τ.norm #'tv #'τ_body)])
 (define-typed-syntax (fld τ:type-ann e) ≫
-  #:with (~μ* (tv) τ_body) #'τ.norm
+  #:with (~μ (tv) τ_body) #'τ.norm
   #:with τ_e (subst #'τ.norm #'tv #'τ_body)
   [⊢ e ≫ e- ⇐ τ_e]
   --------
