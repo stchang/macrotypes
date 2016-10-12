@@ -1,13 +1,15 @@
 #lang turnstile/lang
-(extends "ext-stlc.rkt" #:except #%app λ ann)
+(extends "ext-stlc.rkt" #:except define #%app λ ann)
 (reuse inst #:from "sysf.rkt")
 (require (only-in "sysf.rkt" ∀ ~∀ ∀? Λ))
 (reuse cons [head hd] [tail tl] nil [isnil nil?] List list #:from "stlc+cons.rkt")
-(require (only-in "stlc+cons.rkt" ~List))
+;(require (only-in "stlc+cons.rkt" ~List))
 (reuse tup × proj #:from "stlc+tup.rkt")
 (reuse define-type-alias #:from "stlc+reco+var.rkt")
 (require (for-syntax macrotypes/type-constraints))
-(provide hd tl nil? ∀)
+;(provide hd tl nil? ∀)
+
+(provide → ∀ define define/rec λ #%app)
 
 ;; (Some [X ...] τ_body (Constraints (Constraint τ_1 τ_2) ...))
 (define-type-constructor Some #:arity = 2 #:bvs >= 0)
@@ -216,6 +218,3 @@
    [_ ≻ (begin-
           (define-syntax- x (make-rename-transformer (⊢ tmp : τ_x.norm)))
           (define- tmp (ann e : τ_x.norm)))]])
-
-
-

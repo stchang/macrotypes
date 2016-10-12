@@ -1,8 +1,6 @@
 #lang turnstile/lang
-(extends "stlc+tup.rkt" #:except × ×? tup proj ~× ~×*)
+(extends "stlc+tup.rkt" #:except × ×? tup proj ~×)
 (require (only-in "stlc+tup.rkt" [~× ~stlc:×]))
-(provide × ∨ (for-syntax ~× ~×* ~∨ ~∨*))
-
 
 ;; Simply-Typed Lambda Calculus, plus records and variants
 ;; Types:
@@ -13,38 +11,8 @@
 ;; - terms from stlc+tup.rkt
 ;; - redefine tup to records
 ;; - sums (var)
-;; TopLevel:
-;; - define (values only)
-;; - define-type-alias
 
-(provide define-type-alias)
-;; Using τ.norm leads to a "not valid type" error when file is compiled
-(define-syntax define-type-alias
-  (syntax-parser
-    [(define-type-alias alias:id τ:type)
-     #'(define-syntax alias (make-variable-like-transformer #'τ))]
-    [(define-type-alias (f:id x:id ...) ty)
-     #'(define-syntax (f stx)
-         (syntax-parse stx
-           [(_ x ...) #'ty]))]))
-
-(define-typed-syntax define
-  [(_ x:id : τ:type e:expr) ≫
-   ;This wouldn't work with mutually recursive definitions
-   ;[⊢ [e ≫ e- ⇐ τ.norm]]
-   ;So expand to an ann form instead.
-   --------
-   [≻ (begin-
-        (define-syntax x (make-rename-transformer (⊢ y : τ.norm)))
-        (define- y (ann e : τ.norm)))]]
-  [(_ x:id e) ≫
-   [⊢ e ≫ e- ⇒ τ]
-   #:with y (generate-temporary #'x)
-   --------
-   [≻ (begin-
-        (define-syntax x (make-rename-transformer (⊢ y : τ)))
-        (define- y e-))]])
-
+(provide (type-out × ∨) tup proj var case)
 
 ; re-define tuples as records
 ; dont use define-type-constructor because I want the : literal syntax

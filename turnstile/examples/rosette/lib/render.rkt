@@ -2,6 +2,7 @@
 (require
  (prefix-in t/ro: (only-in "../rosette2.rkt" CNat CSolution CPict))
  (prefix-in ro: rosette/lib/render))
+(provide render)
 
 (define-typed-syntax render
   [(_ s) ≫

@@ -21,14 +21,16 @@
 
 ;; =============================================================================
 
+(provide Bot Boolean Str ∪ #%datum test)
+
 (define-base-type Bot) ;; For empty unions
 (define-base-type Boolean)
 (define-base-type Str)
 
 (define-typed-syntax #%datum
-  [(#%datum . n:boolean) (⊢ (#%datum- . n) : Boolean)]
-  [(#%datum . n:str) (⊢ (#%datum- . n) : Str)]
-  [(#%datum . x) #'(stlc+sub:#%datum . x)])
+  [(_ . n:boolean) (⊢ (#%datum- . n) : Boolean)]
+  [(_ . n:str) (⊢ (#%datum- . n) : Str)]
+  [(_ . x) #'(stlc+sub:#%datum . x)])
 
 (define-type-constructor ∪ #:arity >= 1)
 
@@ -231,7 +233,7 @@
 ;; - allow x not identifier (1. does nothing 2. latent filters)
 (define-typed-syntax test #:datum-literals (?)
   ;; -- THIS CASE BELONGS IN A NEW FILE
-  [(test [τ0+:type ? (unop x-stx:id n-stx:nat)] e1 e2)
+  [(_ [τ0+:type ? (unop x-stx:id n-stx:nat)] e1 e2)
    ;; 1. Check that we're using a known eliminator
    #:when (free-identifier=? #'stlc+tup:proj #'unop)
    ;; 2. Make sure we're filtering with a valid type
@@ -256,7 +258,7 @@
   ;; TODO lists
   ;; For now, we can't express the type (List* A (U A B)), so our filters are too strong
   ;; -- THE ORIGINAL
-  [(test [τ0+:type ? x-stx:id] e1 e2)
+  [(_ [τ0+:type ? x-stx:id] e1 e2)
    #:with f (type->filter #'τ0+)
    #:with (x τ0) (infer+erase #'x-stx)
    #:with τ0- (∖ #'τ0 #'τ0+)

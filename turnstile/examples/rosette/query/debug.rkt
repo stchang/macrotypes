@@ -1,7 +1,10 @@
 #lang turnstile
 (require
- (prefix-in t/ro: (only-in "../rosette2.rkt" λ ann begin C→ Nothing Bool CSolution))
+ (prefix-in t/ro: (only-in "../rosette2.rkt"
+                           λ ann begin C→ Nothing Bool CSolution))
  (prefix-in ro: rosette/query/debug))
+
+(provide define/debug debug)
 
 (define-typed-syntax define/debug #:datum-literals (: -> →)
   [(_ x:id e) ≫
@@ -16,14 +19,15 @@
    #:with f- (generate-temporary #'f)
    --------
    [_ ≻ (begin-
-          (define-syntax- f (make-rename-transformer (⊢ f- : (t/ro:C→ ty ... ty_out))))
-              (ro:define/debug f- 
-                (t/ro:λ ([x : ty] ...) 
-                        (t/ro:ann (t/ro:begin e ...) : ty_out))))]])
+          (define-syntax- f
+            (make-rename-transformer (⊢ f- : (t/ro:C→ ty ... ty_out))))
+          (ro:define/debug f- 
+            (t/ro:λ ([x : ty] ...) 
+              (t/ro:ann (t/ro:begin e ...) : ty_out))))]])
 
 (define-typed-syntax debug
   [(_ (solvable-pred ...+) e) ≫
-   [⊢ [solvable-pred ≫ solvable-pred- ⇐ : (t/ro:C→ t/ro:Nothing t/ro:Bool)]] ...
+   [⊢ solvable-pred ≫ solvable-pred- ⇐ (t/ro:C→ t/ro:Nothing t/ro:Bool)] ...
    [⊢ [e ≫ e- ⇒ : τ]]
    --------
    [⊢ [_ ≫ (ro:debug (solvable-pred- ...) e-) ⇒ : t/ro:CSolution]]])

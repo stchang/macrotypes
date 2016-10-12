@@ -2,7 +2,6 @@
 (extends "rosette.rkt" #:except) ; extends typed rosette
 (require (prefix-in ro: rosette)) ; untyped 
 (require (prefix-in ro: rosette/lib/synthax))
-;(require (prefix-in ifc: sdsl/ifc/instruction))
 (require sdsl/ifc/instruction) ; program
 (require sdsl/ifc/basic) ; Halt, Noop, Push, etc
 (require (except-in sdsl/ifc/machine write read)) ; init, halted?
@@ -11,7 +10,8 @@
 
 (define-base-types Prog Instr Machine Witness)
 
-(provide (typed-out [Halt : Instr]
+(provide Prog Instr Machine Witness
+         (typed-out [Halt : Instr]
                     [Noop : Instr]
                     [Push : Instr]
                     [Pop : Instr]

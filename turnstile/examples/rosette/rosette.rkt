@@ -1,11 +1,23 @@
 #lang turnstile
-(extends "../stlc+union+case.rkt" #:except if #%app #%module-begin add1 sub1 +)
+(extends "../stlc+union+case.rkt"
+         #:except define if #%app #%module-begin add1 sub1 +)
 (reuse List list #:from "../stlc+cons.rkt")
-(require (only-in "../stlc+reco+var.rkt" [define stlc:define]))
-;(require (only-in "../stlc+reco+var.rkt" define-type-alias))
 (require (prefix-in ro: rosette))
 (require (prefix-in ro: rosette/lib/synthax))
-(provide BVPred (rename-out [ro:#%module-begin #%module-begin]))
+(provide (rename-out [ro:#%module-begin #%module-begin])
+         Symbol Regexp Param Stx BV BVPred)
+
+;; providing version of define-typed-syntax
+(define-syntax (define-typed-syntax stx)
+  (syntax-parse stx
+    [(_ name:id #:export-as out-name:id . rst)
+     #'(begin-
+         (provide- (rename-out [name out-name]))
+         (define-typerule name . rst))] ; define-typerule doesnt provide
+    [(_ name:id . rst)
+     #'(define-typed-syntax name #:export-as name . rst)]
+    [(_ (name:id . pat) . rst)
+     #'(define-typed-syntax name #:export-as name [(_ . pat) . rst])]))
 
 (define-for-syntax (mk-ro:-id id) (format-id id "ro:~a" id))
 
@@ -151,14 +163,16 @@
 (define-typed-syntax define #:datum-literals (: -> →)
   [(_ x:id e) ≫
    --------
-   [_ ≻ (stlc:define x e)]]
+   [_ ≻ (stlc+union+case:define x e)]]
   [(_ (f [x : ty] ... (~or → ->) ty_out) e) ≫
 ;   [⊢ [e ≫ e- ⇒ : ty_e]]
    #:with f- (generate-temporary #'f)
    --------
    [_ ≻ (begin-
-          (define-syntax- f (make-rename-transformer (⊢ f- : (→ ty ... ty_out))))
-          (stlc:define f- (stlc+union+case:λ ([x : ty] ...) e)))]])
+          (define-syntax- f
+            (make-rename-transformer (⊢ f- : (→ ty ... ty_out))))
+          (stlc+union+case:define f-
+            (stlc+union+case:λ ([x : ty] ...) e)))]])
 
 (define-base-type Stx)
 

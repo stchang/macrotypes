@@ -1,9 +1,8 @@
 #lang turnstile
 (extends "../stlc.rkt"
   #:except #%module-begin #%app →)
-(reuse #%datum #:from "../stlc+union.rkt")
-(reuse define-type-alias #:from "../stlc+reco+var.rkt")
-(reuse define-named-type-alias #:from "../stlc+union.rkt")
+(reuse #%datum define-type-alias define-named-type-alias
+       #:from "../stlc+union.rkt")
 (reuse list #:from "../stlc+cons.rkt")
 
 (provide (rename-out [ro:#%module-begin #%module-begin])
@@ -11,7 +10,8 @@
          CU U
          C→ → (for-syntax ~C→ C→?)
          Ccase-> ; TODO: symbolic case-> not supported yet
-         CListof CVectorof CParamof ; TODO: symbolic Param not supported yet
+         CListof CVectorof CMVectorof CIVectorof
+         CParamof ; TODO: symbolic Param not supported yet
          CUnit Unit
          CNegInt NegInt
          CZero Zero
@@ -26,7 +26,7 @@
          ;; BV types
          CBV BV
          CBVPred BVPred
-         )
+         CSolution CPict)
 
 (require
  (prefix-in ro: rosette)
@@ -34,7 +34,8 @@
  (prefix-in C
    (combine-in
     (only-in "../stlc+union+case.rkt"
-             PosInt Zero NegInt Float True False String [U U*] U*? [case-> case->*] → →?)
+             PosInt Zero NegInt Float True False String [U U*] U*?
+             [case-> case->*] → →?)
     (only-in "../stlc+cons.rkt" Unit [List Listof])))
  (only-in "../stlc+union+case.rkt" [~U* ~CU*] [~case-> ~Ccase->] [~→ ~C→])
  (only-in "../stlc+cons.rkt" [~List ~CListof])
@@ -55,6 +56,18 @@
         #:with (ro-x ...) (stx-map mk-ro:-id #'(x ...))
         (pre-expand-export (syntax/loc stx (typed-out [[ro-x ty] out-x] ...))
                            modes)]))))
+
+;; providing version of define-typed-syntax
+(define-syntax (define-typed-syntax stx)
+  (syntax-parse stx
+    [(_ name:id #:export-as out-name:id . rst)
+     #'(begin-
+         (provide- (rename-out [name out-name]))
+         (define-typerule name . rst))] ; define-typerule doesnt provide
+    [(_ name:id . rst)
+     #'(define-typed-syntax name #:export-as name . rst)]
+    [(_ (name:id . pat) . rst)
+     #'(define-typed-syntax name #:export-as name [(_ . pat) . rst])]))
 
 ;; ---------------------------------
 ;; Concrete and Symbolic union types
@@ -108,7 +121,6 @@
 ;; TODO: What should case-> do when given symbolic function
 ;; types? Should it transform (case-> (U (C→ τ ...)) ...)
 ;; into (U (Ccase-> (C→ τ ...) ...)) ? What makes sense here?
-
 
 ;; ---------------------------------
 ;; Symbolic versions of types
@@ -235,8 +247,10 @@
    #:with f- (generate-temporary #'f)
    --------
    [_ ≻ (begin-
-          (define-syntax- f (make-rename-transformer (⊢ f- : (C→ ty ... ty_out))))
-          (ro:define f- (stlc:λ ([x : ty] ...) (ann (begin e ...) : ty_out))))]])
+          (define-syntax- f
+            (make-rename-transformer (⊢ f- : (C→ ty ... ty_out))))
+          (ro:define f-
+            (stlc:λ ([x : ty] ...) (ann (begin e ...) : ty_out))))]])
 
 ;; ---------------------------------
 ;; quote

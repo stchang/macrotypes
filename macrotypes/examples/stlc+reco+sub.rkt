@@ -11,9 +11,11 @@
 ;; - terms from stlc+sub.rkt
 ;; - records and variants from stlc+reco+var
 
+(provide #%datum)
+
 (define-typed-syntax #%datum
-  [(#%datum . n:number) #'(stlc+sub:#%datum . n)]
-  [(#%datum . x) #'(stlc+reco+var:#%datum . x)])
+  [(_ . n:number) #'(stlc+sub:#%datum . n)]
+  [(_ . x) #'(stlc+reco+var:#%datum . x)])
 
 (begin-for-syntax
   (define old-sub? (current-sub?))

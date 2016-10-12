@@ -9,6 +9,8 @@
 ;; - terms from stlc+cons.rkt
 ;; - ref deref :=
 
+(provide Ref ref deref :=)
+
 (define-type-constructor Ref)
 
 (define-typed-syntax (ref e) ≫

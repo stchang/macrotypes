@@ -57,7 +57,8 @@
 (module syntax-classes racket/base
   (provide (all-defined-out))
   (require (for-meta 0 (submod ".." typecheck+))
-           (for-meta -1 (submod ".." typecheck+) (except-in macrotypes/typecheck #%module-begin))
+           (for-meta -1 (submod ".." typecheck+) 
+                     (except-in macrotypes/typecheck #%module-begin mk-~ mk-?))
            (for-meta -2 (except-in macrotypes/typecheck #%module-begin)))
   (define-syntax-class ---
     [pattern dashes:id

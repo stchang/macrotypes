@@ -1,5 +1,5 @@
 #lang turnstile/lang
-(extends "sysf.rkt" #:except #%datum ∀ ~∀ ~∀* ∀? Λ inst)
+(extends "sysf.rkt" #:except #%datum ∀ ~∀ ∀? Λ inst)
 (reuse String #%datum #:from "stlc+reco+var.rkt")
 
 ; same as fomega.rkt except here λ and #%app works as both type and terms
@@ -15,6 +15,10 @@
 ;; - extend ∀ Λ inst from sysf
 ;; - #%datum from stlc+reco+var
 
+(provide define-type-alias
+         ★ ∀★ ∀
+         Λ inst)
+
 (define-syntax-category kind)
 
 (begin-for-syntax
@@ -23,19 +27,20 @@
   ;; eg in the definition of λ or previous type constuctors.
   ;; (However, this is not completely possible, eg define-type-alias)
   ;; So now "type?" no longer validates types, rather it's a subset.
-  ;; But we no longer need type? to validate types, instead we can use (kind? (typeof t))
+  ;; But we no longer need type? to validate types, instead we can use
+  ;; (kind? (typeof t))
   (current-type? (λ (t) (or (type? t)
                             (let ([k (typeof t)])
                               (or (★? k) (∀★? k)))
                             ((current-kind?) t)))))
 
 ; must override
-(provide define-type-alias)
 (define-syntax define-type-alias
   (syntax-parser
     [(_ alias:id τ)
      #:with (τ- k_τ) (infer+erase #'τ)
-     #'(define-syntax alias (syntax-parser [x:id #'τ-][(_ . rst) #'(τ- . rst)]))]))
+     #'(define-syntax alias
+         (syntax-parser [x:id #'τ-][(_ . rst) #'(τ- . rst)]))]))
 
 (define-base-kind ★)
 (define-kind-constructor ∀★ #:arity >= 0)

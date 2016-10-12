@@ -3,7 +3,6 @@
 (reuse Bool String add1 #:from "ext-stlc.rkt")
 (require (prefix-in ext: (only-in "ext-stlc.rkt" #%datum))
          (only-in "ext-stlc.rkt" current-join))
-(provide (for-syntax subs? current-sub?))
 
 ;; Simply-Typed Lambda Calculus, plus subtyping
 ;; Types:
@@ -20,16 +19,19 @@
 ;; - also *
 ;; Other: sub? current-sub?
 
-(provide (typed-out [+ : (→ Num Num Num)]
-                    [* : (→ Num Num Num)]))
+(provide (for-syntax subs? current-sub?)
+         (type-out Top Num Nat)
+         (typed-out [+ : (→ Num Num Num)]
+                    [* : (→ Num Num Num)])
+         #%datum)
 
 (define-base-types Top Num Nat)
 
 (define-typed-syntax #%datum
-  [(#%datum . n:nat) (⊢ (#%datum- . n) : Nat)]
-  [(#%datum . n:integer) (⊢ (#%datum- . n) : Int)]
-  [(#%datum . n:number) (⊢ (#%datum- . n) : Num)]
-  [(#%datum . x) #'(ext:#%datum . x)])
+  [(_ . n:nat) (⊢ (#%datum- . n) : Nat)]
+  [(_ . n:integer) (⊢ (#%datum- . n) : Int)]
+  [(_ . n:number) (⊢ (#%datum- . n) : Num)]
+  [(_ . x) #'(ext:#%datum . x)])
 
 (begin-for-syntax
   (define (sub? t1 t2)
@@ -49,8 +51,8 @@
   (define-syntax (define-sub-relation stx)
     (syntax-parse stx #:datum-literals (<: =>)
       [(_ τ1:id <: τ2:id)
-       #:with τ1-expander (format-id #'τ1 "~~~a" #'τ1)
-       #:with τ2-expander (format-id #'τ2 "~~~a" #'τ2)
+       #:with τ1-expander (mk-~ #'τ1)
+       #:with τ2-expander (mk-~ #'τ2)
        #:with fn (generate-temporary)
        #:with old-sub? (generate-temporary)
        #'(begin

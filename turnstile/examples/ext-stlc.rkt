@@ -15,14 +15,20 @@
 ;; - begin
 ;; - ascription (ann)
 ;; - let, let*, letrec
+;; Top-level:
+;; - define (values only)
+;; - define-type-alias
 
-(provide (for-syntax current-join)
-         ⊔ zero? =
+(provide define-type-alias
+         (for-syntax current-join) ⊔
+         (type-out Bool String Float Char Unit)
+         zero? =
          (rename-out [typed- -] [typed* *])
          (typed-out [add1 (→ Int Int)]
                     [sub1 : (→ Int Int)]
                     [[not- (→ Bool Bool)] not]
-                    [[void- : (→ Unit)] void]))
+                    [[void- : (→ Unit)] void])
+         define #%datum and or if begin ann let let* letrec)
 
 (define-base-types Bool String Float Char Unit)
 
@@ -31,6 +37,33 @@
 (define-primop = : (→ Int Int Bool))
 (define-primop typed- - (→ Int Int Int))
 (define-primop typed* * : (→ Int Int Int))
+
+;; Using τ.norm leads to a "not valid type" error when file is compiled
+(define-syntax define-type-alias
+  (syntax-parser
+    [(define-type-alias alias:id τ:type)
+     #'(define-syntax alias (make-variable-like-transformer #'τ))]
+    [(define-type-alias (f:id x:id ...) ty)
+     #'(define-syntax (f stx)
+         (syntax-parse stx
+           [(_ x ...) #'ty]))]))
+
+(define-typed-syntax define
+  [(_ x:id : τ:type e:expr) ≫
+   ;This wouldn't work with mutually recursive definitions
+   ;[⊢ [e ≫ e- ⇐ τ.norm]]
+   ;So expand to an ann form instead.
+   --------
+   [≻ (begin-
+        (define-syntax x (make-rename-transformer (⊢ y : τ.norm)))
+        (define- y (ann e : τ.norm)))]]
+  [(_ x:id e) ≫
+   [⊢ e ≫ e- ⇒ τ]
+   #:with y (generate-temporary #'x)
+   --------
+   [≻ (begin-
+        (define-syntax x (make-rename-transformer (⊢ y : τ)))
+        (define- y e-))]])
 
 (define-typed-syntax #%datum
   [(_ . b:boolean) ≫

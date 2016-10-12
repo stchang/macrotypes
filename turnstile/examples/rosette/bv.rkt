@@ -5,7 +5,16 @@
 (require (only-in sdsl/bv/lang/bvops bvredand bvredor bv bv*)
          (prefix-in bv: (only-in sdsl/bv/lang/bvops BV)))
 (require sdsl/bv/lang/core (prefix-in bv: sdsl/bv/lang/form))
-(provide thunk)
+
+(provide Prog Lib
+         (typed-out [bv : (Ccase-> (C→ CInt CBV)
+                                   (C→ CInt CBVPred CBV)
+                                   (C→ CInt CPosInt CBV))]
+                    [bv* : (Ccase-> (C→ BV)
+                                    (C→ CBVPred BV))]
+                    [bvredor : (C→ BV BV)]
+                    [bvredand : (C→ BV BV)])
+         current-bvpred define-fragment bvlib thunk)
 
 ;; this must be a macro in order to support Racket's overloaded set/get 
 ;; parameter patterns
@@ -20,14 +29,6 @@
    [⊢ [e ≫ e- ⇐ : CBVPred]]
    --------
    [⊢ [_ ≫ (bv:BV e-) ⇒ : CUnit]]])
-
-(provide (typed-out [bv : (Ccase-> (C→ CInt CBV)
-                                   (C→ CInt CBVPred CBV)
-                                   (C→ CInt CPosInt CBV))]
-                    [bv* : (Ccase-> (C→ BV)
-                                    (C→ CBVPred BV))]
-                    [bvredor : (C→ BV BV)]
-                    [bvredand : (C→ BV BV)]))
 
 (define-syntax-rule (bv:bool->bv b) 
   (ro:if b 
@@ -49,7 +50,8 @@
 (define-typed-syntax define-fragment
   [(_ (id param ...) #:implements spec #:library lib-expr) ≫
    --------
-   [_ ≻ (define-fragment (id param ...) #:implements spec #:library lib-expr #:minbv (rosette2:#%datum . 4))]]
+   [_ ≻ (define-fragment (id param ...)
+          #:implements spec #:library lib-expr #:minbv (rosette2:#%datum . 4))]]
   [(_ (id param ...) #:implements spec #:library lib-expr #:minbv minbv) ≫
    [⊢ [spec ≫ spec- ⇒ : ty_spec]]
    #:fail-unless (C→? #'ty_spec) "spec must be a function"
@@ -63,8 +65,10 @@
                 #:implements spec-
                 #:library lib-expr- 
                 #:minbv minbv-))
-          (define-syntax id (make-rename-transformer (⊢ id-internal : ty_spec)))
-          (define-syntax id-stx (make-rename-transformer (⊢ id-stx-internal : CStx)))
+          (define-syntax id
+            (make-rename-transformer (⊢ id-internal : ty_spec)))
+          (define-syntax id-stx
+            (make-rename-transformer (⊢ id-stx-internal : CStx)))
           )]])
 
 (define-typed-syntax bvlib

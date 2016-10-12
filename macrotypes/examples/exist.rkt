@@ -9,17 +9,19 @@
 ;; - terms from stlc+reco+var.rkt
 ;; - pack and open
 
+(provide ∃ pack open)
+
 (define-type-constructor ∃ #:bvs = 1)
 
 (define-typed-syntax pack
-  [(pack (τ:type e) as ∃τ:type)
+  [(_ (τ:type e) as ∃τ:type)
    #:with (~∃* (τ_abstract) τ_body) #'∃τ.norm
    #:with [e- τ_e] (infer+erase #'e)
    #:when (typecheck? #'τ_e  (subst #'τ.norm #'τ_abstract #'τ_body))
    (⊢ e- : ∃τ.norm)])
 
 (define-typed-syntax open #:datum-literals (<=)
-  [(open [x:id <= e_packed with X:id] e)
+  [(_ [x:id <= e_packed with X:id] e)
      ;; The subst below appears to be a hack, but it's not really.
      ;; It's the (TaPL) type rule itself that is fast and loose.
      ;; Leveraging the macro system's management of binding reveals this.

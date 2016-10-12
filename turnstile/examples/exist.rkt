@@ -9,6 +9,8 @@
 ;; - terms from stlc+reco+var.rkt
 ;; - pack and open
 
+(provide ∃ pack open)
+
 (define-type-constructor ∃ #:bvs = 1)
 
 (define-typed-syntax (pack (τ:type e) as ∃τ:type) ≫

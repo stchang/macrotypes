@@ -1,7 +1,10 @@
 #lang turnstile
 (require racket/fixnum racket/flonum)
 
-(extends "ext-stlc.rkt" #:except #%app λ → + - * void = zero? sub1 add1 not let let* and #%datum begin
+(extends
+ "ext-stlc.rkt"
+ #:except → #%app λ define begin #%datum
+          + - * void = zero? sub1 add1 not let let* and
           #:rename [~→ ~ext-stlc:→])
 (require (rename-in (only-in "sysf.rkt" inst) [inst sysf:inst]))
 (require (only-in "ext-stlc.rkt" →?))
@@ -12,7 +15,6 @@
 (reuse member length reverse list-ref cons nil isnil head tail list #:from "stlc+cons.rkt")
 (require (prefix-in stlc+cons: (only-in "stlc+cons.rkt" list cons nil)))
 (require (only-in "stlc+cons.rkt" ~List List? List))
-(provide List)
 (reuse ref deref := Ref #:from "stlc+box.rkt")
 (require (rename-in (only-in "stlc+reco+var.rkt" tup proj ×)
            [tup rec] [proj get] [× ××]))
@@ -20,10 +22,6 @@
 ;; for pattern matching
 (require (prefix-in stlc+cons: (only-in "stlc+cons.rkt" list)))
 (require (prefix-in stlc+tup: (only-in "stlc+tup.rkt" tup)))
-
-(provide → →/test =>/test match2 define-type)
-
-(provide define-typeclass define-instance)
 
 ;; ML-like language + ad-hoc polymorphism
 ;; - top level recursive functions
@@ -33,7 +31,24 @@
 ;;
 ;; - type classes
 
+(provide → →/test => =>/test
+         List Channel Thread Vector Sequence Hash String-Port Input-Port Regexp
+         define-type define-typeclass define-instance
+         match2)
+
 (define-type-constructor => #:arity > 0)
+
+;; providing version of define-typed-syntax
+(define-syntax (define-typed-syntax stx)
+  (syntax-parse stx
+    [(_ name:id #:export-as out-name:id . rst)
+     #'(begin-
+         (provide- (rename-out [name out-name]))
+         (define-typerule name . rst))] ; define-typerule doesnt provide
+    [(_ name:id . rst)
+     #'(define-typed-syntax name #:export-as name . rst)]
+    [(_ (name:id . pat) . rst)
+     #'(define-typed-syntax name #:export-as name [(_ . pat) . rst])]))
 
 ;; type class helper fns
 (begin-for-syntax
@@ -400,8 +415,7 @@
              [(_ X ...) #'(('Cons 'StructName Cons? [acc τ] ...) ...)]))
          (define-type-constructor Name
            #:arity = #,(stx-length #'(X ...))
-           #:extra-info 'NameExtraInfo
-           #:no-provide)
+           #:extra-info 'NameExtraInfo)
          (struct- StructName (fld ...) #:reflection-name 'Cons #:transparent) ...
          (define-syntax- (exposed-acc stx) ; accessor for records
            (syntax-parse stx

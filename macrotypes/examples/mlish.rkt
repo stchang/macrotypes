@@ -1,9 +1,13 @@
 #lang s-exp macrotypes/typecheck
-(require racket/fixnum racket/flonum
-         (for-syntax macrotypes/type-constraints macrotypes/variance-constraints))
+(require
+ racket/fixnum racket/flonum
+ (for-syntax macrotypes/type-constraints macrotypes/variance-constraints))
 
-(extends "ext-stlc.rkt" #:except #%app λ → + - * void = zero? sub1 add1 not let let* and #%datum begin
-          #:rename [~→ ~ext-stlc:→])
+(extends
+ "ext-stlc.rkt"
+ #:except → define #%app λ #%datum begin
+          + - * void = zero? sub1 add1 not let let* and
+ #:rename [~→ ~ext-stlc:→])
 (reuse inst  #:from "sysf.rkt")
 (require (only-in "ext-stlc.rkt" → →?))
 (require (only-in "sysf.rkt" ~∀ ∀ ∀? Λ))
@@ -13,7 +17,6 @@
 (reuse member length reverse list-ref cons nil isnil head tail list #:from "stlc+cons.rkt")
 (require (prefix-in stlc+cons: (only-in "stlc+cons.rkt" list cons nil)))
 (require (only-in "stlc+cons.rkt" ~List List? List))
-(provide List)
 (reuse ref deref := Ref #:from "stlc+box.rkt")
 (require (rename-in (only-in "stlc+reco+var.rkt" tup proj ×)
            [tup rec] [proj get] [× ××]))
@@ -31,7 +34,8 @@
 (module+ test
   (require (for-syntax rackunit)))
 
-(provide → →/test match2 define-type
+(provide define-type
+         → →/test
          ; redefine these to use lifted →
          (typed-out [+ : (→ Int Int Int)]
                     [- : (→ Int Int Int)]
@@ -50,7 +54,30 @@
                     [not : (→ Bool Bool)]
                     [abs : (→ Int Int)]
                     [even? : (→ Int Bool)]
-                    [odd? : (→ Int Bool)]))
+                    [odd? : (→ Int Bool)])
+          define match match2 λ
+          (rename-out [mlish:#%app #%app])
+          cond when unless
+         Channel make-channel channel-get channel-put
+         Thread thread
+         List Vector
+         vector make-vector vector-length vector-ref vector-set! vector-copy!
+         Sequence in-range in-naturals in-vector in-list in-lines
+         for for*
+         for/list for/vector for*/vector for*/list for/fold for/hash for/sum
+         printf format display displayln list->vector
+         let let* begin
+         Hash in-hash hash hash-set! hash-ref hash-has-key? hash-count
+         String-Port Input-Port
+         write-string string-length string-copy!
+         quotient+remainder
+         set!
+         provide-type
+         (rename-out [mlish-provide provide])
+         require-typed
+         Regexp
+         equal?
+         read)
 
 ;; creating possibly polymorphic types
 ;; ?∀ only wraps a type in a forall if there's at least one type variable
@@ -332,14 +359,14 @@
 ;;   which is not known to programmers, to make the result slightly more
 ;;   intuitive, we arbitrarily sort the inferred tyvars lexicographically
 (define-typed-syntax define
-  [(define x:id e)
+  [(_ x:id e)
    #:with (e- τ) (infer+erase #'e)
    #:with y (generate-temporary)
    #'(begin-
        (define-syntax x (make-rename-transformer (⊢ y : τ)))
        (define- y e-))]
   ; explicit "forall"
-  [(define Ys (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) 
+  [(_ Ys (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) 
      e_body ... e)
    #:when (brace? #'Ys)
    ;; TODO; remove this code duplication
@@ -356,9 +383,9 @@
        (define- g
          (Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))]
   ;; alternate type sig syntax, after parameter names
-  [(define (f:id x:id ...) (~datum :) ty ... (~or (~datum ->) (~datum →)) ty_out . b)
+  [(_ (f:id x:id ...) (~datum :) ty ... (~or (~datum ->) (~datum →)) ty_out . b)
    #'(define (f [x : ty] ... -> ty_out) . b)]
-  [(define (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) 
+  [(_ (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) 
      e_body ... e)
    #:with Ys (compute-tyvars #'(τ ... τ_out))
    #:with g (add-orig (generate-temporary #'f) #'f)
@@ -455,8 +482,7 @@
            #:arg-variances (make-arg-variances-proc arg-variance-vars
                                                     (list #'X ...)
                                                     (list #'τ ... ...))
-           #:extra-info 'NameExtraInfo
-           #:no-provide)
+           #:extra-info 'NameExtraInfo)
          (struct- StructName (fld ...) #:reflection-name 'Cons #:transparent) ...
          (define-syntax (exposed-acc stx) ; accessor for records
            (syntax-parse stx
@@ -700,7 +726,7 @@
 
 (define-syntax (match2 stx)
  (syntax-parse stx #:datum-literals (with)
-   [(match2 e with . clauses)
+   [(_ e with . clauses)
     #:fail-when (null? (syntax->list #'clauses)) "no clauses"
     #:with [e- τ_e] (infer+erase #'e)
     (syntax-parse #'clauses #:datum-literals (->)
@@ -719,7 +745,7 @@
       ])]))
 
 (define-typed-syntax match #:datum-literals (with)
-   [(match e with . clauses)
+   [(_ e with . clauses)
     #:fail-when (null? (syntax->list #'clauses)) "no clauses"
     #:with [e- τ_e] (infer+erase #'e)
     #:with t_expect (syntax-property stx 'expected-type) ; propagate inferred type
@@ -832,7 +858,7 @@
 
 ; all λs have type (?∀ (X ...) (→ τ_in ... τ_out))
 (define-typed-syntax λ
-  [(λ (x:id ...) body)
+  [(_ (x:id ...) body)
    #:with (~?∀ Xs expected) (get-expected-type stx)
    #:fail-unless (→? #'expected)
    (no-expected-type-fail-msg)
@@ -841,17 +867,17 @@
    (format "expected a function of ~a arguments, got one with ~a arguments"
            (stx-length #'[arg-ty ...]) (stx-length #'[x ...]))
    #`(?Λ Xs (ext-stlc:λ ([x : arg-ty] ...) (add-expected body body-ty)))]
-  [(λ (~and args ([_ (~datum :) ty] ...)) body)
+  [(_ (~and args ([_ (~datum :) ty] ...)) body)
    #:with (~?∀ () (~ext-stlc:→ arg-ty ... body-ty)) (get-expected-type stx)
    #`(?Λ () (ext-stlc:λ args (add-expected body body-ty)))]
-  [(λ (~and x+tys ([_ (~datum :) ty] ...)) . body)
+  [(_ (~and x+tys ([_ (~datum :) ty] ...)) . body)
    #:with Xs (compute-tyvars #'(ty ...))
    ;; TODO is there a way to have λs that refer to ids defined after them?
    #'(?Λ Xs (ext-stlc:λ x+tys . body))])
 
 
 ;; #%app --------------------------------------------------
-(define-typed-syntax mlish:#%app #:export-as #%app
+(define-typed-syntax mlish:#%app
   [(_ e_fn . e_args)
    ;; compute fn type (ie ∀ and →) 
    #:with [e_fn- (~?∀ Xs (~ext-stlc:→ . tyX_args))] (infer+erase #'e_fn)
@@ -883,7 +909,7 @@
 
 ;; cond and other conditionals
 (define-typed-syntax cond
-  [(cond [(~or (~and (~datum else) (~parse test #'(ext-stlc:#%datum . #t)))
+  [(_ [(~or (~and (~datum else) (~parse test #'(ext-stlc:#%datum . #t)))
                test)
           b ... body] ...+)
    #:with (test- ...) (⇑s (test ...) as Bool)
@@ -892,13 +918,13 @@
    #:with (([b- ty_b] ...) ...) (stx-map infers+erase #'((b ...) ...))
    (⊢ (cond- [test- b- ... body-] ...) : (⊔ ty_body ...))])
 (define-typed-syntax when
-  [(when test body ...)
+  [(_ test body ...)
 ;   #:with test- (⇑ test as Bool)
    #:with [test- _] (infer+erase #'test)
    #:with [(body- _) ...] (infers+erase #'(body ...))
    (⊢ (when- test- body- ... (void-)) : Unit)])
 (define-typed-syntax unless
-  [(unless test body ...)
+  [(_ test body ...)
 ;   #:with test- (⇑ test as Bool)
    #:with [test- _] (infer+erase #'test)
    #:with [(body- _) ...] (infers+erase #'(body ...))
@@ -908,15 +934,15 @@
 (define-type-constructor Channel)
 
 (define-typed-syntax make-channel
-  [(make-channel (~and tys {ty}))
+  [(_ (~and tys {ty}))
    #:when (brace? #'tys)
    (⊢ (make-channel-) : (Channel ty))])
 (define-typed-syntax channel-get
-  [(channel-get c)
+  [(_ c)
    #:with [c- (~Channel ty)] (infer+erase #'c)
    (⊢ (channel-get- c-) : ty)])
 (define-typed-syntax channel-put
-  [(channel-put c v)
+  [(_ c v)
    #:with [c- (~Channel ty)] (infer+erase #'c)
    #:with [v- ty_v] (infer+erase #'v)
    #:fail-unless (typechecks? #'ty_v #'ty)
@@ -927,7 +953,7 @@
 
 ;; threads
 (define-typed-syntax thread
-  [(thread th)
+  [(_ th)
    #:with (th- (~?∀ () (~ext-stlc:→ τ_out))) (infer+erase #'th)
    (⊢ (thread- th-) : Thread)])
 
@@ -937,18 +963,19 @@
                     [string->number : (→ String Int)]))
 (define-typed-syntax number->string
  [f:id (assign-type #'number->string- #'(→ Int String))]
- [(number->string n)
+ [(_ n)
   #'(number->string n (ext-stlc:#%datum . 10))]
- [(number->string n rad)
+ [(_ n rad)
   #:with args- (⇑s (n rad) as Int)
   (⊢ (number->string- . args-) : String)])
-(provide (typed-out [string : (→ Char String)]
+(provide number->string string-append
+         (typed-out [string : (→ Char String)]
                     [sleep : (→ Int Unit)]
                     [string=? : (→ String String Bool)]
                     [string<=? : (→ String String Bool)]))
 
 (define-typed-syntax string-append
-  [(string-append . strs)
+  [(_ . strs)
    #:with strs- (⇑s strs as String)
    (⊢ (string-append- . strs-) : String)])
 
@@ -956,44 +983,45 @@
 (define-type-constructor Vector)
 
 (define-typed-syntax vector
-  [(vector (~and tys {ty}))
+  [(_ (~and tys {ty}))
    #:when (brace? #'tys)
    (⊢ (vector-) : (Vector ty))]
-  [(vector v ...)
+  [(_ v ...)
    #:with ([v- ty] ...) (infers+erase #'(v ...))
    #:when (same-types? #'(ty ...))
    #:with one-ty (stx-car #'(ty ...))
    (⊢ (vector- v- ...) : (Vector one-ty))])
 (define-typed-syntax make-vector
-  [(make-vector n) #'(make-vector n (ext-stlc:#%datum . 0))]
-  [(make-vector n e)
+  [(_ n) #'(make-vector n (ext-stlc:#%datum . 0))]
+  [(_ n e)
    #:with n- (⇑ n as Int)
    #:with [e- ty] (infer+erase #'e)
    (⊢ (make-vector- n- e-) : (Vector ty))])
 (define-typed-syntax vector-length
-  [(vector-length e)
+  [(_ e)
    #:with [e- _] (⇑ e as Vector)
    (⊢ (vector-length- e-) : Int)])
 (define-typed-syntax vector-ref
-  [(vector-ref e n)
+  [(_ e n)
    #:with n- (⇑ n as Int)
    #:with [e- (ty)] (⇑ e as Vector)
    (⊢ (vector-ref- e- n-) : ty)])
 (define-typed-syntax vector-set!
-  [(vector-set! e n v)
+  [(_ e n v)
    #:with n- (⇑ n as Int)
    #:with [e- (~Vector ty)] (infer+erase #'e)
    #:with [v- ty_v] (infer+erase #'v)
    #:fail-unless (typecheck? #'ty_v #'ty)
-   (typecheck-fail-msg/1 #'ty #'ty_v #'v)
+                 (typecheck-fail-msg/1 #'ty #'ty_v #'v)
    (⊢ (vector-set!- e- n- v-) : Unit)])
 (define-typed-syntax vector-copy!
-  [(vector-copy! dest start src)
+  [(_ dest start src)
    #:with start- (⇑ start as Int)
    #:with [dest- (~Vector ty_dest)] (infer+erase #'dest)
    #:with [src- (~Vector ty_src)] (infer+erase #'src)
    #:fail-unless (typecheck? #'ty_dest #'ty_src)
-   (typecheck-fail-msg/1 #'(Vector ty_src) #'(Vector ty_dest) #'dest)
+                 (typecheck-fail-msg/1
+                  #'(Vector ty_src) #'(Vector ty_dest) #'dest)
    (⊢ (vector-copy!- dest- start- src-) : Unit)])
 
 
@@ -1002,11 +1030,11 @@
 (define-type-constructor Sequence)
 
 (define-typed-syntax in-range
-  [(in-range end)
+  [(_ end)
    #'(in-range (ext-stlc:#%datum . 0) end (ext-stlc:#%datum . 1))]
-  [(in-range start end)
+  [(_ start end)
    #'(in-range start end (ext-stlc:#%datum . 1))]
-  [(in-range start end step)
+  [(_ start end step)
    #:with (e- ...) (⇑s (start end step) as Int)
    (⊢ (in-range- e- ...) : (Sequence Int))])
 
@@ -1268,7 +1296,7 @@
 
 (define-typed-syntax provide-type [(provide-type ty ...) #'(provide- ty ...)])
 
-(define-typed-syntax mlish-provide #:export-as provide
+(define-typed-syntax mlish-provide
   [(provide x:id ...)
    #:with ([x- ty_x] ...) (infers+erase #'(x ...))
    ; TODO: use hash-code to generate this tmp

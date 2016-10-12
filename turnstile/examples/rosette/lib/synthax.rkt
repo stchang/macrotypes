@@ -4,7 +4,8 @@
  (prefix-in t/ro: (only-in "../rosette2.rkt" Int Bool C→ CSolution Unit))
  (prefix-in ro: rosette/lib/synthax))
 
-(provide (rosette-typed-out [print-forms : (t/ro:C→ t/ro:CSolution t/ro:Unit)]))
+(provide (rosette-typed-out [print-forms : (t/ro:C→ t/ro:CSolution t/ro:Unit)])
+         ??)
 
 (define-typed-syntax ??
   [(qq) ≫

@@ -3,7 +3,6 @@
 (reuse Bool String add1 #:from "ext-stlc.rkt")
 (require (prefix-in ext: (only-in "ext-stlc.rkt" #%datum))
          (only-in "ext-stlc.rkt" current-join))
-(provide (for-syntax subs? current-sub?))
 
 ;; Simply-Typed Lambda Calculus, plus subtyping
 ;; Types:
@@ -20,8 +19,11 @@
 ;; - also *
 ;; Other: sub? current-sub?
 
-(provide (typed-out [+ : (→ Num Num Num)]
-                    [* : (→ Num Num Num)]))
+(provide (for-syntax subs? current-sub?)
+         (type-out Top Num Nat)
+         (typed-out [+ : (→ Num Num Num)]
+                    [* : (→ Num Num Num)])
+         #%datum)
 
 (define-base-types Top Num Nat)
 

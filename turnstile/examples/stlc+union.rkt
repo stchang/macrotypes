@@ -2,7 +2,6 @@
 (extends "ext-stlc.rkt" 
  #:except #%app #%datum + add1 sub1 *
           Int Int? ~Int Float Float? ~Float Bool ~Bool Bool?)
-(reuse define-type-alias #:from "stlc+reco+var.rkt")
 
 ;; Simply-Typed Lambda Calculus, plus union types
 ;; Types:
@@ -20,13 +19,15 @@
 ;; - also *
 ;; Other: sub? current-sub?
 
-(provide Int Num Nat U Bool
+(provide (for-syntax current-sub? prune+sort)
          define-named-type-alias
-         (for-syntax current-sub? prune+sort)
+         Int Num Nat U (type-out U*)
+         Zero NegInt PosInt Float Bool False True
          (typed-out [+ : (→ Num Num Num)]
                     [* : (→ Num Num Num)]
                     [add1 : (→ Int Int)]
-                    [sub1 : (→ Int Int)]))
+                    [sub1 : (→ Int Int)])
+         #%datum #%app)
 
 (define-syntax define-named-type-alias
   (syntax-parser
@@ -37,7 +38,6 @@
      #'(define-syntax (f stx)
          (syntax-parse stx
            [(_ x ...) (add-orig #'ty stx)]))]))
-
 
 (define-base-types Zero NegInt PosInt Float False True)
 (define-type-constructor U* #:arity >= 0)
@@ -71,7 +71,7 @@
 (define-syntax Num 
   (make-variable-like-transformer (add-orig #'(U Float Int) #'Num)))
 
-(define-typed-syntax datum #:export-as #%datum
+(define-typed-syntax #%datum
   [(_ . b:boolean) ≫
    #:with ty_out (if (syntax-e #'b) #'True #'False)
    --------
@@ -91,7 +91,7 @@
    --------
    [_ ≻ (ext-stlc:#%datum . x)]])
 
-(define-typed-syntax app #:export-as #%app
+(define-typed-syntax #%app
   [(_ e_fn e_arg ...) ≫
    [⊢ [e_fn ≫ e_fn- ⇒ : (~→ ~! τ_in ... τ_out)]]
    #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
@@ -130,4 +130,3 @@
   
   (define (join t1 t2) #`(U #,t1 #,t2))
   (current-join join))
-                   

@@ -9,6 +9,8 @@
 ;; - terms from stlc+lit.rkt
 ;; - Λ and inst
 
+(provide (type-out ∀) Λ inst)
+
 (define-type-constructor ∀ #:bvs >= 0)
 
 (define-typed-syntax (Λ (tv:id ...) e) ≫

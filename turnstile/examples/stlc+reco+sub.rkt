@@ -11,6 +11,8 @@
 ;; - terms from stlc+sub.rkt
 ;; - records and variants from stlc+reco+var
 
+(provide #%datum)
+
 (define-typed-syntax #%datum
   [(_ . n:number) ≫
    --------

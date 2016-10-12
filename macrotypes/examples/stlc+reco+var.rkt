@@ -1,8 +1,6 @@
 #lang s-exp macrotypes/typecheck
-(extends "stlc+tup.rkt" #:except × ×? tup proj ~× ~×*)
+(extends "stlc+tup.rkt" #:except × ×? tup proj ~×)
 (require (only-in "stlc+tup.rkt" [~× ~stlc:×]))
-(provide × ∨ (for-syntax ~× ~×* ~∨ ~∨*))
-
 
 ;; Simply-Typed Lambda Calculus, plus records and variants
 ;; Types:
@@ -13,29 +11,8 @@
 ;; - terms from stlc+tup.rkt
 ;; - redefine tup to records
 ;; - sums (var)
-;; TopLevel:
-;; - define (values only)
-;; - define-type-alias
 
-(provide define-type-alias)
-;; Using τ.norm leads to a "not valid type" error when file is compiled
-(define-syntax define-type-alias
-  (syntax-parser
-    [(_ alias:id τ:type)
-     #'(define-syntax alias (make-variable-like-transformer #'τ))]
-    [(_ (f:id x:id ...) ty)
-     #'(define-syntax (f stx)
-         (syntax-parse stx
-           [(_ x ...) #'ty]))]))
-
-(define-typed-syntax define
-  [(define x:id e)
-   #:with (e- τ) (infer+erase #'e)
-
-   #:with y (generate-temporary)
-   #'(begin-
-       (define-syntax x (make-rename-transformer (⊢ y : τ)))
-       (define- y e-))])
+(provide (type-out × ∨) tup proj var case)
 
 ; re-define tuples as records
 ; dont use define-type-constructor because I want the : literal syntax
@@ -79,11 +56,11 @@
 
 ;; records
 (define-typed-syntax tup #:datum-literals (=)
-  [(tup [l:id = e] ...)
+  [(_ [l:id = e] ...)
    #:with ([e- τ] ...) (infers+erase #'(e ...))
    (⊢ (list- (list- 'l e-) ...) : (× [l : τ] ...))])
 (define-typed-syntax proj #:literals (quote)
-  [(proj e_rec l:id)
+  [(_ e_rec l:id)
    #:with [e_rec- τ_e] (infer+erase #'e_rec)
    #:fail-unless (×? #'τ_e)
    (format "Expected expression ~s to have × type, got: ~a"
@@ -135,27 +112,36 @@
        (add-orig res (get-orig res))])))
 
 (define-typed-syntax var #:datum-literals (as =)
-  [(var l:id = e as τ:type)
+  [(_ l:id = e as τ:type)
    #:fail-unless (∨? #'τ.norm)
-   (format "Expected the expected type to be a ∨ type, got: ~a" (type->str #'τ.norm))
+                 (format 
+                  "Expected the expected type to be a ∨ type, got: ~a" 
+                  (type->str #'τ.norm))
    #:with τ_match
-   (∨-ref #'τ.norm #'l #:else
-          (λ () (raise-syntax-error #f
-                   (format "~a field does not exist" (syntax->datum #'l))
-                   stx)))
+          (∨-ref
+            #'τ.norm #'l #:else
+            (λ ()
+              (raise-syntax-error #f
+                (format "~a field does not exist" (syntax->datum #'l))
+                stx)))
    #:with [e- τ_e] (infer+erase #'e)
    #:fail-unless (typecheck? #'τ_e #'τ_match)
-   (typecheck-fail-msg/1 #'τ_match #'τ_e #'e)
+                 (typecheck-fail-msg/1 #'τ_match #'τ_e #'e)
    (⊢ (list- 'l e) : τ.norm)])
 (define-typed-syntax case
   #:datum-literals (of =>)
-  [(case e [l:id x:id => e_l] ...)
+  [(_ e [l:id x:id => e_l] ...)
    #:fail-when (null? (syntax->list #'(l ...))) "no clauses"
    #:with [e- (~∨* [l_x : τ_x] ...)] (infer+erase #'e)
-   #:fail-unless (= (stx-length #'(l ...)) (stx-length #'(l_x ...))) "wrong number of case clauses"
-   #:fail-unless (typechecks? #'(l ...) #'(l_x ...)) "case clauses not exhaustive"
+   #:fail-unless (= (stx-length #'(l ...))
+                    (stx-length #'(l_x ...)))
+                 "wrong number of case clauses"
+   #:fail-unless (typechecks? #'(l ...) #'(l_x ...))
+                 "case clauses not exhaustive"
    #:with (((x-) e_l- τ_el) ...)
-          (stx-map (λ (bs e) (infer/ctx+erase bs e)) #'(([x : τ_x]) ...) #'(e_l ...))
+          (stx-map
+           (λ (bs e) (infer/ctx+erase bs e))
+           #'(([x : τ_x]) ...) #'(e_l ...))
    (⊢ (let- ([l_e (car- e-)])
         (cond- [(symbol=?- l_e 'l) (let- ([x- (cadr- e-)]) e_l-)] ...))
       : (⊔ τ_el ...))])

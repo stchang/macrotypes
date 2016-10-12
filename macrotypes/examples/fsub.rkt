@@ -14,7 +14,9 @@
 ;; - current-promote, expose
 ;; - extend current-sub? to call current-promote
 
-(provide (typed-out [+ : (→ Nat Nat Nat)]))
+(provide <: ∀
+         (typed-out [+ : (→ Nat Nat Nat)])
+         Λ inst)
 
 ; can't just call expose in type-eval,
 ; otherwise typevars will have bound as type, rather than instantiated type
@@ -73,15 +75,16 @@
                        #:msg "Expected ∀ type, got: ~a" #'any))))]))))
 
 (define-typed-syntax Λ #:datum-literals (<:)
-  [(Λ ([tv:id <: τsub:type] ...) e)
+  [(_ ([tv:id <: τsub:type] ...) e)
    ;; NOTE: store the subtyping relation of tv and τsub in another
    ;; "environment", ie, a syntax property with another tag: '<:
    ;; The "expose" function looks for this tag to enforce the bound,
    ;; as in TaPL (fig 28-1)
-   #:with ((tv- ...) _ (e-) (τ_e)) (infer #'(e) #:tvctx #'([tv : #%type <: τsub] ...))
+   #:with ((tv- ...) _ (e-) (τ_e))
+          (infer #'(e) #:tvctx #'([tv : #%type <: τsub] ...))
    (⊢ e- : (∀ ([tv- <: τsub] ...) τ_e))])
 (define-typed-syntax inst
-  [(inst e τ:type ...)
+  [(_ e τ:type ...)
    #:with (e- (([tv τ_sub] ...) τ_body)) (⇑ e as ∀)
    #:when (typechecks? #'(τ.norm ...) #'(τ_sub ...))
    (⊢ e- : #,(substs #'(τ.norm ...) #'(tv ...) #'τ_body))])

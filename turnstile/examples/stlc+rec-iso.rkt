@@ -1,6 +1,6 @@
 #lang turnstile/lang
 (extends "stlc+tup.rkt")
-(reuse ∨ var case define-type-alias define #:from "stlc+reco+var.rkt")
+(reuse ∨ var case #:from "stlc+reco+var.rkt")
 
 ;; stlc + (iso) recursive types
 ;; Types:
@@ -11,6 +11,8 @@
 ;; - terms from stlc+tup.rkt
 ;; - also var and case from stlc+reco+var
 ;; - fld, unfld
+
+(provide μ unfld fld)
 
 (define-type-constructor μ #:bvs = 1)
 

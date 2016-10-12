@@ -1,5 +1,5 @@
 #lang s-exp macrotypes/typecheck
-(extends "sysf.rkt" #:except #%datum ∀ ~∀ ~∀* ∀? Λ inst)
+(extends "sysf.rkt" #:except #%datum ∀ ~∀ ∀? Λ inst)
 (reuse String #%datum #:from "stlc+reco+var.rkt")
 
 ;; System F_omega
@@ -11,6 +11,11 @@
 ;; - extend ∀ Λ inst from sysf
 ;; - add tyλ and tyapp
 ;; - #%datum from stlc+reco+var
+
+(provide (for-syntax current-kind?)
+         define-type-alias
+         (type-out ★ ⇒ ∀★ ∀)
+         Λ inst tyλ tyapp)
 
 (define-syntax-category kind)
 
@@ -24,23 +29,26 @@
   ;; eg in the definition of λ or previous type constuctors.
   ;; (However, this is not completely possible, eg define-type-alias)
   ;; So now "type?" no longer validates types, rather it's a subset.
-  ;; But we no longer need type? to validate types, instead we can use (kind? (typeof t))
+  ;; But we no longer need type? to validate types, instead we can use 
+  ;; (kind? (typeof t))
   (current-type? (λ (t)
                    (define k (typeof t))
                    #;(or (type? t) (★? (typeof t)) (∀★? (typeof t)))
                    (and ((current-kind?) k) (not (⇒? k))))))
 
 ; must override, to handle kinds
-(provide define-type-alias)
 (define-syntax define-type-alias
   (syntax-parser
     [(_ alias:id τ)
      #:with (τ- k_τ) (infer+erase #'τ)
-     #:fail-unless ((current-kind?) #'k_τ) (format "not a valid type: ~a\n" (type->str #'τ))
-     #'(define-syntax alias (syntax-parser [x:id #'τ-][(_ . rst) #'(τ- . rst)]))]))
+     #:fail-unless ((current-kind?) #'k_τ)
+                   (format "not a valid type: ~a\n" (type->str #'τ))
+     #'(define-syntax alias 
+         (syntax-parser [x:id #'τ-][(_ . rst) #'(τ- . rst)]))]))
 
-(provide ★ (for-syntax ★?))
-(define-for-syntax ★? #%type?)
+(begin-for-syntax
+  (define ★? #%type?)
+  (define-syntax ~★ (lambda _ (error "~★ not implemented")))) ; placeholder
 (define-syntax ★ (make-rename-transformer #'#%type))
 (define-kind-constructor ⇒ #:arity >= 1)
 (define-kind-constructor ∀★ #:arity >= 0)
@@ -83,39 +91,41 @@
   (current-typecheck-relation (current-type=?)))
 
 (define-typed-syntax Λ
-  [(Λ bvs:kind-ctx e)
+  [(_ bvs:kind-ctx e)
    #:with ((tv- ...) e- τ_e) (infer/ctx+erase #'bvs #'e)
    (⊢ e- : (∀ ([tv- : bvs.kind] ...) τ_e))])
 
 (define-typed-syntax inst
-  [(inst e τ ...)
+  [(_ e τ ...)
    #:with [e- τ_e] (infer+erase #'e)
    #:with (~∀ (tv ...) τ_body) #'τ_e
    #:with (~∀★ k ...) (typeof #'τ_e)
    #:with ([τ- k_τ] ...) (infers+erase #'(τ ...))
    #:fail-unless (typechecks? #'(k_τ ...) #'(k ...))
-   (typecheck-fail-msg/multi #'(k ...) #'(k_τ ...) #'(τ ...))
+                 (typecheck-fail-msg/multi 
+                  #'(k ...) #'(k_τ ...) #'(τ ...))
    #:with τ_inst (substs #'(τ- ...) #'(tv ...) #'τ_body)
    (⊢ e- : τ_inst)])
 
 ;; TODO: merge with regular λ and app?
 ;; - see fomega2.rkt
 (define-typed-syntax tyλ
-  [(tyλ bvs:kind-ctx τ_body)
+  [(_ bvs:kind-ctx τ_body)
    #:with (tvs- τ_body- k_body) (infer/ctx+erase #'bvs #'τ_body)
    #:fail-unless ((current-kind?) #'k_body)
                  (format "not a valid type: ~a\n" (type->str #'τ_body))
    (⊢ (λ- tvs- τ_body-) : (⇒ bvs.kind ... k_body))])
 
 (define-typed-syntax tyapp
-  [(tyapp τ_fn τ_arg ...)
+  [(_ τ_fn τ_arg ...)
    #:with [τ_fn- (k_in ... k_out)] (⇑ τ_fn as ⇒)
    #:with ([τ_arg- k_arg] ...) (infers+erase #'(τ_arg ...))
    #:fail-unless (typechecks? #'(k_arg ...) #'(k_in ...))
                  (string-append
-                  (format "~a (~a:~a) Arguments to function ~a have wrong kinds(s), "
-                          (syntax-source stx) (syntax-line stx) (syntax-column stx)
-                          (syntax->datum #'τ_fn))
+                  (format 
+                   "~a (~a:~a) Arguments to function ~a have wrong kinds(s), "
+                   (syntax-source stx) (syntax-line stx) (syntax-column stx)
+                   (syntax->datum #'τ_fn))
                   "or wrong number of arguments:\nGiven:\n"
                   (string-join
                    (map (λ (e t) (format "  ~a : ~a" e t)) ; indent each line

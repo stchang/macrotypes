@@ -9,7 +9,8 @@
               syntax/parse racket/syntax syntax/stx racket/stxparam 
               syntax/parse/define
               (only-in racket/provide-transform 
-                       make-provide-pre-transformer pre-expand-export)
+                       make-provide-pre-transformer pre-expand-export
+                       make-provide-transformer expand-export)
               "stx-utils.rkt")
   (for-meta 2 racket/base syntax/parse racket/syntax syntax/stx 
             "stx-utils.rkt")
@@ -17,17 +18,18 @@
   racket/bool racket/provide racket/require racket/match racket/promise 
   syntax/parse/define)
 (provide
- postfix-in
- symbol=?- match- delay-
+ postfix-in symbol=?- match- delay-
+ (all-defined-out)
+ (for-syntax (all-defined-out))
+ (for-meta 2 (all-defined-out))
  (except-out (all-from-out racket/base) #%module-begin)
  (all-from-out syntax/parse/define)
- (for-syntax (all-defined-out)) (all-defined-out)
- (rename-out [define-syntax-category define-stx-category])
  (for-syntax
   (all-from-out racket syntax/parse racket/syntax syntax/stx
                 racket/provide-transform
                 "stx-utils.rkt"))
- (for-meta 2 (all-from-out racket/base syntax/parse racket/syntax)))
+ (for-meta 2 (all-from-out racket/base syntax/parse racket/syntax))
+ (rename-out [define-syntax-category define-stx-category]))
 
 (module+ test
   (require (for-syntax rackunit)))
@@ -57,27 +59,26 @@
 
 (struct exn:fail:type:runtime exn:fail:user ())
 
-;; drop-file-ext : String -> String
-(define-for-syntax (drop-file-ext filename)
-  (car (string-split filename ".")))
-;; extract-filename : PathString -> String
-(define-for-syntax (extract-filename f)
-  (path->string (path-replace-suffix (file-name-from-path f) "")))
-
 (begin-for-syntax
+  (define (mk-? id) (format-id id "~a?" id))
+  (define (mk-* id) (format-id id "~a*" id))
+  (define (mk-~ id) (format-id id "~~~a" id))
+  (define-for-syntax (mk-? id) (format-id id "~a?" id))
+  (define-for-syntax (mk-~ id) (format-id id "~~~a" id))
+  ;; drop-file-ext : String -> String
+  (define (drop-file-ext filename)
+    (car (string-split filename ".")))
+  ;; extract-filename : PathString -> String
+  (define (extract-filename f)
+    (path->string (path-replace-suffix (file-name-from-path f) "")))
   (define-syntax-parameter stx (syntax-rules ())))
 
 (define-syntax (define-typed-syntax stx)
   (syntax-parse stx
-    [(_ name:id #:export-as out-name:id stx-parse-clause ...+)
-     #'(begin
-         (provide (rename-out [name out-name]))
-         (define-syntax (name syntx)
-           (syntax-parameterize ([stx (make-rename-transformer #'syntx)])
-             (syntax-parse syntx stx-parse-clause ...))))]
     [(_ name:id stx-parse-clause ...+)
-     #'(define-typed-syntax name #:export-as name
-         stx-parse-clause ...)]))
+     #'(define-syntax (name syntx)
+         (syntax-parameterize ([stx (make-rename-transformer #'syntx)])
+           (syntax-parse syntx stx-parse-clause ...)))]))
 
 ;; need options for
 ;; - pass through
@@ -158,14 +159,14 @@
                    (let* ([pre-str #,(string-append (extract-filename (syntax-e #'base-lang)) ":")]
                           [pre-str-len (string-length pre-str)]
                           [drop-pre (λ (s) (substring s pre-str-len))]
-                          [excluded (map (compose symbol->string syntax->datum) (syntax->list #'(new ...)))]
-                          [origs (map symbol->string (syntax->datum #'(x ...)))])
+;                          [excluded (map (compose symbol->string syntax->datum) (syntax->list #'(new ...)))]
+                          [origs (map symbol->string (syntax->datum #'(x ... new ...)))])
                      (λ (name) 
                        (define out-name
                          (or (and (string-prefix? name pre-str)
                                   (drop-pre name))
                              name))
-                       (and (not (member out-name excluded))
+                       (and #;(not (member out-name excluded))
                             (member out-name origs)
                             out-name)))
                    (all-from-out base-lang)))))]))
@@ -239,7 +240,7 @@
       [(_ e as tycon)
        #:with τ? (mk-? #'tycon)
        #:with τ-get (format-id #'tycon "~a-get" #'tycon)
-       #:with τ-expander (format-id #'tycon "~~~a" #'tycon)
+       #:with τ-expander (mk-~ #'tycon)
        #'(syntax-parse
              ;; when type error, prefer outer err msg
              (with-handlers ([exn:fail?
@@ -276,7 +277,7 @@
       [(_ es as tycon)
        #:with τ? (mk-? #'tycon)
        #:with τ-get (format-id #'tycon "~a-get" #'tycon)
-       #:with τ-expander (format-id #'tycon "~~~a" #'tycon)
+       #:with τ-expander (mk-~ #'tycon)
        #'(syntax-parse (stx-map infer+erase #'es) #:context #'es
            [((e- τ_e_) (... ...))
             #:with (τ_e (... ...)) (stx-map (current-promote) #'(τ_e_ (... ...)))
@@ -291,7 +292,6 @@
                                       (quote-syntax tycon) t)))
                     #'es
                     #'(τ_e (... ...)))
-            ;#:with args (τ-get #'τ_e)
             #:with res
             (stx-map (λ (e t)
                        (syntax-parse t
@@ -322,7 +322,7 @@
        #:with ([tv (~seq sep:id tvk) ...] ...) tvctx
        #:with (e ...) es
        #:with
-       ; old expander pattern
+       ; old expander pattern (leave commented out)
        #;((~literal #%plain-lambda) tvs+
         ((~literal #%expression)
          ((~literal #%plain-lambda) xs+
@@ -372,9 +372,7 @@
                       #:with app (datum->syntax #'o '#%app)
                       (datum->syntax this-syntax
                                      (list* #'app (assign-type #'x #'τ) #'rst)
-                                     this-syntax)]
-                     #;[(_ . rst) #`(#,(assign-type #'x #'τ) . rst)])
-                    #;(make-rename-transformer (assign-type #'x #'τ))] ...)
+                                     this-syntax)])] ...)
                   (#%expression e) ... void)))))
        (list #'tvs+ #'xs+ #'(e+ ...)
              (stx-map ; need this check when combining #%type and kinds
@@ -531,8 +529,6 @@
     (string-join (stx-map type->str tys) sep)))
 
 (begin-for-syntax
-  (define (mk-? id) (format-id id "~a?" id))
-  (define-for-syntax (mk-? id) (format-id id "~a?" id))
   (define (brace? stx)
     (define paren-shape/#f (syntax-property stx 'paren-shape))
     (and paren-shape/#f (char=? paren-shape/#f #\{)))
@@ -602,18 +598,14 @@
 
 (define-syntax define-basic-checked-id-stx
   (syntax-parser #:datum-literals (:)
-    [(_ τ:id : kind
-        (~optional (~and #:no-provide (~parse no-provide? #'#t))))
+    [(_ τ:id : kind)
      #:with #%tag (format-id #'kind "#%~a" #'kind)
      #:with τ? (mk-? #'τ)
      #:with τ-internal (generate-temporary #'τ)
-     #:with τ-expander (format-id #'τ "~~~a" #'τ)
+     #:with τ-expander (mk-~ #'τ)
      #`(begin
-         #,@(if (attribute no-provide?)
-               #'()
-               #'((provide τ (for-syntax τ? τ-expander))))
          (begin-for-syntax
-           (define (τ? t) ;(and (identifier? t) (free-identifier=? t #'τ-internal)))
+           (define (τ? t)
              (syntax-parse t
                [((~literal #%plain-app) (~literal τ-internal)) #t][_ #f]))
            (define (inferτ+erase e)
@@ -628,9 +620,7 @@
            (define-syntax τ-expander
              (pattern-expander
               (syntax-parser
-                ;[ty:id #'(~literal τ-internal)]
                 [ty:id #'((~literal #%plain-app) (~literal τ-internal))]
-                ;[(_ . rst) #'((~literal τ-internal) . rst)]))))
                 [(_ . rst) #'(((~literal #%plain-app) (~literal τ-internal)) . rst)]))))
          (define τ-internal
            (λ () (raise (exn:fail:type:runtime
@@ -638,7 +628,6 @@
                          (current-continuation-marks)))))
          (define-syntax τ
            (syntax-parser
-             ;[(~var _ id) (add-orig (assign-type #'τ-internal #'kind) #'τ)])))]))
              [(~var _ id) 
               (add-orig 
                (assign-type 
@@ -662,24 +651,20 @@
                       #`(λ (stx-id) (for/list ([arg (in-list (stx->list (stx-cdr stx-id)))])
                                       invariant))]))
         (~optional (~seq #:extra-info extra-info) 
-          #:defaults ([extra-info #'void]))
-        (~optional (~and #:no-provide (~parse no-provide? #'#t))))
+          #:defaults ([extra-info #'void])))
      #:with #%kind (format-id #'kind "#%~a" #'kind)
      #:with τ-internal (generate-temporary #'τ)
      #:with τ? (mk-? #'τ)
-     #:with τ-expander (format-id #'τ "~~~a" #'τ)
-     #:with τ-expander* (format-id #'τ-expander "~a*" #'τ-expander)
+     #:with τ-expander (mk-~ #'τ)
+     #:with τ-expander* (mk-* #'τ-expander)
      #`(begin
-         #,@(if (attribute no-provide?)
-               #'()
-               #'((provide τ (for-syntax τ-expander τ-expander* τ?))))
          (begin-for-syntax
            (define-syntax τ-expander
              (pattern-expander
               (syntax-parser
                 [(_ . pat:id)
                  #:with expanded-τ (generate-temporary)
-                 #:with tycon-expander (format-id #'tycon "~~~a" #'tycon)
+                 #:with tycon-expander (mk-~ #'tycon)
                  #'(~and expanded-τ
                          (~Any/bvs (~literal/else τ-internal
                                                   (format "Expected ~a type, got: ~a"
@@ -746,7 +731,6 @@
               #:with (bvs- τs- _) (infers/ctx+erase #'bvs #'args)
                #:with (~! (~var _ kind) (... ...)) #'τs-
                #:with ([tv (~datum :) k_arg] (... ...)) #'bvs
-;               #:with (k_arg+ (... ...)) (stx-map (current-type-eval) #'(k_arg (... ...)))
                #:with k_result (if #,(attribute has-annotations?)
                                    #'(tycon k_arg (... ...))
                                    #'#%kind)
@@ -786,9 +770,10 @@
      #:with names=? (format-id #'names "~a=?" #'names)
      #:with current-name=? (format-id #'name=? "current-~a" #'name=?)
      #:with same-names? (format-id #'name "same-~as?" #'name)
+     #:with name-out (format-id #'name "~a-out" #'name)
      #'(begin
-         (provide (for-syntax current-is-name? is-name? #%tag? mk-name name name-bind name-ann name-ctx same-names?)
-                  #%tag define-base-name define-base-names define-name-cons)
+         ;; (provide (for-syntax current-is-name? is-name? #%tag? mk-name name name-bind name-ann name-ctx same-names?)
+         ;;          #%tag define-base-name define-base-names define-name-cons)
          (define #%tag void)
          (begin-for-syntax
            (define (#%tag? t) (and (identifier? t) (free-identifier=? t #'#%tag)))
@@ -860,6 +845,20 @@
              (define τs-lst (syntax->list τs))
              (or (null? τs-lst)
                  (andmap (λ (τ) ((current-name=?) (car τs-lst) τ)) (cdr τs-lst)))))
+         ;; helps with providing defined types
+         (define-syntax name-out
+           (make-provide-transformer
+            (lambda (stx modes)
+              (syntax-parse stx
+                ;; cannot write ty:type bc provides might precede type def
+                [(_ . ts)
+                 #:with t-expanders (stx-map mk-~ #'ts)
+                 #:with t?s (stx-map mk-? #'ts)
+                 (expand-export
+                  (syntax/loc stx (combine-out
+                                   (combine-out . ts)
+                                   (for-syntax (combine-out . t-expanders) . t?s)))
+                  modes)]))))
          (define-syntax define-base-name
            (syntax-parser
              [(_ (~var x id) . rst) #'(define-basic-checked-id-stx x : name . rst)]))

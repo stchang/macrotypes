@@ -1,33 +1,34 @@
 #lang s-exp macrotypes/typecheck
-(extends "ext-stlc.rkt" #:except #%app λ → + - void = zero? sub1 add1 not
+(extends "ext-stlc.rkt"
+         #:except define #%app λ → + - void = zero? sub1 add1 not
          #:rename [~→ ~ext-stlc:→])
+(reuse cons [head hd] [tail tl] nil [isnil nil?] List list
+       #:from "stlc+cons.rkt")
+(reuse tup × proj
+       #:from "stlc+tup.rkt")
 (require (only-in "sysf.rkt" ∀ ~∀ ∀? Λ))
-(reuse cons [head hd] [tail tl] nil [isnil nil?] List list #:from "stlc+cons.rkt")
-(require (only-in "stlc+cons.rkt" ~List))
-(reuse tup × proj #:from "stlc+tup.rkt")
-(reuse define-type-alias #:from "stlc+reco+var.rkt")
 (require (for-syntax "../type-constraints.rkt"))
-(provide hd tl nil?)
-(provide →)
 
-;; a language with partial (local) type inference using bidirectional type checking
+;; a language with local type inference using bidirectional type checking
 
-(provide (typed-out [+ : (→ Int Int Int)]
-                    [- : (→ Int Int Int)]
-                    [void : (→ Unit)]
-                    [= : (→ Int Int Bool)]
-                    [zero? : (→ Int Bool)]
-                    [sub1 : (→ Int Int)]
-                    [add1 : (→ Int Int)]
-                    [not : (→ Bool Bool)]
-                    [abs : (→ Int Int)]))
+(provide →
+        (typed-out [+ : (→ Int Int Int)]
+                   [- : (→ Int Int Int)]
+                   [void : (→ Unit)]
+                   [= : (→ Int Int Bool)]
+                   [zero? : (→ Int Bool)]
+                   [sub1 : (→ Int Int)]
+                   [add1 : (→ Int Int)]
+                   [not : (→ Bool Bool)]
+                   [abs : (→ Int Int)])
+        define λ #%app)
 
 (define-syntax → ; wrapping →
   (syntax-parser
-    [(→ (~and Xs {X:id ...}) . rst)
+    [(_ (~and Xs {X:id ...}) . rst)
      #:when (brace? #'Xs)
      (add-orig #'(∀ (X ...) (ext-stlc:→ . rst)) (get-orig this-syntax))]
-    [(→ . rst) (add-orig #'(∀ () (ext-stlc:→ . rst)) (get-orig this-syntax))]))
+    [(_ . rst) (add-orig #'(∀ () (ext-stlc:→ . rst)) (get-orig this-syntax))]))
 
 (begin-for-syntax
   ;; find-free-Xs : (Stx-Listof Id) Type -> (Listof Id)
@@ -61,22 +62,23 @@
       (list cs (reverse (stx->list e+τs))))))
 
 (define-typed-syntax define
-  [(define x:id e)
+  [(_ x:id e)
    #:with (e- τ) (infer+erase #'e)
    #:with y (generate-temporary)
    #'(begin-
        (define-syntax x (make-rename-transformer (⊢ y : τ)))
        (define- y e-))]
-  [(define (~and Xs {X:id ...}) (f:id [x:id (~datum :) τ] ... (~datum →) τ_out) e)
+  [(_ (~and Xs {X:id ...}) (f:id [x:id (~datum :) τ] ... (~datum →) τ_out) e)
    #:when (brace? #'Xs)
    #:with g (generate-temporary #'f)
    #:with e_ann #'(add-expected e τ_out)
    #'(begin-
-       (define-syntax f (make-rename-transformer
-                         (⊢ g : #,(add-orig #'(∀ (X ...) (ext-stlc:→ τ ... τ_out))
-                                            #'(→ τ ... τ_out)))))
+       (define-syntax f
+         (make-rename-transformer
+          (⊢ g : #,(add-orig #'(∀ (X ...) (ext-stlc:→ τ ... τ_out))
+                             #'(→ τ ... τ_out)))))
        (define- g (Λ (X ...) (ext-stlc:λ ([x : τ] ...) e_ann))))]
-  [(define (f:id [x:id (~datum :) τ] ... (~datum →) τ_out) e)
+  [(_ (f:id [x:id (~datum :) τ] ... (~datum →) τ_out) e)
    #:with g (generate-temporary #'f)
    #:with e_ann #'(add-expected e τ_out)
    #'(begin-
@@ -85,11 +87,12 @@
 
 ; all λs have type (∀ (X ...) (→ τ_in ... τ_out))
 (define-typed-syntax λ #:datum-literals (:)
-  [(λ (x:id ...) e) ; no annotations, try to infer from outer ctx, ie an application
+  [(_ (x:id ...) e) ; no annotations, try to infer from outer ctx, ie an app
    #:with given-τ-args (syntax-property stx 'given-τ-args)
-   #:fail-unless (syntax-e #'given-τ-args) ; no inferred types or annotations, so error
-                 (format "input types for ~a could not be inferred; add annotations"
-                         (syntax->datum stx))
+   #:fail-unless (syntax-e #'given-τ-args) ; cant infer type and no annotations
+                 (format
+                  "input types for ~a could not be inferred; add annotations"
+                  (syntax->datum stx))
    #:with (τ_arg ...) #'given-τ-args
    #:with [fn- τ_fn] (infer+erase #'(ext-stlc:λ ([x : τ_arg] ...) e))
    (⊢ fn- : #,(add-orig #'(∀ () τ_fn) (get-orig #'τ_fn)))]
@@ -97,23 +100,25 @@
    #:with (xs- e- τ_res) (infer/ctx+erase #'([x : x] ...) #'e)
    #:with env (get-env #'e-)
    #:fail-unless (syntax-e #'env)
-                 (format "input types for ~a could not be inferred; add annotations"
-                         (syntax->datum stx))
+     (format
+      "input types for ~a could not be inferred; add annotations"
+      (syntax->datum stx))
    #:with (τ_arg ...) (stx-map (λ (y) (lookup y #'env)) #'xs-)
    #:fail-unless (stx-andmap syntax-e #'(τ_arg ...))
-                 (format "some input types for ~a could not be inferred; add annotations"
-                         (syntax->datum stx))
+     (format
+      "some input types for ~a could not be inferred; add annotations"
+      (syntax->datum stx))
    ;; propagate up inferred types of variables
    #:with res (add-env #'(λ- xs- e-) #'env)
 ;   #:with [fn- τ_fn] (infer+erase #'(ext-stlc:λ ([x : x] ...) e))
    (⊢ res : #,(add-orig #'(∀ () (ext-stlc:→ τ_arg ... τ_res))
                         #`(→ #,@(stx-map get-orig #'(τ_arg ... τ_res)))))]
    ;(⊢ (λ- xs- e-) : (∀ () (ext-stlc:→ τ_arg ... τ_res)))]
-  [(λ . rst)
+  [(_ . rst)
    #:with [fn- τ_fn] (infer+erase #'(ext-stlc:λ . rst))
    (⊢ fn- : #,(add-orig #'(∀ () τ_fn) (get-orig #'τ_fn)))])
 
-(define-typed-syntax infer:#%app #:export-as #%app
+(define-typed-syntax #%app
   [(_ e_fn e_arg ...) ; infer args first
  ;  #:when (printf "args first ~a\n" (syntax->datum stx))
    #:with maybe-inferred-τs (with-handlers ([exn:fail:type:infer? (λ _ #f)])

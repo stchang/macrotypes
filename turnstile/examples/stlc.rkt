@@ -1,5 +1,7 @@
 #lang turnstile/lang
 
+(provide (type-out →) λ #%app ann)
+
 (define-type-constructor → #:arity >= 1
   #:arg-variances (λ (stx)
                     (syntax-parse stx

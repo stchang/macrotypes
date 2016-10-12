@@ -1,19 +1,23 @@
 #lang turnstile/lang
-(require racket/fixnum racket/flonum
-         (for-syntax macrotypes/type-constraints macrotypes/variance-constraints))
+(require
+ racket/fixnum racket/flonum
+ (for-syntax macrotypes/type-constraints macrotypes/variance-constraints))
 
-(extends "ext-stlc.rkt" #:except #%app λ → + - * void = zero? sub1 add1 not let let* and #%datum begin
-          #:rename [~→ ~ext-stlc:→])
+(extends
+ "ext-stlc.rkt" 
+ #:except → define #%app λ #%datum begin
+          + - * void = zero? sub1 add1 not let let* and
+ #:rename [~→ ~ext-stlc:→])
 (reuse inst #:from "sysf.rkt") 
 (require (only-in "ext-stlc.rkt" → →?))
 (require (only-in "sysf.rkt" ~∀ ∀ ∀? Λ))
 (reuse × tup proj define-type-alias #:from "stlc+rec-iso.rkt")
 (require (only-in "stlc+rec-iso.rkt" ~× ×?))
 (provide (rename-out [ext-stlc:and and] [ext-stlc:#%datum #%datum]))
-(reuse member length reverse list-ref cons nil isnil head tail list #:from "stlc+cons.rkt")
+(reuse member length reverse list-ref cons nil isnil head tail list
+       #:from "stlc+cons.rkt")
 (require (prefix-in stlc+cons: (only-in "stlc+cons.rkt" list cons nil)))
 (require (only-in "stlc+cons.rkt" ~List List? List))
-(provide List)
 (reuse ref deref := Ref #:from "stlc+box.rkt")
 (require (rename-in (only-in "stlc+reco+var.rkt" tup proj ×)
            [tup rec] [proj get] [× ××]))
@@ -22,16 +26,31 @@
 (require (prefix-in stlc+cons: (only-in "stlc+cons.rkt" list)))
 (require (prefix-in stlc+tup: (only-in "stlc+tup.rkt" tup)))
 
-(module+ test
-  (require (for-syntax rackunit)))
-
-(provide → →/test match2 define-type)
-
 ;; ML-like language
 ;; - top level recursive functions
 ;; - user-definable algebraic datatypes
 ;; - pattern matching
 ;; - (local) type inference
+
+(provide → →/test
+         define-type
+         List Channel Thread Vector Sequence Hash String-Port Input-Port Regexp
+         match2)
+
+;; providing version of define-typed-syntax
+(define-syntax (define-typed-syntax stx)
+  (syntax-parse stx
+    [(_ name:id #:export-as out-name:id . rst)
+     #'(begin-
+         (provide- (rename-out [name out-name]))
+         (define-typerule name . rst))] ; define-typerule doesnt provide
+    [(_ name:id . rst)
+     #'(define-typed-syntax name #:export-as name . rst)]
+    [(_ (name:id . pat) . rst)
+     #'(define-typed-syntax name #:export-as name [(_ . pat) . rst])]))
+
+(module+ test
+  (require (for-syntax rackunit)))
 
 ;; creating possibly polymorphic types
 ;; ?∀ only wraps a type in a forall if there's at least one type variable
@@ -311,7 +330,7 @@
 ;;   which is not known to programmers, to make the result slightly more
 ;;   intuitive, we arbitrarily sort the inferred tyvars lexicographically
 (define-typed-syntax define
-  [(define x:id e) ≫
+  [(_ x:id e) ≫
    [⊢ e ≫ e- ⇒ τ]
    #:with y (generate-temporary)
    --------
@@ -319,7 +338,7 @@
         (define-syntax x (make-rename-transformer (⊢ y : τ)))
         (define- y e-))]]
   ; explicit "forall"
-  [(define Ys (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) 
+  [(_ Ys (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) 
      e_body ... e) ≫
    #:when (brace? #'Ys)
    ;; TODO; remove this code duplication
@@ -337,10 +356,10 @@
         (define- g
           (Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))]]
   ;; alternate type sig syntax, after parameter names
-  [(define (f:id x:id ...) (~datum :) ty ... (~or (~datum ->) (~datum →)) ty_out . b) ≫
+  [(_ (f:id x:id ...) (~datum :) ty ... (~or (~datum ->) (~datum →)) ty_out . b) ≫
    --------
    [≻ (define (f [x : ty] ... -> ty_out) . b)]]
-  [(define (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) 
+  [(_ (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) 
      e_body ... e) ≫
    #:with Ys (compute-tyvars #'(τ ... τ_out))
    #:with g (add-orig (generate-temporary #'f) #'f)
@@ -438,8 +457,7 @@
            #:arg-variances (make-arg-variances-proc arg-variance-vars
                                                     (list #'X ...)
                                                     (list #'τ ... ...))
-           #:extra-info 'NameExtraInfo
-           #:no-provide)
+           #:extra-info 'NameExtraInfo)
          (struct- StructName (fld ...) #:reflection-name 'Cons #:transparent) ...
          (define-syntax (exposed-acc stx) ; accessor for records
            (syntax-parse stx
@@ -1226,7 +1244,7 @@
 (define-type-constructor Hash #:arity = 2)
 
 (define-typed-syntax in-hash
-  [(in-hash e) ≫
+  [(_ e) ≫
    [⊢ [e ≫ e- ⇒ : (~Hash ty_k ty_v)]]
    --------
    [⊢ [_ ≫ (hash-map- e- list-) ⇒ : (Sequence (stlc+rec-iso:× ty_k ty_v))]]])

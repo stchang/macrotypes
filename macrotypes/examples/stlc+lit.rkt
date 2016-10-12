@@ -10,12 +10,14 @@
 ;; - numeric literals
 ;; - prim +
 
-(provide (typed-out [+ : (→ Int Int Int)]))
+(provide (type-out Int)
+         (typed-out [+ : (→ Int Int Int)])
+         #%datum)
 
 (define-base-type Int)
 
-(define-typed-syntax #%datum #:literals (#%datum)
-  [(#%datum . n:integer) (⊢ #,(syntax/loc stx (#%datum- . n)) : Int)]
-  [(#%datum . x)
+(define-typed-syntax #%datum
+  [(_ . n:integer) (⊢ #,(syntax/loc stx (#%datum- . n)) : Int)]
+  [(_ . x)
    #:when (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)
    #'(#%datum- . x)])

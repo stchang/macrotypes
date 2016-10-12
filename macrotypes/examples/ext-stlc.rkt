@@ -15,15 +15,21 @@
 ;; - begin
 ;; - ascription (ann)
 ;; - let, let*, letrec
+;; Top-level:
+;; - define (values only)
+;; - define-type-alias
 
-(provide (for-syntax current-join)
-         ⊔ zero? =
+(provide define-type-alias
+         (for-syntax current-join) ⊔
+         (type-out Bool String Float Char Unit)
+         zero? =
          (rename-out [typed- -] [typed* *])
          ;; test all variations of typed-out
          (typed-out [add1 (→ Int Int)]
                     [sub1 : (→ Int Int)]
                     [[not- (→ Bool Bool)] not]
-                    [[void- : (→ Unit)] void]))
+                    [[void- : (→ Unit)] void])
+         define #%datum and or if begin ann let let* letrec)
 
 (define-base-types Bool String Float Char Unit)
 
@@ -33,28 +39,51 @@
 (define-primop typed- - (→ Int Int Int))
 (define-primop typed* * : (→ Int Int Int))
 
+;; Using τ.norm leads to a "not valid type" error when file is compiled
+(define-syntax define-type-alias
+  (syntax-parser
+    [(_ alias:id τ:type)
+     #'(define-syntax- alias
+         (make-variable-like-transformer #'τ))]
+    [(_ (f:id x:id ...) ty)
+     #'(define-syntax- (f stx)
+         (syntax-parse stx
+           [(_ x ...) #'ty]))]))
+
+(define-typed-syntax define
+  [(_ x:id e)
+   #:with (e- τ) (infer+erase #'e)
+   #:with y (generate-temporary)
+   #'(begin-
+       (define-syntax x (make-rename-transformer (⊢ y : τ)))
+       (define- y e-))])
+
 (define-typed-syntax #%datum
-  [(#%datum . b:boolean) (⊢ #,(syntax/loc stx (#%datum- . b)) : Bool)]
-  [(#%datum . s:str) (⊢ #,(syntax/loc stx (#%datum- . s)) : String)]
-  [(#%datum . f) #:when (flonum? (syntax-e #'f)) (⊢ #,(syntax/loc stx (#%datum- . f)) : Float)]
-  [(#%datum . c:char) (⊢ #,(syntax/loc stx (#%datum- . c)) : Char)]
-  [(#%datum . x) (syntax/loc stx (stlc+lit:#%datum . x))])
+  [(_ . b:boolean) (⊢ #,(syntax/loc stx (#%datum- . b)) : Bool)]
+  [(_ . s:str) (⊢ #,(syntax/loc stx (#%datum- . s)) : String)]
+  [(_ . f) #:when (flonum? (syntax-e #'f)) 
+   (⊢ #,(syntax/loc stx (#%datum- . f)) : Float)]
+  [(_ . c:char) (⊢ #,(syntax/loc stx (#%datum- . c)) : Char)]
+  [(_ . x) (syntax/loc stx (stlc+lit:#%datum . x))])
 
 (define-typed-syntax and
-  [(and e1 e2)
+  [(_ e1 e2)
    #:with Bool* ((current-type-eval) #'Bool)
    #:with [e1- τ_e1] (infer+erase #'e1)
    #:with [e2- τ_e2] (infer+erase #'e2)
-   #:fail-unless (typecheck? #'τ_e1 #'Bool*) (typecheck-fail-msg/1 #'Bool* #'τ_e1 #'e1)
-   #:fail-unless (typecheck? #'τ_e2 #'Bool*) (typecheck-fail-msg/1 #'Bool* #'τ_e2 #'e2)
+   #:fail-unless (typecheck? #'τ_e1 #'Bool*)
+                 (typecheck-fail-msg/1 #'Bool* #'τ_e1 #'e1)
+   #:fail-unless (typecheck? #'τ_e2 #'Bool*)
+                 (typecheck-fail-msg/1 #'Bool* #'τ_e2 #'e2)
    (⊢ (and- e1- e2-) : Bool)])
   
 (define-typed-syntax or
-  [(or e ...)
+  [(_ e ...)
    #:with ([_ Bool*] ...) #`([e #,((current-type-eval) #'Bool)] ...)
    #:with ([e- τ_e] ...) (infers+erase #'(e ...))
    #:fail-unless (typechecks? #'(τ_e ...) #'(Bool* ...))
-   (typecheck-fail-msg/multi #'(Bool* ...) #'(τ_e ...) #'(e ...))
+                 (typecheck-fail-msg/multi 
+                  #'(Bool* ...) #'(τ_e ...) #'(e ...))
    (⊢ (or- e- ...) : Bool)])
 
 (begin-for-syntax 
@@ -75,7 +104,7 @@
        ((current-join) τ τ2))]))
 
 (define-typed-syntax if
-  [(if e_tst e1 e2)
+  [(_ e_tst e1 e2)
    #:with τ-expected (get-expected-type stx)
    #:with [e_tst- _] (infer+erase #'e_tst)
    #:with e1_ann #'(add-expected e1 τ-expected)
@@ -85,24 +114,24 @@
    (⊢ (if- e_tst- e1- e2-) : (⊔ τ1 τ2))])
 
 (define-typed-syntax begin
-  [(begin e_unit ... e)
-   #:with ([e_unit- _] ...) (infers+erase #'(e_unit ...)) ;(⇑s (e_unit ...) as Unit)
+  [(_ e_unit ... e)
+   #:with ([e_unit- _] ...) (infers+erase #'(e_unit ...))
    #:with (e- τ) (infer+erase #'e)
    (⊢ (begin- e_unit- ... e-) : τ)])
 
-(define-typed-syntax ann
-  #:datum-literals (:)
-  [(ann e : ascribed-τ:type)
+(define-typed-syntax ann #:datum-literals (:)
+  [(_ e : ascribed-τ:type)
    #:with (e- τ) (infer+erase #'(add-expected e ascribed-τ.norm))
    #:fail-unless (typecheck? #'τ #'ascribed-τ.norm)
    (typecheck-fail-msg/1 #'ascribed-τ.norm #'τ #'e)
    (⊢ e- : ascribed-τ)])
 
 (define-typed-syntax let
-  [(let ([x e] ...) e_body)
+  [(_ ([x e] ...) e_body)
    #:with τ-expected (get-expected-type stx)
    #:with ((e- τ) ...) (infers+erase #'(e ...))
-   #:with ((x- ...) e_body- τ_body) (infer/ctx+erase #'([x τ] ...) #'(add-expected e_body τ-expected))
+   #:with ((x- ...) e_body- τ_body)
+          (infer/ctx+erase #'([x τ] ...) #'(add-expected e_body τ-expected))
    #:fail-unless (or (not (syntax-e #'τ-expected)) ; no expected type
                      (typecheck? #'τ_body ((current-type-eval) #'τ-expected)))
    (typecheck-fail-msg/1 #'τ-expected #'τ_body #'e_body)
@@ -113,19 +142,17 @@
 ; - only need to transfer expected type when local expanding an expression
 ;   - see let/tc
 (define-typed-syntax let*
-  [(let* () e_body)
+  [(_ () e_body)
    #:with τ-expected (get-expected-type stx)
    #'e_body]
-  [(let* ([x e] [x_rst e_rst] ...) e_body)
+  [(_ ([x e] [x_rst e_rst] ...) e_body)
    #:with τ-expected (get-expected-type stx)
    #'(let ([x e]) (let* ([x_rst e_rst] ...) e_body))])
 
 (define-typed-syntax letrec
-  [(letrec ([b:type-bind e] ...) e_body)
+  [(_ ([b:type-bind e] ...) e_body)
    #:with ((x- ...) (e- ... e_body-) (τ ... τ_body))
           (infers/ctx+erase #'(b ...) #'((add-expected e b.type) ... e_body))
    #:fail-unless (typechecks? #'(b.type ...) #'(τ ...))
    (typecheck-fail-msg/multi #'(b.type ...) #'(τ ...) #'(e ...))
    (⊢ (letrec- ([x- e-] ...) e_body-) : τ_body)])
-
-

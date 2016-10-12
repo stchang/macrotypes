@@ -10,6 +10,10 @@
 
 ;; TODO: enable HO use of list primitives
 
+(provide (type-out List)
+         nil isnil cons list head tail
+         reverse length list-ref member)
+
 (define-type-constructor List)
 
 (define-typed-syntax nil

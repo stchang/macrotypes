@@ -1,5 +1,5 @@
 #lang turnstile/lang
-(extends "stlc+box.rkt" #:except ref Ref ~Ref ~Ref* Ref? deref := #%app λ)
+(extends "stlc+box.rkt" #:except Ref ref deref := #%app λ)
 
 ;; Simply-Typed Lambda Calculus, plus mutable references
 ;; Types:
@@ -8,6 +8,8 @@
 ;; Terms:
 ;; - terms from stlc+cons.rkt
 ;; - ref deref :=
+
+(provide Ref #%app λ ref deref :=)
 
 (define-syntax-rule (locs loc ...)
   '(loc ...))
@@ -28,7 +30,7 @@
           [else b])))
 
 
-(define-typed-syntax effect:#%app #:export-as #%app
+(define-typed-syntax #%app
   [(_ efn e ...) ≫
    [⊢ efn ≫ e_fn-
             (⇒ : (~→ τ_in ... τ_out)
@@ -76,7 +78,7 @@
        (⇒ := (~locs as ...))
        (⇒ ! (~locs ds ...))]
    --------
-   [⊢ (box- e-)
+   [⊢ (#%app- box- e-)
        (⇒ : (Ref τ))
        (⇒ ν (locs #,(syntax-position stx) ns ...))
        (⇒ := (locs as ...))
@@ -89,7 +91,7 @@
        (⇒ := (~locs as ...))
        (⇒ ! (~locs ds ...))]
    --------
-   [⊢ (unbox- e-)
+   [⊢ (#%app- unbox- e-)
        (⇒ : ty)
        (⇒ ν (locs ns ...))
        (⇒ := (locs as ...))
@@ -107,7 +109,7 @@
        (⇒ := (~locs as2 ...))
        (⇒ ! (~locs ds2 ...))]
    --------
-   [⊢ (set-box!- e_ref- e-)
+   [⊢ (#%app- set-box!- e_ref- e-)
        (⇒ : Unit)
        (⇒ ν (locs ns1 ... ns2 ...))
        (⇒ := (locs #,(syntax-position stx) as1 ... as2 ...))

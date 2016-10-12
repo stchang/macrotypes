@@ -1,7 +1,5 @@
 #lang turnstile/lang
-(extends "stlc+union.rkt"
- #:except #%app add1 sub1)
-(provide case→)
+(extends "stlc+union.rkt" #:except #%app add1 sub1)
 
 ;; Simply-Typed Lambda Calculus, plus union types and case-> function types
 ;; Types:
@@ -13,19 +11,20 @@
 ;; - terms from stlc+union.rkt
 ;; Other: updated current-sub?
 
-(provide (typed-out [add1 : (case→ (→ Nat Nat)
+(provide (type-out case->) case→
+         (typed-out [add1 : (case→ (→ Nat Nat)
                                    (→ Int Int))]
                     [sub1 : (case→ (→ Zero NegInt)
                                    (→ PosInt Nat)
                                    (→ NegInt NegInt)
                                    (→ Nat Nat)
-                                   (→ Int Int))]))
+                                   (→ Int Int))])
+         #%app)
 
 (define-type-constructor case-> #:arity > 0)
 (define-syntax case→ (make-rename-transformer #'case->))
 
-
-(define-typed-syntax app #:export-as #%app
+(define-typed-syntax #%app
   [(_ e_fn e_arg ...) ≫
    [⊢ [e_fn ≫ e_fn- ⇒ : (~→ ~! τ_in ... τ_out)]]
    #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])

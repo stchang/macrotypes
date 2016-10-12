@@ -2,7 +2,7 @@
 
 @(require scribble/example racket/sandbox
           (for-label racket/base
-                     (except-in turnstile/turnstile ⊢ stx))
+                     (except-in turnstile/turnstile ⊢ stx mk-~ mk-?))
           "doc-utils.rkt" "common.rkt")
 
 @title{The Turnstile Reference}
@@ -40,8 +40,7 @@ and then press Control-@litchar{\}.
      conclusion)
    (define-typed-syntax name-id option ... rule ...+))
   #:grammar
-  ([option (code:line #:export-as out-name-id)
-           (code:line @#,racket[syntax-parse] option)]
+  ([option (code:line @#,racket[syntax-parse] option)]
    [rule [expr-pattern ≫
           premise ...
           --------
@@ -111,20 +110,20 @@ A programmer may use the generalized form @racket[[⊢ e ≫ e- (⇒ key τ) ...
  
 Dually, one may write @racket[[⊢ e ≫ e- ⇐ τ]] to check that @racket[e] has type
 @racket[τ]. Here, both @racket[e] and @racket[τ] are inputs (templates) and only
- @racket[e-] is an output (pattern).
+ @racket[e-] is an output (pattern).}
 
-A @racket[define-typed-syntax] definition is automatically provided, either using
- the given name, or with a specified @racket[#:export-as] name.
-}
+@defform[(define-typerule ....)]{An alias for @racket[define-typed-syntax].}
 
-@defform*[((define-primop op-id τ)
-           (define-primop op-id : τ)
+@defform*[((define-primop typed-op-id τ)
+           (define-primop typed-op-id : τ)
            (define-primop typed-op-id op-id τ)
            (define-primop typed-op-id op-id : τ))]{
 Defines @racket[typed-op-id] by attaching type @racket[τ] to (untyped) 
-identifier @racket[op-id], e.g. @racket[(define-primop typed+ + : (→ Int Int))].
+identifier @racket[op-id], e.g.:
 
-When not specified, @racket[typed-op-id] is @racket[op-id] suffixed with
+@racketblock[(define-primop typed+ + : (→ Int Int))]
+
+When not specified, @racket[op-id] is @racket[typed-op-id] suffixed with
 @litchar{-} (see @secref{racket-}).}
 
 @defform[(define-syntax-category name-id)]{
@@ -136,14 +135,11 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
  use any forms other than @racket[define-base-type] and
  @racket[define-type-constructor] in conjunction with @racket[define-typed-syntax]. The other forms are considered "low-level" and are automatically used by @racket[define-typed-syntax].
  @itemlist[
- @item{@defform[(define-base-type base-type-name-id option ...)
-                 #:grammar
-                ([option (code:line #:no-provide)])]{
+ @item{@defform[(define-base-type base-type-name-id)]{
    Defines a base type. A @racket[(define-base-type τ)] additionally defines:
   @itemlist[@item{@racket[τ], an identifier macro representing type @racket[τ].}
             @item{@racket[τ?], a predicate recognizing type @racket[τ].}
-            @item{@racket[~τ], a @tech:pat-expander recognizing type @racket[τ].}]
-  Automatically provides the defined type unless @racket[#:no-provide] is specified.}}
+            @item{@racket[~τ], a @tech:pat-expander recognizing type @racket[τ].}]}}
  @item{@defform[(define-base-types base-type-name-id ...)]{Defines multiple base types.}}
  @item{
   @defform[(define-type-constructor name-id option ...)
@@ -152,8 +148,7 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
                     (code:line #:bvs op n)
                     (code:line #:arr tycon)
                     (code:line #:arg-variances expr)
-                    (code:line #:extra-info stx)
-                    (code:line #:no-provide)])]{
+                    (code:line #:extra-info stx)])]{
     Defines a type constructor. Defining a type constructor @racket[τ] defines:
   @itemlist[@item{@racket[τ], a macro for constructing an instance of type
                   @racket[τ], with the specified arity.}
@@ -169,22 +164,23 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
     shape @racket[(∀ (X) τ)], where @racket[τ] may reference @racket[X].
 
     The @racket[#:extra-info] argument is useful for attaching additional metainformation
-    to types, for example to implement pattern matching.
-
-    Automatically provides the defined type, unless @racket[#:no-provide] is specified.
-  }}
+    to types, for example to implement pattern matching.}}
+@item{
+@defform[(type-out ty-id)]{
+A provide spec that, given @racket[ty-id], provides @racket[ty-id], 
+a predicate @racket[ty-id?], and a @tech:pat-expander @racket[~ty-id].}}
 
  @item{@defproc[(type=? [τ1 type?] [τ2 type?]) boolean?]{A phase 1 equality
 predicate for types that computes structural, @racket[free-identifier=?]
 equality, but includes alpha-equivalence.
 
 @examples[#:eval the-eval
-(define-base-type Int #:no-provide)
-(define-base-type String #:no-provide)
+(define-base-type Int)
+(define-base-type String)
 (begin-for-syntax (displayln (type=? #'Int #'Int)))
 (begin-for-syntax (displayln (type=? #'Int #'String)))
-(define-type-constructor → #:arity > 0 #:no-provide)
-(define-type-constructor ∀ #:arity = 1 #:bvs = 1 #:no-provide)
+(define-type-constructor → #:arity > 0)
+(define-type-constructor ∀ #:arity = 1 #:bvs = 1)
 (begin-for-syntax 
   (displayln 
    (type=? ((current-type-eval) #'(∀ (X) X))
@@ -265,7 +261,7 @@ Reuses @racket[name]s from @racket[base-lang].}
 
 To help avoid name conflicts, Turnstile re-provides all Racket bindings with a
 @litchar{-} suffix. These bindings are automatically used in some cases, e.g.,
-@racket[define-primop].
+@racket[define-primop], but in general are useful for avoiding name conflicts..
 
 @section{Lower-level Functions}
 

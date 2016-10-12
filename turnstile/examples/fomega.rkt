@@ -1,5 +1,5 @@
 #lang turnstile/lang
-(extends "sysf.rkt" #:except #%datum ∀ ~∀ ~∀* ∀? Λ inst)
+(extends "sysf.rkt" #:except #%datum ∀ ~∀ ∀? Λ inst)
 (reuse String #%datum #:from "stlc+reco+var.rkt")
 
 ;; System F_omega
@@ -11,6 +11,11 @@
 ;; - extend ∀ Λ inst from sysf
 ;; - add tyλ and tyapp
 ;; - #%datum from stlc+reco+var
+
+(provide (for-syntax current-kind?)
+         define-type-alias
+         (type-out ★ ⇒ ∀★ ∀)
+         Λ inst tyλ tyapp)
 
 (define-syntax-category kind)
 
@@ -24,23 +29,26 @@
   ;; eg in the definition of λ or previous type constuctors.
   ;; (However, this is not completely possible, eg define-type-alias)
   ;; So now "type?" no longer validates types, rather it's a subset.
-  ;; But we no longer need type? to validate types, instead we can use (kind? (typeof t))
+  ;; But we no longer need type? to validate types, instead we can use
+  ;; (kind? (typeof t))
   (current-type? (λ (t)
                    (define k (typeof t))
                    #;(or (type? t) (★? (typeof t)) (∀★? (typeof t)))
                    (and ((current-kind?) k) (not (⇒? k))))))
 
 ; must override, to handle kinds
-(provide define-type-alias)
 (define-syntax define-type-alias
   (syntax-parser
     [(define-type-alias alias:id τ)
      #:with (τ- k_τ) (infer+erase #'τ)
-     #:fail-unless ((current-kind?) #'k_τ) (format "not a valid type: ~a\n" (type->str #'τ))
-     #'(define-syntax alias (syntax-parser [x:id #'τ-] [(_ . rst) #'(τ- . rst)]))]))
+     #:fail-unless ((current-kind?) #'k_τ)
+                   (format "not a valid type: ~a\n" (type->str #'τ))
+     #'(define-syntax alias 
+         (syntax-parser [x:id #'τ-] [(_ . rst) #'(τ- . rst)]))]))
 
-(provide ★ (for-syntax ★?))
-(define-for-syntax ★? #%type?)
+(begin-for-syntax
+  (define ★? #%type?)
+  (define-syntax ~★ (lambda _ (error "~★ not implemented")))) ; placeholder
 (define-syntax ★ (make-rename-transformer #'#%type))
 (define-kind-constructor ⇒ #:arity >= 1)
 (define-kind-constructor ∀★ #:arity >= 0)

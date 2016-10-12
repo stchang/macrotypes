@@ -1,18 +1,18 @@
 #lang s-exp macrotypes/typecheck
 (reuse List cons nil #:from "stlc+cons.rkt")
-(reuse #:from "stlc+rec-iso.rkt") ; to load current-type=?
 (extends "stlc+sub.rkt" #:except #%datum)
 
 ;; Revision of overloading, using identifier macros instead of overriding #%app
 
 ;; =============================================================================
 
-(define-base-type Bot)
-(define-base-type Str)
+(provide Bot Str #%datum signature resolve instance)
+
+(define-base-types Bot Str)
 
 (define-typed-syntax #%datum
-  [(#%datum . n:str) (⊢ (#%datum- . n) : Str)]
-  [(#%datum . x) #'(stlc+sub:#%datum . x)])
+  [(_ . n:str) (⊢ (#%datum- . n) : Str)]
+  [(_ . x) #'(stlc+sub:#%datum . x)])
 
 (define-for-syntax xerox syntax->datum)
 
@@ -105,7 +105,7 @@
 ;; === Overloaded signature environment
 
 (define-typed-syntax signature
-  [(signature (name:id α:id) τ)
+  [(_ (name:id α:id) τ)
    #:with ((α+) (~→ τ_α:id τ-cod) _) (infer/tyctx+erase #'([α : #%type]) #'τ)
    (define ℜ (ℜ-init #'name #'τ-cod))
    (⊢ (define-syntax name
@@ -120,11 +120,11 @@
          [(_ e* (... ...))
           #'(raise-arity-error- (syntax->datum- name) 1 e* (... ...))]))
       : Bot)]
-  [(signature e* ...)
+  [(_ e* ...)
    (error 'signature (format "Expected (signature (NAME VAR) (→ VAR τ)), got ~a" (xerox #'(e* ...))))])
 
 (define-typed-syntax resolve
-  [(resolve name:id τ)
+  [(_ name:id τ)
    #:with τ+ ((current-type-eval) #'τ)
    ;; Extract a resolver from the syntax object
    (define ℜ (syntax->ℜ #'name))
@@ -132,7 +132,7 @@
    (⊢ #,(ℜ #'τ+ #:exact? #t) : #,(ℜ->type ℜ #:subst #'τ+))])
 
 (define-typed-syntax instance
-  [(instance (name:id τ-stx) e)
+  [(_ (name:id τ-stx) e)
    #:with τ ((current-type-eval) #'τ-stx)
    #:with [e+ τ+] (infer+erase #'e)
    (define ℜ (syntax->ℜ #'name))

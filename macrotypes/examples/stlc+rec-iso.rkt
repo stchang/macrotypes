@@ -1,6 +1,6 @@
 #lang s-exp macrotypes/typecheck
 (extends "stlc+tup.rkt")
-(reuse ∨ var case define-type-alias define #:from "stlc+reco+var.rkt")
+(reuse ∨ var case #:from "stlc+reco+var.rkt")
 
 ;; stlc + (iso) recursive types
 ;; Types:
@@ -12,16 +12,18 @@
 ;; - also var and case from stlc+reco+var
 ;; - fld, unfld
 
+(provide μ unfld fld)
+
 (define-type-constructor μ #:bvs = 1)
 
 (define-typed-syntax unfld
-  [(unfld τ:type-ann e)
+  [(_ τ:type-ann e)
    #:with (~μ* (tv) τ_body) #'τ.norm
    #:with [e- τ_e] (infer+erase #'e)
    #:when (typecheck? #'τ_e #'τ.norm)
    (⊢ e- : #,(subst #'τ.norm #'tv #'τ_body))])
 (define-typed-syntax fld
-  [(fld τ:type-ann e)
+  [(_ τ:type-ann e)
    #:with (~μ* (tv) τ_body) #'τ.norm
    #:with [e- τ_e] (infer+erase #'e)
    #:when (typecheck? #'τ_e (subst #'τ.norm #'tv #'τ_body))

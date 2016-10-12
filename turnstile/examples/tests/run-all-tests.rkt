@@ -39,5 +39,9 @@
 ;; type and effects
 (require "stlc+effect-tests.rkt")
 
+;; union and case types
+(require "stlc+union.rkt")
+(require "stlc+union+case.rkt")
+
 ; don't run this file for testing:
 (module test racket/base)

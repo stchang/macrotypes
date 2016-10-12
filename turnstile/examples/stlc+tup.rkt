@@ -9,6 +9,8 @@
 ;; - terms from ext-stlc.rkt
 ;; - tup and proj
 
+(provide (type-out ×) tup proj)
+
 (define-type-constructor × #:arity >= 0
   #:arg-variances (λ (stx)
                     (make-list (stx-length (stx-cdr stx)) covariant)))

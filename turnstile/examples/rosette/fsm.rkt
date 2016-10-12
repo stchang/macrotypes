@@ -3,10 +3,18 @@
 (require (prefix-in ro: rosette)) ; untyped 
 (require (prefix-in ro: rosette/lib/synthax))
 (require (prefix-in fsm: sdsl/fsm/fsm))
-(require (only-in sdsl/fsm/fsm reject verify-automaton debug-automaton synthesize-automaton))
+(require (only-in sdsl/fsm/fsm
+                  reject verify-automaton debug-automaton synthesize-automaton))
 (provide (rename-out [rosette:choose ?]))
 
 (require (for-syntax lens unstable/lens))
+
+(provide FSM State Pict
+         (typed-out [reject : State]
+                    [verify-automaton : (→ FSM Regexp (List Symbol))]
+                    [debug-automaton : (→ FSM Regexp (List Symbol) Pict)]
+                    [synthesize-automaton : (→ FSM Regexp Unit)])
+         #%datum #%app automaton)
 
 (define-base-types FSM State Pict)
 
@@ -21,7 +29,7 @@
    [_ ≻ (rosette:#%datum . v)]])
 
 ;; extend rosette:#%app to work with FSM
-(define-typed-syntax app #:export-as #%app
+(define-typed-syntax #%app
   [(_ f e) ≫
    [⊢ [f ≫ f- ⇐ : FSM]]
    [⊢ [e ≫ e- ⇐ : (List Symbol)]]
@@ -46,11 +54,6 @@
    --------
    [⊢ [_ ≫ (fsm:automaton init-state- 
              [state- : (label arr target-) ...] ...) ⇒  : FSM]]])
-
-(provide (typed-out [reject : State]
-                    [verify-automaton : (→ FSM Regexp (List Symbol))]
-                    [debug-automaton : (→ FSM Regexp (List Symbol) Pict)]
-                    [synthesize-automaton : (→ FSM Regexp Unit)]))
 
 ;; (define (apply-FSM f v) (f v))
 ;; (define-primop apply-FSM : (→ FSM (List Symbol) Bool))

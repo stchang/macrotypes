@@ -14,7 +14,9 @@
 ;; - current-promote, expose
 ;; - extend current-sub? to call current-promote
 
-(provide (typed-out [+ : (→ Nat Nat Nat)]))
+(provide <: ∀
+         (typed-out [+ : (→ Nat Nat Nat)])
+         Λ inst)
 
 ; can't just call expose in type-eval,
 ; otherwise typevars will have bound as type, rather than instantiated type
