@@ -1,6 +1,11 @@
 #lang s-exp "../ext-stlc.rkt"
 (require "rackunit-typechecking.rkt")
 
+;; tests for define-type-alias
+(define-type-alias (A X) (add1 X))
+
+(typecheck-fail (λ ([f : (A 1)]) f) #:with-msg "not a valid type")
+
 ;; tests for stlc extensions
 ;; new literals and base types
 (check-type "one" : String) ; literal now supported

@@ -38,15 +38,18 @@
 (define-primop typed- - (→ Int Int Int))
 (define-primop typed* * : (→ Int Int Int))
 
-;; Using τ.norm leads to a "not valid type" error when file is compiled
+;; τ.norm in 1st case causes "not valid type" error when file is compiled
 (define-syntax define-type-alias
   (syntax-parser
-    [(define-type-alias alias:id τ:type)
-     #'(define-syntax alias (make-variable-like-transformer #'τ))]
-    [(define-type-alias (f:id x:id ...) ty)
-     #'(define-syntax (f stx)
+    [(_ alias:id τ:type)
+     #'(define-syntax- alias
+         (make-variable-like-transformer #'τ))]
+    [(_ (f:id x:id ...) ty)
+     #'(define-syntax- (f stx)
          (syntax-parse stx
-           [(_ x ...) #'ty]))]))
+           [(_ x ...)
+            #:with τ:type #'ty
+            #'τ.norm]))]))
 
 (define-typed-syntax define
   [(_ x:id : τ:type e:expr) ≫
