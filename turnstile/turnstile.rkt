@@ -89,7 +89,7 @@
     #:datum-literals (⇒)
     #:attributes (e-pat)
     [pattern (~or (~seq ⇒ tag-pat ; implicit : tag
-                        (~parse tag #':) (~parse (tag-prop.e-pat ...) #'()))
+                        (~parse tag #':) (tag-prop:⇒-prop) ...)
                   (~seq ⇒ tag:id tag-pat (tag-prop:⇒-prop) ...)) ; explicit tag
              #:with e-tmp (generate-temporary)
              #:with e-pat
