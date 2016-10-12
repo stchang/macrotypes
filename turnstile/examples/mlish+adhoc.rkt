@@ -433,7 +433,7 @@
              #`(app 
                 #,(assign-type #'Cons? #'(∀ (X ...) (ext-stlc:→ (Name X ...) Bool))) 
                 . rst)])) ...
-         (define-typed-syntax Cons
+         (define-typerule Cons
            ; no args and not polymorphic
            [C:id ≫
             #:when (and (stx-null? #'(X ...)) (stx-null? #'(τ ...)))

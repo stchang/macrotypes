@@ -477,43 +477,42 @@
                 #,(assign-type #'Cons? #'(?∀ (X ...) (ext-stlc:→ (Name X ...) Bool))) 
                 . rst)])) ...
          ;; TODO: remove default provides to use define-typed-syntax here
-         (define-syntax (Cons stx)
-           (syntax-parse/typed-syntax stx
-             ; no args and not polymorphic
-             [C:id ≫
-              #:when (and (stx-null? #'(X ...)) (stx-null? #'(τ ...)))
-              --------
-              [≻ (C)]]
-             ; no args but polymorphic, check expected type
-             [:id ⇐ (NameExpander τ-expected-arg (... ...)) ≫
-              #:when (stx-null? #'(τ ...))
-              --------
-              [⊢ (StructName)]]
-             ; id with multiple expected args, HO fn
-             [:id ≫
-              #:when (not (stx-null? #'(τ ...)))
-              --------
-              [⊢ StructName ⇒ (?∀ (X ...) (ext-stlc:→ τ ... (Name X ...)))]]
-             [(C τs e_arg ...) ≫
-              #:when (brace? #'τs) ; commit to this clause
-              #:with [X* (... ...)] #'[X ...]
-              #:with [e_arg* (... ...)] #'[e_arg ...]
-              #:with {~! τ_X:type (... ...)} #'τs
-              #:with (τ_in:type (... ...)) ; instantiated types
-              (inst-types/cs #'(X ...) #'([X* τ_X.norm] (... ...)) #'(τ ...))
-              ;; e_arg* helps align ellipses
-              [⊢ e_arg* ≫ e_arg*- ⇐ τ_in.norm] (... ...)
-              #:with [e_arg- ...] #'[e_arg*- (... ...)]
-              --------
-              [⊢ (StructName e_arg- ...) ⇒ (Name τ_X.norm (... ...))]]
-             [(C . args) ≫ ; no type annotations, must infer instantiation
-              #:with StructName/ty 
-              (set-stx-prop/preserved
-               (⊢ StructName : (?∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))
-               'orig
-               (list #'C))
-              --------
-              [≻ (mlish:#%app StructName/ty . args)]]))
+         (define-typerule Cons
+           ; no args and not polymorphic
+           [C:id ≫
+            #:when (and (stx-null? #'(X ...)) (stx-null? #'(τ ...)))
+            --------
+            [≻ (C)]]
+           ; no args but polymorphic, check expected type
+           [:id ⇐ (NameExpander τ-expected-arg (... ...)) ≫
+            #:when (stx-null? #'(τ ...))
+            --------
+            [⊢ (StructName)]]
+           ; id with multiple expected args, HO fn
+           [:id ≫
+            #:when (not (stx-null? #'(τ ...)))
+            --------
+            [⊢ StructName ⇒ (?∀ (X ...) (ext-stlc:→ τ ... (Name X ...)))]]
+           [(C τs e_arg ...) ≫
+            #:when (brace? #'τs) ; commit to this clause
+            #:with [X* (... ...)] #'[X ...]
+            #:with [e_arg* (... ...)] #'[e_arg ...]
+            #:with {~! τ_X:type (... ...)} #'τs
+            #:with (τ_in:type (... ...)) ; instantiated types
+            (inst-types/cs #'(X ...) #'([X* τ_X.norm] (... ...)) #'(τ ...))
+            ;; e_arg* helps align ellipses
+            [⊢ e_arg* ≫ e_arg*- ⇐ τ_in.norm] (... ...)
+            #:with [e_arg- ...] #'[e_arg*- (... ...)]
+            --------
+            [⊢ (StructName e_arg- ...) ⇒ (Name τ_X.norm (... ...))]]
+           [(C . args) ≫ ; no type annotations, must infer instantiation
+            #:with StructName/ty
+            (set-stx-prop/preserved
+             (⊢ StructName : (?∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))
+             'orig
+             (list #'C))
+            --------
+            [≻ (mlish:#%app StructName/ty . args)]])
          ...)]))
 
 ;; match --------------------------------------------------
