@@ -11,7 +11,7 @@
 
 (provide ∃ pack open)
 
-(define-type-constructor ∃ #:bvs = 1)
+(define-binding-type ∃ #:bvs = 1)
 
 (define-typed-syntax pack
   [(_ (τ:type e) as ∃τ:type)

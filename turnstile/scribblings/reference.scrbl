@@ -145,28 +145,68 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
   @defform[(define-type-constructor name-id option ...)
             #:grammar
            ([option (code:line #:arity op n)
-                    (code:line #:bvs op n)
-                    (code:line #:arr tycon)
                     (code:line #:arg-variances expr)
                     (code:line #:extra-info stx)])]{
-    Defines a type constructor. Defining a type constructor @racket[τ] defines:
+    Defines a type constructor that does not bind type variables.
+    Defining a type constructor @racket[τ] defines:
   @itemlist[@item{@racket[τ], a macro for constructing an instance of type
                   @racket[τ], with the specified arity.}
             @item{@racket[τ?], a phase 1 predicate recognizing type @racket[τ].}
             @item{@racket[~τ], a phase 1 @tech:pat-expander recognizing type @racket[τ].}]
 
-  The @racket[#:arity] and @racket[#:bvs] arguments specify the valid shapes
+  The @racket[#:arity] argument specifies the valid shapes
     for the type. For example
     @racket[(define-type-constructor → #:arity >= 1)] defines an arrow type and
     @racket[(define-type-constructor Pair #:arity = 2)] defines a pair type.
     The default arity is @racket[= 1].
-    
-    Use the @racket[#:bvs] argument to define binding types, e.g.,
-    @racket[(define-type-constructor ∀ #:arity = 1 #:bvs = 1)] defines a type
-    with shape @racket[(∀ (X) τ)], where @racket[τ] may reference @racket[X].
 
+    The @racket[#:arg-variances] argument is a transformer converting a syntax
+    object of the type to a list of variances for the arguments to the type
+    constructor.
+
+    The possible variances are @racket[invariant], @racket[contravariant],
+    @racket[covariant], and @racket[irrelevant].
+
+    If @racket[#:arg-variances] is not specified, @racket[invariant] is used for
+    all positions.
+
+    Example:
+
+    @racketblock0[(define-type-constructor → #:arity >= 1
+                   #:arg-variances
+                   (λ (stx)
+                     (syntax-parse stx
+                       [(_ τ_in ... τ_out)
+                        (append
+                         (make-list (stx-length #'[τ_in ...]) contravariant)
+                         (list covariant))])))]
+    
     The @racket[#:extra-info] argument is useful for attaching additional
     metainformation to types, for example to implement pattern matching.}}
+ @item{
+  @defform[(define-binding-type name-id option ...)
+            #:grammar
+           ([option (code:line #:arity op n)
+                    (code:line #:bvs op n)
+                    (code:line #:arr kindcon)
+                    (code:line #:arg-variances expr)
+                    (code:line #:extra-info stx)])]{
+    Similar to @racket[define-type-constructor], except
+    @racket[define-binding-type] defines a type that binds type variables.
+    Defining a type constructor @racket[τ] defines:
+  
+    The @racket[#:arity] and @racket[#:bvs] arguments specify the valid shapes
+    for the type. For example
+    @racket[(define-binding-type ∀ #:arity = 1 #:bvs = 1)] defines a type
+    with shape @racket[(∀ (X) τ)], where @racket[τ] may reference @racket[X].
+
+    The default @racket[#:arity] is @racket[= 1]
+    and the default @racket[#:bvs] is @racket[>= 0].
+
+    Use the @racket[#:arr] argument to define a type with kind annotations
+    on the type variables. The @racket[#:arr] argument is an "arrow" that "saves"
+    the annotations after a type is expanded and annotations are erased,
+    analogous to how → "saves" the type annotations on a lambda.}}
 @item{
 @defform[(type-out ty-id)]{
 A @racket[provide]-spec that, given @racket[ty-id], provides @racket[ty-id], 
@@ -182,7 +222,7 @@ equality, but includes alpha-equivalence.
 (begin-for-syntax (displayln (type=? #'Int #'Int)))
 (begin-for-syntax (displayln (type=? #'Int #'String)))
 (define-type-constructor → #:arity > 0)
-(define-type-constructor ∀ #:arity = 1 #:bvs = 1)
+(define-binding-type ∀ #:arity = 1 #:bvs = 1)
 (begin-for-syntax 
   (displayln 
    (type=? ((current-type-eval) #'(∀ (X) X))
@@ -327,6 +367,23 @@ Phase 1 function folding @racket[subst] over the given @racket[τs] and @racket[
 @defform[(type-error #:src srx-stx #:msg msg args ...)]{
 Phase 1 form that throws a type error using the specified information. @racket[msg] is a format string that references @racket[args].}
 
+@section{Subtyping}
+
+WARNING: very experimental
+
+Types defined with @racket[define-type-constructor] and
+@racket[define-binding-type] may specify variance information and subtyping
+languages may use this information to help compute the subtype relation.
+
+The possible variances are:
+@defthing[covariant variance?]
+@defthing[contravariant variance?]
+@defthing[invariant variance?]
+@defthing[irrelevant variance?]
+
+@defproc[(variance? [v any/c]) boolean/c]{
+ Predicate that recognizes the variance values.}
+                                      
 @section{Miscellaneous Syntax Object Functions}
 
 These are all phase 1 functions.

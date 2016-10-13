@@ -1,5 +1,8 @@
 #lang racket
 
+;; gen
+(require "general-tests.rkt")
+
 ;; stlc and extensions
 (require "stlc-tests.rkt")
 (require "stlc+lit-tests.rkt")

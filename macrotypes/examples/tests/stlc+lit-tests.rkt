@@ -59,4 +59,3 @@
 (typecheck-fail (λ ([x : 1]) x) #:with-msg "not a valid type")
 (typecheck-fail (λ ([x : (+ 1 2)]) x) #:with-msg "not a valid type")
 (typecheck-fail (λ ([x : (λ ([y : Int]) y)]) x) #:with-msg "not a valid type")
-

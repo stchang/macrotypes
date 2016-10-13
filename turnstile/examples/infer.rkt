@@ -12,7 +12,7 @@
 (provide → ∀ define define/rec λ #%app)
 
 ;; (Some [X ...] τ_body (Constraints (Constraint τ_1 τ_2) ...))
-(define-type-constructor Some #:arity = 2 #:bvs >= 0)
+(define-binding-type Some #:arity = 2)
 (define-type-constructor Constraint #:arity = 2)
 (define-type-constructor Constraints #:arity >= 0)
 (define-syntax Cs

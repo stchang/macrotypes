@@ -14,7 +14,7 @@
 
 (provide μ unfld fld)
 
-(define-type-constructor μ #:bvs = 1)
+(define-binding-type μ #:bvs = 1)
 
 (define-typed-syntax unfld
   [(_ τ:type-ann e)
