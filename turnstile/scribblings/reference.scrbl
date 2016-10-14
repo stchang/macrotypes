@@ -150,7 +150,12 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
     Defines a type constructor that does not bind type variables.
     Defining a type constructor @racket[τ] defines:
   @itemlist[@item{@racket[τ], a macro for constructing an instance of type
-                  @racket[τ], with the specified arity.}
+                  @racket[τ], with the specified arity.
+                  Validates inputs and expands to @racket[τ-], attaching kind.}
+            @item{@racket[τ-], an internal macro that expands to the internal
+                  (i.e., fully expanded) type representation. Does not validate
+                  inputs or attach kinds. This macro is useful when creating
+                  a separate kind system, see @racket[define-internal-type-constructor].}
             @item{@racket[τ?], a phase 1 predicate recognizing type @racket[τ].}
             @item{@racket[~τ], a phase 1 @tech:pat-expander recognizing type @racket[τ].}]
 
@@ -184,6 +189,15 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
     The @racket[#:extra-info] argument is useful for attaching additional
     metainformation to types, for example to implement pattern matching.}}
  @item{
+  @defform[(define-internal-type-constructor name-id option ...)
+            #:grammar
+           ([option (code:line #:arity op n)
+                    (code:line #:arg-variances expr)
+                    (code:line #:extra-info stx)])]{
+  Like @racket[define-type-constructor], except the surface macro is not defined.
+  Use this form, for example, when creating a separate kind system so that
+  you can still use other Turnstile conveniences like pattern expanders.}}
+ @item{
   @defform[(define-binding-type name-id option ...)
             #:grammar
            ([option (code:line #:arity op n)
@@ -207,6 +221,15 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
     on the type variables. The @racket[#:arr] argument is an "arrow" that "saves"
     the annotations after a type is expanded and annotations are erased,
     analogous to how → "saves" the type annotations on a lambda.}}
+ @item{
+  @defform[(define-internal-binding-type name-id option ...)
+            #:grammar
+           ([option (code:line #:arity op n)
+                    (code:line #:bvs op n)
+                    (code:line #:arr kindcon)
+                    (code:line #:arg-variances expr)
+                    (code:line #:extra-info stx)])]{
+  Analogous to @racket[define-internal-type-constructor].}}
 @item{
 @defform[(type-out ty-id)]{
 A @racket[provide]-spec that, given @racket[ty-id], provides @racket[ty-id], 

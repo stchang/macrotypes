@@ -688,7 +688,9 @@
               (syntax/loc stx 
                 (τ-internal* (λ () (#%expression extra-info) . args)))]))
          ; this is the actual constructor
-         (define-syntax (τ stx)
+         #,@(if (attribute no-attach-kind?)
+               #'()
+          #'((define-syntax (τ stx)
            (syntax-parse stx
              [(_ . args)
               #:fail-unless (op (stx-length #'args) n)
@@ -708,7 +710,7 @@
                #:msg
                  (string-append
                   "Improper usage of type constructor ~a: ~a, expected ~a ~a arguments")
-                 #'τ stx #'op #'n)])))]))
+                 #'τ stx #'op #'n)])))))]))
 
 ;; Form for defining *binding* types, kinds, etc.
 ;; The def uses pattern vars "τ" and "kind" but this form is not restricted to
@@ -817,7 +819,9 @@
               (syntax/loc stx 
                 (τ-internal* (λ bvs (#%expression extra-info) . args)))]))
          ; this is the actual constructor
-         (define-syntax (τ stx)
+         #,@(if (attribute no-attach-kind?)
+               #'()
+               #`((define-syntax (τ stx)
            (syntax-parse stx
              [(_ (~or (bv:id (... ...))
                       (~and (~fail #:unless #,(attribute has-annotations?))
@@ -833,20 +837,23 @@
                             (format "wrong number of arguments, expected ~a ~a"
                                     'op 'n)
               #:with (bvs- τs- _) (infers/ctx+erase #'bvs+ks #'args)
+              ;; the args are validated on the next line, rather than above
+              ;; to ensure enough stx-parse progress so we get a proper err msg,
+              ;; ie, "invalid type" instead of "improper tycon usage"
               #:with (~! (~var _ kind) (... ...)) #'τs-
               #:with ([tv (~datum :) k_arg] (... ...)) #'bvs+ks
               #:with k_result (if #,(attribute has-annotations?)
                                   #'(kindcon k_arg (... ...))
                                   #'#%kind)
-;              #:with ty-out (expand/df #'(τ- bvs- . τs-))
-              #:with ty-out #'(τ- bvs- . τs-)
-              (add-orig (assign-type #'ty-out #'k_result) stx)]
+              (add-orig
+               (assign-type #'(τ- bvs- . τs-) #'k_result)
+               stx)]
              ;; else fail with err msg
              [_
               (type-error #:src stx
                           #:msg (string-append
                                  "Improper usage of type constructor ~a: ~a, expected ~a ~a arguments")
-                          #'τ stx #'op #'n)])))]))
+                          #'τ stx #'op #'n)])))))]))
 
 ; examples:
 ; (define-syntax-category type)
@@ -867,6 +874,7 @@
      #:with define-name-cons (format-id #'name "define-~a-constructor" #'name)
      #:with define-binding-name (format-id #'name "define-binding-~a" #'name)
      #:with define-internal-name-cons (format-id #'name "define-internal-~a-constructor" #'name)
+     #:with define-internal-binding-name (format-id #'name "define-internal-binding-~a" #'name)
      #:with name-ann (format-id #'name "~a-ann" #'name)
      #:with name=? (format-id #'name "~a=?" #'name)
      #:with names=? (format-id #'names "~a=?" #'names)
@@ -971,6 +979,10 @@
            (syntax-parser
              [(_ (~var x id) . rst)
               #'(define-basic-checked-stx x : name #:no-attach-kind . rst)]))
+         (define-syntax define-internal-binding-name
+           (syntax-parser
+             [(_ (~var x id) . rst)
+              #'(define-binding-checked-stx x : name #:no-attach-kind . rst)]))
          (define-syntax define-name-cons
            (syntax-parser
              [(_ (~var x id) . rst)

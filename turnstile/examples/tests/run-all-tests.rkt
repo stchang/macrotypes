@@ -26,6 +26,7 @@
 (require "fomega-tests.rkt")
 (require "fomega2-tests.rkt")
 (require "fomega3-tests.rkt")
+(require "fomega-no-reuse-tests.rkt")
 
 ;; these are not ported to turnstile yet
 ;; see macrotypes/examples/tests/run-all-tests.rkt
