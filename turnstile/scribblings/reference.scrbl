@@ -112,8 +112,6 @@ Dually, one may write @racket[[⊢ e ≫ e- ⇐ τ]] to check that @racket[e] ha
 @racket[τ]. Here, both @racket[e] and @racket[τ] are inputs (templates) and only
  @racket[e-] is an output (pattern).}
 
-@defform[(define-typerule ....)]{An alias for @racket[define-typed-syntax].}
-
 @defform*[((define-primop typed-op-id τ)
            (define-primop typed-op-id : τ)
            (define-primop typed-op-id op-id τ)
@@ -135,11 +133,18 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
  use any forms other than @racket[define-base-type] and
  @racket[define-type-constructor] in conjunction with @racket[define-typed-syntax]. The other forms are considered "low-level" and are automatically used by @racket[define-typed-syntax].
  @itemlist[
- @item{@defform[(define-base-type base-type-name-id)]{
-   Defines a base type. A @racket[(define-base-type τ)] additionally defines:
+ @item{@racket[define-typed-syntax], as described above.
+   Uses @racket[current-typecheck-relation] for typechecking.}
+ @item{@defform[(define-typerule ....)]{An alias for @racket[define-typed-syntax].}}
+ @item{@defform*[((define-base-type base-type-name-id)
+                  (define-base-type base-type-name-id : kind))]{
+   Defines a base type. @racket[(define-base-type τ)] in turn defines:
   @itemlist[@item{@racket[τ], an identifier macro representing type @racket[τ].}
             @item{@racket[τ?], a phase 1 predicate recognizing type @racket[τ].}
-            @item{@racket[~τ], a phase 1 @tech:pat-expander recognizing type @racket[τ].}]}}
+            @item{@racket[~τ], a phase 1 @tech:pat-expander recognizing type @racket[τ].}]}
+
+  The second form is useful when implementing your own kind system.
+   @racket[#%type] is used as the @tt{kind} when it's not specified.}
  @item{@defform[(define-base-types base-type-name-id ...)]{Defines multiple base types.}}
  @item{
   @defform[(define-type-constructor name-id option ...)
@@ -235,6 +240,33 @@ Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
 A @racket[provide]-spec that, given @racket[ty-id], provides @racket[ty-id], 
 and provides @racket[for-syntax] a predicate @racket[ty-id?] and a @tech:pat-expander @racket[~ty-id].}}
 
+@item{@defparam[current-type-eval type-eval type-eval]{
+ A phase 1 parameter for controlling "type evaluation". A @racket[type-eval]
+function consumes and produces syntax. It is typically used to convert a type
+into a canonical representation. The @racket[(current-type-eval)] is called
+immediately before attacing a type to a syntax object, i.e., by
+@racket[assign-type].
+
+ It defaults to full expansion, i.e., @racket[(lambda (stx) (local-expand stx 'expression null))], and also stores extra surface syntax information used for error reporting.
+
+One should extend @racket[current-type-eval] if canonicalization of types
+depends on combinations of different types, e.g., type lambdas and type application in F-omega. }}
+
+@item{@defparam[current-typecheck-relation type-pred type-pred]{
+ A phase 1 parameter for controlling type checking, used by @racket[define-type-syntax].
+  A @racket[type-pred] function consumes
+ two types and returns true if they "type check". It defaults to @racket[type=?] though it does not have to be a symmetric relation.
+Useful for reusing rules that differ only in the type check operation, e.g.,
+ equality vs subtyping.}}
+
+@item{@defproc[(typecheck? [τ1 type?] [τ2 type?]) boolean?]{A phase 1 function that calls
+ @racket[current-typecheck-relation].}}
+
+@item{@defproc[(typechecks? [τs1 (or/c (list/c type?) (stx-list/c type?))]
+                      [τs2 (or/c (list/c type?) (stx-list/c type?))]) boolean?]{
+Phase 1 function mapping @racket[typecheck?] over lists of types, pairwise. @racket[τs1] and @racket[τs2]
+must have the same length.}}
+
  @item{@defproc[(type=? [τ1 type?] [τ2 type?]) boolean?]{A phase 1 equality
 predicate for types that computes structural, @racket[free-identifier=?]
 equality, but includes alpha-equivalence.
@@ -270,15 +302,28 @@ equality, but includes alpha-equivalence.
     A phase 1 parameter for computing type equality. Is initialized to @racket[type=?].}}
  @item{@defidform[#%type]{The default "kind" used to validate types.}}
  @item{@defproc[(#%type? [x Any]) boolean?]{Phase 1 predicate recognizing @racket[#%type].}}
- @item{@defproc[(type? [x Any]) boolean?]{A phase 1 predicate used to validate types.
+ @item{@defproc[(type? [x Any]) boolean?]{A phase 1 predicate recognizing well-formed types.
     Checks that @racket[x] is a syntax object and has syntax propety @racket[#%type].}}
  @item{@defparam[current-type? type-pred type-pred]{A phase 1 parameter, initialized to @racket[type?],
-    used to validate types. Useful when reusing type rules in different languages.}}
+    used to recognize well-formed types.
+    Useful when reusing type rules in different languages. For example,
+    System F-omega may define this to recognize types with "star" kinds.}}
+ @item{@defproc[(any-type? [x Any]) boolean?]{A phase 1 predicate recognizing valid types.
+    Defaults to @racket[type?].}}
+ @item{@defparam[current-any-type? type-pred type-pred]{A phase 1 parameter,
+    initialized to @racket[any-type?],
+    used to validate (not necessarily well-formed) types.
+    Useful when reusing type rules in different languages. For example,
+    System F-omega may define this to recognize types with a any valid kind,
+    whereas @racket[current-type?] would recognize types with only the "star" kind.}}
  @item{@defproc[(mk-type [stx syntax?]) type?]{
     Phase 1 function that marks a syntax object as a type by attaching @racket[#%type].
   Useful for defining your own type with arbitrary syntax that does not fit with
     @racket[define-base-type] or @racket[define-type-constructor].}}
  @item{@defthing[type stx-class]{A syntax class that calls @racket[current-type?]
+    to validate well-formed types.
+  Binds a @racket[norm] attribute to the type's expanded representation.}}
+ @item{@defthing[any-type stx-class]{A syntax class that calls @racket[current-any-type?]
     to validate types.
   Binds a @racket[norm] attribute to the type's expanded representation.}}
  @item{@defthing[type-bind stx-class]{A syntax class recognizing
@@ -334,32 +379,6 @@ This section describes lower-level functions and parameters. It's usually not
 necessary to call these directly, since @racket[define-typed-syntax] and other
 forms already do so, but some type systems may require extending some
 functionality.
-
-@defparam[current-type-eval type-eval type-eval]{
- A phase 1 parameter for controlling "type evaluation". A @racket[type-eval]
-function consumes and produces syntax. It is typically used to convert a type
-into a canonical representation. The @racket[(current-type-eval)] is called
-immediately before attacing a type to a syntax object, i.e., by
-@racket[assign-type].
-
- It defaults to full expansion, i.e., @racket[(lambda (stx) (local-expand stx 'expression null))], and also stores extra surface syntax information used for error reporting.
-
-One should extend @racket[current-type-eval] if canonicalization of types
-depends on combinations of different types, e.g., type lambdas and type application in F-omega. }
-
-@defparam[current-typecheck-relation type-pred type-pred]{
- A phase 1 parameter for controlling type checking. A @racket[type-pred] function consumes
- two types and returns true if they "type check". It defaults to @racket[type=?] though it does not have to be a symmetric relation.
-Useful for reusing rules that differ only in the type check operation, e.g.,
- equality vs subtyping.}
-
-@defproc[(typecheck? [τ1 type?] [τ2 type?]) boolean?]{A phase 1 function that calls
- @racket[current-typecheck-relation].}
-
-@defproc[(typechecks? [τs1 (or/c (list/c type?) (stx-list/c type?))]
-                      [τs2 (or/c (list/c type?) (stx-list/c type?))]) boolean?]{
-Phase 1 function mapping @racket[typecheck?] over lists of types, pairwise. @racket[τs1] and @racket[τs2]
-must have the same length.}
 
 @defproc[(assign-type [e syntax?] [τ syntax?]) syntax?]{
 Phase 1 function that calls @racket[current-type-eval] on @racket[τ] and attaches it to @racket[e]}

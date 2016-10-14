@@ -54,10 +54,10 @@
 
 (check-type ((λ ([x : Int]) (+ x x)) 10) : Int ⇒ 20)
 
-(typecheck-fail (λ ([x : (→ 1 2)]) x) #:with-msg "not a valid type")
-(typecheck-fail (λ ([x : 1]) x) #:with-msg "not a valid type")
-(typecheck-fail (λ ([x : (+ 1 2)]) x) #:with-msg "not a valid type")
-(typecheck-fail (λ ([x : (λ ([y : Int]) y)]) x) #:with-msg "not a valid type")
+(typecheck-fail (λ ([x : (→ 1 2)]) x) #:with-msg "not a well-formed type")
+(typecheck-fail (λ ([x : 1]) x) #:with-msg "not a well-formed type")
+(typecheck-fail (λ ([x : (+ 1 2)]) x) #:with-msg "not a well-formed type")
+(typecheck-fail (λ ([x : (λ ([y : Int]) y)]) x) #:with-msg "not a well-formed type")
 
 (typecheck-fail
  (ann (ann 5 : Int) : (→ Int))

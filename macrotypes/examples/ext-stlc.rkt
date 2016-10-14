@@ -42,14 +42,14 @@
 ;; τ.norm in 1st case causes "not valid type" error when file is compiled
 (define-syntax define-type-alias
   (syntax-parser
-    [(_ alias:id τ:type)
+    [(_ alias:id τ:any-type)
      #'(define-syntax- alias
          (make-variable-like-transformer #'τ))]
     [(_ (f:id x:id ...) ty)
      #'(define-syntax- (f stx)
          (syntax-parse stx
            [(_ x ...)
-            #:with τ:type #'ty
+            #:with τ:any-type #'ty
             #'τ.norm]))]))
 
 (define-typed-syntax define

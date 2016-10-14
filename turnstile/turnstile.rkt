@@ -1,13 +1,15 @@
 #lang racket/base
 
-(provide (except-out (all-from-out macrotypes/typecheck) -define-typed-syntax)
-         define-typed-syntax
+(provide (except-out (all-from-out macrotypes/typecheck) 
+                     -define-typed-syntax -define-syntax-category)
+         define-typed-syntax define-syntax-category
          (rename-out [define-typed-syntax define-typerule])
          (for-syntax syntax-parse/typed-syntax))
 
 (require (except-in (rename-in
                      macrotypes/typecheck
                      [define-typed-syntax -define-typed-syntax]
+                     [define-syntax-category -define-syntax-category]
                      )
                     #%module-begin))
 
@@ -418,3 +420,28 @@
              rule.norm
              ...)]))))
 
+(define-syntax define-syntax-category
+ (lambda (stx)
+   (syntax-parse stx
+    [(_ name:id)
+     #:with def-named-syntax (format-id #'name "define-~aed-syntax" #'name)
+     #:with check-relation (format-id #'name "current-~acheck-relation" #'name)
+     #'(begin
+        (-define-syntax-category name)
+        (define-syntax (def-named-syntax stx)
+          (syntax-parse stx
+            ;; single-clause def
+           [(_ (rulename:id . pats) . rst)
+            ;; cannot bind name as pat var, eg #%app, so replace with _
+            #:with r #'[(_ . pats) . rst]
+            #'(define-syntax (rulename stxx)
+                (parameterize ([current-typecheck-relation (check-relation)])
+                  (syntax-parse/typed-syntax stxx r)))]
+           ;; multi-clause def
+           [(_ rulename:id
+              (~and (~seq kw-stuff (... ...)) :stxparse-kws)
+              rule:rule (... ...+))
+            #'(define-syntax (rulename stxx)
+                (parameterize ([current-typecheck-relation (check-relation)])
+                  (syntax-parse/typed-syntax stxx kw-stuff (... ...)
+                    rule (... ...))))])))])))

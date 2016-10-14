@@ -54,7 +54,7 @@
             : (→ (→ Int String) (→ Int String)))
 (typecheck-fail
  (inst (Λ ([X : ★]) (λ ([x : X]) x)) 1)
- #:with-msg "inst: type mismatch: expected ★, given Int\n *expression: 1")
+ #:with-msg "inst: type mismatch.*expected:.*★.*given:.*Int.*expressions: 1")
 
 (typecheck-fail
  (Λ ([tyf : (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) (f 1)))

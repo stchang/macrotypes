@@ -673,8 +673,8 @@
 (typecheck-fail (ann 1 : Bool) #:with-msg "expected Bool, given Int\n *expression: 1")
 ;ann errs
 (typecheck-fail (ann 1 : Complex) #:with-msg "unbound identifier")
-(typecheck-fail (ann 1 : 1) #:with-msg "not a valid type")
-(typecheck-fail (ann 1 : (λ ([x : Int]) x)) #:with-msg "not a valid type")
+(typecheck-fail (ann 1 : 1) #:with-msg "not a well-formed type")
+(typecheck-fail (ann 1 : (λ ([x : Int]) x)) #:with-msg "not a well-formed type")
 (typecheck-fail (ann Int : Int) #:with-msg "expected Int, given #%type\n *expression: Int")
 
 ; let

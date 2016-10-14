@@ -237,16 +237,16 @@
 (typecheck-fail
  (λ ([x : (∪ Int Boolean)])
     (test (1 ? x) #t #f))
- #:with-msg "not a valid type")
+ #:with-msg "not a well-formed type")
 (typecheck-fail
  (test (1 ? 1) #t #f)
- #:with-msg "not a valid type")
+ #:with-msg "not a well-formed type")
 (typecheck-fail
  (test (1 ? 1) #t #f)
- #:with-msg "not a valid type")
+ #:with-msg "not a well-formed type")
 (typecheck-fail
  (test (#f ? #t) #t #f)
- #:with-msg "not a valid type")
+ #:with-msg "not a well-formed type")
 
 ;; -----------------------------------------------------------------------------
 ;; --- Subtypes should not be collapsed

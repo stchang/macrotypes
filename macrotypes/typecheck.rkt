@@ -64,6 +64,7 @@
   (define (mk-- id) (format-id id "~a-" id))
   (define (mk-~ id) (format-id id "~~~a" id))
   (define (mk-#% id) (format-id id "#%~a" id))
+  (define (mk-param id) (format-id id "current-~a" id))
   (define-for-syntax (mk-? id) (format-id id "~a?" id))
   (define-for-syntax (mk-~ id) (format-id id "~~~a" id))
   ;; drop-file-ext : String -> String
@@ -401,21 +402,6 @@
     (syntax-parse (infer es #:tvctx ctx)
       [(tvs+ _ es+ tys) (list #'tvs+ #'es+ #'tys)]))
 
-  ; extra indirection, enables easily overriding type=? with sub?
-  ; to add subtyping, without changing any other definitions
-  ; - must be here (instead of stlc) due to rackunit-typechecking
-  (define current-typecheck-relation (make-parameter #f))
-
-  ;; convenience fns for current-typecheck-relation
-  (define (typecheck? t1 t2)
-    ((current-typecheck-relation) t1 t2))
-  (define (typechecks? τs1 τs2)
-    (and (= (stx-length τs1) (stx-length τs2))
-         (stx-andmap typecheck? τs1 τs2)))
-  
-  (define current-type-eval (make-parameter #f))
-  (define (type-evals τs) #`#,(stx-map (current-type-eval) τs))
-
   (define current-promote (make-parameter (λ (t) t)))
 
   ;; term expansion
@@ -428,22 +414,6 @@
   ;; get assigned a type.
   (define (expand/df e)
     (local-expand e 'expression null))
-
-  ;; type eval
-  ;; - default-type-eval == full expansion == canonical type representation
-  ;; - must expand because:
-  ;;   - checks for unbound identifiers (ie, undefined types)
-  ;;   - checks for valid types, ow can't distinguish types and terms
-  ;;     - could parse types but separate parser leads to duplicate code
-  ;;   - later, expanding enables reuse of same mechanisms for kind checking
-  ;;     and type application
-  (define (default-type-eval τ)
-    ; TODO: optimization: don't expand if expanded
-    ; currently, this causes problems when
-    ; combining unexpanded and expanded types to create new types
-    (add-orig (expand/df τ) τ))
-
-  (current-type-eval default-type-eval)
 
   ;; typecheck-fail-msg/1 : Type Type Stx -> String
   (define (typecheck-fail-msg/1 τ_expected τ_given expression)
@@ -862,12 +832,21 @@
   (syntax-parse stx
     [(_ name:id)
      #:with names (format-id #'name "~as" #'name)
-     #:with #%tag (format-id #'name "#%~a" #'name)
+     #:with #%tag (mk-#% #'name)
      #:with #%tag? (mk-? #'#%tag)
      #:with is-name? (mk-? #'name)
+     #:with any-name (format-id #'name "any-~a" #'name)
+     #:with any-name? (mk-? #'any-name)
      #:with name-ctx (format-id #'name "~a-ctx" #'name)
      #:with name-bind (format-id #'name "~a-bind" #'name)
-     #:with current-is-name? (format-id #'is-name? "current-~a" #'is-name?)
+     #:with current-is-name? (mk-param #'is-name?)
+     #:with current-any-name? (mk-param #'any-name?)
+     #:with current-namecheck-relation (format-id #'name "current-~acheck-relation" #'name)
+     #:with namecheck? (format-id #'name "~acheck?" #'name)
+     #:with namechecks? (format-id #'name "~achecks?" #'name)
+     #:with current-name-eval (format-id #'name "current-~a-eval" #'name)
+     #:with default-name-eval (format-id #'name "default-~a-eval" #'name)
+     #:with name-evals (format-id #'name "~a-evals" #'name)
      #:with mk-name (format-id #'name "mk-~a" #'name)
      #:with define-base-name (format-id #'name "define-base-~a" #'name)
      #:with define-base-names (format-id #'name "define-base-~as" #'name)
@@ -878,15 +857,19 @@
      #:with name-ann (format-id #'name "~a-ann" #'name)
      #:with name=? (format-id #'name "~a=?" #'name)
      #:with names=? (format-id #'names "~a=?" #'names)
-     #:with current-name=? (format-id #'name=? "current-~a" #'name=?)
+     #:with current-name=? (mk-param #'name=?)
      #:with same-names? (format-id #'name "same-~as?" #'name)
      #:with name-out (format-id #'name "~a-out" #'name)
      #'(begin
          (define #%tag void)
          (begin-for-syntax
            (define (#%tag? t) (and (identifier? t) (free-identifier=? t #'#%tag)))
+           ;; is-name?, eg type?, corresponds to "well-formed" types
            (define (is-name? t) (#%tag? (typeof t)))
            (define current-is-name? (make-parameter is-name?))
+           ;; any-name? corresponds to any type and defaults to is-name?
+           (define (any-name? t) (is-name? t))
+           (define current-any-name? (make-parameter any-name?))
            (define (mk-name t) (assign-type t #'#%tag))
            (define-syntax-class name
              #:attributes (norm)
@@ -894,6 +877,15 @@
               #:with norm ((current-type-eval) #'τ)
               #:with k (typeof #'norm)
               #:fail-unless ((current-is-name?) #'norm)
+              (format "~a (~a:~a) not a well-formed ~a: ~a"
+                      (syntax-source #'τ) (syntax-line #'τ) (syntax-column #'τ)
+                      'name (type->str #'τ))))
+           (define-syntax-class any-name
+             #:attributes (norm)
+             (pattern τ
+              #:with norm ((current-type-eval) #'τ)
+              #:with k (typeof #'norm)
+              #:fail-unless ((current-any-name?) #'norm)
               (format "~a (~a:~a) not a valid ~a: ~a"
                       (syntax-source #'τ) (syntax-line #'τ) (syntax-column #'τ)
                       'name (type->str #'τ))))
@@ -943,14 +935,37 @@
                    [_ (and (stx-pair? t1) (stx-pair? t2)
                            (names=? t1 t2))])))
            (define current-name=? (make-parameter name=?))
-           (current-typecheck-relation name=?)
            (define (names=? τs1 τs2)
              (and (stx-length=? τs1 τs2)
                   (stx-andmap (current-name=?) τs1 τs2)))
+           ; extra indirection, enables easily overriding type=? with sub?
+           ; to add subtyping, without changing any other definitions
+           (define current-namecheck-relation (make-parameter name=?))
+           ;; convenience fns for current-typecheck-relation
+           (define (namecheck? t1 t2)
+             ((current-namecheck-relation) t1 t2))
+           (define (namechecks? τs1 τs2)
+             (and (= (stx-length τs1) (stx-length τs2))
+                  (stx-andmap namecheck? τs1 τs2)))
            (define (same-names? τs)
              (define τs-lst (syntax->list τs))
              (or (null? τs-lst)
-                 (andmap (λ (τ) ((current-name=?) (car τs-lst) τ)) (cdr τs-lst)))))
+                 (andmap (λ (τ) ((current-name=?) (car τs-lst) τ)) (cdr τs-lst))))
+           ;; type eval
+           ;; - default-type-eval == full expansion == canonical type representation
+           ;; - must expand because:
+           ;;   - checks for unbound identifiers (ie, undefined types)
+           ;;   - checks for valid types, ow can't distinguish types and terms
+           ;;     - could parse types but separate parser leads to duplicate code
+           ;;   - later, expanding enables reuse of same mechanisms for kind checking
+           ;;     and type application
+           (define (default-name-eval τ)
+             ; TODO: optimization: don't expand if expanded
+             ; currently, this causes problems when
+             ; combining unexpanded and expanded types to create new types
+             (add-orig (expand/df τ) τ))
+           (define current-name-eval (make-parameter default-name-eval))
+           (define (name-evals τs) #`#,(stx-map (current-name-eval) τs)))
          ;; helps with providing defined types
          (define-syntax name-out
            (make-provide-transformer

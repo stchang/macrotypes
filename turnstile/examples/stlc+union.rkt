@@ -31,7 +31,7 @@
 
 (define-syntax define-named-type-alias
   (syntax-parser
-    [(define-named-type-alias Name:id τ:type)
+    [(define-named-type-alias Name:id τ:any-type)
      #'(define-syntax Name
          (make-variable-like-transformer (add-orig #'τ #'Name)))]
     [(define-named-type-alias (f:id x:id ...) ty) ; dont expand yet

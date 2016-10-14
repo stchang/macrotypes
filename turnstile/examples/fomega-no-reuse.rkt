@@ -15,12 +15,17 @@
 (define-syntax-category kind)
 
 ;; redefine:
-;; - current-type? - recognizes types with ★ kind only
-;; - current-type-eval - reduce tylams and tyapps
-;; - current-type=? - must check for any kind annotations
+;; - current-type?: well-formed types have kind ★
+;; - current-any-type?: valid types have any valid kind
+;; - current-type-eval: reduce tylams and tyapps
+;; - current-type=?: must compare kind annotations as well
 (begin-for-syntax
-  ;; need this for define-primop (which still uses type stx-class)
+  
+  ;; well-formed types have kind ★
+  ;; (need this for define-primop, which still uses type stx-class)
   (current-type? (λ (t) (★? (typeof t))))
+  ;; o.w., a valid type is one with any valid kind
+  (current-any-type? (λ (t) ((current-kind?) (typeof t))))
 
   ;; TODO: I think this can be simplified
   (define (normalize τ)
@@ -47,11 +52,12 @@
   ; ty=? == syntax eq and syntax prop eq
   (define (type=? t1 t2)
     (let ([k1 (typeof t1)][k2 (typeof t2)])
-      (and (or (and (not k1) (not k2)) ; need this bc there's no current-kindcheck-rel
+      ; the extra `and` and `or` clauses are bc type=? is a structural
+      ; traversal on stx objs, so not all sub stx objs will have a "type"-stx
+      (and (or (and (not k1) (not k2))
                (and k1 k2 ((current-kind=?) k1 k2)))
            (old-type=? t1 t2))))
   (current-type=? type=?)
-  ;; TODO: add current-kindcheck-rel
   (current-typecheck-relation (current-type=?)))
 
 ;; kinds ----------------------------------------------------------------------
@@ -64,13 +70,10 @@
 (define-kind-constructor ⇒ #:arity >= 1)
 
 ;; types ----------------------------------------------------------------------
-(define-typed-syntax (define-type-alias alias:id τ) ≫
-  [⊢ τ ≫ τ- ⇒ k_τ]
-  #:fail-unless ((current-kind?) #'k_τ)
-                (format "not a valid type: ~a\n" (type->str #'τ))
+(define-kinded-syntax (define-type-alias alias:id τ:any-type) ≫
   ------------------
   [≻ (define-syntax- alias 
-       (make-variable-like-transformer #'τ-))])
+       (make-variable-like-transformer #'τ.norm))])
 
 (define-base-type Int : ★)
 (define-base-type Bool : ★)
@@ -79,26 +82,26 @@
 (define-base-type Char : ★)
 
 (define-internal-type-constructor →) ; defines →-
-(define-typed-syntax (→ ty ...+) ≫
+(define-kinded-syntax (→ ty ...+) ≫
   [⊢ ty ≫ ty- ⇒ (~★ . _)] ...
   --------
   [⊢ (→- ty- ...) ⇒ ★])
 
 (define-internal-binding-type ∀) ; defines ∀-
-(define-typed-syntax ∀ #:datum-literals (:)
+(define-kinded-syntax ∀ #:datum-literals (:)
   [(_ ([tv:id : k_in:kind] ...) ty) ≫
    [[tv ≫ tv- : k_in.norm] ... ⊢ ty ≫ ty- ⇒ (~★ . _)]
    -------
    [⊢ (∀- (tv- ...) ty-) ⇒ (★ k_in.norm ...)]])
 
-(define-typed-syntax (tyλ bvs:kind-ctx τ_body) ≫
+(define-kinded-syntax (tyλ bvs:kind-ctx τ_body) ≫
   [[bvs.x ≫ tv- : bvs.kind] ... ⊢ τ_body ≫ τ_body- ⇒ k_body]
   #:fail-unless ((current-kind?) #'k_body)
                 (format "not a valid type: ~a\n" (type->str #'τ_body))
   --------
   [⊢ (λ- (tv- ...) τ_body-) ⇒ (⇒ bvs.kind ... k_body)])
 
-(define-typed-syntax (tyapp τ_fn τ_arg ...) ≫
+(define-kinded-syntax (tyapp τ_fn τ_arg ...) ≫
   [⊢ τ_fn ≫ τ_fn- ⇒ (~⇒ k_in ... k_out)]
   #:fail-unless (stx-length=? #'[k_in ...] #'[τ_arg ...])
                 (num-args-fail-msg #'τ_fn #'[k_in ...] #'[τ_arg ...])
@@ -156,9 +159,15 @@
   --------
   [⊢ e- ⇒ (∀ ([tv- : bvs.kind] ...) τ_e)])
 
+;; TODO: what to do when a def-typed-stx needs both
+;; current-typecheck-relation and current-kindcheck-relation
 (define-typed-syntax (inst e τ ...) ≫
   [⊢ e ≫ e- ⇒ (~∀ (tv ...) τ_body) (⇒ (~★ k ...))]
-  [⊢ τ ≫ τ- ⇐ k] ...
+;  [⊢ τ ≫ τ- ⇐ k] ...
+  ;; want to use kindchecks? instead of typechecks?
+  [⊢ τ ≫ τ- ⇒ k_τ] ...
+  #:fail-unless (kindchecks? #'(k_τ ...) #'(k ...))
+                (typecheck-fail-msg/multi #'(k ...) #'(k_τ ...) #'(τ ...))
   #:with τ-inst (substs #'(τ- ...) #'(tv ...) #'τ_body)
   --------
   [⊢ e- ⇒ τ-inst])
