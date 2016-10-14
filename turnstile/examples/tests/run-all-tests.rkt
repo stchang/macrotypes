@@ -22,12 +22,6 @@
 
 (require "fsub-tests.rkt") ; sysf + reco-sub
 
-;; F_omega
-(require "fomega-tests.rkt")
-(require "fomega2-tests.rkt")
-(require "fomega3-tests.rkt")
-(require "fomega-no-reuse-tests.rkt")
-
 ;; these are not ported to turnstile yet
 ;; see macrotypes/examples/tests/run-all-tests.rkt
 ;(require macrotypes/examples/tests/stlc+occurrence-tests)
@@ -43,6 +37,12 @@
 ;; union and case types
 (require "stlc+union.rkt")
 (require "stlc+union+case.rkt")
+
+;; F_omega
+(require "fomega-tests.rkt")
+(require "fomega2-tests.rkt")
+(require "fomega3-tests.rkt")
+(require "fomega-no-reuse-tests.rkt")
 
 ; don't run this file for testing:
 (module test racket/base)
