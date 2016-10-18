@@ -492,7 +492,7 @@
     (define τ (get-orig ty))
     (cond
       [(identifier? τ) (symbol->string (syntax->datum τ))]
-      [(stx-pair? τ) (string-join (stx-map type->str τ)
+      [(stx-list? τ) (string-join (stx-map type->str τ)
                                   #:before-first "("
                                   #:after-last ")")]
       [else (format "~s" (syntax->datum τ))]))

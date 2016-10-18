@@ -4,6 +4,12 @@
 
 (define (stx-cadr stx) (stx-car (stx-cdr stx)))
 (define (stx-caddr stx) (stx-cadr (stx-cdr stx)))
+(define (stx-cddr stx) (stx-cdr (stx-cdr stx)))
+
+(define (stx->datum stx)
+  (if (syntax? stx)
+      (syntax->datum stx)
+      (map syntax->datum stx)))
 
 (define (stx-rev stx)
   (reverse (stx->list stx)))
@@ -57,8 +63,10 @@
 (define (stx-foldr f base . lsts)
   (apply foldr f base (map stx->list lsts)))
 
-(define (stx-append stx1 stx2)
-  (append (stx->list stx1) (stx->list stx2)))
+(define (stx-apply f stx)
+  (apply f (stx->list stx)))
+(define (stx-append . stxs)
+  (apply append (stx-map stx->list stxs)))
 (define (stx-appendmap f . stxs)
   (stx-flatten (apply stx-map f stxs)))
 
