@@ -2,6 +2,7 @@
 (require
  (prefix-in t/ro: (only-in "../rosette2.rkt" U))
  (prefix-in ro: rosette/lib/angelic))
+(provide choose*)
 
 (define-typed-syntax choose*
   [(ch e ...+) ≫

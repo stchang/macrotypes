@@ -1,6 +1,5 @@
 #lang turnstile
-(extends "../stlc.rkt"
-  #:except #%module-begin #%app →)
+(extends "../stlc.rkt" #:except #%module-begin #%app →)
 (reuse #%datum define-type-alias define-named-type-alias
        #:from "../stlc+union.rkt")
 
@@ -11,11 +10,10 @@
          Constant
          C→ → (for-syntax ~C→ C→?)
          Ccase-> (for-syntax ~Ccase-> Ccase->?) ; TODO: symbolic case-> not supported yet
-         CListof Listof CPair Pair
+         CListof Listof CList CPair Pair
          CVectorof MVectorof IVectorof Vectorof CMVectorof CIVectorof
          CParamof ; TODO: symbolic Param not supported yet
-         CListof Listof CPair Pair CVectorof MVectorof IVectorof Vectorof
-         CBoxof MBoxof IBoxof
+         CBoxof MBoxof IBoxof CMBoxof CIBoxof CHashTable
          CUnit Unit
          CNegInt NegInt
          CZero Zero
@@ -31,7 +29,7 @@
          ;; BV types
          CBV BV
          CBVPred BVPred
-         CSolution CPict)
+         CSolution CSolver CPict CSyntax)
 
 (require
  (prefix-in ro: rosette)
@@ -44,7 +42,7 @@
     (only-in "../stlc+cons.rkt" Unit [List Listof])))
  (only-in "../stlc+union+case.rkt" [~U* ~CU*] [~case-> ~Ccase->] [~→ ~C→])
  (only-in "../stlc+cons.rkt" [~List ~CListof])
- (only-in "../stlc+reco+var.rkt" [define stlc:define])
+ (only-in "../ext-stlc.rkt" [define stlc:define])
  (rename-in "rosette-util.rkt" [bitvector? lifted-bitvector?]))
 
 ;; copied from rosette.rkt
@@ -62,7 +60,8 @@
         (pre-expand-export (syntax/loc stx (typed-out [[ro-x ty] out-x] ...))
                            modes)]))))
 
-;; providing version of define-typed-syntax
+;; a legacy auto-providing version of define-typed-syntax
+;; TODO: convert everything to new define-typed-syntax
 (define-syntax (define-typed-syntax stx)
   (syntax-parse stx
     [(_ name:id #:export-as out-name:id . rst)
@@ -585,7 +584,7 @@
                                         #'(CMVectorof (CU τ ...))
                                         #'(CMVectorof (U τ ...)))]]])
 
-(define-rosette-primop vector? : CPred)
+(provide (rosette-typed-out [vector? : CPred]))
 
 ;; immutable constructor
 (define-typed-syntax vector-immutable
@@ -650,11 +649,11 @@
 ;; ---------------------------------
 ;; lists
 
-(define-rosette-primop null? : (Ccase-> (C→ (CListof Any) CBool)
-                                        (C→ (Listof Any) Bool)))
-(define-rosette-primop empty? : (Ccase-> (C→ (CListof Any) CBool)
-                                         (C→ (Listof Any) Bool)))
-(define-rosette-primop list? : CPred)
+(provide (rosette-typed-out [null? : (Ccase-> (C→ (CListof Any) CBool)
+                                              (C→ (Listof Any) Bool))]
+                            [empty? : (Ccase-> (C→ (CListof Any) CBool)
+                                               (C→ (Listof Any) Bool))]
+                            [list? : CPred]))
 
 (define-typed-syntax list
   [(_ e ...) ≫
@@ -941,6 +940,40 @@
    --------
    [⊢ [_ ≫ (ro:map f- lst-) ⇒ : (CListof ty2)]]])
 
+;; TODO: finish andmap
+(define-typed-syntax andmap
+  #;[_:id ≫ ;; TODO: use polymorphism
+   --------
+   [⊢ [_ ≫ ro:andmap ⇒ : (C→ (C→ Any Bool) (CListof Any) Bool)]]]
+  [(_ f lst) ≫
+   [⊢ [f ≫ f- ⇒ : (~C→ ~! ty ty-bool)]]
+   [⊢ [lst ≫ lst- ⇒ : (~CListof _)]]
+   --------
+   [⊢ [_ ≫ (ro:andmap f- lst-) ⇒ : Bool]]]
+  #;[(_ f lst) ≫
+   [⊢ [lst ≫ lst- ⇒ : (~CListof ty)]]
+   [⊢ [f ≫ f- ⇒ : (~Ccase-> ~! ty-fns ...)]] ; find first match
+   #:with (~C→ _ ty2)
+          (for/first ([ty-fn (stx->list #'(ty-fns ...))]
+                      #:when (syntax-parse ty-fn
+                               [(~C→ t1 _) #:when (typecheck? #'ty1 #'t1) #t]
+                               [_ #f]))
+            (displayln (syntax->datum ty-fn))
+            ty-fn)
+   --------
+   [⊢ [_ ≫ (ro:map f- lst-) ⇒ : (CListof ty2)]]]
+  #;[(_ f lst) ≫
+   [⊢ [lst ≫ lst- ⇒ : (~U* (~CListof ty1))]]
+   [⊢ [f ≫ f- ⇒ : (~Ccase-> ~! ty-fns ...)]] ; find first match
+   #:with (~C→ _ ty2)
+          (for/first ([ty-fn (stx->list #'(ty-fns ...))]
+                      #:when (syntax-parse ty-fn
+                               [(~C→ t1 _) #:when (typecheck? #'ty1 #'t1) #t]
+                               [_ #f]))
+            ty-fn)
+   --------
+   [⊢ [_ ≫ (ro:map f- lst-) ⇒ : (CListof ty2)]]])
+
 (define-typed-syntax sort
   [_:id ≫ ;; TODO: use polymorphism
    --------
@@ -1015,7 +1048,8 @@
                                              (C→ Nat Int)
                                              (C→ CInt CInt)
                                              (C→ Int Int))]
-                            [+ : (Ccase-> (C→ CNat CNat CNat)
+                            [+ : (Ccase-> (C→ CZero)
+                                          (C→ CNat CNat CNat)
                                           (C→ CNat CNat CNat CNat)
                                           (C→ CNat CNat CNat CNat CNat)
                                           (C→ Nat Nat Nat)
@@ -1033,7 +1067,8 @@
                                           (C→ Num Num Num)
                                           (C→ Num Num Num Num)
                                           (C→ Num Num Num Num Num))]
-                            [- : (Ccase-> (C→ CInt CInt CInt)
+                            [- : (Ccase-> (C→ CInt CInt)
+                                          (C→ CInt CInt CInt)
                                           (C→ CInt CInt CInt CInt)
                                           (C→ CInt CInt CInt CInt CInt)
                                           (C→ Int Int Int)
@@ -1145,6 +1180,7 @@
                             [true : CTrue]
                             [false : CFalse]
                             [real->integer : (C→ Num Int)]
+                            [string? : (C→ Any Bool)]
                             [number? : (C→ Any Bool)]
                             [positive? : (Ccase-> (C→ CNum CBool)
                                                   (C→ Num Bool))]
@@ -1174,6 +1210,7 @@
 
 ;; ---------------------------------
 ;; more built-in ops
+
 ;(define-rosette-primop boolean? : (C→ Any Bool))
 (define-typed-syntax boolean?
   [_:id ≫
@@ -1188,7 +1225,6 @@
    --------
    [⊢ [_ ≫ (ro:boolean? e-) ⇒ : #,(if (concrete? #'ty) #'CBool #'Bool)]]])
 
-(define-rosette-primop string? : (C→ Any Bool))
 ;(define-rosette-primop integer? : (C→ Any Bool))
 (define-typed-syntax integer?
   [_:id ≫
@@ -1255,13 +1291,14 @@
    --------
    [⊢ [_ ≫ (ro:with-asserts e-) ⇒ : ty]]])
 
-(define-rosette-primop term-cache
-  : (Ccase-> (C→ (CHashTable Any Any))
-             (C→ (CHashTable Any Any) CUnit)))
-(define-rosette-primop clear-terms! 
-  : (Ccase-> (C→ CUnit)
-             (C→ CFalse CUnit)
-             (C→ (CListof Any) CUnit))) ; list of terms
+(provide (rosette-typed-out
+          [term-cache
+           : (Ccase-> (C→ (CHashTable Any Any))
+                      (C→ (CHashTable Any Any) CUnit))]
+          [clear-terms! 
+           : (Ccase-> (C→ CUnit)
+                      (C→ CFalse CUnit)
+                      (C→ (CListof Any) CUnit))])) ; list of terms
 
 ;; ---------------------------------
 ;; BV Types and Operations
@@ -1280,7 +1317,7 @@
    --------
    [⊢ [_ ≫ (ro:current-bitwidth e-) ⇒ : CUnit]]])
 
-(define-named-type-alias BV (add-predm (U CBV) bv?))
+(define-named-type-alias BV (add-predm (U CBV) ro:bv?))
 (define-symbolic-named-type-alias BVPred (C→ Any Bool) #:pred lifted-bitvector?)
 (define-named-type-alias BVMultiArgOp (Ccase-> (C→ BV BV BV)
                                                (C→ BV BV BV BV)))
@@ -1381,7 +1418,7 @@
               (→ ty ... ty-out))))
               ⇒ : (C→ Any Bool)]]])
 
-(define-rosette-primop fv? : (C→ Any Bool))
+(provide (rosette-typed-out [fv? : (C→ Any Bool)]))
 
 ;; function? can produce type CFalse if input does not have type (C→ Any Bool)
 ;; result is always CBool, since anything symbolic returns false
@@ -1616,14 +1653,15 @@
    [⊢ [_ ≫ (ro:current-solver e-) ⇒ : CUnit]]])
 
 ;(define-rosette-primop gen:solver : CSolver)
-(define-rosette-primop solver? : CPred)
-(define-rosette-primop solver-assert : (C→ CSolver (CListof Bool) CUnit))
-(define-rosette-primop solver-clear : (C→ CSolver CUnit))
-(define-rosette-primop solver-minimize : (C→ CSolver (CListof (U Int Num BV)) CUnit))
-(define-rosette-primop solver-maximize : (C→ CSolver (CListof (U Int Num BV)) CUnit))
-(define-rosette-primop solver-check : (C→ CSolver CSolution))
-(define-rosette-primop solver-debug : (C→ CSolver CSolution))
-(define-rosette-primop solver-shutdown : (C→ CSolver CUnit))
+(provide (rosette-typed-out
+          [solver? : CPred]
+          [solver-assert : (C→ CSolver (CListof Bool) CUnit)]
+          [solver-clear : (C→ CSolver CUnit)]
+          [solver-minimize : (C→ CSolver (CListof (U Int Num BV)) CUnit)]
+          [solver-maximize : (C→ CSolver (CListof (U Int Num BV)) CUnit)]
+          [solver-check : (C→ CSolver CSolution)]
+          [solver-debug : (C→ CSolver CSolution)]
+          [solver-shutdown : (C→ CSolver CUnit)]))
 ;; this is in rosette/solver/smt/z3 (is not in #lang rosette)
 ;; make this part of base typed/rosette or separate lib?
 ;(define-rosette-primop z3 : (C→ CSolver))
@@ -1631,12 +1669,13 @@
 ;; ---------------------------------
 ;; Reflecting on symbolic values
 
-(define-rosette-primop term? : CPred)
-(define-rosette-primop expression? : CPred)
-(define-rosette-primop constant? : CPred)
-(define-rosette-primop type? : CPred)
-(define-rosette-primop solvable? : CPred)
-(define-rosette-primop union? : CPred)
+(provide (rosette-typed-out
+          [term? : CPred]
+          [expression? : CPred]
+          [constant? : CPred]
+          [type? : CPred]
+          [solvable? : CPred]
+          [union? : CPred]))
 
 (define-typed-syntax union-contents
   [(_ u) ≫
@@ -1648,9 +1687,9 @@
 ;; TODO: add match and match expanders
 
 ;; TODO: should a type-of expression have a solvable stx prop?
-(define-rosette-primop type-of : (Ccase-> (C→ Any CPred)
-                                          (C→ Any Any CPred)))
-(define-rosette-primop any/c : (C→ Any CTrue))
+(provide (rosette-typed-out [type-of : (Ccase-> (C→ Any CPred)
+                                                (C→ Any Any CPred))]
+                            [any/c : (C→ Any CTrue)]))
 
 (define-typed-syntax for/all
   ;; symbolic e

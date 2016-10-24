@@ -186,7 +186,12 @@
 
 (define-symbolic a1 b1 c1 d1 integer?)
 
-(check-type (hash-values (term-cache)) : (CListof Any) -> (list a1 b1 c1 d1))
+(define (p? [x : Int] -> Bool)
+  (or (eq? x a1) (eq? x b1) (eq? x c1) (eq? x d1)))
+
+(check-type (hash-values (term-cache)) : (CListof Any)); -> (list d1 c1 b1 a1))
+;; make test more deterministic
+(check-type (andmap p? (hash-values (term-cache))) : Bool -> #t)
 ;; (hash
 ;;  #<syntax:23:0 d>
 ;;  d

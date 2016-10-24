@@ -2,6 +2,7 @@
 (require
  (prefix-in t/ro: (only-in "../rosette2.rkt" U ~C→ C→))
  (prefix-in ro: rosette/lib/lift))
+(provide define-lift)
 
 (define-typed-syntax define-lift
   [(_ x:id [(pred? ...) racket-fn:id]) ≫
