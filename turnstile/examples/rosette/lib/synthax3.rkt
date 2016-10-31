@@ -1,12 +1,11 @@
 #lang turnstile
 (require
- (only-in "../rosette3.rkt" rosette-typed-out)
  (prefix-in 
   t/ro:
   (only-in "../rosette3.rkt" U Int Bool C→ CSolution Unit CSyntax CListof))
  (prefix-in ro: rosette/lib/synthax))
 
-(provide (rosette-typed-out [print-forms : (t/ro:C→ t/ro:CSolution t/ro:Unit)])
+(provide (typed-out [print-forms : (t/ro:C→ t/ro:CSolution t/ro:Unit)])
          ??)
 
 (provide generate-forms choose)

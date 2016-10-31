@@ -1,10 +1,12 @@
 #lang turnstile
 (extends "rosette3.rkt" ; extends typed rosette
          #:except bv bveq bvslt bvult bvsle bvule bvsgt bvugt bvsge bvuge)
-(require (prefix-in ro: rosette)) ; untyped 
-(require (only-in sdsl/bv/lang/bvops bvredand bvredor bv bv*)
-         (prefix-in bv: (only-in sdsl/bv/lang/bvops BV)))
-(require sdsl/bv/lang/core (prefix-in bv: sdsl/bv/lang/form))
+(require (prefix-in ro: rosette) ; untyped 
+         (prefix-in bv: sdsl/bv/lang/bvops)
+         (prefix-in bv: sdsl/bv/lang/core)
+         (prefix-in bv: sdsl/bv/lang/form))
+
+(begin-for-syntax (current-host-lang (lambda (id) (format-id id "bv:~a" id))))
 
 (provide Prog Lib
          (typed-out [bv : (Ccase-> (C→ CInt CBV)
@@ -32,8 +34,8 @@
 
 (define-syntax-rule (bv:bool->bv b) 
   (ro:if b 
-         (bv (rosette3:#%datum . 1)) 
-         (bv (rosette3:#%datum . 0))))
+         (bv:bv (rosette3:#%datum . 1)) 
+         (bv:bv (rosette3:#%datum . 0))))
 
 (define-simple-macro (define-comparators id ...)
   #:with (op ...) (stx-map (lambda (o) (format-id o "ro:~a" o)) #'(id ...))

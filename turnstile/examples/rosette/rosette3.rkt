@@ -1,15 +1,31 @@
 #lang turnstile
-(extends "../stlc.rkt" #:except #%module-begin #%app →)
-(reuse #%datum define-type-alias define-named-type-alias
+;; reuse unlifted forms as-is
+(reuse define λ let let* letrec begin void #%datum ann
+       require only-in define-type-alias define-named-type-alias
        #:from "../stlc+union.rkt")
+(require
+ ;; manual imports
+ (only-in "../stlc+union.rkt" define-named-type-alias prune+sort current-sub?)
+ ;; prefix existing types with C (ie, concrete)
+ (prefix-in C
+   (combine-in
+    (only-in "../stlc+union+case.rkt"
+             PosInt Zero NegInt Float True False String Unit [U U*] U*?
+             [case-> case->*] case->? → →?)
+    (only-in "../stlc+cons.rkt" [List Listof])))
+ (only-in "../stlc+union+case.rkt" [~U* ~CU*] [~case-> ~Ccase->] [~→ ~C→])
+ (only-in "../stlc+cons.rkt" [~List ~CListof])
+ ;; base lang
+ (prefix-in ro: rosette)
+ (rename-in "rosette-util.rkt" [bitvector? lifted-bitvector?]))
 
 (provide (rename-out [ro:#%module-begin #%module-begin] 
-                     [stlc:λ lambda])
+                     [stlc+union:λ lambda])
          Any Nothing
          CU U
          Constant
          C→ → (for-syntax ~C→ C→?)
-         Ccase-> (for-syntax ~Ccase-> Ccase->?) ; TODO: symbolic case-> not supported yet
+         Ccase-> (for-syntax ~Ccase-> Ccase->?) ; TODO: sym case-> not supported
          CListof Listof CList CPair Pair
          CVectorof MVectorof IVectorof Vectorof CMVectorof CIVectorof
          CParamof ; TODO: symbolic Param not supported yet
@@ -31,34 +47,9 @@
          CBVPred BVPred
          CSolution CSolver CPict CSyntax)
 
-(require
- (prefix-in ro: rosette)
- (only-in "../stlc+union.rkt" define-named-type-alias prune+sort current-sub?)
- (prefix-in C
-   (combine-in
-    (only-in "../stlc+union+case.rkt"
-             PosInt Zero NegInt Float True False String [U U*] U*?
-             [case-> case->*] case->? → →?)
-    (only-in "../stlc+cons.rkt" Unit [List Listof])))
- (only-in "../stlc+union+case.rkt" [~U* ~CU*] [~case-> ~Ccase->] [~→ ~C→])
- (only-in "../stlc+cons.rkt" [~List ~CListof])
- (only-in "../ext-stlc.rkt" [define stlc:define])
- (rename-in "rosette-util.rkt" [bitvector? lifted-bitvector?]))
-
-;; copied from rosette.rkt
-(provide rosette-typed-out)
-(define-for-syntax (mk-ro:-id id) (format-id id "ro:~a" id))
-
-(define-syntax rosette-typed-out
-  (make-provide-pre-transformer
-   (lambda (stx modes)
-     (syntax-parse stx #:datum-literals (:)
-       ;; cannot write ty:type bc provides might precede type def
-       [(_ (~and (~or (~and [out-x:id (~optional :) ty] (~parse x #'out-x))
-                      [[x:id (~optional :) ty] out-x:id])) ...)
-        #:with (ro-x ...) (stx-map mk-ro:-id #'(x ...))
-        (pre-expand-export (syntax/loc stx (typed-out [[ro-x ty] out-x] ...))
-                           modes)]))))
+(begin-for-syntax
+  (define (mk-ro:-id id) (format-id id "ro:~a" id))
+  (current-host-lang mk-ro:-id))
 
 ;; a legacy auto-providing version of define-typed-syntax
 ;; TODO: convert everything to new define-typed-syntax
@@ -267,7 +258,7 @@
    #:fail-unless (syntax-e #'s?)
                  (format "Expected a Rosette-solvable type, given ~a." 
                          (syntax->datum #'pred?))
-   [([x ≫ x- : (Constant ty)] ...) ⊢ [(begin e ...) ≫ e- ⇒ τ_out]]
+   [([x ≫ x- : (Constant ty)] ...) ⊢ [(stlc+union:begin e ...) ≫ e- ⇒ τ_out]]
    --------
    [⊢ [_ ≫ (ro:let-values
             ([(x- ...) (ro:let ()
@@ -280,7 +271,7 @@
    #:fail-unless (syntax-e #'s?)
                  (format "Expected a Rosette-solvable type, given ~a." 
                          (syntax->datum #'pred?))
-   [([x ≫ x- : (Constant ty)] ...) ⊢ [(begin e ...) ≫ e- ⇒ τ_out]]
+   [([x ≫ x- : (Constant ty)] ...) ⊢ [(stlc+union:begin e ...) ≫ e- ⇒ τ_out]]
    --------
    [⊢ [_ ≫ (ro:let-values
             ([(x- ...) (ro:let ()
@@ -315,24 +306,6 @@
 
 ;; ---------------------------------
 ;; Racket forms
-
-;; TODO: many of these implementations are copied code, with just the macro
-;; output changed to use the ro: version. 
-;; Is there a way to abstract this? macro mixin?
-
-(define-typed-syntax define #:datum-literals (: -> →)
-  [(_ x:id e) ≫
-   --------
-   [_ ≻ (stlc:define x e)]]
-  [(_ (f [x : ty] ... (~or → ->) ty_out) e ...+) ≫
-;   [⊢ [e ≫ e- ⇒ : ty_e]]
-   #:with f- (generate-temporary #'f)
-   --------
-   [_ ≻ (begin-
-          (define-syntax- f
-            (make-rename-transformer (⊢ f- : (C→ ty ... ty_out))))
-          (ro:define f-
-            (stlc:λ ([x : ty] ...) (ann (begin e ...) : ty_out))))]])
 
 ;; TODO: get subtyping to work for struct-generated types?
 ;; TODO: handle mutable structs properly
@@ -408,7 +381,6 @@
 ;; ---------------------------------
 ;; Function Application
 
-;; copied from rosette.rkt
 (define-typed-syntax app #:export-as #%app
   ;; concrete functions
   [(_ e_fn e_arg ...) ≫
@@ -512,60 +484,6 @@
    [⊢ [_ ≫ (ro:if e_tst- e1- e2-) ⇒ : (U ty1 ty2)]]])
    
 ;; ---------------------------------
-;; let, etc (copied from ext-stlc.rkt)
-
-(define-typed-syntax let
-  [(let ([x e] ...) e_body ...) ⇐ : τ_expected ≫
-   [⊢ [e ≫ e- ⇒ : τ_x] ...]
-   [() ([x ≫ x- : τ_x] ...) ⊢ [(begin e_body ...) ≫ e_body- ⇐ : τ_expected]]
-   --------
-   [⊢ [_ ≫ (ro:let ([x- e-] ...) e_body-) ⇐ : _]]]
-  [(let ([x e] ...) e_body ...) ≫
-   [⊢ [e ≫ e- ⇒ : τ_x] ...]
-   [() ([x ≫ x- : τ_x] ...) ⊢ [(begin e_body ...) ≫ e_body- ⇒ : τ_body]]
-   --------
-   [⊢ [_ ≫ (ro:let ([x- e-] ...) e_body-) ⇒ : τ_body]]])
-
-; dont need to manually transfer expected type
-; result template automatically propagates properties
-; - only need to transfer expected type when local expanding an expression
-;   - see let/tc
-(define-typed-syntax let*
-  [(let* () e_body ...) ≫
-   --------
-   [_ ≻ (begin e_body ...)]]
-  [(let* ([x e] [x_rst e_rst] ...) e_body ...) ≫
-   --------
-   [_ ≻ (let ([x e]) (let* ([x_rst e_rst] ...) e_body ...))]])
-
-(define-typed-syntax letrec
-  [(letrec ([b:type-bind e] ...) e_body ...) ⇐ : τ_expected ≫
-   [() ([b.x ≫ x- : b.type] ...)
-    ⊢ [e ≫ e- ⇐ : b.type] ... [(begin e_body ...) ≫ e_body- ⇐ : τ_expected]]
-   --------
-   [⊢ [_ ≫ (ro:letrec ([x- e-] ...) e_body-) ⇐ : _]]]
-  [(letrec ([b:type-bind e] ...) e_body ...) ≫
-   [() ([b.x ≫ x- : b.type] ...)
-    ⊢ [e ≫ e- ⇐ : b.type] ... [(begin e_body ...) ≫ e_body- ⇒ : τ_body]]
-   --------
-   [⊢ [_ ≫ (ro:letrec ([x- e-] ...) e_body-) ⇒ : τ_body]]])
-
-;; --------------------
-;; begin
-
-(define-typed-syntax begin
-  [(begin e_unit ... e) ⇐ : τ_expected ≫
-   [⊢ [e_unit ≫ e_unit- ⇒ : _] ...]
-   [⊢ [e ≫ e- ⇐ : τ_expected]]
-   --------
-   [⊢ [_ ≫ (ro:begin e_unit- ... e-) ⇐ : _]]]
-  [(begin e_unit ... e) ≫
-   [⊢ [e_unit ≫ e_unit- ⇒ : _] ...]
-   [⊢ [e ≫ e- ⇒ : τ_e]]
-   --------
-   [⊢ [_ ≫ (ro:begin e_unit- ... e-) ⇒ : τ_e]]])
-
-;; ---------------------------------
 ;; set!
 
 ;; TODO: use x instead of x-?
@@ -588,7 +506,7 @@
                                         #'(CMVectorof (CU τ ...))
                                         #'(CMVectorof (U τ ...)))]]])
 
-(provide (rosette-typed-out [vector? : CPred]))
+(provide (typed-out [vector? : CPred]))
 
 ;; immutable constructor
 (define-typed-syntax vector-immutable
@@ -653,11 +571,11 @@
 ;; ---------------------------------
 ;; lists
 
-(provide (rosette-typed-out [null? : (Ccase-> (C→ (CListof Any) CBool)
-                                              (C→ (Listof Any) Bool))]
-                            [empty? : (Ccase-> (C→ (CListof Any) CBool)
-                                               (C→ (Listof Any) Bool))]
-                            [list? : CPred]))
+(provide (typed-out [null? : (Ccase-> (C→ (CListof Any) CBool)
+                                      (C→ (Listof Any) Bool))]
+                    [empty? : (Ccase-> (C→ (CListof Any) CBool)
+                                       (C→ (Listof Any) Bool))]
+                    [list? : CPred]))
 
 (define-typed-syntax list
   [(_ e ...) ≫
@@ -1009,208 +927,207 @@
 
 (define-named-type-alias CAsserts (CListof Bool))
 
-(provide (rosette-typed-out [printf : (Ccase-> (C→ CString CUnit)
+(provide (typed-out [printf : (Ccase-> (C→ CString CUnit)
                                                (C→ CString Any CUnit)
                                                (C→ CString Any Any CUnit))]
-                            [displayln : (C→ Any CUnit)]
-                            [pretty-print : (C→ Any CUnit)]
-                            [error : (Ccase-> (C→ (CU CString CSymbol) Nothing)
-                                              (C→ CSymbol CString Nothing))]
-                            [void : (C→ CUnit)]
+                    [displayln : (C→ Any CUnit)]
+                    [pretty-print : (C→ Any CUnit)]
+                    [error : (Ccase-> (C→ (CU CString CSymbol) Nothing)
+                                      (C→ CSymbol CString Nothing))]
 
-                            [string-length : (C→ CString CNat)]
+                    [string-length : (C→ CString CNat)]
 
-                            [equal? : (C→ Any Any Bool)]
-                            [eq? : (C→ Any Any Bool)]
-                            [distinct? : (Ccase-> (C→ Bool)
-                                                  (C→ Any Bool)
-                                                  (C→ Any Any Bool)
-                                                  (C→ Any Any Any Bool)
-                                                  (C→ Any Any Any Any Bool)
-                                                  (C→ Any Any Any Any Any Bool)
-                                                  (C→ Any Any Any Any Any Any Bool))]
-
-                            [pi : CNum]
-
-                            [add1 : (Ccase-> (C→ CNegInt (CU CNegInt CZero))
-                                             (C→ NegInt (U NegInt Zero))
-                                             (C→ CZero CPosInt)
-                                             (C→ Zero PosInt)
-                                             (C→ CPosInt CPosInt)
-                                             (C→ PosInt PosInt)
-                                             (C→ CNat CPosInt)
-                                             (C→ Nat PosInt)
-                                             (C→ CInt CInt)
-                                             (C→ Int Int))]
-                            [sub1 : (Ccase-> (C→ CNegInt CNegInt)
-                                             (C→ NegInt NegInt)
-                                             (C→ CZero CNegInt)
-                                             (C→ Zero NegInt)
-                                             (C→ CPosInt CNat)
-                                             (C→ PosInt Nat)
-                                             (C→ CNat CInt)
-                                             (C→ Nat Int)
-                                             (C→ CInt CInt)
-                                             (C→ Int Int))]
-                            [+ : (Ccase-> (C→ CZero)
-                                          (C→ CNat CNat CNat)
-                                          (C→ CNat CNat CNat CNat)
-                                          (C→ CNat CNat CNat CNat CNat)
-                                          (C→ Nat Nat Nat)
-                                          (C→ Nat Nat Nat Nat)
-                                          (C→ Nat Nat Nat Nat Nat)
-                                          (C→ CInt CInt CInt)
-                                          (C→ CInt CInt CInt CInt)
-                                          (C→ CInt CInt CInt CInt CInt)
-                                          (C→ Int Int Int)
-                                          (C→ Int Int Int Int)
-                                          (C→ Int Int Int Int Int)
-                                          (C→ CNum CNum CNum)
-                                          (C→ CNum CNum CNum CNum)
-                                          (C→ CNum CNum CNum CNum CNum)
-                                          (C→ Num Num Num)
-                                          (C→ Num Num Num Num)
-                                          (C→ Num Num Num Num Num))]
-                            [- : (Ccase-> (C→ CInt CInt)
-                                          (C→ CInt CInt CInt)
-                                          (C→ CInt CInt CInt CInt)
-                                          (C→ CInt CInt CInt CInt CInt)
-                                          (C→ Int Int Int)
-                                          (C→ Int Int Int Int)
-                                          (C→ Int Int Int Int Int)
-                                          (C→ CNum CNum CNum)
-                                          (C→ CNum CNum CNum CNum)
-                                          (C→ CNum CNum CNum CNum CNum)
-                                          (C→ Num Num Num)
-                                          (C→ Num Num Num Num)
-                                          (C→ Num Num Num Num Num))]
-                            [* : (Ccase-> (C→ CNat CNat CNat)
-                                          (C→ CNat CNat CNat CNat)
-                                          (C→ CNat CNat CNat CNat CNat)
-                                          (C→ Nat Nat Nat)
-                                          (C→ Nat Nat Nat Nat)
-                                          (C→ Nat Nat Nat Nat Nat)
-                                          (C→ CInt CInt CInt)
-                                          (C→ CInt CInt CInt CInt)
-                                          (C→ CInt CInt CInt CInt CInt)
-                                          (C→ Int Int Int)
-                                          (C→ Int Int Int Int)
-                                          (C→ Int Int Int Int Int)
-                                          (C→ CNum CNum CNum)
-                                          (C→ CNum CNum CNum CNum)
-                                          (C→ CNum CNum CNum CNum CNum)
-                                          (C→ Num Num Num)
-                                          (C→ Num Num Num Num)
-                                          (C→ Num Num Num Num Num))]
-                            [/ : (Ccase-> (C→ CNum CNum)
-                                          (C→ CNum CNum CNum)
-                                          (C→ CNum CNum CNum CNum)
-                                          (C→ Num Num)
-                                          (C→ Num Num Num)
-                                          (C→ Num Num Num Num))]
-                            [= : (Ccase-> (C→ CNum CNum CBool)
-                                          (C→ CNum CNum CNum CBool)
-                                          (C→ Num Num Bool)
-                                          (C→ Num Num Num Bool))]
-                            [< : (Ccase-> (C→ CNum CNum CBool)
-                                          (C→ CNum CNum CNum CBool)
-                                          (C→ Num Num Bool)
-                                          (C→ Num Num Num Bool))]
-                            [> : (Ccase-> (C→ CNum CNum CBool)
-                                          (C→ CNum CNum CNum CBool)
-                                          (C→ Num Num Bool)
-                                          (C→ Num Num Num Bool))]
-                            [<= : (Ccase-> (C→ CNum CNum CBool)
-                                           (C→ CNum CNum CNum CBool)
-                                           (C→ Num Num Bool)
-                                           (C→ Num Num Num Bool))]
-                            [>= : (Ccase-> (C→ CNum CNum CBool)
-                                           (C→ CNum CNum CNum CBool)
-                                           (C→ Num Num Bool)
-                                           (C→ Num Num Num Bool))]
-
-                            [abs : (Ccase-> (C→ CPosInt CPosInt)
-                                            (C→ PosInt PosInt)
-                                            (C→ CZero CZero)
-                                            (C→ Zero Zero)
-                                            (C→ CNegInt CPosInt)
-                                            (C→ NegInt PosInt)
-                                            (C→ CInt CInt)
-                                            (C→ Int Int)
-                                            (C→ CNum CNum)
-                                            (C→ Num Num))]
-                            
-                            [max : (Ccase-> (C→ CInt CInt CInt)
-                                            (C→ CInt CInt CInt CInt)
-                                            (C→ CNum CNum CNum)
-                                            (C→ CNum CNum CNum CNum)
-                                            (C→ Int Int Int)
-                                            (C→ Int Int Int Int)
-                                            (C→ Num Num Num)
-                                            (C→ Num Num Num Num))]
-                            [min : (Ccase-> (C→ CInt CInt CInt)
-                                            (C→ CInt CInt CInt CInt)
-                                            (C→ CNum CNum CNum)
-                                            (C→ CNum CNum CNum CNum)
-                                            (C→ Int Int Int)
-                                            (C→ Int Int Int Int)
-                                            (C→ Num Num Num)
-                                            (C→ Num Num Num Num))] 
-                            ;; out type for these fns must be CNum, because of +inf.0 and +nan.0
-                            [floor : (Ccase-> (C→ CNum CNum)
+                    [equal? : (C→ Any Any Bool)]
+                    [eq? : (C→ Any Any Bool)]
+                    [distinct? : (Ccase-> (C→ Bool)
+                                          (C→ Any Bool)
+                                          (C→ Any Any Bool)
+                                          (C→ Any Any Any Bool)
+                                          (C→ Any Any Any Any Bool)
+                                          (C→ Any Any Any Any Any Bool)
+                                          (C→ Any Any Any Any Any Any Bool))]
+                    
+                    [pi : CNum]
+                    
+                    [add1 : (Ccase-> (C→ CNegInt (CU CNegInt CZero))
+                                     (C→ NegInt (U NegInt Zero))
+                                     (C→ CZero CPosInt)
+                                     (C→ Zero PosInt)
+                                     (C→ CPosInt CPosInt)
+                                     (C→ PosInt PosInt)
+                                     (C→ CNat CPosInt)
+                                     (C→ Nat PosInt)
+                                     (C→ CInt CInt)
+                                     (C→ Int Int))]
+                    [sub1 : (Ccase-> (C→ CNegInt CNegInt)
+                                     (C→ NegInt NegInt)
+                                     (C→ CZero CNegInt)
+                                     (C→ Zero NegInt)
+                                     (C→ CPosInt CNat)
+                                     (C→ PosInt Nat)
+                                     (C→ CNat CInt)
+                                     (C→ Nat Int)
+                                     (C→ CInt CInt)
+                                     (C→ Int Int))]
+                    [+ : (Ccase-> (C→ CZero)
+                                  (C→ CNat CNat CNat)
+                                  (C→ CNat CNat CNat CNat)
+                                  (C→ CNat CNat CNat CNat CNat)
+                                  (C→ Nat Nat Nat)
+                                  (C→ Nat Nat Nat Nat)
+                                  (C→ Nat Nat Nat Nat Nat)
+                                  (C→ CInt CInt CInt)
+                                  (C→ CInt CInt CInt CInt)
+                                  (C→ CInt CInt CInt CInt CInt)
+                                  (C→ Int Int Int)
+                                  (C→ Int Int Int Int)
+                                  (C→ Int Int Int Int Int)
+                                  (C→ CNum CNum CNum)
+                                  (C→ CNum CNum CNum CNum)
+                                  (C→ CNum CNum CNum CNum CNum)
+                                  (C→ Num Num Num)
+                                  (C→ Num Num Num Num)
+                                  (C→ Num Num Num Num Num))]
+                    [- : (Ccase-> (C→ CInt CInt)
+                                  (C→ CInt CInt CInt)
+                                  (C→ CInt CInt CInt CInt)
+                                  (C→ CInt CInt CInt CInt CInt)
+                                  (C→ Int Int Int)
+                                  (C→ Int Int Int Int)
+                                  (C→ Int Int Int Int Int)
+                                  (C→ CNum CNum CNum)
+                                  (C→ CNum CNum CNum CNum)
+                                  (C→ CNum CNum CNum CNum CNum)
+                                  (C→ Num Num Num)
+                                  (C→ Num Num Num Num)
+                                  (C→ Num Num Num Num Num))]
+                    [* : (Ccase-> (C→ CNat CNat CNat)
+                                  (C→ CNat CNat CNat CNat)
+                                  (C→ CNat CNat CNat CNat CNat)
+                                  (C→ Nat Nat Nat)
+                                  (C→ Nat Nat Nat Nat)
+                                  (C→ Nat Nat Nat Nat Nat)
+                                  (C→ CInt CInt CInt)
+                                  (C→ CInt CInt CInt CInt)
+                                  (C→ CInt CInt CInt CInt CInt)
+                                  (C→ Int Int Int)
+                                  (C→ Int Int Int Int)
+                                  (C→ Int Int Int Int Int)
+                                  (C→ CNum CNum CNum)
+                                  (C→ CNum CNum CNum CNum)
+                                  (C→ CNum CNum CNum CNum CNum)
+                                  (C→ Num Num Num)
+                                  (C→ Num Num Num Num)
+                                  (C→ Num Num Num Num Num))]
+                    [/ : (Ccase-> (C→ CNum CNum)
+                                  (C→ CNum CNum CNum)
+                                  (C→ CNum CNum CNum CNum)
+                                  (C→ Num Num)
+                                  (C→ Num Num Num)
+                                  (C→ Num Num Num Num))]
+                    [= : (Ccase-> (C→ CNum CNum CBool)
+                                  (C→ CNum CNum CNum CBool)
+                                  (C→ Num Num Bool)
+                                  (C→ Num Num Num Bool))]
+                    [< : (Ccase-> (C→ CNum CNum CBool)
+                                  (C→ CNum CNum CNum CBool)
+                                  (C→ Num Num Bool)
+                                  (C→ Num Num Num Bool))]
+                    [> : (Ccase-> (C→ CNum CNum CBool)
+                                  (C→ CNum CNum CNum CBool)
+                                  (C→ Num Num Bool)
+                                  (C→ Num Num Num Bool))]
+                    [<= : (Ccase-> (C→ CNum CNum CBool)
+                                   (C→ CNum CNum CNum CBool)
+                                   (C→ Num Num Bool)
+                                   (C→ Num Num Num Bool))]
+                    [>= : (Ccase-> (C→ CNum CNum CBool)
+                                   (C→ CNum CNum CNum CBool)
+                                   (C→ Num Num Bool)
+                                   (C→ Num Num Num Bool))]
+                    
+                    [abs : (Ccase-> (C→ CPosInt CPosInt)
+                                    (C→ PosInt PosInt)
+                                    (C→ CZero CZero)
+                                    (C→ Zero Zero)
+                                    (C→ CNegInt CPosInt)
+                                    (C→ NegInt PosInt)
+                                    (C→ CInt CInt)
+                                    (C→ Int Int)
+                                    (C→ CNum CNum)
+                                    (C→ Num Num))]
+                    
+                    [max : (Ccase-> (C→ CInt CInt CInt)
+                                    (C→ CInt CInt CInt CInt)
+                                    (C→ CNum CNum CNum)
+                                    (C→ CNum CNum CNum CNum)
+                                    (C→ Int Int Int)
+                                    (C→ Int Int Int Int)
+                                    (C→ Num Num Num)
+                                    (C→ Num Num Num Num))]
+                    [min : (Ccase-> (C→ CInt CInt CInt)
+                                    (C→ CInt CInt CInt CInt)
+                                    (C→ CNum CNum CNum)
+                                    (C→ CNum CNum CNum CNum)
+                                    (C→ Int Int Int)
+                                    (C→ Int Int Int Int)
+                                    (C→ Num Num Num)
+                                    (C→ Num Num Num Num))] 
+                    ;; out type for these fns must be CNum, because of +inf.0 and +nan.0
+                    [floor : (Ccase-> (C→ CNum CNum)
                                               (C→ Num Num))]
-                            [ceiling : (Ccase-> (C→ CNum CNum)
-                                                (C→ Num Num))]
-                            [truncate : (Ccase-> (C→ CNum CNum)
-                                                 (C→ Num Num))]
-                            [sgn : (Ccase-> (C→ CZero CZero)
-                                            (C→ Zero Zero)
-                                            (C→ CInt CInt)
-                                            (C→ Int Int)
-                                            (C→ CNum CNum)
-                                            (C→ Num Num))]
-
-                            [expt : (Ccase-> (C→ CNum CZero CPosInt)
-                                             (C→ Num Zero PosInt)
-                                             (C→ CInt CInt CInt)
-                                             (C→ Int Int Int)
-                                             (C→ CNum CNum CNum)
-                                             (C→ Num Num Num))]
-                            
-                            [not : (C→ Any Bool)]
-                            [xor : (C→ Any Any Any)]
-                            [false? : (C→ Any Bool)]
-
-                            [true : CTrue]
-                            [false : CFalse]
-                            [real->integer : (C→ Num Int)]
-                            [string? : (C→ Any Bool)]
-                            [number? : (C→ Any Bool)]
-                            [positive? : (Ccase-> (C→ CNum CBool)
-                                                  (C→ Num Bool))]
-                            [negative? : (Ccase-> (C→ CNum CBool)
-                                                  (C→ Num Bool))]
-                            [zero? : (Ccase-> (C→ CNum CBool)
-                                              (C→ Num Bool))]
-                            [even? : (Ccase-> (C→ CInt CBool)
-                                              (C→ Int Bool))]
-                            [odd? : (Ccase-> (C→ CInt CBool)
-                                             (C→ Int Bool))]
-                            [inexact->exact : (Ccase-> (C→ CNum CNum)
+                    [ceiling : (Ccase-> (C→ CNum CNum)
+                                        (C→ Num Num))]
+                    [truncate : (Ccase-> (C→ CNum CNum)
+                                         (C→ Num Num))]
+                    [sgn : (Ccase-> (C→ CZero CZero)
+                                    (C→ Zero Zero)
+                                    (C→ CInt CInt)
+                                    (C→ Int Int)
+                                    (C→ CNum CNum)
+                                    (C→ Num Num))]
+                    
+                    [expt : (Ccase-> (C→ CNum CZero CPosInt)
+                                     (C→ Num Zero PosInt)
+                                     (C→ CInt CInt CInt)
+                                     (C→ Int Int Int)
+                                     (C→ CNum CNum CNum)
+                                     (C→ Num Num Num))]
+                    
+                    [not : (C→ Any Bool)]
+                    [xor : (C→ Any Any Any)]
+                    [false? : (C→ Any Bool)]
+                    
+                    [true : CTrue]
+                    [false : CFalse]
+                    [real->integer : (C→ Num Int)]
+                    [string? : (C→ Any Bool)]
+                    [number? : (C→ Any Bool)]
+                    [positive? : (Ccase-> (C→ CNum CBool)
+                                          (C→ Num Bool))]
+                    [negative? : (Ccase-> (C→ CNum CBool)
+                                          (C→ Num Bool))]
+                    [zero? : (Ccase-> (C→ CNum CBool)
+                                      (C→ Num Bool))]
+                    [even? : (Ccase-> (C→ CInt CBool)
+                                      (C→ Int Bool))]
+                    [odd? : (Ccase-> (C→ CInt CBool)
+                                     (C→ Int Bool))]
+                    [inexact->exact : (Ccase-> (C→ CNum CNum)
                                                        (C→ Num Num))]
-                            [exact->inexact : (Ccase-> (C→ CNum CNum)
-                                                       (C→ Num Num))]
-                            [quotient : (Ccase-> (C→ CInt CInt CInt)
-                                                 (C→ Int Int Int))]
-                            [remainder : (Ccase-> (C→ CInt CInt CInt)
-                                                  (C→ Int Int Int))]
-                            [modulo : (Ccase-> (C→ CInt CInt CInt)
-                                               (C→ Int Int Int))]
-                            
-                            ;; rosette-specific
-                            [pc : (C→ Bool)]
-                            [asserts : (C→ CAsserts)]
-                            [clear-asserts! : (C→ CUnit)]))
+                    [exact->inexact : (Ccase-> (C→ CNum CNum)
+                                               (C→ Num Num))]
+                    [quotient : (Ccase-> (C→ CInt CInt CInt)
+                                         (C→ Int Int Int))]
+                    [remainder : (Ccase-> (C→ CInt CInt CInt)
+                                          (C→ Int Int Int))]
+                    [modulo : (Ccase-> (C→ CInt CInt CInt)
+                                       (C→ Int Int Int))]
+                    
+                    ;; rosette-specific
+                    [pc : (C→ Bool)]
+                    [asserts : (C→ CAsserts)]
+                    [clear-asserts! : (C→ CUnit)]))
 
 ;; ---------------------------------
 ;; more built-in ops
@@ -1295,7 +1212,7 @@
    --------
    [⊢ [_ ≫ (ro:with-asserts e-) ⇒ : ty]]])
 
-(provide (rosette-typed-out
+(provide (typed-out
           [term-cache
            : (Ccase-> (C→ (CHashTable Any Any))
                       (C→ (CHashTable Any Any) CUnit))]
@@ -1326,51 +1243,51 @@
 (define-named-type-alias BVMultiArgOp (Ccase-> (C→ BV BV BV)
                                                (C→ BV BV BV BV)))
 
-(provide (rosette-typed-out [bv : (Ccase-> (C→ CInt CBVPred CBV)
-                                           (C→ CInt CPosInt CBV))]
-                            [bv? : (C→ Any Bool)]
-
-                            [bveq : (C→ BV BV Bool)]
-                            [bvslt : (C→ BV BV Bool)]
-                            [bvult : (C→ BV BV Bool)]
-                            [bvsle : (C→ BV BV Bool)]
-                            [bvule : (C→ BV BV Bool)]
-                            [bvsgt : (C→ BV BV Bool)]
-                            [bvugt : (C→ BV BV Bool)]
-                            [bvsge : (C→ BV BV Bool)]
-                            [bvuge : (C→ BV BV Bool)]
-
-                            [bvnot : (C→ BV BV)]
-
-                            [bvand : (C→ BV BV BV)]
-                            [bvor : (C→ BV BV BV)]
-                            [bvxor : (C→ BV BV BV)]
-
-                            [bvshl : (C→ BV BV BV)]
-                            [bvlshr : (C→ BV BV BV)]
-                            [bvashr : (C→ BV BV BV)]
-                            [bvneg : (C→ BV BV)]
-
-                            [bvadd : BVMultiArgOp]
-                            [bvsub : BVMultiArgOp]
-                            [bvmul : BVMultiArgOp]
-
-                            [bvsdiv : (C→ BV BV BV)]
-                            [bvudiv : (C→ BV BV BV)]
-                            [bvsrem : (C→ BV BV BV)]
-                            [bvurem : (C→ BV BV BV)]
-                            [bvsmod : (C→ BV BV BV)]
-
-                            [concat : BVMultiArgOp]
-                            [extract : (C→ Int Int BV BV)]
-                            [sign-extend : (C→ BV CBVPred BV)]
-                            [zero-extend : (C→ BV BVPred BV)]
-
-                            [bitvector->integer : (C→ BV Int)]
-                            [bitvector->natural : (C→ BV Nat)]
-                            [integer->bitvector : (C→ Int BVPred BV)]
-
-                            [bitvector-size : (C→ CBVPred CPosInt)]))
+(provide (typed-out [bv : (Ccase-> (C→ CInt CBVPred CBV)
+                                   (C→ CInt CPosInt CBV))]
+                    [bv? : (C→ Any Bool)]
+                    
+                    [bveq : (C→ BV BV Bool)]
+                    [bvslt : (C→ BV BV Bool)]
+                    [bvult : (C→ BV BV Bool)]
+                    [bvsle : (C→ BV BV Bool)]
+                    [bvule : (C→ BV BV Bool)]
+                    [bvsgt : (C→ BV BV Bool)]
+                    [bvugt : (C→ BV BV Bool)]
+                    [bvsge : (C→ BV BV Bool)]
+                    [bvuge : (C→ BV BV Bool)]
+                    
+                    [bvnot : (C→ BV BV)]
+                    
+                    [bvand : (C→ BV BV BV)]
+                    [bvor : (C→ BV BV BV)]
+                    [bvxor : (C→ BV BV BV)]
+                    
+                    [bvshl : (C→ BV BV BV)]
+                    [bvlshr : (C→ BV BV BV)]
+                    [bvashr : (C→ BV BV BV)]
+                    [bvneg : (C→ BV BV)]
+                    
+                    [bvadd : BVMultiArgOp]
+                    [bvsub : BVMultiArgOp]
+                    [bvmul : BVMultiArgOp]
+                    
+                    [bvsdiv : (C→ BV BV BV)]
+                    [bvudiv : (C→ BV BV BV)]
+                    [bvsrem : (C→ BV BV BV)]
+                    [bvurem : (C→ BV BV BV)]
+                    [bvsmod : (C→ BV BV BV)]
+                    
+                    [concat : BVMultiArgOp]
+                    [extract : (C→ Int Int BV BV)]
+                    [sign-extend : (C→ BV CBVPred BV)]
+                    [zero-extend : (C→ BV BVPred BV)]
+                    
+                    [bitvector->integer : (C→ BV Int)]
+                    [bitvector->natural : (C→ BV Nat)]
+                    [integer->bitvector : (C→ Int BVPred BV)]
+                    
+                    [bitvector-size : (C→ CBVPred CPosInt)]))
 
 ;(define-rosette-primop bitvector : (C→ CPosInt CBVPred))
 (define-typed-syntax bitvector
@@ -1422,7 +1339,7 @@
               (→ ty ... ty-out))))
               ⇒ : (C→ Any Bool)]]])
 
-(provide (rosette-typed-out [fv? : (C→ Any Bool)]))
+(provide (typed-out [fv? : (C→ Any Bool)]))
 
 ;; function? can produce type CFalse if input does not have type (C→ Any Bool)
 ;; result is always CBool, since anything symbolic returns false
@@ -1442,9 +1359,9 @@
 
 ;; ---------------------------------
 ;; Logic operators
-(provide (rosette-typed-out [! : (C→ Bool Bool)]
-                            [<=> : (C→ Bool Bool Bool)]
-                            [=> : (C→ Bool Bool Bool)]))
+(provide (typed-out [! : (C→ Bool Bool)]
+                    [<=> : (C→ Bool Bool Bool)]
+                    [=> : (C→ Bool Bool Bool)]))
 
 (define-typed-syntax &&
   [_:id ≫
@@ -1520,17 +1437,17 @@
 
 (define-base-types CSolution CSolver CPict CSyntax)
 
-(provide (rosette-typed-out [sat? : (C→ Any Bool)]
-                            [unsat? : (C→ Any Bool)]
-                            [solution? : CPred]
-                            [unknown? : CPred]
-                            [sat : (Ccase-> (C→ CSolution)
-                                            (C→ (CHashTable Any Any) CSolution))]
-                            [unsat : (Ccase-> (C→ CSolution)
-                                              (C→ (CListof Bool) CSolution))]
-                            [unknown : (C→ CSolution)]
-                            [model : (C→ CSolution (CHashTable Any Any))]
-                            [core : (C→ CSolution (U (Listof Any) CFalse))]))
+(provide (typed-out [sat? : (C→ Any Bool)]
+                    [unsat? : (C→ Any Bool)]
+                    [solution? : CPred]
+                    [unknown? : CPred]
+                    [sat : (Ccase-> (C→ CSolution)
+                                    (C→ (CHashTable Any Any) CSolution))]
+                    [unsat : (Ccase-> (C→ CSolution)
+                                      (C→ (CListof Bool) CSolution))]
+                    [unknown : (C→ CSolution)]
+                    [model : (C→ CSolution (CHashTable Any Any))]
+                    [core : (C→ CSolution (U (Listof Any) CFalse))]))
 
 ;(define-rosette-primop forall : (C→ (CListof Any) Bool Bool))
 ;(define-rosette-primop exists : (C→ (CListof Any) Bool Bool))
@@ -1657,7 +1574,7 @@
    [⊢ [_ ≫ (ro:current-solver e-) ⇒ : CUnit]]])
 
 ;(define-rosette-primop gen:solver : CSolver)
-(provide (rosette-typed-out
+(provide (typed-out
           [solver? : CPred]
           [solver-assert : (C→ CSolver (CListof Bool) CUnit)]
           [solver-clear : (C→ CSolver CUnit)]
@@ -1673,7 +1590,7 @@
 ;; ---------------------------------
 ;; Reflecting on symbolic values
 
-(provide (rosette-typed-out
+(provide (typed-out
           [term? : CPred]
           [expression? : CPred]
           [constant? : CPred]
@@ -1691,9 +1608,9 @@
 ;; TODO: add match and match expanders
 
 ;; TODO: should a type-of expression have a solvable stx prop?
-(provide (rosette-typed-out [type-of : (Ccase-> (C→ Any CPred)
-                                                (C→ Any Any CPred))]
-                            [any/c : (C→ Any CTrue)]))
+(provide (typed-out [type-of : (Ccase-> (C→ Any CPred)
+                                        (C→ Any Any CPred))]
+                    [any/c : (C→ Any CTrue)]))
 
 (define-typed-syntax for/all
   ;; symbolic e
