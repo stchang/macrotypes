@@ -210,7 +210,10 @@
 (check-type (&&) : Bool -> #t)
 (check-type (||) : Bool -> #f)
 ; no shortcircuiting
-(check-type (&& #f (begin (displayln "hello") #t))  : Bool -> #f)
+(check-type (&& #f (begin (display "") #t))  : Bool -> #f)
+(check-type
+ (with-output-to-string (λ () (&& #f (begin (displayln "hello") #t))))
+ : CString -> "hello\n")
 (define-symbolic a boolean?)
  ; this typechecks only when b is true
 (check-type (&& a (assert-type (if b #t 1) : Bool)) : Bool -> a)
@@ -218,7 +221,10 @@
 (check-type (asserts) : (CListof Bool) -> (list b))
 (clear-asserts!)
 ; no shortcircuiting
-(check-type (=> #f (begin (displayln "hello") #f))  : Bool -> #t)
+(check-type (=> #f (begin (display "") #f))  : Bool -> #t)
+(check-type
+ (with-output-to-string (λ () (=> #f (begin (displayln "hello") #f))))
+ : CString -> "hello\n")
 ; this typechecks only when b is true
 (check-type (<=> a (assert-type (if b #t 1) : Bool)) : Bool -> a)
 ; so Rosette emits a corresponding assertion

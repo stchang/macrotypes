@@ -10,10 +10,20 @@
 (define (div2 [x : BV] -> BV)
   ([choose bvshl bvashr bvlshr bvadd bvsub bvmul] x (?? (bitvector 8))))
 (define-symbolic i (bitvector 8))
-(print-forms
- (synthesize #:forall (list i)
-             #:guarantee (assert (equal? (div2 i) (bvudiv i (bv 2 8))))))
-(printf "expected output:\n~a\n" 
+(check-type
+ (print-forms
+  (synthesize #:forall (list i)
+              #:guarantee (assert (equal? (div2 i) (bvudiv i (bv 2 8))))))
+ : Unit)
+(check-type
+ (with-output-to-string
+   (λ ()
+     (print-forms
+      (synthesize #:forall (list i)
+                  #:guarantee (assert (equal? (div2 i) (bvudiv i (bv 2 8))))))))
+ : CString
+ -> "/home/stchang/NEU_Research/macrotypes/turnstile/examples/tests/rosette/rosette3/rosette-guide-sec6-tests.rkt:10:0\n'(define (div2 (x : BV) -> BV) (bvlshr x (bv 1 8)))\n")
+#;(printf "expected output:\n~a\n" 
         "'(define (div2 [x : BV] -> BV) (bvlshr x (bv 1 8)))")
 
 ;; TODO: define-synthax

@@ -1,6 +1,6 @@
 #lang turnstile
 ;; reuse unlifted forms as-is
-(reuse define λ let let* letrec begin void #%datum ann
+(reuse define λ let let* letrec begin void #%datum ann #%top-interaction
        require only-in define-type-alias define-named-type-alias
        #:from "../stlc+union.rkt")
 (require
@@ -21,7 +21,7 @@
 
 (provide (rename-out [ro:#%module-begin #%module-begin] 
                      [stlc+union:λ lambda])
-         Any Nothing
+         Any CNothing Nothing
          CU U
          Constant
          C→ → (for-syntax ~C→ C→?)
@@ -96,8 +96,6 @@
                    "CU requires concrete types"
      #'(CU* . tys+)]))
 
-(define-named-type-alias Nothing (CU))
-
 ;; internal symbolic union constructor
 (define-type-constructor U* #:arity >= 0)
 
@@ -109,6 +107,9 @@
      #:with ((~or (~U* ty1- ...) (~CU* ty2- ...) ty3-) ...) (stx-map (current-type-eval) #'tys)
      #:with tys- (prune+sort #'(ty1- ... ... ty2- ... ... ty3- ...))
      #'(U* . tys-)]))
+
+(define-named-type-alias CNothing (CU))
+(define-named-type-alias Nothing (U))
 
 ;; internal symbolic constant constructor
 (define-type-constructor Constant* #:arity = 1)
@@ -289,7 +290,7 @@
    [⊢ [_ ≫ (ro:assert e-) ⇒ : CUnit]]]
   [(_ e m) ≫
    [⊢ [e ≫ e- ⇒ : _]]
-   [⊢ [m ≫ m- ⇐ : (CU CString (C→ Nothing))]]
+   [⊢ [m ≫ m- ⇐ : (CU CString (C→ CNothing))]]
    --------
    [⊢ [_ ≫ (ro:assert e- m-) ⇒ : CUnit]]])
 
@@ -930,10 +931,12 @@
 (provide (typed-out [printf : (Ccase-> (C→ CString CUnit)
                                                (C→ CString Any CUnit)
                                                (C→ CString Any Any CUnit))]
+                    [display : (C→ Any CUnit)]
                     [displayln : (C→ Any CUnit)]
+                    [with-output-to-string : (C→ (C→ Any) CString)]
                     [pretty-print : (C→ Any CUnit)]
-                    [error : (Ccase-> (C→ (CU CString CSymbol) Nothing)
-                                      (C→ CSymbol CString Nothing))]
+                    [error : (Ccase-> (C→ (CU CString CSymbol) CNothing)
+                                      (C→ CSymbol CString CNothing))]
 
                     [string-length : (C→ CString CNat)]
 
