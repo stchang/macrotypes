@@ -721,7 +721,8 @@
    (lambda (stx modes)
      (syntax-parse stx #:datum-literals (:)
        ;; cannot write ty:type bc provides might precede type def
-       [(_ (~and (~or (~and [out-x:id (~optional :) ty] (~parse x #'out-x))
+       [(_ (~and (~or (~and [out-x:id (~optional :) ty]
+                            (~parse x ((current-host-lang) #'out-x)))
                       [[x:id (~optional :) ty] out-x:id])) ...)
         #:with (x/tc ...) (generate-temporaries #'(x ...))
         #:when (stx-map
@@ -735,7 +736,7 @@
 (define-syntax define-primop
   (syntax-parser #:datum-literals (:)
     [(define-primop op:id (~optional :) τ)
-     #:with op- (format-id #'op "~a-" #'op)
+     #:with op- ((current-host-lang) #'op)
      #'(define-primop op op- τ)]
     [(define-primop op/tc:id (~optional #:as) op:id (~optional :) τ:type)
      ; rename-transformer doesnt seem to expand at the right time

@@ -1,5 +1,6 @@
 #lang turnstile
-(require racket/fixnum racket/flonum)
+(require (postfix-in - racket/fixnum)
+         (postfix-in - racket/flonum))
 
 (extends
  "ext-stlc.rkt"
