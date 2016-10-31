@@ -491,10 +491,14 @@
 ;; ---------------------------------
 ;; if
 
+;; TODO: this is not precise enough
+;; specifically, a symbolic non-bool should produce a concrete val
 (define-typed-syntax if
   [(_ e_tst e1 e2) ≫
    [⊢ [e_tst ≫ e_tst- ⇒ : ty_tst]]
-   #:when (concrete? #'ty_tst)
+   #:when (or (concrete? #'ty_tst) ; either concrete
+              ; or non-bool symbolic
+              (not (typecheck? #'ty_tst ((current-type-eval) #'Bool))))
    [⊢ [e1 ≫ e1- ⇒ : ty1]]
    [⊢ [e2 ≫ e2- ⇒ : ty2]]
    #:when (and (concrete? #'ty1) (concrete? #'ty2))

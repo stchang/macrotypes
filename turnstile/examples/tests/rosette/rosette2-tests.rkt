@@ -107,6 +107,7 @@
  #:with-msg "Constant requires a symbolic type")
 (check-type b0 : Bool -> b0)
 (check-type b0 : (Constant Bool) -> b0)
+(check-not-type b0 : CBool)
 (check-type i0 : Int -> i0)
 (check-type i0 : (Constant Int) -> i0)
 (check-type (if b0 1 2) : Int)
