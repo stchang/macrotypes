@@ -76,7 +76,10 @@
   ;; extract-filename : PathString -> String
   (define (extract-filename f)
     (path->string (path-replace-suffix (file-name-from-path f) "")))
-  (define-syntax-parameter stx (syntax-rules ())))
+  (define-syntax-parameter stx (syntax-rules ()))
+
+  ;; parameter is an identifier transformer
+  (define current-host-lang (make-parameter mk--)))
 
 ;; non-Turnstile define-typed-syntax
 ;; TODO: potentially confusing? get rid of this?
