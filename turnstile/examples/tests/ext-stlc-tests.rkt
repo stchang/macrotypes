@@ -135,6 +135,26 @@
  #:with-msg 
  "branches have incompatible types: Int and String")
 
+;; top-level defines (from mlish-tests.rkt)
+(define (f [x : Int] → Int) x)
+(typecheck-fail (f 1 2)
+ #:with-msg "f: wrong number of arguments: expected 1, given 2")
+(check-type f : (→ Int Int))
+(check-type (f 1) : Int ⇒ 1)
+(typecheck-fail (f (λ ([x : Int]) x)))
+
+;; recursive fn
+(define (recf [x : Int] → Int) (recf x))
+(check-type recf : (→ Int Int))
+
+(define (countdown [x : Int] → Int)
+  (if (zero? x)
+      0
+      (countdown (sub1 x))))
+(check-type (countdown 0) : Int ⇒ 0)
+(check-type (countdown 10) : Int ⇒ 0)
+(typecheck-fail (countdown "10") #:with-msg "expected Int, given String")
+
 ;; tests from stlc+lit-tests.rkt --------------------------
 ; most should pass, some failing may now pass due to added types/forms
 (check-type 1 : Int)
