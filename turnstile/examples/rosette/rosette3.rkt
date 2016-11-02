@@ -45,7 +45,7 @@
          ;; BV types
          CBV BV
          CBVPred BVPred
-         CSolution CSolver CPict CSyntax)
+         CSolution CSolver CPict CSyntax CRegexp CSymbol)
 
 (begin-for-syntax
   (define (mk-ro:-id id) (format-id id "ro:~a" id))
@@ -71,7 +71,7 @@
   (define (concrete? t)
     (not (or (Any? t) (U*? t) (Constant*? t)))))
 
-(define-base-types Any CBV CStx CSymbol)
+(define-base-types Any CBV CStx CSymbol CRegexp)
 ;; CVectorof includes all vectors
 ;; CIVectorof includes only immutable vectors
 ;; CMVectorof includes only mutable vectors

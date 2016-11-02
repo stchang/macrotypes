@@ -1,3 +1,35 @@
+2016-11-02 --------------------
+** Problem: typed forms should not expand all the way down
+
+- doing so interferes with the ability to layer a type system on top of a
+  Racket-embedded DSL
+
+Specific problems (assume host lang ids have prefix "host:")
+1) syntax parameters
+
+typed #%app expands to #'(host:#%app e1+ e2+)
+
+stx parameterizes in host:#%app will not catch param instances in e1 and e2
+since e1+ and e2+ are already fully expanded
+
+see rosette:define/debug as an example
+
+2) syntax taints
+
+If the host lang (eg rosette) uses syntax rules, then the typed layer will
+induce taint errs when trying to decompose expanded stx objs
+
+** Possible solution:
+
+Delimit expansion with special (prompt) macro representing the host lang.
+
+Further requirements for this solution:
+1) cannot wrap stx objs with extra racket forms, as infer does
+- workound by converting to explicit internal definition contexts rather than
+  lambda wrappers?
+2) local expand must use a stop list containing host lang prompt macro
+
+
 2016-09-08 --------------------
 
 ** Problem: Constant is unsound:

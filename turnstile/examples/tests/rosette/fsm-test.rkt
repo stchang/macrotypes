@@ -41,3 +41,6 @@
 (check-type (verify-automaton m #px"^c[ad]+r$") : (List Symbol) -> '(c r))
 (check-type (debug-automaton m #px"^c[ad]+r$" '(c r)) : Pict)
 (check-type (synthesize-automaton M #px"^c[ad]+r$") : Unit)
+ (verify-automaton m #px"^c[ad]+r$")
+ (debug-automaton m #px"^c[ad]+r$" '(c r))
+ (synthesize-automaton M #px"^c[ad]+r$")

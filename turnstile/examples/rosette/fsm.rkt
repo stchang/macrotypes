@@ -1,13 +1,14 @@
 #lang turnstile
 (extends "rosette.rkt" #:except #%datum #%app) ; extends typed rosette
-(require (prefix-in ro: rosette)) ; untyped 
-(require (prefix-in ro: rosette/lib/synthax))
-(require (prefix-in fsm: sdsl/fsm/fsm))
-(require (only-in sdsl/fsm/fsm
-                  reject verify-automaton debug-automaton synthesize-automaton))
-(provide (rename-out [rosette:choose ?]))
+(require (for-syntax lens unstable/lens)
+         (prefix-in ro: rosette) ; untyped
+         ;(prefix-in ro: rosette/lib/synthax)
+         (prefix-in fsm: sdsl/fsm/fsm))
 
-(provide FSM State Pict
+(begin-for-syntax (current-host-lang (lambda (id) (format-id id "fsm:~a" id))))
+
+(provide (rename-out [rosette:choose ?])
+         FSM State Pict
          (typed-out [reject : State]
                     [verify-automaton : (→ FSM Regexp (List Symbol))]
                     [debug-automaton : (→ FSM Regexp (List Symbol) Pict)]

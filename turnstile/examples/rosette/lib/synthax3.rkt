@@ -39,10 +39,11 @@
   [(ch e ...+) ≫
    [⊢ [e ≫ e- ⇒ : ty]] ...
    #:with (e/disarmed ...) (stx-map replace-stx-loc #'(e- ...) #'(e ...))
-   --------
    ;; the #'choose identifier itself must have the location of its use
    ;; see define-synthax implementation, specifically syntax/source in utils
-   [⊢ [_ ≫ (#,(syntax/loc #'ch ro:choose) e/disarmed ...) ⇒ : (t/ro:U ty ...)]]])
+   #:with ch/disarmed (replace-stx-loc #'ro:choose #'ch)
+   --------
+   [⊢ (ch/disarmed e/disarmed ...) ⇒ (t/ro:U ty ...)]])
 
 ;; TODO: not sure how to handle define-synthax
 ;; it defines a macro, but may refer to itself in #:base and #:else

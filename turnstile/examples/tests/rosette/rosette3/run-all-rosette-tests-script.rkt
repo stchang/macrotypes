@@ -19,5 +19,6 @@
  "rosette-guide-sec7-tests.rkt"  "Guide Sec. 7 Reflecting on Symbolic Values")
 
 (do-tests "bv-tests.rkt" "BV SDSL - General"
+          "fsm3-tests.rkt" "FSM"
           "bv-ref-tests.rkt" "BV SDSL - Hacker's Delight synthesis")
 
