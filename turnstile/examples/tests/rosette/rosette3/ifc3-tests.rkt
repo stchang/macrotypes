@@ -318,11 +318,13 @@
      mem≈))
 
 ;; call-return-correct --------------------------------------------------
-(define call-return-p4
-  (program 10 (list Halt Noop Push PopCR Add Load StoreCR Call Return)))
-(check-type call-return-p4 : Prog)
-(define call-return-w4 (verify/halted+low call-return-p4))
-(check-type call-return-w4 : (CU Witness CTrue) -> #t)
+;; this program takes the bulk of the ~90min to verify
+;; commenting it out, the test suite runs in ~2-3min
+;; (define call-return-p4
+;;   (program 10 (list Halt Noop Push PopCR Add Load StoreCR Call Return)))
+;; (check-type call-return-p4 : Prog)
+;; (define call-return-w4 (verify/halted+low call-return-p4))
+;; (check-type call-return-w4 : (CU Witness CTrue) -> #t)
 
 
 ;; reproduce-bugs --------------------------------------------------
@@ -454,6 +456,65 @@
                     (instruction Return)))
      13
      mem≈))
+
+;; return bug --------------------------------------------------
+;; There is a bug in the paper. See Return comment in call.rkt.
+;; The ifc lang is now correct, but there was a counterexample below.
+(define return-bug-w0
+  (verify/halted+low
+   (program 7 (list Halt Noop Push Pop Add Load StoreCR Call Return))))
+(check-type return-bug-w0 : (CU Witness CTrue) -> #t)
+
+(define return-bug-p0
+  (list (instruction Push (@ 5 ⊥))
+        (instruction Call (@ 0 ⊥) (@ 1 ⊥))
+        (instruction Push (@ 1 ⊥))
+        (instruction StoreCR)
+        (instruction Halt)
+        (instruction Push (@ 2 ⊤))
+        (instruction Return)))
+
+(define return-bug-p1
+  (list (instruction Push (@ 5 ⊥))
+        (instruction Call (@ 0 ⊥) (@ 1 ⊥))
+        (instruction Push (@ 1 ⊥))
+        (instruction StoreCR)
+        (instruction Halt)
+        (instruction Push (@ 6 ⊤))
+        (instruction Return)))
+
+(check-type (mem≈ (step (init return-bug-p0) 7)
+                  (step (init return-bug-p1) 7)) : CBool -> #t)
+
+;; figure 17 counterexample
+(define fig17-p0
+  (list (instruction Push (@ 5 ⊥))
+        (instruction Call (@ 0 ⊥) (@ 1 ⊥))
+        (instruction Push (@ 0 ⊥))
+        (instruction StoreCR)
+        (instruction Halt)
+        (instruction Push (@ 0 ⊥))
+        (instruction Push (@ 8 ⊤))
+        (instruction Call (@ 0 ⊥) (@ 0 ⊥))
+        (instruction Pop)
+        (instruction Push (@ 0 ⊥))
+        (instruction Return)))
+
+(define fig17-p1
+  (list (instruction Push (@ 5 ⊥))
+        (instruction Call (@ 0 ⊥) (@ 1 ⊥))
+        (instruction Push (@ 0 ⊥))
+        (instruction StoreCR)
+        (instruction Halt)
+        (instruction Push (@ 0 ⊥))
+        (instruction Push (@ 9 ⊤))
+        (instruction Call (@ 0 ⊥) (@ 0 ⊥))
+        (instruction Pop)
+        (instruction Push (@ 0 ⊥))
+        (instruction Return)))
+        
+(check-type (mem≈ (step (init fig17-p0) 13)
+                  (step (init fig17-p1) 13)) : CBool -> #f)
 
 ;; (define (valid-case name ended? prog [k #f])
 ;;   (test-case name (check-true (verify-EENI* init ended? mem≈ prog k))))

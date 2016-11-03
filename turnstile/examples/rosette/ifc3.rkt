@@ -85,7 +85,9 @@
           [init : (C→ Prog Machine)]
           [halted? : (C→ Machine Bool)]
           [halted∩low? : (C→ Machine Bool)]
-          [mem≈ : (C→ Machine Machine Bool)]
+          [step : (Ccase-> (C→ Machine Machine)
+                           (C→ Machine CInt Machine))]
+          [mem≈ : (C→ Machine Machine CBool)]
           
           [program : (Ccase->
                       (C→ InstrNames Prog)       ; concrete prog
