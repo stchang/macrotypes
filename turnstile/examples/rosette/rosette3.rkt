@@ -45,7 +45,7 @@
          ;; BV types
          CBV BV
          CBVPred BVPred
-         CSolution CSolver CPict CSyntax CRegexp CSymbol)
+         CSolution CSolver CPict CSyntax CRegexp CSymbol CPred)
 
 (begin-for-syntax
   (define (mk-ro:-id id) (format-id id "ro:~a" id))
