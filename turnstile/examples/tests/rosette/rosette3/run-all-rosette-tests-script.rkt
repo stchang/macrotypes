@@ -20,5 +20,6 @@
 
 (do-tests "bv-tests.rkt" "BV SDSL - General"
           "fsm3-tests.rkt" "FSM"
+          "ifc3-tests.rkt" "IFC"
           "bv-ref-tests.rkt" "BV SDSL - Hacker's Delight synthesis")
 
