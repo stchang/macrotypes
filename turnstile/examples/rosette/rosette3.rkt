@@ -1,7 +1,8 @@
 #lang turnstile
 ;; reuse unlifted forms as-is
 (reuse define λ let let* letrec begin void #%datum ann #%top-interaction
-       require only-in define-type-alias define-named-type-alias
+       require only-in prefix-in rename-in define-type-alias define-named-type-alias
+       current-join ⊔
        #:from "../stlc+union.rkt")
 (require
  ;; manual imports
@@ -11,7 +12,7 @@
    (combine-in
     (only-in "../stlc+union+case.rkt"
              PosInt Zero NegInt Float True False String Unit [U U*] U*?
-             [case-> case->*] case->? → →?)
+             [case-> case->*] case->? → →? String?)
     (only-in "../stlc+cons.rkt" [List Listof])))
  (only-in "../stlc+union+case.rkt" [~U* ~CU*] [~case-> ~Ccase->] [~→ ~C→])
  (only-in "../stlc+cons.rkt" [~List ~CListof])
@@ -21,13 +22,14 @@
 
 (provide (rename-out [ro:#%module-begin #%module-begin] 
                      [stlc+union:λ lambda])
+         (for-syntax get-pred)
          Any CNothing Nothing
-         CU U
+         CU U (for-syntax ~U*)
          Constant
          C→ → (for-syntax ~C→ C→?)
          Ccase-> (for-syntax ~Ccase-> Ccase->?) ; TODO: sym case-> not supported
          CListof Listof CList CPair Pair
-         CVectorof MVectorof IVectorof Vectorof CMVectorof CIVectorof
+         CVectorof MVectorof IVectorof Vectorof CMVectorof CIVectorof CVector
          CParamof ; TODO: symbolic Param not supported yet
          CBoxof MBoxof IBoxof CMBoxof CIBoxof CHashTable
          CUnit Unit
@@ -39,13 +41,13 @@
          CFloat Float
          CNum Num
          CFalse CTrue CBool Bool
-         CString String
+         CString String (for-syntax CString?)
          CStx ; symblic Stx not supported
          CAsserts
          ;; BV types
          CBV BV
          CBVPred BVPred
-         CSolution CSolver CPict CSyntax CRegexp CSymbol CPred)
+         CSolution CSolver CPict CSyntax CRegexp CSymbol CPred CPredC)
 
 (begin-for-syntax
   (define (mk-ro:-id id) (format-id id "ro:~a" id))
@@ -85,6 +87,7 @@
 (define-named-type-alias (CVectorof X) (CU (CIVectorof X) (CMVectorof X)))
 (define-named-type-alias (CBoxof X) (CU (CIBoxof X) (CMBoxof X)))
 (define-type-constructor CList #:arity >= 0)
+(define-type-constructor CVector #:arity >= 0)
 (define-type-constructor CPair #:arity = 2)
 
 ;; TODO: update orig to use reduced type
@@ -224,6 +227,7 @@
 (define-symbolic-named-type-alias Num (CU CFloat CInt) #:pred ro:real?)
 
 (define-named-type-alias CPred (C→ Any Bool))
+(define-named-type-alias CPredC (C→ Any CBool))
 
 ;; ---------------------------------
 ;; define-symbolic
@@ -1593,13 +1597,14 @@
 ;; ---------------------------------
 ;; Reflecting on symbolic values
 
+;; TODO: CPredC correct here?
 (provide (typed-out
-          [term? : CPred]
-          [expression? : CPred]
-          [constant? : CPred]
-          [type? : CPred]
-          [solvable? : CPred]
-          [union? : CPred]))
+          [term? : CPredC]
+          [expression? : CPredC]
+          [constant? : CPredC]
+          [type? : CPredC]
+          [solvable? : CPredC]
+          [union? : CPredC]))
 
 (define-typed-syntax union-contents
   [(_ u) ≫

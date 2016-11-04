@@ -55,8 +55,8 @@
     [(_ . stuff)
      (syntax/loc this-syntax
        (#%module-begin
-        ; auto-provide some useful racket forms
-        (provide #%module-begin #%top-interaction #%top require only-in)
+        (provide #%module-begin #%top-interaction #%top ; useful racket forms
+                 require only-in prefix-in rename-in)
         . stuff))]))
 
 (struct exn:fail:type:runtime exn:fail:user ())
