@@ -15,9 +15,9 @@
 ;; (check-type (expression? x) : CBool -> #f)
 ;; (check-type (constant? x) : CBool -> #t)
 
-(assert (+ x 1))
-(assert (% (+ x 2) 3))
-(assert (!= x 2))
+;; (assert (+ x 1))
+;; (assert (% (+ x 2) 3))
+;; (assert (!= x 2))
 
 (check-type "" : char*)
 (: char* y)
@@ -80,14 +80,35 @@
 
 (check-type u : int16 -> u)
 
-;; NULL
-;; ((int16) v)
+(check-type NULL : void* -> NULL)
+(check-type ((int16) v) : int16
+ ->
+ (ro:a ro:vector-immutable
+  (ro:a ro:real->integer v) (ro:a ro:real->integer v) (ro:a ro:real->integer v)
+  (ro:a ro:real->integer v) (ro:a ro:real->integer v) (ro:a ro:real->integer v)
+  (ro:a ro:real->integer v) (ro:a ro:real->integer v) (ro:a ro:real->integer v)
+  (ro:a ro:real->integer v) (ro:a ro:real->integer v) (ro:a ro:real->integer v)
+  (ro:a ro:real->integer v) (ro:a ro:real->integer v) (ro:a ro:real->integer v)
+  (ro:a ro:real->integer v)))
 
-;; (= x 3.4)
-;; x
+(= x 3.4)
+(check-type x : int -> 3)
 
-;; (+= z 2)
-;; z
+(check-type ((float3) 2) : float3 -> (ro:a ro:vector-immutable 2.0 2.0 2.0))
+
+;; vector addition
+(check-type (+ z 2) : float3
+ -> (ro:a ro:vector-immutable
+     (ro:a ro:+ 2.0 (ro:a ro:vector-ref z 0))
+     (ro:a ro:+ 2.0 (ro:a ro:vector-ref z 1))
+     (ro:a ro:+ 2.0 (ro:a ro:vector-ref z 2))))
+
+(+= z 2)
+(check-type z : float3 -> z)
+ ;; -> (ro:a ro:vector-immutable
+ ;;     (ro:a ro:+ 2.0 (ro:a ro:vector-ref z 0))
+ ;;     (ro:a ro:+ 2.0 (ro:a ro:vector-ref z 1))
+ ;;     (ro:a ro:+ 2.0 (ro:a ro:vector-ref z 2))))
 
 ;; (%= x 3)
 ;; x

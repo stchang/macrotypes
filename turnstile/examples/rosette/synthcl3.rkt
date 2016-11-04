@@ -1,10 +1,11 @@
 #lang turnstile
-(extends "rosette3.rkt" #:except ! #%app || &&) ; typed rosette
+(extends "rosette3.rkt" #:except ! #%app || && void = +) ; typed rosette
 (require ;(prefix-in ro: (except-in rosette verify sqrt range print)) ; untyped 
   (prefix-in ro: rosette)
 ;             define-symbolic* #%datum define if ! = number? boolean? cond ||))
   (prefix-in cl: sdsl/synthcl/model/operators)
-  (prefix-in cl: sdsl/synthcl/model/errors))
+  (prefix-in cl: sdsl/synthcl/model/errors)
+  (prefix-in cl: sdsl/synthcl/model/memory))
 
 (begin-for-syntax
   (define (mk-cl id) (format-id id "cl:~a" id))
@@ -18,8 +19,10 @@
 ;          [rosette3:Int int]   ; symbolic
 ;          [rosette3:Num float] ; symbolic
           [rosette3:CString char*]) ; always concrete
-         bool int float float3 int16
-         : ! ?: ==
+         bool int float float3 int16 void void*
+         : ! ?: == +
+         ;; assignment ops
+         = +=
          (typed-out
           ;; need the concrete cases for literals;
           ;; alternative is to redefine #%datum to give literals symbolic type
@@ -29,6 +32,7 @@
                          (C→ CNum CNum CNum CBool)
                          (C→ Num Num Bool)
                          (C→ Num Num Num Bool))]
+          [NULL : void*]
           #;[== : (Ccase-> (C→ CNum CNum CBool)
                          (C→ CNum CNum CNum CBool)
                          (C→ Num Num Bool)
@@ -97,6 +101,10 @@
     (syntax-property stx 'convert))
   (define (ty->len ty)
     (regexp-match #px"([a-z]+)([0-9]+)" (type->str ty)))
+  (define (get-base ty [ctx #'here])
+    ((current-type-eval)
+     (datum->syntax ctx
+      (string->symbol (car (regexp-match #px"[a-z]+" (type->str ty)))))))
   (define (vector-type? ty)
     (ty->len ty))
   (define (scalar-type? ty)
@@ -131,15 +139,17 @@
     (ro:apply ro:vector-immutable
       (ro:for/list ([i 3]) (to-float (ro:vector-ref v i))))]
    [else (ro:apply ro:vector-immutable (ro:make-list 3 (to-float v)))]))
-(ro:define (to-int16 v) v
-           #;(ro:cond
+(ro:define (to-int16 v)
+  (ro:cond
    [(ro:list? v)
     (ro:apply ro:vector-immutable
       (ro:for/list ([i 16]) (to-int (ro:list-ref v i))))]
    [(ro:vector? v)
     (ro:apply ro:vector-immutable
       (ro:for/list ([i 16]) (to-int (ro:vector-ref v i))))]
-   [else (ro:apply ro:vector-immutable (ro:make-list 16 (to-float v)))]))
+   [else
+    (ro:apply ro:vector-immutable
+      (ro:make-list 16 (to-int v)))]))
 
 (define-named-type-alias bool
   (add-convertm rosette3:Bool to-bool))
@@ -159,6 +169,8 @@
                      rosette3:Int rosette3:Int rosette3:Int rosette3:Int
                      rosette3:Int rosette3:Int rosette3:Int rosette3:Int)
    to-int16))
+(define-named-type-alias void* rosette3:Unit)
+(define-named-type-alias void rosette3:CUnit)
 
 (define-typed-syntax synth-app
   [(_ (ty:type) e) ≫ ; cast
@@ -175,7 +187,8 @@
   [(_ . es) ≫
    --------
    [≻ (rosette3:#%app . es)]])
-   
+
+;; : --------------------------------------------------
 (define-typed-syntax :
   [(_ ty:type x:id ...) ≫ ; special String case
    #:when (rosette3:CString? #'ty.norm)
@@ -216,6 +229,7 @@
           (make-rename-transformer (assign-type #'x- #'ty.norm))) ...
         (ro:define-symbolic* x- pred) ...)]])
 
+;; ?: --------------------------------------------------
 (define-typed-syntax ?:
   [(_ e e1 e2) ≫
    [⊢ e ≫ e- ⇐ bool]
@@ -245,7 +259,6 @@
                 (base-convert (ro:vector-ref c idx))))))
       ⇒ ty-out]]
   [(_ e e1 e2) ≫ ; should be scalar
-   #:when (displayln 1)
    [⊢ e ≫ e- ⇒ ty]
    #:fail-unless (cast-ok? #'ty #'bool #'e)
                  (format "cannot cast ~a to bool" (type->str #'ty))
@@ -256,6 +269,27 @@
    [⊢ (cl:?: (synth-app (bool) e-)
              (synth-app (ty-out) e1-)
              (synth-app (ty-out) e2-)) ⇒ ty-out]])
+
+;; = --------------------------------------------------
+;; assignment
+(define-typed-syntax =
+  [(_ x:id e) ≫
+   [⊢ x ≫ x- ⇒ ty-x]
+   [⊢ e ≫ e- ⇒ ty-e]
+   #:fail-unless (cast-ok? #'ty-e #'ty-x stx)
+                 (format "cannot cast ~a to ~a"
+                         (type->str #'ty-e) (type->str #'ty-x))
+   --------
+   [⊢ (ro:set! x- (synth-app (ty-x) e-)) ⇒ void]])
+(define-typed-syntax +=
+  [(_ x:id e) ≫
+   [⊢ x ≫ x- ⇒ ty-x]
+   [⊢ e ≫ e- ⇒ ty-e]
+   #:fail-unless (cast-ok? #'ty-e #'ty-x stx)
+                 (format "cannot cast ~a to ~a"
+                         (type->str #'ty-e) (type->str #'ty-x))
+   --------
+   [⊢ (ro:set! x- (+ x- (synth-app (ty-x) e-))) ⇒ void]])
 
 (define-typed-syntax !
   [(_ e) ≫
@@ -305,6 +339,26 @@
    #:with ty-out ((current-join) #'ty1 #'ty2) ; only need this for the len
    --------
    [⊢ (to-int (cl:== e1- e2-)) ⇒ int]])
+
+(define-typed-syntax +
+  [(_ e1 e2) ≫
+   [⊢ e1 ≫ e1- ⇒ ty1]
+   [⊢ e2 ≫ e2- ⇒ ty2]
+   ;; #:when (real-type? #'ty1)
+   ;; #:when (real-type? #'ty2)
+   #:with ty-out (common-real-type #'ty1 #'ty2)
+   #:with convert (get-convert #'ty-out)
+   #:with ty-base (get-base #'ty-out)
+   #:with base-convert (get-convert #'ty-base)
+   --------
+   [⊢ #,(if (scalar-type? #'ty-out)
+            #'(convert (cl:+ (synth-app (ty-out) e1-)
+                             (synth-app (ty-out) e2-)))
+            #'(convert
+               (ro:let ([a (convert e1-)][b (convert e2-)])
+                 (ro:for/list ([v1 a][v2 b])
+                   (base-convert (ro:+ v1 v2)))))) ⇒ ty-out]])
+
 
 #;(define-typed-syntax &&
   [(_ e1 e2) ≫
