@@ -15,9 +15,9 @@
 ;; (check-type (expression? x) : CBool -> #f)
 ;; (check-type (constant? x) : CBool -> #t)
 
-;; (assert (+ x 1))
-;; (assert (% (+ x 2) 3))
-;; (assert (!= x 2))
+(assert (+ x 1))
+(assert (% (+ x 2) 3))
+(assert (!= x 2))
 
 (check-type "" : char*)
 (: char* y)
@@ -76,9 +76,10 @@
      (ro:a ro:integer->real x)
      (ro:a ro:integer->real x)))
 
-(: int16 u)
-
+(: int16 u u2)
+(= u2 u)
 (check-type u : int16 -> u)
+(check-type u2 : int16 -> u)
 
 (check-type NULL : void* -> NULL)
 (check-type ((int16) v) : int16
@@ -110,58 +111,103 @@
  ;;     (ro:a ro:+ 2.0 (ro:a ro:vector-ref z 1))
  ;;     (ro:a ro:+ 2.0 (ro:a ro:vector-ref z 2))))
 
-;; (%= x 3)
-;; x
+(%= x 3)
+(check-type x : int -> 0)
 
-;; (int3 4 5 6)
-;; (= [u xyz] (int3 4 5 6))
-;; u
+(check-type (int3 4 5 6) : int3
+ -> (ro:a ro:vector-immutable 4 5 6))
 
-;; (+ (int3 1 2 3) 4)
+(= [u xyz] (int3 4 5 6))
 
-;; ((int4 5 6 7 8) s03)
+(check-type u : int16
+ -> (ro:let ([out (ro:a ro:vector-copy u2)])
+            (ro:a ro:vector-set! out 0 4)
+            (ro:a ro:vector-set! out 1 5)
+            (ro:a ro:vector-set! out 2 6)
+            out))
 
-;; (if x {}{})
+(check-type (+ (int3 1 2 3) 4) : int3
+ -> (ro:a ro:vector-immutable 5 6 7))
 
-;; (if x 
-;;     { (= [u sf] 10) }
-;;     { (= [u sf] 9) }
-;; )
-;; u
+(check-type ((int4 5 6 7 8) s03) : int2
+ -> (ro:a ro:vector-immutable 5 8))
 
-;; (if (! x) 
-;;     { (: int g) (= g 3) (= [u sf] g) }
-;;     { (= [u sf] 9) }
-;; )
-;; u
+(check-type (if x {}{}) : void -> (= x x))
 
-;; (for [(: int i in (range 0 4 1))] )
-;; (for [(: int i in (range 0 4 1))] 
-;;   (if (! x)
-;;       { (: int g) (= g i) (+= [u sf] g)} )
-;;   )
-;; u
+(= u2 u)
+(if x 
+    { (= [u sf] 10) }
+    { (= [u sf] 9) }
+)
+(check-type u : int16
+ -> (ro:let ([out (ro:a ro:vector-copy u2)])
+            (ro:a ro:vector-set! out 15 9)
+            out))
+
+(if (! x) 
+    { (: int g) (= g 3) (= [u sf] g) }
+    { (= [u sf] 9) }
+)
+(check-type u : int16
+ -> (ro:let ([out (ro:a ro:vector-copy u2)])
+            (ro:a ro:vector-set! out 15 3)
+            out))
 
 
-;; (: int16* w)
-;; (= w ((int16*) (malloc 32)))
-;; (= [w 0] 1)
-;; (= [w 1] 2)
-;; w
-;; [w 0]
-;; [w 1]
+(check-type (for [(: int i in (range 0 4 1))] ) : void -> (= x x))
 
-;; (get_work_dim)
+(check-type (! x) : bool -> #t)
+(: int g1)
+(= g1 3)
+(check-type (u sf) : int -> 3)
+(+= [u sf] g1)
+(check-type u : int16
+ -> (ro:let ([out (ro:a ro:vector-copy u2)])
+            (ro:a ro:vector-set! out 15 6)
+            out))
+(= [u sf] 3)
 
-;; (procedure void (nop1))
-;; (nop1)
-;; (kernel void (nop2))
-;; (nop2)
+(for [(: int i in (range 0 4 1))]
+  (if (! x)
+      { (: int g) (= g i) (+= [u sf] g)} )
+  )
+(check-type u : int16
+ -> (ro:let ([out (ro:a ro:vector-copy u2)])
+            (ro:a ro:vector-set! out 15 9)
+            out))
 
-;; (procedure int (int_iden [int x]) x)
-;; (int_iden ((int) 4.5))
-;; (int_iden #t)
-;; (int_iden 4.5)
+(: int16* w)
+(check-type w : int16* -> NULL)
+(check-type (malloc 32) : void*)
+(= w ((int16*) (malloc 32)))
+; TODO: how to check this?
+;#x0#(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+(check-type w : int16*)
+(= [w 0] 1)
+;#x0#(1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+(= [w 1] 2)
+;#x0#(1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2)
+(check-type [w 0] : int16
+ -> (ro:a ro:vector-immutable 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1))
+(check-type [w 1] : int16
+ -> (ro:a ro:vector-immutable 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2))
+
+(check-type (get_work_dim) : int -> 0)
+
+(procedure void (nop1))
+(check-type (nop1) : void -> (= x x))
+(kernel void (nop2))
+(check-type (nop2) : void -> (= x x))
+
+(procedure int (int_iden [int x]) x)
+;; huh? these are unsound?
+;; but match rosette's implementation
+;; specifically, procedure does not coerce (but kernel does)
+(check-type (int_iden ((int) 4.5)) : int -> 4)
+;; (check-type (int_iden #t) : int -> #t)
+;; (check-type (int_iden 4.5) : int -> 4.5)
+(check-type (int_iden #t) : int -> 1)
+(check-type (int_iden 4.5) : int -> 4)
 
 
 
