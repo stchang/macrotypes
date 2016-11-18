@@ -943,6 +943,7 @@
                                       (C→ CSymbol CString CNothing))]
 
                     [string-length : (C→ CString CNat)]
+                    [string-append : (C→ CString CString CString)]
 
                     [equal? : (C→ Any Any Bool)]
                     [eq? : (C→ Any Any Bool)]

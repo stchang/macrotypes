@@ -10,7 +10,7 @@
 (check-type x : int -> x)
 (check-not-type x : CInt)
 ;; TODO: should these be defined in synthcl?
-;; I think no, synthcl is not an extension of rosette
+;; I think no, synthcl is not an "extension" of rosette
 ;; (check-type (term? x) : CBool -> #t)
 ;; (check-type (expression? x) : CBool -> #f)
 ;; (check-type (constant? x) : CBool -> #t)
@@ -200,35 +200,103 @@
 (check-type (nop2) : void -> (= x x))
 
 (procedure int (int_iden [int x]) x)
+(check-type (int_iden ((int) 4.5)) : int -> 4)
 ;; huh? these are unsound?
 ;; but match rosette's implementation
-;; specifically, procedure does not coerce (but kernel does)
-(check-type (int_iden ((int) 4.5)) : int -> 4)
+;; specifically, `procedure` does not coerce (but `kernel` does?)
+;; I think this is a bug
 ;; (check-type (int_iden #t) : int -> #t)
 ;; (check-type (int_iden 4.5) : int -> 4.5)
+;; turnstile synthcl impl coerces
 (check-type (int_iden #t) : int -> 1)
 (check-type (int_iden 4.5) : int -> 4)
 
 
 
-;; ;;;;;; assertion failure localization ;;;;;;
-;; ; (assert #f)
+;;;;;; assertion failure localization ;;;;;;
+;;(check-runtime-exn (assert #f))
 
-;; ;;;;;; bad types etc ;;;;;;
-;; ;(: float* NULL)
-;; ;(+ x y)
-;; ;(?: "" x x)
-;; ;((int) z)
-;; ;(-= z w)
-;; ;(%= z 3)
-;; ;(NULL 3)
-;; ;(if x)
-;; ;(for [() () "" (-= x 1)])
-;; ;[w ""]
-;; ;[w 2]
-;; ;(procedure int (bad))
-;; ;(procedure)
-;; ;(kernel int (bad) 1)
-;; ;(procedure void (w))
-;; ;(int_iden "")
-;; ;(procedure float (bad) "")
+;;;;;; bad types etc ;;;;;;
+;; (these error are commented out but not checked in old synthcl suite)
+
+;; old synthcl accepts this but it seems to have no effect
+;; I'm not sure what the expected (bad) behavior is?
+;; binds NULL to NULL?
+;(: float* NULL)
+
+;; in old synthcl, this errors but
+;; does not report what types x and y have
+(typecheck-fail (+ x y)
+ #:with-msg "no common real type for operands; given int, char*")
+(typecheck-fail (?: "" x x)
+ #:with-msg "not a real type: \\\"\\\" has type char*")
+;; cannot cast vector to scalar
+(typecheck-fail ((int) z)
+ #:with-msg "no implicit conversion from float3 to int")
+(typecheck-fail (-= z w)
+ #:with-msg "no common real type for operands; given float3, int16*")
+(typecheck-fail (%= z 3)
+ #:with-msg "no common integer type for operands; given float3, int")
+(typecheck-fail (NULL 3)
+ #:with-msg "cannot dereference a void\\* pointer: NULL")
+(typecheck-fail (if x) #:with-msg "expected more terms")
+(typecheck-fail (for [() () "" (-= x 1)])
+ #:with-msg "expected more terms starting with the identifier `:'")
+(typecheck-fail [w ""]
+ #:with-msg "expected int, given char*")
+(check-runtime-exn [w 2])
+(typecheck-fail (procedure int (bad))
+ #:with-msg "expected void, given int"
+ #:ctx top-level)
+(typecheck-fail (procedure) #:with-msg "expected more terms" #:ctx top-level)
+(typecheck-fail (kernel int (bad) 1)
+ #:with-msg "expected void, given int"
+ #:ctx top-level)
+;(procedure void (w)) ; duplication definition for identifier w
+(typecheck-fail (int_iden "")
+ #:with-msg "no implicit conversion from char\\* to int")
+(typecheck-fail (procedure float (bad) "")
+ #:with-msg "expected float, given char*"
+ #:ctx top-level)
+
+;; more-snippets.rkt --------------------------------------------------
+
+(: void* dst)
+(check-type dst : void* -> NULL)
+(: int SIZE)
+(check-type SIZE : int)
+
+(= SIZE 2)
+(check-type SIZE : int -> 2)
+
+(= dst ((int*) (malloc (* SIZE (sizeof int)))))
+
+(check-type (<< 1 2) : int -> 4)
+
+(for () (print "hello\n"))
+
+(for [(: int x in (range 4))
+      (: int y in (range 0 6 3))
+      (: int z in (range 1))]
+  (print x " " y " " z "\n"))
+;; 0 0 0
+;; 0 3 0
+;; 1 0 0
+;; 1 3 0
+;; 2 0 0
+;; 2 3 0
+;; 3 0 0
+;; 3 3 0
+
+; out of order
+
+#;(procedure int (tiny0 [int x])
+  (minus x))
+
+#;(procedure int (tiny1 [int x])
+  (minus x))
+
+;; (grammar int (minus [int x])
+;;   (- x (choose 0 1)))
+
+;; (minus 1)

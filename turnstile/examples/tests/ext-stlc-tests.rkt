@@ -155,6 +155,11 @@
 (check-type (countdown 10) : Int ⇒ 0)
 (typecheck-fail (countdown "10") #:with-msg "expected Int, given String")
 
+;; inconsistent define
+(typecheck-fail (define (bad -> Int) (void))
+ #:with-msg "expected Int, given Unit"
+ #:ctx top-level)
+
 ;; tests from stlc+lit-tests.rkt --------------------------
 ; most should pass, some failing may now pass due to added types/forms
 (check-type 1 : Int)

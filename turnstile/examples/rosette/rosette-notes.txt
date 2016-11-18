@@ -1,3 +1,21 @@
+2016-11-18 --------------------
+
+- working on synthcl lang
+- added `grammar` form, which expands to define-synthax
+- definition does not error, but applying a "grammar" definition results in
+  strange error, during type eval
+- last time I saw something like this, it was a bad type regexp parse in #%app
+  but app is not being invoked here
+
+Strange error:
+ t: unbound identifier in module
+;   in: t
+; Context:
+;  /home/stchang/NEU_Research/macrotypes/macrotypes/typecheck.rkt:967:11 default-type-eval
+;  /home/stchang/NEU_Research/macrotypes/macrotypes/typecheck.rkt:86:7
+;  /home/stchang/racket/rosette-stchang/rosette/base/form/module.rkt:16:0
+
+
 2016-11-02 --------------------
 ** Problem: typed forms should not expand all the way down
 

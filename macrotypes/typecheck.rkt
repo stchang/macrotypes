@@ -20,7 +20,7 @@
 (provide
  postfix-in symbol=?- match- delay-
  (all-defined-out)
- (for-syntax (all-defined-out))
+ (for-syntax (all-defined-out) (rename-out [format fmt]))
  (for-meta 2 (all-defined-out))
  (except-out (all-from-out racket/base) #%module-begin)
  (all-from-out syntax/parse/define)
@@ -28,7 +28,8 @@
   (all-from-out racket syntax/parse racket/syntax syntax/stx
                 racket/provide-transform
                 "stx-utils.rkt"))
- (for-meta 2 (all-from-out racket/base syntax/parse racket/syntax))
+ (for-meta 2 (all-from-out racket/base syntax/parse racket/syntax
+                           "stx-utils.rkt"))
  (rename-out [define-syntax-category define-stx-category]))
 
 (module+ test
