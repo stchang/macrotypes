@@ -31,6 +31,74 @@
     [(_ . rst) (add-orig #'(∀ () (ext-stlc:→ . rst)) (get-orig this-syntax))]))
 
 (begin-for-syntax
+;; redefine all inferX functions to use 'env prop --------------------
+  (define (infer es #:ctx [ctx null] #:tvctx [tvctx null])
+    (syntax-parse ctx #:datum-literals (:)
+      [([x : τ] ...) ; dont expand yet bc τ may have references to tvs
+       #:with ([tv (~seq sep:id tvk) ...] ...) tvctx
+       #:with (e ...) es
+       #:with
+       ((~literal #%plain-lambda) tvs+
+        ((~literal let-values) () ((~literal let-values) ()
+         ((~literal #%expression)
+          ((~literal #%plain-lambda) xs+
+           ((~literal let-values) () ((~literal let-values) ()
+            ((~literal #%expression) e+) ... (~literal void))))))))
+       (expand/df
+        #`(λ- (tv ...)
+            (let-syntax ([tv (make-rename-transformer
+                              (set-stx-prop/preserved
+                               (for/fold ([tv-id #'tv])
+                                         ([s (in-list (list 'sep ...))]
+                                          [k (in-list (list #'tvk ...))])
+                                 (assign-type tv-id k #:tag s))
+                               'tyvar #t))] ...)
+              (λ- (x ...)
+                (let-syntax 
+                  ([x 
+                    (syntax-parser 
+                     [i:id
+                      (if (and (identifier? #'τ) (free-identifier=? #'x #'τ))
+                          (if (get-expected-type #'i)
+                              (add-env 
+                                (assign-type #'x (get-expected-type #'i)) 
+                                #`((x #,(get-expected-type #'i))))
+                              (raise
+                               (exn:fail:type:infer
+                                 (format "~a (~a:~a): could not infer type of ~a; add annotation(s)"
+                                         (syntax-source #'x) (syntax-line #'x) (syntax-column #'x)
+                                         (syntax->datum #'x))
+                                 (current-continuation-marks))))
+                          (assign-type #'x #'τ))]
+                     [(o . rst) ; handle if x used in fn position
+                      #:fail-when (and (identifier? #'τ) (free-identifier=? #'x #'τ))
+                      (raise (exn:fail:type:infer
+                                 (format "~a (~a:~a): could not infer type of function ~a; add annotation(s)"
+                                         (syntax-source #'o) (syntax-line #'o) (syntax-column #'o)
+                                         (syntax->datum #'o))
+                               (current-continuation-marks)))
+                      #:with app (datum->syntax #'o '#%app)
+                      (datum->syntax this-syntax
+                                     (list* #'app (assign-type #'x #'τ) #'rst)
+                                     this-syntax)])] ...)
+                  (#%expression e) ... void)))))
+       (list #'tvs+ #'xs+ #'(e+ ...)
+              (stx-map typeof #'(e+ ...)))]
+      [([x τ] ...) (infer es #:ctx #'([x : τ] ...) #:tvctx tvctx)]))
+
+  (define (infer/ctx+erase ctx e)
+    (syntax-parse (infer (list e) #:ctx ctx)
+      [(_ xs (e+) (τ)) (list #'xs #'e+ #'τ)]))
+  (define (infers/ctx+erase ctx es)
+    (stx-cdr (infer es #:ctx ctx)))
+  ; tyctx = kind env for bound type vars in term e
+  (define (infer/tyctx+erase ctx e)
+    (syntax-parse (infer (list e) #:tvctx ctx)
+      [(tvs _ (e+) (τ)) (list #'tvs #'e+ #'τ)]))
+  (define (infers/tyctx+erase ctx es)
+    (syntax-parse (infer es #:tvctx ctx)
+      [(tvs+ _ es+ tys) (list #'tvs+ #'es+ #'tys)]))
+
   ;; find-free-Xs : (Stx-Listof Id) Type -> (Listof Id)
   ;; finds the free Xs in the type
   (define (find-free-Xs Xs ty)

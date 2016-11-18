@@ -32,4 +32,4 @@
    #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
                  (typecheck-fail-msg/multi 
                   #'(τ_in ...) #'(τ_arg ...) #'(e_arg ...))
-   (⊢ (#%app- e_fn- e_arg- ...) : τ_out)])
+   (⊢/no-teval (#%app- e_fn- e_arg- ...) : τ_out)])

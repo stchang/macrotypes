@@ -191,6 +191,10 @@
     (syntax-parse stx #:datum-literals (:)
       [(_ e : τ) #'(assign-type #`e #`τ)]
       [(_ e τ) #'(⊢ e : τ)]))
+  (define-syntax (⊢/no-teval stx)
+    (syntax-parse stx #:datum-literals (:)
+      [(_ e : τ) #'(fast-assign-type #`e #`τ)]
+      [(_ e τ) #'(⊢/no-teval e : τ)]))
 
   ;; Actual type assignment function.
   ;; assign-type Type -> Syntax
@@ -198,8 +202,10 @@
   ;; - eval here so all types are stored in canonical form
   ;; - syntax-local-introduce fixes marks on types
   ;;   which didnt get marked bc they were syntax properties
+  (define (fast-assign-type e τ #:tag [tag ':])
+    (set-stx-prop/preserved e tag (syntax-local-introduce τ)))
   (define (assign-type e τ #:tag [tag ':])
-    (set-stx-prop/preserved e tag (syntax-local-introduce ((current-type-eval) τ))))
+    (fast-assign-type e ((current-type-eval) τ) #:tag tag))
 
   (define (add-expected-type e τ)
     (if (and (syntax? τ) (syntax-e τ))
@@ -314,10 +320,8 @@
 
   ;; This is the main "infer" function. All others are defined in terms of this.
   ;; It should be named infer+erase but leaving it for now for backward compat.
-  ;; ctx = vars and their types
+  ;; ctx = vars and their types (or other props, denoted with "sep")
   ;; tvctx = tyvars and their kinds
-  ;; octx + tag = some other context (and an associated tag)
-  ;; eg bounded quantification in Fsub
   (define (infer es #:ctx [ctx null] #:tvctx [tvctx null])
     (syntax-parse ctx #:datum-literals (:)
       [([x : τ] ...) ; dont expand yet bc τ may have references to tvs
@@ -348,39 +352,10 @@
                                  (assign-type tv-id k #:tag s))
                                'tyvar #t))] ...)
               (λ (x ...)
-                (let-syntax 
-                  ([x 
-                    (syntax-parser 
-                     [i:id
-                      (if (and (identifier? #'τ) (free-identifier=? #'x #'τ))
-                          (if (get-expected-type #'i)
-                              (add-env 
-                                (assign-type #'x (get-expected-type #'i)) 
-                                #`((x #,(get-expected-type #'i))))
-                              (raise
-                               (exn:fail:type:infer
-                                 (format "~a (~a:~a): could not infer type of ~a; add annotation(s)"
-                                         (syntax-source #'x) (syntax-line #'x) (syntax-column #'x)
-                                         (syntax->datum #'x))
-                                 (current-continuation-marks))))
-                          (assign-type #'x #'τ))]
-                     [(o . rst) ; handle if x used in fn position
-                      #:fail-when (and (identifier? #'τ) (free-identifier=? #'x #'τ))
-                      (raise (exn:fail:type:infer
-                                 (format "~a (~a:~a): could not infer type of function ~a; add annotation(s)"
-                                         (syntax-source #'o) (syntax-line #'o) (syntax-column #'o)
-                                         (syntax->datum #'o))
-                               (current-continuation-marks)))
-                      #:with app (datum->syntax #'o '#%app)
-                      (datum->syntax this-syntax
-                                     (list* #'app (assign-type #'x #'τ) #'rst)
-                                     this-syntax)])] ...)
-                  (#%expression e) ... void)))))
-       (list #'tvs+ #'xs+ #'(e+ ...)
-             (stx-map ; need this check when combining #%type and kinds
-              (λ (t) (or (false? t)
-                         (syntax-local-introduce t)))
-              (stx-map typeof #'(e+ ...))))]
+               (let-syntax 
+                ([x (make-variable-like-transformer (assign-type #'x #'τ))] ...)
+                 (#%expression e) ... void)))))
+       (list #'tvs+ #'xs+ #'(e+ ...) (stx-map typeof #'(e+ ...)))]
       [([x τ] ...) (infer es #:ctx #'([x : τ] ...) #:tvctx tvctx)]))
 
   ;; fns derived from infer ---------------------------------------------------

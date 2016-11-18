@@ -119,14 +119,14 @@
   [(_ e_unit ... e)
    #:with ([e_unit- _] ...) (infers+erase #'(e_unit ...))
    #:with (e- τ) (infer+erase #'e)
-   (⊢ (begin- e_unit- ... e-) : τ)])
+   (⊢/no-teval (begin- e_unit- ... e-) : τ)])
 
 (define-typed-syntax ann #:datum-literals (:)
   [(_ e : ascribed-τ:type)
    #:with (e- τ) (infer+erase #'(add-expected e ascribed-τ.norm))
    #:fail-unless (typecheck? #'τ #'ascribed-τ.norm)
    (typecheck-fail-msg/1 #'ascribed-τ.norm #'τ #'e)
-   (⊢ e- : ascribed-τ)])
+   (⊢/no-teval e- : ascribed-τ.norm)])
 
 (define-typed-syntax let
   [(_ ([x e] ...) e_body)
@@ -137,7 +137,7 @@
    #:fail-unless (or (not (syntax-e #'τ-expected)) ; no expected type
                      (typecheck? #'τ_body ((current-type-eval) #'τ-expected)))
    (typecheck-fail-msg/1 #'τ-expected #'τ_body #'e_body)
-   (⊢ (let- ([x- e-] ...) e_body-) : τ_body)])
+   (⊢/no-teval (let- ([x- e-] ...) e_body-) : τ_body)])
 
 ; dont need to manually transfer expected type
 ; result template automatically propagates properties
@@ -157,4 +157,4 @@
           (infers/ctx+erase #'(b ...) #'((add-expected e b.type) ... e_body))
    #:fail-unless (typechecks? #'(b.type ...) #'(τ ...))
    (typecheck-fail-msg/multi #'(b.type ...) #'(τ ...) #'(e ...))
-   (⊢ (letrec- ([x- e-] ...) e_body-) : τ_body)])
+   (⊢/no-teval (letrec- ([x- e-] ...) e_body-) : τ_body)])

@@ -50,7 +50,7 @@
    ;; propagate up inferred types of variables
    #:with env (stx-flatten (filter (λ (x) x) (stx-map get-env #'(e1- e2-))))
    #:with result-cons (add-env #'(cons- e1- e2-) #'env)
-   (⊢ result-cons : τ_list)])
+   (⊢/no-teval result-cons : τ_list)])
 (define-typed-syntax isnil
   [(_ e)
    #:with [e- (~List _)] (infer+erase #'e)
@@ -58,12 +58,12 @@
 (define-typed-syntax head
   [(_ e)
    #:with [e- (~List τ)] (infer+erase #'e)
-   (⊢ (car- e-) : τ)])
+   (⊢/no-teval (car- e-) : τ)])
 (define-typed-syntax tail
   [(_ e)
    #:with [e- τ_lst] (infer+erase #'e)
    #:when (List? #'τ_lst)
-   (⊢ (cdr- e-) : τ_lst)])
+   (⊢/no-teval (cdr- e-) : τ_lst)])
 (define-typed-syntax list
   [(_) #'nil]
   [(_ x . rst) ; has expected type
@@ -77,7 +77,7 @@
   [(_ e)
    #:with (e- τ-lst) (infer+erase #'e)
    #:when (List? #'τ-lst)
-   (⊢ (reverse- e-) : τ-lst)])
+   (⊢/no-teval (reverse- e-) : τ-lst)])
 (define-typed-syntax length
   [(_ e)
    #:with (e- τ-lst) (infer+erase #'e)
@@ -87,7 +87,7 @@
   [(_ e n)
    #:with (e- (ty)) (⇑ e as List)
    #:with n- (⇑ n as Int)
-   (⊢ (list-ref- e- n-) : ty)])
+   (⊢/no-teval (list-ref- e- n-) : ty)])
 (define-typed-syntax member
   [(_ v e)
    #:with (e- (ty)) (⇑ e as List)
