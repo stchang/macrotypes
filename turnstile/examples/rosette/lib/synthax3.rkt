@@ -2,22 +2,22 @@
 (require
  (prefix-in 
   t/ro:
-  (only-in "../rosette3.rkt" U Int Bool C→ CSolution Unit CSyntax CListof))
+  (only-in "../rosette3.rkt" U Int C→ CSolution Unit CSyntax CListof expand/ro))
  (prefix-in ro: rosette/lib/synthax))
 
 (provide (typed-out [print-forms : (t/ro:C→ t/ro:CSolution t/ro:Unit)])
          ??)
 
-(provide generate-forms choose)
+(provide generate-forms choose define-synthax)
 
 (define-typed-syntax ??
   [(qq) ≫
    #:with ??/progsrc (datum->syntax #'here 'ro:?? #'qq)
    --------
-   [⊢ [_ ≫ (??/progsrc) ⇒ : t/ro:Int]]]
+   [⊢ (??/progsrc) ⇒ t/ro:Int]]
   [(qq pred?) ≫
    #:with ??/progsrc (datum->syntax #'here 'ro:?? #'qq)
-   [⊢ [pred? ≫ pred?- (⇒ : _) (⇒ typefor ty) (⇒ solvable? s?) (⇒ function? f?)]]
+   [⊢ pred? ≫ pred?- (⇒ : _) (⇒ typefor ty) (⇒ solvable? s?) (⇒ function? f?)]
    #:fail-unless (syntax-e #'s?)
                  (format "Expected a Rosette-solvable type, given ~a." 
                          (syntax->datum #'pred?))
@@ -25,19 +25,23 @@
                (format "Expected a non-function Rosette type, given ~a." 
                        (syntax->datum #'pred?))
    --------
-   [⊢ [_ ≫ (??/progsrc pred?-) ⇒ : ty]]])
+   [⊢ (??/progsrc pred?-) ⇒ ty]])
   
 (define-syntax print-forms
   (make-variable-like-transformer
-   (assign-type #'ro:print-forms #'(t/ro:C→ t/ro:CSolution t/ro:Unit))))
+   (assign-type #'ro:print-forms
+                #'(t/ro:C→ t/ro:CSolution t/ro:Unit))))
 
 (define-syntax generate-forms
   (make-variable-like-transformer
-   (assign-type #'ro:generate-forms #'(t/ro:C→ t/ro:CSolution (t/ro:CListof t/ro:CSyntax)))))
+   (assign-type #'ro:generate-forms 
+                #'(t/ro:C→ t/ro:CSolution (t/ro:CListof t/ro:CSyntax)))))
 
 (define-typed-syntax choose
   [(ch e ...+) ≫
-   [⊢ [e ≫ e- ⇒ : ty]] ...
+   ;; [⊢ e ≫ e- ⇒ ty] ...
+   #:with (e- ...) (stx-map t/ro:expand/ro #'(e ...))
+   #:with (ty ...) (stx-map typeof #'(e- ...))
    #:with (e/disarmed ...) (stx-map replace-stx-loc #'(e- ...) #'(e ...))
    ;; the #'choose identifier itself must have the location of its use
    ;; see define-synthax implementation, specifically syntax/source in utils
@@ -45,36 +49,25 @@
    --------
    [⊢ (ch/disarmed e/disarmed ...) ⇒ (t/ro:U ty ...)]])
 
-;; TODO: not sure how to handle define-synthax
-;; it defines a macro, but may refer to itself in #:base and #:else
-;; - so must expand "be" and "ee", but what to do about self reference?
-;; - the current letrec-like implementation results in an #%app of the the f macro
-;;   which isnt quite right
-#;(define-typed-syntax define-synthax #:datum-literals (: -> →)
-  #;[(_ x:id ([pat e] ...+)) ≫
-   [⊢ [e ≫ e- ⇒ : τ]] ...
-   #:with y (generate-temporary #'x)
+;; define-synthax defines macro f, which may be referenced in #:base and #:else
+;; - thus cannot expand "be" and "ee", and arguments to f invocation
+;; - last arg is an int that will be eval'ed to determine unroll depth
+;; - must do some expansion to check types,
+;;   but dont use expanded stx objs as args to ro:define-synthax
+(define-typed-syntax define-synthax
+  [(_ (f [x (~datum :) ty] ... k (~datum ->) ty-out) #:base be #:else ee) ≫
+   #:with f- (generate-temporary #'f)
+   #:with (a ...) (generate-temporaries #'(ty ...))
    --------
-   [_ ≻ (begin-
-          (define-syntax- x (make-rename-transformer (⊢ y : t/ro:Int)))
-          (ro:define-synthax y ([pat e-] ...)))]]
-  [(_ (f [x:id : ty] ... [k:id : tyk] -> ty_out) #:base be #:else ee) ≫
-   #:with (e ...) #'(be ee)
-   [() ([x ≫ x- : ty] ... [k ≫ k- : tyk] [f ≫ f- : (t/ro:C→ ty ... tyk ty_out)]) ⊢ 
-    [e ≫ e- ⇒ : ty_e] ...]
-   #:with (be- ee-) #'(e- ...)
-   #:with f* (generate-temporary)
-   #:with app-f (format-id #'f "apply-~a" #'f)
-   --------
-   [_ ≻ (begin-
-          (ro:define-synthax (f- x- ... k-) #:base be- #:else ee-)
-          (define-syntax- app-f
-            (syntax-parser
-              [(_ . es)
-               ;; TODO: typecheck es
-               #:with es- (stx-map expand/df #'es)
-;               #:with es/fixsrc (stx-map replace-stx-loc #'es- #'es)
-               (assign-type #'(f- . es) #'ty_out)])))]])
-;             (⊢ f- : (t/ro:C→ ty ... tyk ty_out))
-;          #;(ro:define-synthax (f- x- ... k-)
-;            #:base be- #:else ee-))]])
+   [≻ (begin-
+        (ro:define-synthax (f- x ... k) #:base be #:else ee)
+        (define-typed-syntax f
+          [(ff a ... j) ≫
+           [⊢ a ≫ _ ⇐ ty] ...
+           [⊢ j ≫ _ ⇐ t/ro:Int]
+           ;; j will be eval'ed, so strip its context
+           #:with j- (assign-type (datum->syntax #'H (stx->datum #'j))
+                                  #'t/ro:Int)
+           #:with f-- (replace-stx-loc #'f- #'ff)
+           --------
+           [⊢ (f-- a ... j-) ⇒ ty-out]]))]])

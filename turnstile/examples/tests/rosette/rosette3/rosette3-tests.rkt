@@ -241,8 +241,8 @@
 (typecheck-fail ((λ ([f : (Ccase-> (C→ Zero Zero)
                                    (C→ Int Int))]) (f 10)) add1) 
   #:with-msg
-  (string-append "expected \\(Ccase-> \\(C→ Zero Zero\\) \\(C→ Int Int\\)\\), "
-                 "given \\(Ccase-> .*\\(C→ NegInt \\(U NegInt Zero\\)\\) .*\\(C→ Zero PosInt\\) "
+  (string-append "expected.*\\(Ccase-> \\(C→ Zero Zero\\) \\(C→ Int Int\\)\\).*"
+                 "given.*\\(Ccase-> .*\\(C→ NegInt \\(U NegInt Zero\\)\\) .*\\(C→ Zero PosInt\\) "
                  ".*\\(C→ PosInt PosInt\\) .*\\(C→ Nat PosInt\\) .*\\(C→ Int Int\\)\\)"))
 
 ;; applying symbolic function types
@@ -265,9 +265,9 @@
 ;; check BVPred as type annotation
 ;; CBV input annotation on arg is too restrictive to work as BVPred
 (typecheck-fail ((λ ([bvp : BVPred]) bvp) (λ ([bv : CBV]) #t)) 
-                #:with-msg "expected BVPred.*given.*CBV")
+                #:with-msg "expected.*BVPred.*given.*CBV")
 (typecheck-fail ((λ ([bvp : BVPred]) bvp) (λ ([bv : BV]) #t))
-                #:with-msg "expected BVPred.*given.*BV")
+                #:with-msg "expected.*BVPred.*given.*BV")
 ;; BVpred arg must have Any input type
 (check-type ((λ ([bvp : BVPred]) bvp) (λ ([bv : Any]) ((bitvector 2) bv))) : BVPred)
 

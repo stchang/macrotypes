@@ -1,11 +1,9 @@
 2016-11-18 --------------------
 
-- working on synthcl lang
+working on synthcl3 lang
 - added `grammar` form, which expands to define-synthax
 - definition does not error, but applying a "grammar" definition results in
   strange error, during type eval
-- last time I saw something like this, it was a bad type regexp parse in #%app
-  but app is not being invoked here
 
 Strange error:
  t: unbound identifier in module
@@ -15,6 +13,9 @@ Strange error:
 ;  /home/stchang/NEU_Research/macrotypes/macrotypes/typecheck.rkt:86:7
 ;  /home/stchang/racket/rosette-stchang/rosette/base/form/module.rkt:16:0
 
+- last time I saw something like this, it was a bad type regexp parse in #%app
+  but app is not being invoked here
+- UPDATE: it's the same regexp problem, in define-coercing-real-binop
 
 2016-11-02 --------------------
 ** Problem: typed forms should not expand all the way down
@@ -32,6 +33,10 @@ since e1+ and e2+ are already fully expanded
 
 see rosette:define/debug as an example
 
+1b) related to 1), term-cache will not be properly populated if ro:XX forms
+    are handed full-expanded stx objs
+    - see define-synthax
+
 2) syntax taints
 
 If the host lang (eg rosette) uses syntax rules, then the typed layer will
@@ -46,6 +51,15 @@ Further requirements for this solution:
 - workound by converting to explicit internal definition contexts rather than
   lambda wrappers?
 2) local expand must use a stop list containing host lang prompt macro
+UPDATE 2016-11-22: tried to use internal-def-ctx to get around requirement #1
+ but couldnt get it to work
+- specifically, how to return x- in infer fn
+- tried to get x- with separate call (using same int-def-ctx) to local-expand
+  but it was causing nesting issues (eg, unbound tyvars)
+
+** current solution (2016-11-22)
+- use special expand fn (eg, expand/ro) with stop-list containing all rosette
+identifiers
 
 
 2016-09-08 --------------------

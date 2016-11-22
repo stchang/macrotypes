@@ -16,7 +16,7 @@
 (struct pnt ([x : Int] [y : Int]) #:mutable #:transparent)
 
 (check-type (point 1 2) : (CPoint Int Int) -> (point 1 2))
-(typecheck-fail (point #f 2) #:with-msg "expected Int, given False")
+(typecheck-fail (point #f 2) #:with-msg "expected.*Int.*given.*False")
 (check-type (pt 1 2) : (CPt Int Int)) ; opaque, incomparable
 (check-type (pnt 1 2) : (CPnt Int Int) -> (pnt 1 2))
 

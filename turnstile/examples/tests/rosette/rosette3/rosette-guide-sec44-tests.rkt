@@ -20,7 +20,7 @@
 (check-not-type (f 1) : CBool)
 (define-symbolic x real?)
 ; typed Rosette rejects tis program
-(typecheck-fail (f x) #:with-msg "expected Int, given.*Num")
+(typecheck-fail (f x) #:with-msg "expected.*Int.* given.*Num")
 ;; must use assert-type to cast to Int
 (check-type (f (assert-type x : Int)) 
             : Bool -> (f (assert-type x : Int))) ;(app f (real->integer x)))
@@ -30,7 +30,7 @@
 
 ;; typed Rosette rejects this program
 (typecheck-fail (solve (assert (not (equal? (f x) (f 1)))))
-                #:with-msg "expected Int, given.*Num")
+                #:with-msg "expected.*Int.*given.*Num")
 ;; must use assert-type to cast x toInt
 (define sol (solve (assert (not (equal? (f (assert-type x : Int)) (f 1))))))
 (check-type sol : CSolution)

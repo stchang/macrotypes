@@ -99,19 +99,19 @@
 (check-type (racket/string-length "abababa") : CNat -> 7)
 (check-not-type (string-length "abababa") : CNat)
 
-(typecheck-fail (string-length 3) #:with-msg "expected String")
+(typecheck-fail (string-length 3) #:with-msg "expected.*String")
 ;> (define-symbolic b boolean?)
 (check-type (string-length (if b "a" "abababa")) : Nat -> (if b 1 7)) ;(ite b 1 7)
 (check-not-type (string-length (if b "a" "abababa")) : CNat)
 
 ;; Typed Rosette rejects this program
-(typecheck-fail (string-length (if b "a" 3)) #:with-msg "expected String")
+(typecheck-fail (string-length (if b "a" 3)) #:with-msg "expected.*String")
 ;; need assert-type
 ;; TODO: this doesnt work yet because String has no pred
 ;; - and we cant use string? bc it's unlifted --- will always be assert fail
 ;(check-type (string-length (assert-type (if b "a" 3) : String)) : Nat -> 1)
 ;;(check-type (asserts) : CAsserts -> (list b))
-(typecheck-fail (string-length (if b 3 #f)) #:with-msg "expected String")
+(typecheck-fail (string-length (if b 3 #f)) #:with-msg "expected.*String")
 ;; not runtime exn: for/all: all paths infeasible
 
 ;; Making symbolic evaluation more efficient.

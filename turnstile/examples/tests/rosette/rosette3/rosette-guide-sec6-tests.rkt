@@ -26,26 +26,26 @@
 #;(printf "expected output:\n~a\n" 
         "'(define (div2 [x : BV] -> BV) (bvlshr x (bv 1 8)))")
 
-;; TODO: define-synthax
-; Defines a grammar for boolean expressions
-; in negation normal form (NNF).
-#;(define-synthax (nnf [x : Bool] [y : Bool] [depth : Int] -> Bool)
+;; define-synthax
+(define-synthax (nnf [x : Bool] [y : Bool] depth -> Bool)
  #:base (choose x (! x) y (! y))
  #:else (choose
          x (! x) y (! y)
          ((choose && ||) (nnf x y (- depth 1))
                          (nnf x y (- depth 1)))))
- 
-; The body of nnf=> is a hole to be filled with an
-; expression of depth (up to) 1 from the NNF grammar.
-#;(define (nnf=> [x : Bool] [y : Bool] -> Bool)
-  (apply-nnf x y 1))
- 
-;; (define-symbolic a b boolean?)
-;; (print-forms
-;;    (synthesize
-;;     #:forall (list a b)
-;;     #:guarantee (assert (equal? (=> a b) (nnf=> a b)))))
+(define (nnf=> [x : Bool] [y : Bool] -> Bool)
+  (nnf x y 1))
+
+(define-symbolic a b boolean?)
+(check-type
+ (with-output-to-string
+   (λ ()
+     (print-forms
+      (synthesize
+       #:forall (list a b)
+       #:guarantee (assert (equal? (=> a b) (nnf=> a b)))))))
+ : CString
+ -> "/home/stchang/NEU_Research/macrotypes/turnstile/examples/tests/rosette/rosette3/rosette-guide-sec6-tests.rkt:36:0\n'(define (nnf=> (x : Bool) (y : Bool) -> Bool) (|| (! x) y))\n")
 ;; (printf "expected output:\n~a\n"
 ;;         "'(define (nnf=> [x : Bool] [y : Bool] -> Bool) (|| (! x) y))")
 

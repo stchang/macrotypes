@@ -17,12 +17,12 @@
  (only-in "../stlc+union+case.rkt" [~U* ~CU*] [~case-> ~Ccase->] [~→ ~C→])
  (only-in "../stlc+cons.rkt" [~List ~CListof])
  ;; base lang
- (prefix-in ro: rosette)
+ (prefix-in ro: (combine-in rosette rosette/lib/synthax))
  (rename-in "rosette-util.rkt" [bitvector? lifted-bitvector?]))
 
 (provide (rename-out [ro:#%module-begin #%module-begin] 
                      [stlc+union:λ lambda])
-         (for-syntax get-pred)
+         (for-syntax get-pred expand/ro)
          Any CNothing Nothing
          CU U (for-syntax ~U*)
          Constant
@@ -50,6 +50,14 @@
          CSolution CSolver CPict CSyntax CRegexp CSymbol CPred CPredC)
 
 (begin-for-syntax
+  ;; TODO: fix this so it's not using hardcoded list of ids
+  (define (expand/ro e)
+    (define e+
+      (local-expand
+       e 'expression
+       (list #'ro:#%app #'ro:choose #'ro:synthesize)))
+;    (displayln (stx->datum e+))
+    e+)
   (define (mk-ro:-id id) (format-id id "ro:~a" id))
   (current-host-lang mk-ro:-id))
 
@@ -389,19 +397,29 @@
 (define-typed-syntax app #:export-as #%app
   ;; concrete functions
   [(_ e_fn e_arg ...) ≫
-   [⊢ [e_fn ≫ e_fn- ⇒ : (~C→ ~! τ_in ... τ_out)]]
+;   [⊢ e_fn ≫ e_fn- ⇒ (~C→ ~! τ_in ... τ_out)]
+   #:with e_fn- (expand/ro #'e_fn)
+   #:with (~C→ ~! τ_in ... τ_out) (typeof #'e_fn-)
    #:with e_fn/progsrc- (replace-stx-loc #'e_fn- #'e_fn)
    #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
-   (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
-   [⊢ [e_arg ≫ e_arg- ⇐ : τ_in] ...]
+                 (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
+;   [⊢ e_arg ≫ e_arg- ⇐ τ_in] ...
+   #:with (e_arg- ...) (stx-map expand/ro #'(e_arg ...))
+   #:with ty_args (stx-map typeof #'(e_arg- ...))
+   #:fail-unless (typechecks? #'ty_args #'(τ_in ...))
+                 (typecheck-fail-msg/multi #'(τ_in ...) #'ty_args #'(e_arg ...))
    --------
    ;; TODO: use e_fn/progsrc- (currently causing "cannot use id tainted in macro trans" err)
    [⊢ [_ ≫ (ro:#%app e_fn/progsrc- e_arg- ...) ⇒ : τ_out]]]
   ;; concrete case->
   [(_ e_fn e_arg ...) ≫
-   [⊢ [e_fn ≫ e_fn- ⇒ : (~Ccase-> ~! . (~and ty_fns ((~C→ . _) ...)))]]
+   #:with e_fn- (expand/ro #'e_fn)
+   #:with (~Ccase-> ~! . (~and ty_fns ((~C→ . _) ...))) (typeof #'e_fn-)
+;   [⊢ [e_fn ≫ e_fn- ⇒ : (~Ccase-> ~! . (~and ty_fns ((~C→ . _) ...)))]]
    #:with e_fn/progsrc- (replace-stx-loc #'e_fn- #'e_fn)
-   [⊢ [e_arg ≫ e_arg- ⇒ : τ_arg] ...]
+;   [⊢ [e_arg ≫ e_arg- ⇒ : τ_arg] ...]
+   #:with (e_arg- ...) (stx-map expand/ro #'(e_arg ...))
+   #:with (τ_arg ...) (stx-map typeof #'(e_arg- ...))
    #:with τ_out
    (for/first ([ty_f (stx->list #'ty_fns)]
                #:when (syntax-parse ty_f
@@ -433,9 +451,13 @@
    [⊢ [_ ≫ (ro:#%app e_fn/progsrc- e_arg- ...) ⇒ : τ_out]]]
   ;; concrete union functions
   [(_ e_fn e_arg ...) ≫
-   [⊢ [e_fn ≫ e_fn- ⇒ : (~CU* τ_f ...)]]
+   #:with e_fn- (expand/ro #'e_fn)
+   #:with (~CU* τ_f ...) (typeof #'e_fn-)
+;   [⊢ [e_fn ≫ e_fn- ⇒ : (~CU* τ_f ...)]]
    #:with e_fn/progsrc- (replace-stx-loc #'e_fn- #'e_fn)
-   [⊢ [e_arg ≫ e_arg- ⇒ : τ_arg] ...]
+;   [⊢ [e_arg ≫ e_arg- ⇒ : τ_arg] ...]
+   #:with (e_arg- ...) (stx-map expand/ro #'(e_arg ...))
+   #:with (τ_arg ...) (stx-map typeof #'(e_arg- ...))
    #:with (f a ...) (generate-temporaries #'(e_fn e_arg ...))
    [([f ≫ _ : τ_f] [a ≫ _ : τ_arg] ...)
     ⊢ [(app f a ...) ≫ _ ⇒ : τ_out]]
@@ -444,9 +466,13 @@
    [⊢ [_ ≫ (ro:#%app e_fn/progsrc- e_arg- ...) ⇒ : (CU τ_out ...)]]]
   ;; symbolic functions
   [(_ e_fn e_arg ...) ≫
-   [⊢ [e_fn ≫ e_fn- ⇒ : (~U* τ_f ...)]]
+   #:with e_fn- (expand/ro #'e_fn)
+   #:with (~U* τ_f ...) (typeof #'e_fn-)
+;   [⊢ [e_fn ≫ e_fn- ⇒ : (~U* τ_f ...)]]
    #:with e_fn/progsrc- (replace-stx-loc #'e_fn- #'e_fn)
-   [⊢ [e_arg ≫ e_arg- ⇒ : τ_arg] ...]
+;   [⊢ [e_arg ≫ e_arg- ⇒ : τ_arg] ...]
+   #:with (e_arg- ...) (stx-map expand/ro #'(e_arg ...))
+   #:with (τ_arg ...) (stx-map typeof #'(e_arg- ...))
    #:with (f a ...) (generate-temporaries #'(e_fn e_arg ...))
    [([f ≫ _ : τ_f] [a ≫ _ : τ_arg] ...)
     ⊢ [(app f a ...) ≫ _ ⇒ : τ_out]]
@@ -455,9 +481,13 @@
    [⊢ [_ ≫ (ro:#%app e_fn/progsrc- e_arg- ...) ⇒ : (U τ_out ...)]]]
   ;; constant symbolic fns
   [(_ e_fn e_arg ...) ≫
-   [⊢ [e_fn ≫ e_fn- ⇒ : (~Constant* (~U* τ_f ...))]]
+   #:with e_fn- (expand/ro #'e_fn)
+   #:with (~Constant* (~U* τ_f ...)) (typeof #'e_fn-)
+;   [⊢ [e_fn ≫ e_fn- ⇒ : (~Constant* (~U* τ_f ...))]]
    #:with e_fn/progsrc- (replace-stx-loc #'e_fn- #'e_fn)
-   [⊢ [e_arg ≫ e_arg- ⇒ : τ_arg] ...]
+;   [⊢ [e_arg ≫ e_arg- ⇒ : τ_arg] ...]
+   #:with (e_arg- ...) (stx-map expand/ro #'(e_arg ...))
+   #:with (τ_arg ...) (stx-map typeof #'(e_arg- ...))
    #:with (f a ...) (generate-temporaries #'(e_fn e_arg ...))
    [([f ≫ _ : τ_f] [a ≫ _ : τ_arg] ...)
     ⊢ [(app f a ...) ≫ _ ⇒ : τ_out]]

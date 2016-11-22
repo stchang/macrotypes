@@ -70,7 +70,7 @@
 ;(define-symbolic b boolean?)
 ;; typed Rosette rejects this program
 (typecheck-fail (bvnot (if b 0 (bv 0 4)))
- #:with-msg "expected BV, given \\(U Zero CBV\\)")
+ #:with-msg "expected.*BV.*given.*\\(U Zero CBV\\)")
 ;; need assert-type annotation
 (check-type (bvnot (assert-type (if b 0 (bv 0 4)) : BV)) : BV -> (bv -1 4)) 
 (check-type (asserts) : (CListof Bool) -> (list (! b)))
@@ -82,7 +82,7 @@
 ;(define-symbolic b boolean?)
 ;; typed Rosette rejects this program
 (typecheck-fail (bvand (bv -1 4) (if b 0 (bv 2 4)))
- #:with-msg "expected BV, given \\(U Zero CBV\\)")
+ #:with-msg "expected.*BV.*given.*\\(U Zero CBV\\)")
 ;; need assert-type annotation
 (check-type (bvand (bv -1 4) (assert-type (if b 0 (bv 2 4)) : BV)) : BV -> (bv 2 4))
 (check-type (asserts) : (CListof Bool) -> (list (! b)))
@@ -94,7 +94,7 @@
 ;(define-symbolic b boolean?)
 ;; typed Rosette rejects this program
 (typecheck-fail (bvshl (bv -1 4) (if b 0 (bv 2 4)))
- #:with-msg "expected BV, given \\(U Zero CBV\\)")
+ #:with-msg "expected.*BV.*given.*\\(U Zero CBV\\)")
 ;; need assert-type annotation
 (check-type (bvshl (bv -1 4) (assert-type (if b 0 (bv 2 4)) : BV)) : BV -> (bv -4 4))
 (check-type (asserts) : CAsserts -> (list (! b)))
@@ -180,7 +180,7 @@
 ;> (define-symbolic b c boolean?)
 ;; typed Rosette rejects this program
 (typecheck-fail (integer->bitvector (if b pi 3) (if c (bitvector 5) (bitvector 6)))
- #:with-msg "expected Int, given.*Num")
+ #:with-msg "expected.*Int.*given.*Num")
 (check-type (if b pi 3) : Num)
 (check-not-type (if b pi 3) : Int)
 ;; need assert-type annotation
