@@ -288,15 +288,60 @@
 ;; 3 0 0
 ;; 3 3 0
 
-; out of order
+(check-type (- 1 (choose 0 1)) : int)
 
-#;(procedure int (tiny0 [int x])
+; out of order definitions
+
+(procedure int (tiny0 [int x])
   (minus x))
 
-#;(procedure int (tiny1 [int x])
+(procedure int (tiny1 [int x])
   (minus x))
 
-;; (grammar int (minus [int x])
-;;   (- x (choose 0 1)))
+(grammar int (minus [int x])
+  (- x (choose 0 1)))
 
-;; (minus 1)
+(check-type (minus 1) : int)
+
+(procedure int (foo [int x]) (locally-scoped (- ((int) x) 1)))
+
+(check-type (foo 1) : int -> 0)
+
+(check-type
+ (with-output-to-string
+   (λ ()
+     (synth #:forall [(: int x)]
+            #:ensure (assert (&& (== x (tiny0 x)) 
+                                 (== (- x 1) (tiny1 x)))))))
+ : CString
+ -> "/home/stchang/NEU_Research/macrotypes/turnstile/examples/tests/rosette/rosette3/synthcl3-tests.rkt:295:0\n'(procedure int (tiny0 (int x)) (- x 0))\n/home/stchang/NEU_Research/macrotypes/turnstile/examples/tests/rosette/rosette3/synthcl3-tests.rkt:298:0\n'(procedure int (tiny1 (int x)) (- x 1))\n")
+;; (procedure int (tiny0 (int x)) (- x 0))
+;; (procedure int (tiny1 (int x)) (- x 1))
+
+(check-type
+ (with-output-to-string
+   (λ ()
+     (synth #:forall [(: int k)
+                      (: int t in (range 1 5))
+                      (: int p in (range t 5))]
+            #:ensure (if (&& (== t 3) (== p 4)) 
+                         {(assert (choose k 3))}))))
+ : CString)
+     (synth #:forall [(: int k)
+                      (: int t in (range 1 5))
+                      (: int p in (range t 5))]
+            #:ensure (if (&& (== t 3) (== p 4)) 
+                         {(assert (choose k 3))}))
+#;(synth #:forall [(: int k) (: int t in (range 1 5)) (: int p in (range t 5))]
+       #:ensure (if (&& (== t 3) (== p 4)) ((assert 3))))
+
+(check-type
+(with-output-to-string
+  (λ ()
+(verify #:forall [(: int t in (range 1 5))
+                  (: int k)
+                  (: int p in (range t 5))]
+        #:ensure (if (&& (== t 2) (== p 4)) 
+                     {(assert k)}))))
+: CString
+-> "counterexample found:\nt = 2\nk = 0\np = 4\n")

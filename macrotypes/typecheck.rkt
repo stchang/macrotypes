@@ -194,6 +194,7 @@
       (set-stx-prop/preserved e 'expected-type ((current-type-eval) ty))
       e))
 
+;; type assignment
 (begin-for-syntax
   ;; Helper functions for attaching/detaching types, kinds, etc.
   

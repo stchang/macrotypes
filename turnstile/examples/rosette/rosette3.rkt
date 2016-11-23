@@ -55,7 +55,8 @@
     (define e+
       (local-expand
        e 'expression
-       (list #'ro:#%app #'ro:choose #'ro:synthesize)))
+       (list #'ro:#%app #'ro:choose #'ro:synthesize #'ro:let #'ro:in-value
+             #'ro:assert #'ro:if)))
 ;    (displayln (stx->datum e+))
     e+)
   (define (mk-ro:-id id) (format-id id "ro:~a" id))

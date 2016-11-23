@@ -1,5 +1,5 @@
 #lang turnstile
-(extends "rosette3.rkt" #:except ! #%app || && void = * + - #%datum if) ; typed rosette
+(extends "rosette3.rkt" #:except ! #%app || && void = * + - #%datum if assert verify) ; typed rosette
 (require ;(prefix-in ro: (except-in rosette verify sqrt range print)) ; untyped 
  racket/stxparam
   (prefix-in ro: (combine-in rosette rosette/lib/synthax))
@@ -7,17 +7,17 @@
                   sdsl/synthcl/lang/forms      sdsl/synthcl/model/reals
                   sdsl/synthcl/model/operators sdsl/synthcl/model/errors
                   sdsl/synthcl/model/memory    sdsl/synthcl/model/runtime
-                  sdsl/synthcl/model/work      sdsl/synthcl/model/pointers))
-  (for-syntax (prefix-in cl: sdsl/synthcl/lang/util))
-  (only-in "lib/synthax3.rkt" choose))
+                  sdsl/synthcl/model/work      sdsl/synthcl/model/pointers
+                  sdsl/synthcl/lang/queries))
+  (for-syntax (prefix-in cl: sdsl/synthcl/lang/util)))
 
 (begin-for-syntax
-  (define (mk-cl id) (format-id id "cl:~a" id))
+  (define (mk-cl id) (format-id #'here "cl:~a" id))
   (current-host-lang mk-cl))
 
 (provide (rename-out [synth-app #%app])
          procedure kernel grammar #%datum if range for print
-         choose
+         choose locally-scoped assert synth verify
          int int2 int3 int4 int16 float float2 float3 float4 float16
          bool void void* char* float* int* int16*
          : ! ?: == + * - || &&
@@ -25,6 +25,7 @@
          = += -= %= ; assignment ops
          sizeof
          (typed-out
+          ;[with-output-to-string : (C→ (C→ Any) char*)]
           [malloc : (C→ int void*)]
           [get_work_dim : (C→ int)]
 
@@ -340,8 +341,15 @@
    #:with f- (generate-temporary #'f)
    --------
    [≻ (ro:begin
-       (define-syntax- f
-         (make-rename-transformer (⊢ f- : (C→ ty ... ty-out))))
+       (define-typed-syntax f
+         [(ff . args) ≫
+          #:with (a- (... ...)) (stx-map expand/ro #'args)
+          #:with tys (stx-map typeof #'(a- (... ...)))
+          #:with tys-expected (stx-map (current-type-eval) #'(ty ...))
+          #:when (typechecks? #'tys #'tys-expected)
+          #:with f-- (replace-stx-loc #'f- #'ff)
+          -----------
+          [⊢ (f-- a- (... ...)) ⇒ ty-out.norm]])
        (ro:define-synthax f- ([(_ x ...) e])))]])
    
 ;; for and if statement --------------------------------------------------
@@ -431,7 +439,6 @@
         (ro:define-symbolic* x- pred) ...)]]
   ;; else init to NULLs
   [(_ ty:type x:id ...) ≫
-;   #:when (not (real-type? #'ty.norm))
    #:with (x- ...) (generate-temporaries #'(x ...))
    --------
    [≻ (begin-
@@ -517,36 +524,10 @@
    [⊢ e ≫ e- ⇐ bool]
    --------
    [⊢ (cl:! e-) ⇒ bool]]
-  ;; else try to coerce
-  [(_ e) ≫
+  [(_ e) ≫ ; else try to coerce
    [⊢ e ≫ e- ⇒ ty]
    --------
    [⊢ (cl:! (synth-app (bool) e-)) ⇒ bool]])
-
-(define-syntax (define-coercing-bool-binop stx)
-  (syntax-parse stx
-    [(_ name)
-     #:with name- (mk-cl #'name)
-     #'(define-typed-syntax name
-         [(_ e1 e2) ≫
-          [⊢ e1 ≫ e1- ⇐ bool]
-          [⊢ e2 ≫ e2- ⇐ bool]
-          --------
-          [⊢ (name- e1- e2-) ⇒ bool]]
-         [(_ e1 e2) ≫ ; else try to coerce
-          [⊢ e1 ≫ e1- ⇒ ty1]
-          [⊢ e2 ≫ e2- ⇒ ty2]
-          #:fail-unless (cast-ok? #'ty1 #'bool #'e1)
-                        (format "cannot cast ~a to bool" (type->str #'ty1))
-          #:fail-unless (cast-ok? #'ty2 #'bool #'e2)
-                        (format "cannot cast ~a to bool" (type->str #'ty2))
-          --------
-          [⊢ (name- (synth-app (bool) e1-)
-                    (synth-app (bool) e2-)) ⇒ bool]])]))
-(define-simple-macro (define-coercing-bool-binops o ...+)
-  (ro:begin (define-coercing-bool-binop o) ...))
-
-(define-coercing-bool-binops || &&)
 
 ;; TODO: this should produce int-vector result?
 (define-typed-syntax ==
@@ -559,50 +540,57 @@
    --------
    [⊢ (to-int (cl:== e1- e2-)) ⇒ int]])
 
-(define-syntax (define-coercing-real-binop stx)
-  (syntax-parse stx
-   [(_ name (~optional (~seq #:extra-check p?) #:defaults ([p? #'(λ _ #t)])))
-    #:with name- (mk-cl #'name)
-    #:with name= (format-id #'name "~a=" #'name) ; assignment form
-     #'(begin-
-        (define-typed-syntax name
-         [(_ e1 e2) ≫
-          [⊢ e1 ≫ e1- ⇒ ty1]
-          [⊢ e2 ≫ e2- ⇒ ty2]
-          #:with ty-out (common-real-type #'ty1 #'ty2)
-          #:fail-unless (syntax-e #'ty-out)
-                        (format "no common real type for operands; given ~a, ~a"
-                                (type->str #'ty1) (type->str #'ty2))
-          #:when (p? #'ty-out #'ty1 #'ty2)
-          #:with convert (get-convert #'ty-out)
-          #:with ty-base (get-base #'ty-out)
-          #:with base-convert (get-convert #'ty-base)
-          --------
-          [⊢ #,(if (scalar-type? #'ty-out)
-                #'(convert (name- (synth-app (ty-out) e1-)
-                                  (synth-app (ty-out) e2-)))
-                #'(convert
-                   (ro:let ([a (convert e1-)][b (convert e2-)])
-                     (ro:for/list ([v1 a][v2 b])
-                       (base-convert (name- v1 v2)))))) ⇒ ty-out]])
-        (define-typed-syntax name=
-          [(_ x e) ≫
-           --------
-           [≻ (= x (name x e))]]))]))
-(define-simple-macro (define-real-binops o ...)
-  (ro:begin (define-coercing-real-binop o) ...))
-(define-real-binops + * -)
+(define-simple-macro (define-bool-ops o ...+) (ro:begin (define-bool-op o) ...))
+(define-simple-macro (define-bool-op name)
+  #:with name- (mk-cl #'name)
+  (define-typed-syntax name
+    [(_ e1 e2) ≫
+     [⊢ e1 ≫ e1- ⇐ bool]
+     [⊢ e2 ≫ e2- ⇐ bool]
+     --------
+     [⊢ (name- e1- e2-) ⇒ bool]]
+    [(_ e1 e2) ≫ ; else try to coerce
+     --------
+     [⊢ (name- (synth-app (bool) e1) (synth-app (bool) e2)) ⇒ bool]]))
+
+(define-simple-macro (define-real-ops o ...) (ro:begin (define-real-op o) ...))
+(define-simple-macro (define-real-op name (~optional (~seq #:extra-check p?)
+                                                  #:defaults ([p? #'(λ _ #t)])))
+  #:with name- (mk-cl #'name)
+  #:with name= (format-id #'name "~a=" #'name) ; assignment form
+  (begin-
+    (define-typed-syntax (name e1 e2) ≫
+      [⊢ e1 ≫ e1- ⇒ ty1]
+      [⊢ e2 ≫ e2- ⇒ ty2]
+      #:with ty-out (common-real-type #'ty1 #'ty2)
+      #:fail-unless (syntax-e #'ty-out)
+                    (format "no common real type for operands; given ~a, ~a"
+                            (type->str #'ty1) (type->str #'ty2))
+      #:when (p? #'ty-out #'ty1 #'ty2)
+      #:with convert (get-convert #'ty-out)
+      #:with ty-base (get-base #'ty-out)
+      #:with base-convert (get-convert #'ty-base)
+      --------
+      [⊢ #,(if (scalar-type? #'ty-out)
+               #'(convert (name- (convert e1-) (convert e2-)))
+               #'(convert (ro:let ([a (convert e1-)][b (convert e2-)])
+                           (ro:for/list ([v1 a][v2 b])
+                            (base-convert (name- v1 v2)))))) ⇒ ty-out])
+    (define-typed-syntax (name= x e) ≫
+      --------
+      [≻ (= x (name x e))])))
+
 (define-for-syntax (int? t given1 given2)
   (or (typecheck/un? t #'int)
-      (raise-syntax-error 
-       #f 
+      (raise-syntax-error #f 
        (format "no common integer type for operands; given ~a, ~a"
                (type->str given1) (type->str given2)))))
-(define-simple-macro (define-coercing-int-binop o)
-  (define-coercing-real-binop o #:extra-check int?))
-(define-simple-macro (define-int-binops o ...)
-  (ro:begin (define-coercing-int-binop o) ...))
-(define-int-binops % <<)
+(define-simple-macro (define-int-op o) (define-real-op o #:extra-check int?))
+(define-simple-macro (define-int-ops o ...) (ro:begin (define-int-op o) ...))
+
+(define-bool-ops || &&)
+(define-real-ops + * -)
+(define-int-ops % <<)
 
 (define-typerule (sizeof t:type) >>
   ----------
@@ -612,3 +600,61 @@
   ----------
   [⊢ (ro:begin (display e) ...) ⇒ void])
 
+(define-typed-syntax choose
+  [(ch e ...+) ≫
+   #:with (e- ...) (stx-map expand/ro #'(e ...))
+   #:with (ty ...) (stx-map typeof #'(e- ...))
+   #:when (same-types? #'(ty ...))
+   #:with (e/disarmed ...) (stx-map replace-stx-loc #'(e- ...) #'(e ...))
+   ;; the #'choose identifier itself must have the location of its use
+   ;; see define-synthax implementation, specifically syntax/source in utils
+   #:with ch/disarmed (replace-stx-loc #'ro:choose #'ch)
+   --------
+   [⊢ (ch/disarmed e/disarmed ...) ⇒ #,(stx-car #'(ty ...))]])
+
+(define-typed-syntax (locally-scoped e ...) ≫
+  --------
+  [≻ (rosette3:let () e ...)])
+
+(define-for-syntax (decl->seq stx)
+  (syntax-parse stx
+    [((~datum :) type id (~datum in) rangeExpr) 
+     (syntax/loc stx (id rangeExpr type))]
+    [((~datum :) type id)
+     (syntax/loc stx (id (ro:in-value (ro:let () (: type id) id)) type))]))
+
+(define-typed-syntax (synth #:forall [decl ...] #:ensure e) ≫
+  #:with ([id seq ty] ...) (stx-map decl->seq #'(decl ...))
+  #:with (id- ...) (generate-temporaries #'(id ...))
+  #:with (typed-seq ...) #'((with-ctx ([id id- ty] ...) seq) ...)
+  #:with (tmp ...) (generate-temporaries #'(id ...))
+  --------
+  [⊢ (ro:let ([id- 1] ...) ; dummy, enables simplifying stx template
+      (ro:define-values (tmp ...)
+        (ro:for*/lists (tmp ...) ([id- typed-seq] ...) (ro:values id- ...)))
+      (ro:parameterize ([ro:term-cache (ro:hash-copy (ro:term-cache))])
+       (ro:print-forms
+        (ro:synthesize
+         #:forall (ro:append tmp ...)
+         #:guarantee (ro:for ([id- tmp] ...)
+                      (with-ctx ([id id- ty] ...) e)))))) ⇒ void])
+
+(define-typed-syntax verify
+  [(vfy #:forall [decl ...] #:ensure e) ≫
+  #:with ([id seq ty] ...) (stx-map decl->seq #'(decl ...))
+  #:with (id- ...) (generate-temporaries #'(id ...))
+  #:with (typed-seq ...) #'((with-ctx ([id id- ty] ...) seq) ...)
+  --------
+  [⊢ (ro:let ([id- 1] ...) ; dummy, enables simplifying stx template
+      (ro:parameterize ([ro:term-cache (ro:hash-copy (ro:term-cache))])
+       (ro:for*/or ([id- typed-seq] ...)
+        (ro:define cex (with-ctx ([id id- ty] ...) (ro:verify e)))
+        (ro:and (ro:sat? cex)
+                (displayln "counterexample found:")
+                (ro:for ([i '(id ...)] [i- (ro:list id- ...)])
+                 (printf "~a = ~a\n" i (ro:evaluate i- cex))))))) ⇒ void]])
+
+(define-typed-syntax (assert e) ≫
+  #:with e- (expand/ro #'e)
+  --------
+  [⊢ (ro:assert (to-bool e-)) ⇒ void])
