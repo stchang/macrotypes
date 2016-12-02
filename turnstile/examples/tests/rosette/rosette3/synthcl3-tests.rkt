@@ -345,3 +345,36 @@
                      {(assert k)}))))
 : CString
 -> "counterexample found:\nt = 2\nk = 0\np = 4\n")
+
+(: int2 [3] xs)
+(check-type xs : int2*)
+
+(: int [4] xs2)
+(check-type xs2 : int*)
+
+; basic matrix multiplying
+(: int4 sum0 sum1 sum2 sum3)
+(= sum0 0)
+(= sum1 0)
+(= sum2 0)
+(= sum3 0)
+
+(procedure int (computeSum1 [int4 a] [int4 b0] [int4 b1] [int4 b2] [int4 b3])
+  (+ (* [a x] [b0 x]) (* [a y] [b1 x]) (* [a z] [b2 x]) (* [a w] [b3 x])))
+(procedure int (computeSum2 [int4 a] [int4 b0] [int4 b1] [int4 b2] [int4 b3])
+  (+ (* [a x] [b0 y]) (* [a y] [b1 y]) (* [a z] [b2 y]) (* [a w] [b3 y])))
+(procedure int (computeSum3 [int4 a] [int4 b0] [int4 b1] [int4 b2] [int4 b3])
+  (+ (* [a x] [b0 z]) (* [a y] [b1 z]) (* [a z] [b2 z]) (* [a w] [b3 z])))
+(procedure int (computeSum4 [int4 a] [int4 b0] [int4 b1] [int4 b2] [int4 b3])
+  (+ (* [a x] [b0 w]) (* [a y] [b1 w]) (* [a z] [b2 w]) (* [a w] [b3 w])))
+
+(check-type (computeSum1 sum0 sum0 sum1 sum2 sum3) : int -> 0)
+(check-type (computeSum2 sum0 sum0 sum1 sum2 sum3) : int -> 0)
+(check-type (computeSum3 sum0 sum0 sum1 sum2 sum3) : int -> 0)
+(check-type (computeSum4 sum0 sum0 sum1 sum2 sum3) : int -> 0)
+(check-type (int4 (computeSum1 sum0 sum0 sum1 sum2 sum3)
+                  (computeSum2 sum0 sum0 sum1 sum2 sum3)
+                  (computeSum3 sum0 sum0 sum1 sum2 sum3)
+                  (computeSum4 sum0 sum0 sum1 sum2 sum3))
+            : int4
+            -> (ro:a ro:vector-immutable 0 0 0 0))

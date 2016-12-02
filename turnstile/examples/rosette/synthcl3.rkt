@@ -1,5 +1,5 @@
 #lang turnstile
-(extends "rosette3.rkt" #:except ! #%app || && void = * + - #%datum if assert verify) ; typed rosette
+(extends "rosette3.rkt" #:except ! #%app || && void = * + - / #%datum if assert verify) ; typed rosette
 (require ;(prefix-in ro: (except-in rosette verify sqrt range print)) ; untyped 
  racket/stxparam
   (prefix-in ro: (combine-in rosette rosette/lib/synthax))
@@ -8,7 +8,10 @@
                   sdsl/synthcl/model/operators sdsl/synthcl/model/errors
                   sdsl/synthcl/model/memory    sdsl/synthcl/model/runtime
                   sdsl/synthcl/model/work      sdsl/synthcl/model/pointers
-                  sdsl/synthcl/lang/queries))
+                  sdsl/synthcl/lang/queries    sdsl/synthcl/model/context
+                  sdsl/synthcl/model/queue     sdsl/synthcl/model/buffer
+                  sdsl/synthcl/model/flags     sdsl/synthcl/model/program
+                  sdsl/synthcl/model/kernel))
   (for-syntax (prefix-in cl: sdsl/synthcl/lang/util)))
 
 (begin-for-syntax
@@ -19,16 +22,31 @@
          procedure kernel grammar #%datum if range for print
          choose locally-scoped assert synth verify
          int int2 int3 int4 int16 float float2 float3 float4 float16
-         bool void void* char* float* int* int16* int2*
+         bool void void* char* float* int* int2* int3* int4* int16*
+         cl_context cl_command_queue cl_program cl_kernel cl_mem
          : ! ?: == + * - || &&
          % << ; int ops
          = += -= %= ; assignment ops
-         sizeof
+         sizeof clCreateProgramWithSource
          (typed-out
           ;[with-output-to-string : (C→ (C→ Any) char*)]
+          [clCreateContext : (C→ cl_context)]
+          [clCreateCommandQueue : (C→ cl_context cl_command_queue)]
+          [clCreateBuffer : (C→ cl_context int int cl_mem)]
+          [clEnqueueReadBuffer : (C→ cl_command_queue cl_mem int int void* void)]
+
+          [clEnqueueWriteBuffer : (C→ cl_command_queue cl_mem int int void* void)]
+          [clEnqueueNDRangeKernel : (C→ cl_command_queue cl_kernel int int* int* int* void)]
+          [clCreateKernel : (C→ cl_program char* cl_kernel)]
+          [clSetKernelArg : (Ccase-> (C→ cl_kernel int cl_mem void)
+                                     (C→ cl_kernel int int void)
+                                     (C→ cl_kernel int float void))]
+          [get_global_id : (C→ int int)]
+          [CL_MEM_READ_ONLY : int]
+          [CL_MEM_WRITE_ONLY : int]
+          [/ : (Ccase-> (C→ int int int) (C→ float float float))]
           [malloc : (C→ int void*)]
           [get_work_dim : (C→ int)]
-
           [!= : (Ccase-> (C→ CNum CNum CBool)
                          (C→ CNum CNum CNum CBool)
                          (C→ Num Num Bool)
@@ -63,9 +81,8 @@
   (define common-real-type
     (case-lambda 
       [(t) (and (real-type? t) t)]
-      [(t1 t2) (cond [(real-type<=? t1 t2) t2]
-                     [(real-type<=? t2 t1) t1]
-                     [else #f])]
+      [(t1 t2) (or (and (real-type<=? t1 t2) t2)
+                   (and (real-type<=? t2 t1) t1))]
       [ts (common-real-type (car ts) (apply common-real-type (cdr ts)))]))
 
   ;; implements common-real-type from model/reals.rkt
@@ -96,6 +113,8 @@
                (type->str from) (type->str to)
                #;(if (contract? to) (contract-name to) to))
        expr subexpr)))
+  (define (mk-ptr id) (format-id id "~a*" id))
+  (define (mk-mk id) (format-id id "mk-~a" id))
   (define (add-convert stx fn)
     (set-stx-prop/preserved stx 'convert fn))
   (define (get-convert stx)
@@ -114,6 +133,8 @@
     ((current-type-eval)
      (datum->syntax ctx
       (string->symbol (car (regexp-match #px"[a-z]+" (type->str ty)))))))
+  (define (get-pointer-base ty [ctx #'here])
+    (datum->syntax ctx (string->symbol (string-trim (type->str ty) "*"))))
   (define (vector-type? ty)
     (ty->len ty)) ; TODO: check and not pointer-type?
   (define (scalar-type? ty)
@@ -146,112 +167,73 @@
 (ro:define (mk-int v)
   (ro:#%app cl:int v))
 
-(ro:define (to-int16* v)
- (cl:pointer-cast v cl:int16))
-(ro:define (to-int2* v)
- (cl:pointer-cast v cl:int2))
 (ro:define (to-int* v)
  (cl:pointer-cast v cl:int))
 (ro:define (to-float* v)
  (cl:pointer-cast v cl:float))
 
-(define-named-type-alias bool
-  (add-convertm rosette3:Bool to-bool))
-(define-named-type-alias int
-  (add-convertm rosette3:Int to-int))
-(define-named-type-alias float
-  (add-convertm rosette3:Num to-float))
-(define-named-type-alias char*
-  (add-convertm rosette3:CString (λ (x) x)))
+(define-type-constructor Pointer #:arity = 1)
+;(define-named-type-alias void rosette3:CUnit)
+(define-base-types void cl_context cl_command_queue cl_program cl_kernel cl_mem)
+(define-named-type-alias void*  (add-convertm (Pointer void) (λ (x) x)))
+(define-named-type-alias bool   (add-convertm rosette3:Bool to-bool))
+(define-named-type-alias int    (add-convertm rosette3:Int to-int))
+(define-named-type-alias int*   (add-convertm (Pointer int) to-int*))
+(define-named-type-alias float  (add-convertm rosette3:Num to-float))
+(define-named-type-alias float* (add-convertm (Pointer float) to-float*))
+(define-named-type-alias char*  (add-convertm rosette3:CString (λ (x) x)))
 
 (define-syntax (define-int stx)
-  (syntax-parse stx
-    [(_ n)
-     #:with intn (format-id #'n "int~a" (syntax->datum #'n))
-     #:with to-intn (format-id #'n "to-~a" #'intn)
-     #:with mk-intn (format-id #'n "mk-~a" #'intn)
-     #:with cl-mk-intn (mk-cl #'intn)
-     #:with (x ...) (generate-temporaries
-                     (build-list (syntax->datum #'n) (lambda (x) x)))
-     #:with (I ...) (stx-map (lambda _ #'rosette3:Int) #'(x ...))
-     #'(begin
-         (define-named-type-alias intn
-           (add-constructm
-            (add-convertm
-             (rosette3:CVector I ...)
-             to-intn)
-            mk-intn))
-         (ro:define (to-intn v)
-          (ro:cond
-           [(ro:list? v)
-            (ro:apply ro:vector-immutable
-                      (ro:for/list ([i n]) (to-int (ro:list-ref v i))))]
-           [(ro:vector? v)
-            (ro:apply ro:vector-immutable
-                      (ro:for/list ([i n]) (to-int (ro:vector-ref v i))))]
-           [else
-            (ro:apply ro:vector-immutable
-                      (ro:make-list n (to-int v)))]))
-         (ro:define (mk-intn x ...)
-          (ro:#%app cl-mk-intn x ...)
-          #;(ro:#%app ro:vector-immutable (to-int x) ...))
-         )]))
+ (syntax-parse stx
+  [(_ n)
+   #:with intn (format-id #'n "int~a" (syntax->datum #'n))
+   #:with intn* (mk-ptr #'intn)
+   #:with to-intn (format-id #'n "to-~a" #'intn)
+   #:with mk-intn (mk-mk #'intn)
+   #:with to-intn* (mk-ptr #'to-intn)
+   #:with mk-intn* (mk-ptr #'mk-intn)
+   #:with cl-mk-intn (mk-cl #'intn)
+   #:with (x ...) (generate-temporaries (build-list (syntax->datum #'n) values))
+   #:with (I ...) (stx-map (lambda _ #'rosette3:Int) #'(x ...))
+   #'(begin
+      (define-named-type-alias intn
+       (add-constructm (add-convertm (rosette3:CVector I ...) to-intn) mk-intn))
+      (define-named-type-alias intn* (add-convertm (Pointer intn) to-intn*))
+      (ro:define (to-intn v)
+       (ro:cond
+        [(ro:list? v)
+         (ro:apply mk-intn (ro:for/list ([i n]) (ro:#%app to-int (ro:list-ref v i))))]
+        [(ro:vector? v)
+         (ro:apply mk-intn (ro:for/list ([i n]) (ro:#%app to-int (ro:vector-ref v i))))]
+        [else (ro:apply mk-intn (ro:make-list n (ro:#%app to-int v)))]))
+      (ro:define (to-intn* v) (cl:pointer-cast v cl-mk-intn))
+      (ro:define (mk-intn x ...) (ro:#%app cl-mk-intn x ...)))]))
 (define-simple-macro (define-ints n ...) (begin (define-int n) ...))
 (define-ints 2 3 4 16)
 
 (define-syntax (define-float stx)
-  (syntax-parse stx
-    [(_ n)
-     #:with floatn (format-id #'n "float~a" (syntax->datum #'n))
-     #:with to-floatn (format-id #'n "to-~a" #'floatn)
-     #:with mk-floatn (format-id #'n "mk-~a" #'floatn)
-     #:with cl-mk-floatn (mk-cl #'floatn)
-     #:with (x ...) (generate-temporaries
-                     (build-list (syntax->datum #'n) (lambda (x) x)))
-     #:with (I ...) (stx-map (lambda _ #'rosette3:Num) #'(x ...))
-     #'(begin
-         (define-named-type-alias floatn
-           (add-constructm
-            (add-convertm
-             (rosette3:CVector I ...)
-             to-floatn)
-            mk-floatn))
-         (ro:define (to-floatn v)
-          (ro:cond
-           [(ro:list? v)
-            (ro:apply ro:vector-immutable
-                      (ro:for/list ([i n]) (to-float (ro:list-ref v i))))]
-           [(ro:vector? v)
-            (ro:apply ro:vector-immutable
-                      (ro:for/list ([i n]) (to-float (ro:vector-ref v i))))]
-           [else
-            (ro:apply ro:vector-immutable
-                      (ro:make-list n (to-float v)))]))
-         (ro:define (mk-floatn x ...)
-          (ro:#%app cl-mk-floatn x ...)
-          #;(ro:#%app ro:vector-immutable (to-float x) ...))
-         )]))
+ (syntax-parse stx
+  [(_ n)
+   #:with floatn (format-id #'n "float~a" (syntax->datum #'n))
+   #:with to-floatn (format-id #'n "to-~a" #'floatn)
+   #:with mk-floatn (mk-mk #'floatn)
+   #:with cl-mk-floatn (mk-cl #'floatn)
+   #:with (x ...) (generate-temporaries (build-list (syntax->datum #'n) values))
+   #:with (I ...) (stx-map (lambda _ #'rosette3:Num) #'(x ...))
+   #'(begin
+      (define-named-type-alias floatn
+       (add-constructm
+        (add-convertm (rosette3:CVector I ...) to-floatn) mk-floatn))
+      (ro:define (to-floatn v)
+       (ro:cond
+        [(ro:list? v)
+         (ro:apply mk-floatn (ro:for/list ([i n]) (ro:#%app to-float (ro:list-ref v i))))]
+        [(ro:vector? v)
+         (ro:apply mk-floatn (ro:for/list ([i n]) (ro:#%app to-float (ro:vector-ref v i))))]
+        [else (ro:apply mk-floatn (ro:make-list n (ro:#%app to-float v)))]))
+      (ro:define (mk-floatn x ...) (ro:#%app cl-mk-floatn x ...)))]))
 (define-simple-macro (define-floats n ...) (begin (define-float n) ...))
 (define-floats 2 3 4 16)
-
-
-(define-type-constructor Pointer #:arity = 1)
-;(define-named-type-alias void rosette3:CUnit)
-(define-base-type void)
-#;(begin-for-syntax
-  (define-syntax ~void*
-    (pattern-expander
-     (make-variable-like-transformer #'(~and t:type (~parse ~void #'t.norm))))))
-(define-named-type-alias void*
-  (add-convertm (Pointer void) (λ (x) x)))
-(define-named-type-alias int*
-  (add-convertm (Pointer int) to-int*))
-(define-named-type-alias int16*
-  (add-convertm (Pointer int16) to-int16*))
-(define-named-type-alias int2*
-  (add-convertm (Pointer int2) to-int2*))
-(define-named-type-alias float*
-  (add-convertm (Pointer float) to-float*))
 
 (define-typed-syntax synth-app
   [(_ (ty:type) e) ≫ ; cast
@@ -282,13 +264,8 @@
    [⊢ ptr ≫ ptr- ⇒ ty-ptr]
    #:when (pointer-type? #'ty-ptr) #:with ~! #'dummy ; commit
    [⊢ sel ≫ sel- ⇐ int]
-   #:do [(define split-ty (ty->len #'ty-ptr))]
-   #:when (and split-ty (= 3 (length split-ty)))
-   #:do [(define base-str (cadr split-ty))
-         (define len-str (caddr split-ty))]
-   #:with ty-out ((current-type-eval) (format-id #'h "~a~a" base-str len-str))
    --------
-   [⊢ (cl:pointer-ref ptr- sel-) ⇒ ty-out]]
+   [⊢ (cl:pointer-ref ptr- sel-) ⇒ #,(get-pointer-base #'ty-ptr)]]
   [(_ vec sel) ≫ ; applying vector to one arg is selector
    [⊢ vec ≫ vec- ⇒ ty-vec]
    #:when (vector-type? #'ty-vec)
@@ -342,13 +319,13 @@
         (define- f-
           (lambda- (x ...)
             (rosette3:let ([x (⊢m (ro:#%app conv x) ty)] ...)
-              (⊢m (let- () e ... (rosette3:ann e-body : ty-out)) ty-out)))))]])
+              (⊢m (ro:let () e ... (rosette3:ann e-body : ty-out)) ty-out))))
+        (provide- f))]])
 (define-typed-syntax kernel
   [(_ ty-out:type (f [ty:type x:id] ...) e ...) ≫
    #:fail-unless (void? #'ty-out.norm)
                  (format "expected void, given ~a" (type->str #'ty-out.norm))
-   --------
-   [≻ (procedure void (f [ty x] ...) e ...)]])
+   --- [≻ (procedure void (f [ty x] ...) e ...)]])
 (define-typed-syntax grammar
   [(_ ty-out:type (f [ty:type x:id] ...) e) ≫
    #:with f- (generate-temporary #'f)
@@ -369,23 +346,21 @@
 (define-typed-syntax if
   [(_ test {then ...}  {else ...}) ≫
    --------
-   [⊢ (ro:if (to-bool test)
+   [⊢ (ro:if (ro:#%app to-bool test)
              (ro:let () then ... (ro:void)) 
              (ro:let () else ... (ro:void))) ⇒ void]]
   [(_ test {then ...}) ≫
-   --------
-   [≻ (if test {then ...} {})]])
+   --- [≻ (if test {then ...} {})]])
 
 (define-typed-syntax (range e ...) ≫
   [⊢ e ≫ e- ⇐ int] ...
-  --------
-  [⊢ (ro:#%app ro:in-range e- ...) ⇒ int]) 
+  --- [⊢ (ro:#%app ro:in-range e- ...) ⇒ int]) 
 (define-typed-syntax for
-  [(_ [((~literal :) ty:type var:id (~datum in) rangeExpr) ...] e ...) ≫
-   [[var ≫ var- : ty.norm] ... ⊢ [e ≫ e- ⇒ ty-e] ...]
+  [(_ [((~literal :) ty:type x:id (~datum in) rangeExpr) ...] e ...) ≫
    --------
-   [⊢ (ro:for* ([var- rangeExpr] ...)
-               e- ... (ro:void)) ⇒ void]])
+   [⊢ (ro:for* ([x rangeExpr] ...)
+        (rosette3:let ([x (⊢m x ty)] ...)
+          (⊢m (ro:let () e ... (ro:void)) void))) ⇒ void]])
 
 
 ;; need to redefine #%datum because rosette3:#%datum is too precise
@@ -433,10 +408,11 @@
                  (format "no pred for ~a" (type->str #'ty))
    #:with (x- ...) (generate-temporaries #'(x ...))
    #:with (x-- ...) (generate-temporaries #'(x ...))
+   #:with mk-ty (format-id #'here "mk-~a" #'ty)
    --------
    [≻ (begin-
         (ro:define-symbolic* x-- pred [#,(string->number len-str)]) ...
-        (ro:define x- (ro:apply ro:vector-immutable x--)) ...
+        (ro:define x- (ro:apply mk-ty x--)) ...
         (define-syntax- x
           (make-rename-transformer (assign-type #'x- #'ty.norm))) ...)]]
   [(_ ty:type [len] x:id ...) ≫ ; array of vector types
@@ -457,7 +433,7 @@
    [≻ (begin-
         (ro:define-symbolic* x-- pred [len base-len]) ...
         (ro:define x-
-          (ro:let ([*x (to-ty* (cl:malloc (ro:* len base-len)))])
+          (ro:let ([*x (ro:#%app to-ty* (cl:malloc (ro:* len base-len)))])
                   (ro:for ([i len][v x--])
                     (cl:pointer-set! *x i (ro:apply mk-ty v)))
                   *x)) ...
@@ -506,12 +482,12 @@
    #:with ty-base ((current-type-eval) (datum->syntax #'e (string->symbol out-base-str)))
    #:with base-convert (get-convert #'ty-base)
    -------
-   [⊢ (convert
-       (ro:let ([a (convert e-)][b (convert e1-)][c (convert e2-)])
+   [⊢ (ro:#%app convert
+       (ro:let ([a (ro:#%app convert e-)][b (ro:#%app convert e1-)][c (ro:#%app convert e2-)])
         (ro:for/list ([idx #,(string->number out-len-str)])
          (ro:if (ro:< (ro:vector-ref a idx) 0)
-                (base-convert (ro:vector-ref b idx))
-                (base-convert (ro:vector-ref c idx))))))
+                (ro:#%app base-convert (ro:vector-ref b idx))
+                (ro:#%app base-convert (ro:vector-ref c idx))))))
       ⇒ ty-out]]
   [(_ ~! e e1 e2) ≫ ; should be scalar and real
    [⊢ e ≫ e- ⇒ ty]
@@ -535,10 +511,10 @@
    [⊢ x ≫ x- ⇒ ty-x]
    [⊢ e ≫ e- ⇒ ty-e]
    #:fail-unless (cast-ok? #'ty-e #'ty-x stx)
-                 (format "cannot cast ~a to ~a"
-                         (type->str #'ty-e) (type->str #'ty-x))
+           (format "cannot cast ~a to ~a" (type->str #'ty-e) (type->str #'ty-x))
+   #:with conv (get-convert #'ty-x)
    --------
-   [⊢ (ro:set! x- (synth-app (ty-x) e-)) ⇒ void]]
+   [⊢ (ro:set! x- #,(if (syntax-e #'conv) #'(ro:#%app conv e-) #'e-)) ⇒ void]]
   ;; selector can be list of numbers or up to wxyz for vectors of length <=4
   [(_ [x:id sel] e) ≫
    [⊢ x ≫ x- ⇒ ty-x]
@@ -561,11 +537,11 @@
   [(_ e) ≫
    [⊢ e ≫ e- ⇐ bool]
    --------
-   [⊢ (cl:! e-) ⇒ bool]]
+   [⊢ (ro:#%app cl:! e-) ⇒ bool]]
   [(_ e) ≫ ; else try to coerce
    [⊢ e ≫ e- ⇒ ty]
    --------
-   [⊢ (cl:! (synth-app (bool) e-)) ⇒ bool]])
+   [⊢ (ro:#%app cl:! (ro:#%app to-bool e-)) ⇒ bool]])
 
 ;; TODO: this should produce int-vector result?
 (define-typed-syntax ==
@@ -576,7 +552,7 @@
    #:when (real-type? #'ty2)
    #:with ty-out ((current-join) #'ty1 #'ty2) ; only need this for the len
    --------
-   [⊢ (to-int (cl:== e1- e2-)) ⇒ int]])
+   [⊢ (ro:#%app to-int (cl:== e1- e2-)) ⇒ int]])
 
 (define-simple-macro (define-bool-ops o ...+) (ro:begin (define-bool-op o) ...))
 (define-simple-macro (define-bool-op name)
@@ -588,8 +564,7 @@
      --------
      [⊢ (name- e1- e2-) ⇒ bool]]
     [(_ e1 e2) ≫ ; else try to coerce
-     --------
-     [⊢ (name- (synth-app (bool) e1) (synth-app (bool) e2)) ⇒ bool]]))
+     --- [⊢ (name- (ro:#%app to-bool e1) (ro:#%app to-bool e2)) ⇒ bool]]))
 
 (define-simple-macro (define-real-ops o ...) (ro:begin (define-real-op o) ...))
 (define-simple-macro (define-real-op name (~optional (~seq #:extra-check p?)
@@ -597,32 +572,31 @@
   #:with name- (mk-cl #'name)
   #:with name= (format-id #'name "~a=" #'name) ; assignment form
   (begin-
-    (define-typed-syntax (name e1 e2) ≫
-      [⊢ e1 ≫ e1- ⇒ ty1]
-      [⊢ e2 ≫ e2- ⇒ ty2]
-      #:with ty-out (common-real-type #'ty1 #'ty2)
+    (define-typed-syntax (name e (... ...)) ≫
+      [⊢ e ≫ e- ⇒ ty] (... ...)
+      #:with ty-out (apply common-real-type (stx->list #'(ty (... ...))))
       #:fail-unless (syntax-e #'ty-out)
-                    (format "no common real type for operands; given ~a, ~a"
-                            (type->str #'ty1) (type->str #'ty2))
-      #:when (p? #'ty-out #'ty1 #'ty2)
+                    (format "no common real type for operands; given ~a"
+                            (types->str #'(ty (... ...))))
+      #:when (p? #'ty-out #'(ty (... ...)))
       #:with convert (get-convert #'ty-out)
       #:with ty-base (get-base #'ty-out)
       #:with base-convert (get-convert #'ty-base)
+      #:with (x (... ...)) (generate-temporaries #'(e (... ...)))
       --------
       [⊢ #,(if (scalar-type? #'ty-out)
-               #'(convert (name- (convert e1-) (convert e2-)))
-               #'(convert (ro:let ([a (convert e1-)][b (convert e2-)])
-                           (ro:for/list ([v1 a][v2 b])
-                            (base-convert (name- v1 v2)))))) ⇒ ty-out])
+               #'(ro:#%app convert (name- (convert e-) (... ...)))
+               #'(ro:#%app convert (ro:let ([x (ro:#%app convert e-)] (... ...))
+                           (ro:for/list ([x x] (... ...))
+                            (ro:#%app base-convert (name- x (... ...))))))) ⇒ ty-out])
     (define-typed-syntax (name= x e) ≫
-      --------
-      [≻ (= x (name x e))])))
+      --- [≻ (= x (name x e))])))
 
-(define-for-syntax (int? t given1 given2)
+(define-for-syntax (int? t givens)
   (or (typecheck/un? t #'int)
       (raise-syntax-error #f 
-       (format "no common integer type for operands; given ~a, ~a"
-               (type->str given1) (type->str given2)))))
+       (format "no common integer type for operands; given ~a"
+               (types->str givens)))))
 (define-simple-macro (define-int-op o) (define-real-op o #:extra-check int?))
 (define-simple-macro (define-int-ops o ...) (ro:begin (define-int-op o) ...))
 
@@ -631,12 +605,10 @@
 (define-int-ops % <<)
 
 (define-typerule (sizeof t:type) >>
-  ----------
-  [⊢ #,(real-type-length #'t.norm) ⇒ int])
+  --- [⊢ #,(real-type-length #'t.norm) ⇒ int])
 
 (define-typerule (print e ...) >>
-  ----------
-  [⊢ (ro:begin (display e) ...) ⇒ void])
+  --- [⊢ (ro:begin (display e) ...) ⇒ void])
 
 (define-typed-syntax choose
   [(ch e ...+) ≫
@@ -656,26 +628,35 @@
 
 (define-for-syntax (decl->seq stx)
   (syntax-parse stx
-    [((~datum :) type id (~datum in) rangeExpr) 
-     (syntax/loc stx (id rangeExpr type))]
-    [((~datum :) type id)
-     (syntax/loc stx (id (ro:in-value (ro:let () (: type id) id)) type))]))
+    [((~datum :) ty:type id (~datum in) rangeExpr) 
+     (syntax/loc stx (id rangeExpr ty.norm))]
+    [((~datum :) ty:type [len] id)
+     #:with tyout (mk-ptr #'ty)
+     (syntax/loc stx (id (ro:in-value (ro:let () (: ty [len] id) id)) tyout))]
+    [((~datum :) ty id)
+     (syntax/loc stx (id (ro:in-value (ro:let () (: ty id) id)) ty))]))
 
-(define-typed-syntax (synth #:forall [decl ...] #:ensure e) ≫
+(define-typed-syntax synth
+  [(_ #:forall [decl ...] #:bitwidth bw #:ensure e) ≫
   #:with ([id seq ty] ...) (stx-map decl->seq #'(decl ...))
   #:with (id- ...) (generate-temporaries #'(id ...))
   #:with (typed-seq ...) #'((with-ctx ([id id- ty] ...) seq) ...)
   #:with (tmp ...) (generate-temporaries #'(id ...))
   --------
-  [⊢ (ro:let ([id- 1] ...) ; dummy, enables simplifying stx template
+  [⊢ (ro:let ([id- 1] ...) ; dummy ensuring id- bound, simplifies stx template
       (ro:define-values (tmp ...)
         (ro:for*/lists (tmp ...) ([id- typed-seq] ...) (ro:values id- ...)))
-      (ro:parameterize ([ro:term-cache (ro:hash-copy (ro:term-cache))])
+      (ro:parameterize ([ro:current-bitwidth bw]
+                        [ro:term-cache (ro:hash-copy (ro:term-cache))])
        (ro:print-forms
         (ro:synthesize
          #:forall (ro:append tmp ...)
          #:guarantee (ro:for ([id- tmp] ...)
-                      (with-ctx ([id id- ty] ...) e)))))) ⇒ void])
+                      (with-ctx ([id id- ty] ...) e)))))) ⇒ void]]
+  [(_ #:forall [decl ...] #:ensure e) ≫
+   --- [≻ (synth #:forall [decl ...] #:bitwidth 8 #:ensure e)]])
+
+
 
 (define-typed-syntax verify
   [(vfy #:forall [decl ...] #:ensure e) ≫
@@ -684,7 +665,8 @@
   #:with (typed-seq ...) #'((with-ctx ([id id- ty] ...) seq) ...)
   --------
   [⊢ (ro:let ([id- 1] ...) ; dummy, enables simplifying stx template
-      (ro:parameterize ([ro:term-cache (ro:hash-copy (ro:term-cache))])
+      (ro:parameterize ([ro:current-bitwidth 32]
+                        [ro:term-cache (ro:hash-copy (ro:term-cache))])
        (ro:for*/or ([id- typed-seq] ...)
         (ro:define cex (with-ctx ([id id- ty] ...) (ro:verify e)))
         (ro:and (ro:sat? cex)
@@ -693,6 +675,12 @@
                  (printf "~a = ~a\n" i (ro:evaluate i- cex))))))) ⇒ void]])
 
 (define-typed-syntax (assert e) ≫
-  #:with e- (expand/ro #'e)
-  --------
-  [⊢ (ro:assert (to-bool e-)) ⇒ void])
+ --- [⊢ (ro:assert (ro:#%app to-bool #,(expand/ro #'e))) ⇒ void])
+
+(define- (/ x y)
+  (cond- [(zero?- y) 0]
+         [(integer?- x) (quotient- x y)]
+         [else (/- x y)]))
+
+(define-typed-syntax (clCreateProgramWithSource ctx f) ≫
+ --- [⊢ (cl:clCreateProgramWithSource ctx f) ⇒ cl_program])
