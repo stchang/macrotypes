@@ -646,7 +646,7 @@
   [⊢ (ro:let ([id- 1] ...) ; dummy ensuring id- bound, simplifies stx template
       (ro:define-values (tmp ...)
         (ro:for*/lists (tmp ...) ([id- typed-seq] ...) (ro:values id- ...)))
-      (ro:parameterize ([ro:current-bitwidth bw]
+      (ro:parameterize ([ro:current-bitwidth bw] ; matrix mult unsat w/o this
                         [ro:term-cache (ro:hash-copy (ro:term-cache))])
        (ro:print-forms
         (ro:synthesize

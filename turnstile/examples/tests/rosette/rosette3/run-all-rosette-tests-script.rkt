@@ -21,6 +21,7 @@
 (do-tests "bv-tests.rkt" "BV SDSL - General"
           "fsm3-tests.rkt" "FSM"
           "ifc3-tests.rkt" "IFC"
-          "synthcl3-tests.rkt" "SynchCL")
+          "synthcl3-tests.rkt" "SynthCL"
+          "synthcl3-matrix-synth-tests.rkt" "SynthCL Matrix Mult: synth")
 (do-tests "bv-ref-tests.rkt" "BV SDSL - Hacker's Delight synthesis")
 
