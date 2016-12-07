@@ -1,3 +1,34 @@
+2016-12-07 --------------------
+synthcl Walsh synth tests were not working and had trouble debugging, so
+documenting my process here
+
+1) getting the error:
+; ?: literal data is not allowed;
+;  no #%datum syntax transformer is bound
+;   in: #f
+
+in general, means a stx prop is expected but not present
+
+In this case:
+- convert fn undefined for cl_mem and other similar base types
+
+
+2) getting unexpected unsat
+helpful debugging technique 1:
+- print exns swallowed by eval/assert (used by synthesize or verify)
+
+In this case:
+- mk-float* was undefined
+- bool was not considered "real" but should be
+- cmps not defined
+
+helpful debugging technique 2: 
+- print asserts in ∃∀-solve, and compare to expected
+- may have to set error-print-width higher (default 256)
+
+In this case, comparing asserts showed that quotient was missing from my typed
+synthcl. Using the / defined by synthcl (instead of mine) fixed the problem.
+
 2016-11-18 --------------------
 
 working on synthcl3 lang
