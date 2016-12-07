@@ -24,7 +24,7 @@
          bool void void* char* 
          int* int2* int3* int4* int16* float* float2* float3* float4* float16*
          cl_context cl_command_queue cl_program cl_kernel cl_mem
-         : ! ?: == + * / - || &&
+         : ! ?: == + * / - sqrt || &&
          % << $ & > >= < <= ; int ops
          = += -= *= /= %= $= &= ; assignment ops
          sizeof clCreateProgramWithSource
@@ -45,6 +45,9 @@
           [CL_MEM_WRITE_ONLY : int]
           [CL_MEM_READ_WRITE : int]
           [malloc : (C→ int void*)]
+          [memset : (C→ void* int int void*)]
+          [convert_float4 : (Ccase-> (C→ int4 float4) (C→ float4 float4))]
+          [convert_int4   : (Ccase-> (C→ int4 int4)   (C→ float4 int4))]
           [get_work_dim : (C→ int)]
           [!= : (Ccase-> (C→ CNum CNum CBool)
                          (C→ CNum CNum CNum CBool)
@@ -131,7 +134,9 @@
       (string->symbol (car (regexp-match #px"[a-z]+" (type->str ty)))))))
   (define (get-pointer-base ty [ctx #'here])
     (datum->syntax ctx (string->symbol (string-trim (type->str ty) "*"))))
-  (define (vector-type? ty) (ty->len ty)) ; TODO: check and not pointer-type?
+  (define (vector-type? ty)
+    (define tstr (type->str ty))
+    (ormap (λ (x) (string=? x tstr)) '("int2" "int3" "int4" "int16" "float2" "float3" "float4" "float16")))
   (define (scalar-type? ty)
     (or (typecheck/un? ty #'bool)
         (and (real-type? ty) (not (vector-type? ty))))))
@@ -605,7 +610,7 @@
 (define-simple-macro (define-int-ops o ...) (ro:begin (define-int-op o) ...))
 
 (define-bool-ops || &&)
-(define-real-ops + * - /)
+(define-real-ops + * - / sqrt)
 (define-int-ops % << $ &)
 
 (define-typerule (sizeof t:type) >> ---[⊢ #,(real-type-length #'t.norm) ⇒ int])
