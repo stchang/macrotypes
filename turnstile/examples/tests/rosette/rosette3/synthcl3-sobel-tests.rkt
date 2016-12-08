@@ -170,7 +170,6 @@
 (check-type
  (with-output-to-string (λ () (verify_scalar)))
  : CString -> "no counterexample found\n")
-(verify_scalar)
 (check-type
  (with-output-to-string (λ () (verify_vectorized)))
  : CString -> "no counterexample found\n")
