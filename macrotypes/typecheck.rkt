@@ -798,9 +798,14 @@
   (define (mk-tyvar X) (attach X 'tyvar #t))
   (define (tyvar? X) (syntax-property X 'tyvar))
   
-  (define type-pat "[A-Za-z]+")
-  
-  ;; TODO: remove this? only benefit is single control point for current-promote
+  (define type-pat "[A-Za-z]+"))
+
+(define-syntax (⊢m stx)
+  (syntax-parse stx #:datum-literals (:)
+   [(_ e : τ) (assign-type #`e #`τ)]
+   [(_ e τ) (assign-type #`e #`τ)]))
+
+(begin-for-syntax
   ;; - infers type of e
   ;; - checks that type of e matches the specified type
   ;; - erases types in e
