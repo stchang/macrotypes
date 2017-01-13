@@ -117,7 +117,7 @@
     (syntax-case stx ()
       [id
        (identifier? #'id)
-       ref-stx]
+       (replace-stx-loc ref-stx stx)]
       [(id . args)
        (let ([stx* (list* '#%app #'id (cdr (syntax-e stx)))])
          (datum->syntax stx stx* stx stx))])))
