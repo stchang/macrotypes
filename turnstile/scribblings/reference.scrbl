@@ -81,15 +81,12 @@ and then press Control-@litchar{\}.
                   (code:line [type-template τ= type-template #:for expr-template] ooo ...)
                   (code:line [type-template τ⊑ type-template] ooo ...)
                   (code:line [type-template τ⊑ type-template #:for expr-template] ooo ...)]
-   [conclusion [⊢ expr-template ⇒ key type-template]
-               [⊢ [_ ≫ expr-template ⇒ type-template]]
-               [⊢ [_ ≫ expr-template (⇒ key type-template) ooo ...]]
+   [conclusion [⊢ expr-template ⇒ type-template]
+               [⊢ expr-template ⇒ key type-template]
+               [⊢ expr-template (⇒ key type-template) ooo ...]
                [≻ expr-template]
-               [_ ≻ expr-template]
-               [#:error expr-template]
-               [_ #:error expr-template]]
-   [⇐-conclusion [⊢ expr-template]
-                 [⊢ [_ ≫ expr-template ⇐ _]]]
+               [#:error expr-template]]
+   [⇐-conclusion [⊢ expr-template]]
    [ooo ...])
  ]{
 
@@ -99,18 +96,89 @@ Defines a macro that additionally performs typechecking. It uses
  typechecking and macro expansion.
 
 Type checking is computed as part of macro expansion and the resulting type is
- attached to an expanded expression. In addition, Turnstile supports
- bidirectional type checking clauses. For example
-@racket[[⊢ e ≫ e- ⇒ τ]] declares that expression @racket[e] expands to @racket[e-]
- and has type @racket[τ], where @racket[e] is the input and, @racket[e-] and
- @racket[τ] outputs. Syntactically, @racket[e] is a syntax template position
- and @racket[e-] @racket[τ] are syntax pattern positions.
+attached to an expanded expression. In addition, Turnstile supports
+bidirectional type checking clauses. For example @racket[[⊢ e ≫ e- ⇒ τ]]
+declares that expression @racket[e] expands to @racket[e-] and has type
+@racket[τ], where @racket[e] is the input and, @racket[e-] and @racket[τ]
+outputs. Syntactically, @racket[e] is a syntax template position and
+@racket[e-] @racket[τ] are syntax pattern positions.
 
-A programmer may use the generalized form @racket[[⊢ e ≫ e- (⇒ key τ) ...]] to specify propagation of arbitrary values, associated with any number of keys. For example, a type and effect system may wish to additionally propagate source locations of allocations and mutations. When no key is specified, @litchar{:}, i.e., the "type" key, is used.
- 
-Dually, one may write @racket[[⊢ e ≫ e- ⇐ τ]] to check that @racket[e] has type
-@racket[τ]. Here, both @racket[e] and @racket[τ] are inputs (templates) and only
- @racket[e-] is an output (pattern).}
+A programmer may use the generalized form @racket[[⊢ e ≫ e- (⇒ key τ) ...]] to
+specify propagation of arbitrary values, associated with any number of
+keys. For example, a type and effect system may wish to additionally propagate
+source locations of allocations and mutations. When no key is specified,
+@litchar{:}, i.e., the "type" key, is used.  Dually, one may write @racket[[⊢ e
+≫ e- ⇐ τ]] to check that @racket[e] has type @racket[τ]. Here, both @racket[e]
+and @racket[τ] are inputs (templates) and only @racket[e-] is an
+output (pattern).
+
+The @racket[≻] conclusion form is useful in many scenarios where the rule being
+implemented may not want to attach type information. E.g.,
+
+@itemlist[#:style 'ordered
+
+@item{when a rule's output is another typed macro.
+
+For example, here is a hypothetical @tt{typed-let*} that is implemented in
+terms of a @tt{typed-let}:
+
+@racketblock0[
+(define-typed-syntax typed-let*
+  [(_ () e_body) ≫
+   --------
+   [≻ e_body]]
+  [(_ ([x e] [x_rst e_rst] ...) e_body) ≫
+   --------
+   [≻ (typed-let ([x e]) (typed-let* ([x_rst e_rst] ...) e_body))]])]
+
+The conclusion in the first clause utilizes @racket[≻] since the body already
+carries its own type. The second clause uses @racket[≻] because it defers to
+@tt{typed-let}, which will attach type information.}
+
+@item{when a rule extends another. 
+
+This is related to the first example. For example, here is a @racket[#%datum]
+that extends another with more typed literals (see also @secref{stlcsub}).
+
+@racketblock0[
+
+(define-typed-syntax typed-datum
+  [(_ . n:integer) ≫
+   --------
+   [⊢ (#%datum- . n) ⇒ Int]]
+  [(_ . x) ≫
+   --------
+   [#:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])
+
+(define-typed-syntax extended-datum
+  [(_ . s:str) ≫
+   --------
+   [⊢ (#%datum- . s) ⇒ String]]
+  [(_ . x) ≫
+   --------
+   [≻ (typed-datum . x)]])]}
+
+@item{for top-level forms. 
+
+For example, here is a basic typed version of @racket[define]:
+
+@racketblock0[
+
+(define-typed-syntax define
+  [(_ x:id e) ≫
+   [⊢ e ≫ e- ⇒ τ]
+   #:with y (generate-temporary #'x)
+   --------
+   [≻ (begin-
+        (define-syntax x (make-rename-transformer (⊢ y : τ)))
+        (define- y e-))]])]
+
+This macro creates an indirection @racket[make-rename-transformer] in order to
+attach type information to the top-level @tt{x} identifier, so the
+@racket[define] forms themselves do not need type information.}
+
+]}
+
 
 @defform*[((define-primop typed-op-id τ)
            (define-primop typed-op-id : τ)
@@ -367,12 +435,26 @@ The imported names are available for use in the current module, with a
                 [old new]])]{
 Reuses @racket[name]s from @racket[base-lang].}
 
-@section[#:tag "racket-"]{Suffixed Racket bindings}
+@; Sec: Suffixed Racket bindings ----------------------------------------------
+@section[#:tag "racket-"]{Suffixed Racket Bindings}
 
 To help avoid name conflicts, Turnstile re-provides all Racket bindings with a
 @litchar{-} suffix. These bindings are automatically used in some cases, e.g.,
-@racket[define-primop], but in general are useful for avoiding name conflicts..
+@racket[define-primop], but in general are useful for avoiding name conflicts.
 
+@; Sec: turnstile/lang ----------------------------------------------
+@section[#:tag "turnstilelang"]{@hash-lang[] @racketmodname[turnstile]/lang}
+
+Languages implemented using @hash-lang[] @racketmodname[turnstile]
+must additionally provide @racket[#%module-begin] and other forms required by
+Racket. 
+
+For convenience, Turnstile additionally supplies @hash-lang[]
+@racketmodname[turnstile]@tt{/lang}. Languages implemented using this language
+will automatically provide Racket's @racket[#%module-begin],
+@racket[#%top-interaction], @racket[#%top], and @racket[require].
+
+@; Sec: Lower-level functions -------------------------------------------------
 @section{Lower-level Functions}
 
 This section describes lower-level functions and parameters. It's usually not

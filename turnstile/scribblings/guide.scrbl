@@ -7,15 +7,17 @@
 
 @title{The Turnstile Guide}
 
-This guide explains how to use Turnstile to implement a series of languages with
-some common type system features.
+This guide introduces Turnstile with the implementation of a simply-typed core
+language. It then reuses the simply-typed language implementation to implement
+a language with subtyping.
 
 @section[#:tag "judgements"]{A New Type Judgement}
 
-Turnstile's syntax borrows from conventional type judgement syntax, specifically
-a new kind of judgement that interleaves program rewriting (i.e., macro
-expansion) and type checking. These type judgements rely on two core
-@cite{bidirectional} relations:
+Turnstile's syntax borrows from that of conventional type
+judgements. Specifically, programmers may implement typed languages using a
+declarative syntax that interleaves program rewriting (i.e., macro expansion)
+and type checking. These new rules rely on two core
+@cite{bidirectional} judgements:
 @itemlist[#:style 'ordered
           @item{@verbatim|{Γ ⊢ e ≫ e- ⇒ τ}|
            reads: "In context Γ, @racket[e] expands to @racket[e-] and has type
@@ -24,11 +26,12 @@ expansion) and type checking. These type judgements rely on two core
            reads: "In context Γ, @racket[e] expands to @racket[e-] and must
            have type τ."
 
-           The key difference is that τ is an output in the first relation, ande
+           The key difference is that τ is an output in the first relation and
            an input in the second relation.
 
-           These input and output positions conveniently correspond to
-           @tech:stx-pats and @tech:stx-templates, respectively, as explained below.}]
+           As will be shown below, these input and output positions
+           conveniently correspond to @tech:stx-pats and @tech:stx-templates,
+           respectively.}]
 
 For example, here are some rules that check and rewrite simply-typed
 lambda-calculus terms to the untyped lambda-calculus.
@@ -48,9 +51,10 @@ lambda-calculus terms to the untyped lambda-calculus.
       Γ ⊢ e1 e2 ≫ e1- e2- ⇒ τ2
 }|
 
+@; Sec: define-typed-syntax ---------------------------------------------------
 @section[#:tag "define-typed-syntax"]{@racket[define-typed-syntax]}
 
-Implementing the above judgements with Turnstile might look like
+Here are implementations of the above rules using Turnstile 
 (we extended the forms to define multi-arity functions):
 
 @label-code["Initial function and application definitions"
@@ -72,71 +76,74 @@ Implementing the above judgements with Turnstile might look like
 
 The above code assumes some existing bindings:
 @itemlist[
- @item{@racket[→], a type constructor;}
+ @item{@racket[→], a programmer-defined (or imported) type constructor, 
+  see @secref{tycon};}
  @item{@racket[~→], a @tech:pat-expander associated with the @racket[→] type
   constructor;}
- @item{@racket[type], a @tech:stx-class recognizing valid types;}
+ @item{@racket[type], a @tech:stx-class for recognizing valid types that is 
+  pre-defined by Turnstile;}
  @item{and core Racket forms suffixed with @litchar{-}, for example
-  @racket[λ-].}
+  @racket[λ-], that are also predefined by Turnstile.}
  ]
-A language defined with Turnstile must define or import the first two items
-(see @secref{tycon}) while the last two items are available by
-default in Turnstile.
 
-The @racket[define-typed-syntax] form resembles a conventional Racket
-macro definition: the above definitions begin with an input pattern, where
-the leftmost identifier is the name of the macro, followed by a @racket[≫]
-literal, a series of premises, and finally a conclusion (which includes
-the output @tech:stx-template).
+The @racket[define-typed-syntax] form resembles a conventional Racket macro
+definition: the above rules begin with an input pattern, where the leftmost
+identifier is the name of the macro, which is followed by a series of premises
+that specify side conditions and bind local pattern variables, and concludes
+with an output @|tech:stx-template|.
 
 More specifically, @racket[define-typed-syntax] is roughly an extension of 
 @racket[define-syntax-parser] in that:
 @itemlist[
  @item{a programmer may specify @racket[syntax-parse]
   options, e.g., @racket[#:datum-literals];}
- @item{a pattern position may use any @racket[syntax-parse] combinators, e.g. 
+ @item{pattern positions may use any @racket[syntax-parse] combinators, e.g. 
   @racket[~and], @racket[~seq], or custom-defined @tech:pat-expanders;}
  @item{and the premises may be interleaved with @racket[syntax-parse]
   @tech:pat-directives, e.g., @racket[#:with] or @racket[#:when].}]
 
-@subsection{Judgements vs @racket[define-typed-syntax]}
+@; Subsec: Type rules vs define-typed-syntax ----------------------------------
+@subsection{Type rules vs @racket[define-typed-syntax]}
 
-The @racket[define-typed-syntax] form extends typical Racket macros by allowing
-interleaved type checking computations, written in type-judgement-like syntax,
-directly in the macro definition.
+The @racket[define-typed-syntax] form extends typical Racket macros by
+interleaving type checking computations, possibly written using a type judgement
+syntax, directly into the macro definition.
 
-Compared to the type judgements in the @secref{judgements} section, Turnstile
-@racket[define-typed-syntax] definitions differ in a few obvious ways:
+Compared to the type rules in the @secref{judgements} section, Turnstile
+@racket[define-typed-syntax] definitions differ in a few ways:
 
 @itemlist[ @item{Each premise and conclusion must be enclosed in brackets.}
 
 @item{A conclusion is "split" into its inputs (at the top) and outputs (at the
 bottom) to resemble other Racket macro-definition forms. In other words,
-pattern variable scope flows top-to-bottom, enabling the definition to be more
-easily read as code.
+pattern variable scope flows top-to-bottom, enabling the programmers to read
+the code more easily.
 
-  For example, the conclusion input in the definition of @racket[λ] is the
-initial input pattern @racket[(λ ([x:id : τ_in:type] ...) e)] and the
-conclusion outputs are the output templates @racket[(λ- (x- ...) e-)] and
-@racket[(→ τ_in.norm ... τ_out)]. The initial @racket[≫] delimiter separates
-the input pattern from the premises while the @racket[⇒] in the conclusion
-associates the type with the output expression.}
+  For example, the input part of the [LAM] rule's conclusion corresponds to the
+@racket[(λ ([x:id : τ_in:type] ...) e)] pattern and the output part
+corresponds to the @racket[(λ- (x- ...) e-)] and @racket[(→ τ_in.norm
+... τ_out)] templates. A @racket[≫] delimiter separates the input pattern
+from the premises while @racket[⇒] in the conclusion associates the type
+with the output expression.}
 
- @item{The rule implementations do not thread through an explicit type
-  environment @racket[Γ].
-  Rather, Turnstile reuses Racket's lexical scope as the type environment and
-  thus only new type environment bindings should be specified (to the left of
-  the @racket[⊢]), just like a @racket[let].}
- @item{Since type environments merely follow Racket's lexical scoping, an explicit implementation of
+ @item{The @racket[define-typed-syntax] definitions do not thread through an
+explicit type environment @racket[Γ].  Rather, Turnstile reuses Racket's
+lexical scope as the type environment and programmers should only write new
+type environment bindings to the left of the @racket[⊢], analogous to
+@racket[let].}
+
+ @item{Since type environments obey lexical scope, an explicit implementation of
   the @tt{[VAR]} rule is unneeded.}]
 
-@subsection{Premises}
+@; Subsec: define-typed-syntax premises ---------------------------------------
+@subsection{@racket[define-typed-syntax] premises}
 
-Like the type judgements, @racket[define-typed-syntax] supports two core
-@cite{bidirectional}-style type checking clauses.
+Like their type rule counterparts, a @racket[define-typed-syntax] definition
+supports two @cite{bidirectional}-style type checking judgements in its
+premises.
 
-A @racket[[⊢ e ≫ e- ⇒ τ]] premise expands expression @racket[e], binds its
-expanded form to @racket[e-] and its type to @racket[τ]. In other words, 
+A @racket[[⊢ e ≫ e- ⇒ τ]] judgement expands expression @racket[e], binds its
+expanded form to @racket[e-], and its type to @racket[τ]. In other words, 
 @racket[e] is an input syntax template, and @racket[e-] and @racket[τ] are
 output patterns.
 
@@ -144,33 +151,35 @@ Dually, one may write @racket[[⊢ e ≫ e- ⇐ τ]] to check that @racket[e] ha
 @racket[τ]. Here, both @racket[e] and @racket[τ] are inputs (templates) and only
  @racket[e-] is an output (pattern).
 
-For example, the first @racket[#%app] premise above, 
-@racket[[⊢ e_fn ≫ e_fn- ⇒ (~→ τ_in ... τ_out)]], expands function @racket[e_fn],
-binds it to pattern variable @racket[e_fn-], its input types to 
-@racket[(τ_in ...)], and its output type to @racket[τ_out]. Macro expansion
-stops with a type error if @racket[e_fn] does not have a function type.
+For example, in the definition of @code{#%app} from section
+@secref{define-typed-syntax}, the first premise, @racket[[⊢ e_fn ≫ e_fn- ⇒ (~→
+τ_in ... τ_out)]], expands function @racket[e_fn], binds it to pattern variable
+@racket[e_fn-], and binds its input types to @racket[(τ_in ...)] and its output
+type to @racket[τ_out]. Macro expansion stops with a type error if
+@racket[e_fn] does not have a function type.
 
 The second @racket[#%app] premise then uses the @racket[⇐] to check that the
 given inputs have types that match the expected types. Again, a type error is
 reported if the types do not match.
 
-The @racket[λ] definition above also utilizes a @racket[⇒] premise, except it
-must add bindings to the type environment, which are written to the left of the
-@racket[⊢]. The lambda body is then type checked in this context.
+The @racket[λ] definition from that section also utilizes a @racket[⇒] premise,
+except it must add bindings to the type environment, which are written to the
+left of the @racket[⊢]. The lambda body is then type checked in this context.
 
 Observe how ellipses may be used in exactly the same manner as
 other Racket macros. (The @racket[norm] @tech:attribute comes from the
 @racket[type] syntax class and is bound to the expanded representation of the
 type. This is used to avoid double-expansions of the types.)
 
-@subsection{@racket[syntax-parse] directives}
+@; Subsec: syntax-parse directives as premises --------------------------------
+@subsection{@racket[syntax-parse] directives as premises}
 
 A @racket[define-typed-syntax] definition may also use @racket[syntax-parse]
-options and @|tech:pat-directives|. Here is an @racket[#%app] that reports a
-more precise error for an arity mismatch:
- 
-@label-code["Function application with a better error message"
-@#reader scribble/comment-reader
+options and @|tech:pat-directives| in its premises. Here is a modified
+@racket[#%app] that reports a more precise error for an arity mismatch:
+
+@label-code["Function application with a better error message" @#reader
+scribble/comment-reader
 (racketblock0
 ;; [APP]
 (define-typed-syntax (#%app e_fn e_arg ...) ≫
@@ -182,27 +191,29 @@ more precise error for an arity mismatch:
   --------
   [⊢ (#%app- e_fn- e_arg- ...) ⇒ τ_out]))]
 
-@section[#:tag "tycon"]{Defining types}
+@; Sec: Defining Types --------------------------------------------------------
+@section[#:tag "tycon"]{Defining Types}
 
-We next extend our language with a type definition:
+The rules from section @secref{define-typed-syntax} require a function type
+constructor. Turnstile includes convenient forms for defining such type
+constructors, e.g. @racket[define-type-constructor]:
 
 @label-code["The function type"
 (racketblock0
  (define-type-constructor → #:arity > 0))]
 
 The @racket[define-type-constructor] declaration defines the @racket[→]
-function type as a macro that takes at least one argument, along with the
-aforementioned @racket[~→] @tech:pat-expander for that type, which makes it
-easier to match on the type in @|tech:stx-pats|.
+function type as a macro that takes at least one argument, along with a
+@racket[~→] @tech:pat-expander matching on that type in @|tech:stx-pats|.
 
-@section{Defining @racket[⇐] rules}
+@; Sec: Defining check rules---------------------------------------------------
+@section{Defining @racket[⇐] Rules}
 
-The astute reader has probably noticed that the type judgements from 
-@secref{judgements} are incomplete. Specifically, @\racket[⇐] clauses
-appear in the premises but never in the conclusion.
+The rules from from @secref{judgements} are incomplete. Specifically,
+@\racket[⇐] clauses appear in the premises but never in the conclusion.
 
-To complete the judgements, we need a general @racket[⇐] rule that
-dispatches to the appropriate @racket[⇒] rule:
+To complete the rules, we can add a general @racket[⇐] rule (sometimes called a
+subsumption rule) that dispatches to the appropriate @racket[⇒] rule:
 
 @verbatim|{
        Γ ⊢ e ≫ e- ⇒ τ2
@@ -211,11 +222,12 @@ dispatches to the appropriate @racket[⇒] rule:
        Γ ⊢ e ≫ e- ⇐ τ1
 }|
 
-Turnstile similarly defines an implicit @racket[⇐] rule so programmers need not
-specify a @racket[⇐] variant for every rule. A programmer may still write an
-explicit @racket[⇐] rule if desired, however. This is especially useful for
-implementing (local) type inference or type annotations. Here is an
-extended lambda that additionally specifies a @racket[⇐] clause.
+Similarly, Turnstile uses an implicit @racket[⇐] rule so programmers need not
+specify a @racket[⇐] variant of every rule. If a programmer writes an explicit
+@racket[⇐] rule, then it is used instead of the default. Writing an explicit
+@racket[⇐] rule is useful for implementing (local) type inference or type
+annotations. Here is an extended lambda that adds a
+@racket[⇐] clause.
 
 @label-code["lambda with inference, and ann"
 @#reader scribble/comment-reader
@@ -240,7 +252,7 @@ extended lambda that additionally specifies a @racket[⇐] clause.
 
 This revised lambda definition uses an alternate, multi-clause 
 @racket[define-typed-syntax] syntax, analogous to @racket[syntax-parse] (whereas
-@seclink["define-typed-syntax"]{the simpler syntax from section 2.2} resembles
+@seclink["define-typed-syntax"]{the simpler syntax from section 1.2} resembles
 @racket[define-simple-macro]).
 
 The first clause is the same as before. The second clause has an additional
@@ -254,6 +266,7 @@ syntax object because the input type is automatically attached to that output.
 We also define an annotation form @racket[ann], which invokes the @racket[⇐]
 clause of a type rule.
 
+@; Sec: Defining primitive ops ------------------------------------------------
 @section{Defining Primitive Operations (Primops)}
 
 The previous sections have defined type rules for @racket[#%app] and @racket[λ],
@@ -273,20 +286,30 @@ since there are no base types. Let's fix that:
    [⊢ (#%datum- . n) ⇒ Int]]
   [(_ . x) ≫
    --------
-   [_ #:error (type-error #:src #'x
-                          #:msg "Unsupported literal: ~v" #'x)]]))]
+   [#:error (type-error #:src #'x
+                        #:msg "Unsupported literal: ~v" #'x)]]))]
 
 The code above defines a base type @racket[Int], and attaches type information
 to both @racket[+] and integer literals.
 
 @racket[define-primop] creates an identifier macro that attaches the specified
-type to the specified identifier. As with any Racket macro, the @tt{+}
-here is whatever is in scope. By default it is Racket's @racket[+].
+type to the specified identifier. When only one identifier is specified, it is
+used as both the name of the typed operation, and appended with a "@tt{-}"
+suffix and (that corresponding Racket function is) used as the macro
+output. Alternatively, a programmer may explicitly specify separate surface and
+target identifiers (see @racket[define-primop] in the reference).
 
-@section{A Complete Language}
+@; Sec: A Complete Language  --------------------------------------------------
+@section[#:tag "stlc"]{A Complete Language}
 
 We can now write well-typed programs! Here is the complete
 language implementation, with some examples:
+
+@margin-note{Languages implemented using @hash-lang[] @racketmodname[turnstile]
+must additionally provide @racket[#%module-begin] and other forms required by
+Racket. Use @hash-lang[] @racketmodname[turnstile]@tt{/lang} to automatically
+provide some default forms. See the section on @secref{turnstilelang} for more
+details.}
 
 @; using `racketmod` because `examples` doesnt work with provide
 @(racketmod0 #:file "STLC"
@@ -332,8 +355,8 @@ turnstile
    [⊢ (#%datum- . n) ⇒ Int]]
   [(_ . x) ≫
    --------
-   [_ #:error (type-error #:src #'x
-                          #:msg "Unsupported literal: ~v" #'x)]]))
+   [#:error (type-error #:src #'x
+                        #:msg "Unsupported literal: ~v" #'x)]]))
 
 @;TODO: how to run examples with the typeset code?
 @(define stlc-eval
@@ -358,12 +381,13 @@ turnstile
   ]
 
 
-@section{Extending a Language}
+@; Sec: Extending a Language  -------------------------------------------------
+@section[#:tag "stlcsub"]{Extending a Language}
 
-Since @tt{STLC} consists of just a series of macros, like any other Racket
-@hash-lang[], its forms may be imported and exported and may be easily reused
-in other languages. Let's see how we can reuse the above implementation to
-implement a subtyping language.
+Since the @tt{STLC} language from @secref{stlc} is implemented as just a series
+of macros, like any other Racket @hash-lang[], its forms may be imported and
+exported and may be easily reused in other languages. Let's see how we can
+reuse the above implementation to implement a subtyping language.
 
 @(racketmod0 #:file "STLC+SUB" #:escape UNSYNTAX
 turnstile
@@ -426,21 +450,21 @@ turnstile
   [⊢ (if- e_tst- e1- e2-) ⇒ #,((current-join) #'τ1 #'τ2)]))
 
 This language uses subtyping instead of type equality as its "typecheck
-relation". Specifically, the language defines a @racket[sub?] subtyping relation
+relation". Specifically, the language defines a @racket[sub?] function
 and sets it as the @racket[current-typecheck-relation]. Thus it is able to reuse
 the @racket[λ] and @racket[#%app] rules from the previous sections without
 modification. The @racket[extends] clause is useful for declaring this. It
 automatically @racket[require]s and @racket[provide]s the previous rules and
 re-exports them with the new language.
 
-It does not reuse @racket[#%datum] and @racket[+], however, since the
-subtyping language updates these forms. Specifically, the new language defines a
-hierarchy of numeric base types, gives @racket[+] a more general type, and
+The new language does not reuse @racket[#%datum] and @racket[+], however, since
+subtyping requires updates these forms. Specifically, the new language defines
+a hierarchy of numeric base types, gives @racket[+] a more general type, and
 redefines @racket[#%datum] to assign more precise types to numeric literals.
 Observe that @racket[#%datum] dispatches to @tt{STLC}'s datum in the "else"
 clause, using the @racket[≻] conclusion form, which dispatches to another
-(typed) macro. In this manner, the new typed language may still define and invoke
-macros like any other Racket program.
+(typed) macro. In this manner, the new typed language may still define and
+invoke macros like any other Racket program.
 
 Since the new language uses subtyping, it also defines a (naive) @racket[join]
 function, which is needed by conditional forms like @racket[if]. The 
