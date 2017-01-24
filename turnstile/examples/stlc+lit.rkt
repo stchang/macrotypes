@@ -22,4 +22,4 @@
    [⊢ (#%datum- . n) ⇒ Int]]
   [(_ . x) ≫
    --------
-   [_ #:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])
+   [#:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])

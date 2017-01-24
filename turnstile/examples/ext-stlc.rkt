@@ -13,10 +13,9 @@
 ;; - if
 ;; - prim void : (→ Unit)
 ;; - begin
-;; - ascription (ann)
 ;; - let, let*, letrec
 ;; Top-level:
-;; - define (values only)
+;; - define (values and functions)
 ;; - define-type-alias
 
 (provide define-type-alias
@@ -28,7 +27,7 @@
                     [sub1 : (→ Int Int)]
                     [[not- (→ Bool Bool)] not]
                     [[void- : (→ Unit)] void])
-         define #%datum and or if begin ann let let* letrec)
+         define #%datum and or if begin let let* letrec)
 
 (define-base-types Bool String Float Char Unit)
 
@@ -51,22 +50,43 @@
             #:with τ:any-type #'ty
             #'τ.norm]))]))
 
+(begin-for-syntax
+  (define (transfer-prop p from to)
+    (define v (syntax-property from p))
+    (syntax-property to p v))
+  (define (transfer-props from to)
+    (define props (syntax-property-symbol-keys from))
+    (define props/filtered (remove 'origin (remove 'orig (remove ': props))))
+    (foldl (lambda (p stx) (transfer-prop p from stx)) 
+           to 
+           props/filtered)))
+
 (define-typed-syntax define
-  [(_ x:id : τ:type e:expr) ≫
-   ;This wouldn't work with mutually recursive definitions
-   ;[⊢ [e ≫ e- ⇐ τ.norm]]
-   ;So expand to an ann form instead.
+  [(_ x:id (~datum :) τ:type e:expr) ≫
+   ;[⊢ e ≫ e- ⇐ τ.norm]
+   #:with y (generate-temporary #'x)
    --------
    [≻ (begin-
         (define-syntax x (make-rename-transformer (⊢ y : τ.norm)))
         (define- y (ann e : τ.norm)))]]
   [(_ x:id e) ≫
+   ;This won't work with mutually recursive definitions
    [⊢ e ≫ e- ⇒ τ]
    #:with y (generate-temporary #'x)
+   #:with y+props (transfer-props #'e- (assign-type #'y #'τ))
    --------
    [≻ (begin-
-        (define-syntax x (make-rename-transformer (⊢ y : τ)))
-        (define- y e-))]])
+        (define-syntax x (make-rename-transformer #'y+props))
+        (define- y e-))]]
+  [(_ (f [x (~datum :) ty] ... (~or (~datum →) (~datum ->)) ty_out) e ...+) ≫
+   #:with f- (add-orig (generate-temporary #'f) #'f)
+   --------
+   [≻ (begin-
+        (define-syntax- f
+          (make-rename-transformer (⊢ f- : (→ ty ... ty_out))))
+        (define- f-
+          (stlc+lit:λ ([x : ty] ...)
+            (stlc+lit:ann (begin e ...) : ty_out))))]])
 
 (define-typed-syntax #%datum
   [(_ . b:boolean) ≫
@@ -140,14 +160,14 @@
    [⊢ (begin- e_unit- ... e-) ⇒ τ_e]])
 
 (define-typed-syntax let
-  [(_ ([x e] ...) e_body) ⇐ τ_expected ≫
+  [(_ ([x e] ...) e_body ...) ⇐ τ_expected ≫
    [⊢ e ≫ e- ⇒ : τ_x] ...
-   [[x ≫ x- : τ_x] ... ⊢ e_body ≫ e_body- ⇐ τ_expected]
+   [[x ≫ x- : τ_x] ... ⊢ (begin e_body ...) ≫ e_body- ⇐ τ_expected]
    --------
    [⊢ (let- ([x- e-] ...) e_body-)]]
-  [(_ ([x e] ...) e_body) ≫
+  [(_ ([x e] ...) e_body ...) ≫
    [⊢ e ≫ e- ⇒ : τ_x] ...
-   [[x ≫ x- : τ_x] ... ⊢ e_body ≫ e_body- ⇒ τ_body]
+   [[x ≫ x- : τ_x] ... ⊢ (begin e_body ...) ≫ e_body- ⇒ τ_body]
    --------
    [⊢ (let- ([x- e-] ...) e_body-) ⇒ τ_body]])
 
@@ -156,22 +176,22 @@
 ; - only need to transfer expected type when local expanding an expression
 ;   - see let/tc
 (define-typed-syntax let*
-  [(_ () e_body) ≫
+  [(_ () e_body ...) ≫
    --------
-   [≻ e_body]]
-  [(_ ([x e] [x_rst e_rst] ...) e_body) ≫
+   [≻ (begin e_body ...)]]
+  [(_ ([x e] [x_rst e_rst] ...) e_body ...) ≫
    --------
-   [≻ (let ([x e]) (let* ([x_rst e_rst] ...) e_body))]])
+   [≻ (let ([x e]) (let* ([x_rst e_rst] ...) e_body ...))]])
 
 (define-typed-syntax letrec
-  [(_ ([b:type-bind e] ...) e_body) ⇐ τ_expected ≫
+  [(_ ([b:type-bind e] ...) e_body ...) ⇐ τ_expected ≫
    [[b.x ≫ x- : b.type] ...
-    ⊢ [e ≫ e- ⇐ b.type] ... [e_body ≫ e_body- ⇐ τ_expected]]
+    ⊢ [e ≫ e- ⇐ b.type] ... [(begin e_body ...) ≫ e_body- ⇐ τ_expected]]
    --------
    [⊢ (letrec- ([x- e-] ...) e_body-)]]
-  [(_ ([b:type-bind e] ...) e_body) ≫
+  [(_ ([b:type-bind e] ...) e_body ...) ≫
    [[b.x ≫ x- : b.type] ...
-    ⊢ [e ≫ e- ⇐ b.type] ... [e_body ≫ e_body- ⇒ τ_body]]
+    ⊢ [e ≫ e- ⇐ b.type] ... [(begin e_body ...) ≫ e_body- ⇒ τ_body]]
    --------
    [⊢ (letrec- ([x- e-] ...) e_body-) ⇒ τ_body]])
 
