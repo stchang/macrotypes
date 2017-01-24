@@ -327,22 +327,28 @@ immediately before attacing a type to a syntax object, i.e., by
 One should extend @racket[current-type-eval] if canonicalization of types
 depends on combinations of different types, e.g., type lambdas and type application in F-omega. }}
 
+@; current-typecheck-relation -------------------------------------------------
 @item{@defparam[current-typecheck-relation type-pred type-pred]{
- A phase 1 parameter for controlling type checking, used by @racket[define-type-syntax].
-  A @racket[type-pred] function consumes
- two types and returns true if they "type check". It defaults to @racket[type=?] though it does not have to be a symmetric relation.
-Useful for reusing rules that differ only in the type check operation, e.g.,
- equality vs subtyping.}}
 
-@item{@defproc[(typecheck? [τ1 type?] [τ2 type?]) boolean?]{A phase 1 function that calls
- @racket[current-typecheck-relation].}}
+A phase 1 parameter for controlling type checking, used by
+@racket[define-typed-syntax]. A @racket[type-pred] function consumes two
+types---the first is the given type and the second is the expected type---and
+returns true if they "type check". It defaults to @racket[type=?] though it
+does not have to be a symmetric relation.  Useful for reusing rules that differ
+only in the type check operation, e.g., equality vs subtyping.}}
+
+@item{@defproc[(typecheck? [τ1 type?] [τ2 type?]) boolean?]{
+A phase 1 function that calls @racket[current-typecheck-relation]. The first
+argument is the given type and the second is the expected type.}}
 
 @item{@defproc[(typechecks? [τs1 (or/c (list/c type?) (stx-list/c type?))]
                       [τs2 (or/c (list/c type?) (stx-list/c type?))]) boolean?]{
-Phase 1 function mapping @racket[typecheck?] over lists of types, pairwise. @racket[τs1] and @racket[τs2]
-must have the same length.}}
+Phase 1 function mapping @racket[typecheck?] over lists of types,
+pairwise. @racket[τs1] and @racket[τs2] must have the same length. The first
+list contains the given types and the second list contains the expected
+types.}}
 
- @item{@defproc[(type=? [τ1 type?] [τ2 type?]) boolean?]{A phase 1 equality
+@item{@defproc[(type=? [τ1 type?] [τ2 type?]) boolean?]{A phase 1 equality
 predicate for types that computes structural, @racket[free-identifier=?]
 equality, but includes alpha-equivalence.
 
