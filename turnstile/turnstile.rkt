@@ -3,10 +3,11 @@
 (provide (except-out (all-from-out macrotypes/typecheck) 
                      -define-typed-syntax -define-syntax-category)
          define-typed-syntax define-syntax-category
-         (rename-out [define-typed-syntax define-typerule])
+         (rename-out [define-typed-syntax define-typerule]
+                     [define-typed-syntax define-syntax/typecheck])
          (for-syntax syntax-parse/typed-syntax
                      (rename-out
-                      [syntax-parse/typed-syntax parse-typed-syntax])))
+                      [syntax-parse/typed-syntax syntax-parse/typecheck])))
 
 (require (except-in (rename-in
                      macrotypes/typecheck

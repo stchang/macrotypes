@@ -180,8 +180,11 @@ attach type information to the top-level @tt{x} identifier, so the
 
 ]}
 
-@; parse-typed-syntax ---------------------------------------------------------
-@defform[(parse-typed-syntax stx option ... rule ...+)]{
+@defform[(define-typerule ....)]{Alias for @racket[define-typed-syntax].}
+@defform[(define-syntax/typecheck ....)]{Alias for @racket[define-typed-syntax].}
+
+@; syntax-parse/typecheck------------------------------------------------------
+@defform[(syntax-parse/typecheck stx option ... rule ...+)]{
 A @racket[syntax-parse]-like form that supports
 @racket[define-typed-syntax]-style clauses. In particular, see the
 "rule" part of @racket[define-typed-syntax]'s grammar above.}
@@ -199,18 +202,22 @@ identifier @racket[op-id], e.g.:
 When not specified, @racket[op-id] is @racket[typed-op-id] suffixed with
 @litchar{-} (see @secref{racket-}).}
 
+@; define-syntax-category -----------------------------------------------------
 @defform[(define-syntax-category name-id)]{
 Defines a new "category" of syntax by defining a series of forms and functions.
 Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
- defines the following forms and functions.
+ defines the following forms and functions:
 
- Note: It's typically not necessary to
- use any forms other than @racket[define-base-type] and
- @racket[define-type-constructor] in conjunction with @racket[define-typed-syntax]. The other forms are considered "low-level" and are automatically used by @racket[define-typed-syntax].
+@margin-note{It's not important to immediately understand all these
+definitions. Some, like @racket[type?] and @racket[mk-type], are
+more "low-level" and are mainly used by the other forms. The most useful forms
+are probably @racket[define-typed-syntax], and the type-defining forms
+@racket[define-base-type], @racket[define-type-constructor], and
+@racket[define-binding-type].}
+
  @itemlist[
  @item{@racket[define-typed-syntax], as described above.
    Uses @racket[current-typecheck-relation] for typechecking.}
- @item{@defform[(define-typerule ....)]{An alias for @racket[define-typed-syntax].}}
  @item{@defform*[((define-base-type base-type-name-id)
                   (define-base-type base-type-name-id : kind))]{
    Defines a base type. @racket[(define-base-type τ)] in turn defines:
