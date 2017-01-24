@@ -675,7 +675,7 @@
     #:with out
     (cond
      [(×? #'τ_e) ;; e is tuple
-      (syntax-parse/typed-syntax #'clauses
+      (parse-typed-syntax #'clauses
        [([x ... (~datum ->) e_body]) ≫
         #:with (~× ty ...) #'τ_e
         #:fail-unless (stx-length=? #'(ty ...) #'(x ...))
@@ -689,7 +689,7 @@
              (let- ([x- (acc z)] ...) e_body-))
            ⇒ ty_body]])]
      [(List? #'τ_e) ;; e is List
-      (syntax-parse/typed-syntax #'clauses
+      (parse-typed-syntax #'clauses
        [([(~or (~and (~and xs [x ...]) (~parse rst (generate-temporary)))
                (~and (~seq (~seq x (~datum ::)) ... rst:id) (~parse xs #'())))
           (~datum ->) e_body] ...+) ≫
@@ -721,7 +721,7 @@
                (let- ([x- (acc1 z)] ... [rst- (acc2 z)]) e_body-)] ...))
            ⇒ (⊔ ty_body ...)]])]
      [else  ;; e is variant
-      (syntax-parse/typed-syntax #'clauses
+      (parse-typed-syntax #'clauses
        [([Clause:id x:id ... 
              (~optional (~seq #:when e_guard) #:defaults ([e_guard #'(ext-stlc:#%datum . #t)]))
              (~datum ->) e_c_un] ...+) ≫ ; un = unannotated with expected ty

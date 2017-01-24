@@ -32,6 +32,7 @@ and then press Control-@litchar{\}.
 
 @section{Forms}
 
+@; define-typed-syntax---------------------------------------------------------
 @defform*[
   #:literals (≫ ⊢ ⇒ ⇐ ≻ : --------)
   ((define-typed-syntax (name-id . pattern) ≫
@@ -179,7 +180,13 @@ attach type information to the top-level @tt{x} identifier, so the
 
 ]}
 
+@; parse-typed-syntax ---------------------------------------------------------
+@defform[(parse-typed-syntax stx option ... rule ...+)]{
+A @racket[syntax-parse]-like form that supports
+@racket[define-typed-syntax]-style clauses. In particular, see the
+"rule" part of @racket[define-typed-syntax]'s grammar above.}
 
+@; define-primop --------------------------------------------------------------
 @defform*[((define-primop typed-op-id τ)
            (define-primop typed-op-id : τ)
            (define-primop typed-op-id op-id τ)

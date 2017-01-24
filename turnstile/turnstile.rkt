@@ -4,7 +4,9 @@
                      -define-typed-syntax -define-syntax-category)
          define-typed-syntax define-syntax-category
          (rename-out [define-typed-syntax define-typerule])
-         (for-syntax syntax-parse/typed-syntax))
+         (for-syntax syntax-parse/typed-syntax
+                     (rename-out
+                      [syntax-parse/typed-syntax parse-typed-syntax])))
 
 (require (except-in (rename-in
                      macrotypes/typecheck
