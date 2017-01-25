@@ -14,3 +14,5 @@
     "examples/tests/trivial-test.rkt"      ; needs typed/racket
     "examples/tests/mlish/sweet-map.rkt")) ; needs sweet-exp
 
+(define test-timeouts
+  '(("examples/tests/run-mlish-tests5.rkt" 200)))
