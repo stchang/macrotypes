@@ -1,6 +1,9 @@
 #lang turnstile
 (require (prefix-in tr: typed/racket))
 
+;; This file tries to extend Ben Greenman's trivial package with lambdas
+;; see tests/trivial-test.rkt for examples
+
 ;; TODO:
 ;; ) do I need separate → and CCs types, both with constraints?
 ;;   - yes?

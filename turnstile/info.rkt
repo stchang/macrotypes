@@ -5,8 +5,12 @@
 
 (define compile-omit-paths 
   '("examples/rosette"
-    "examples/tests"))
+    "examples/tests"
+    "examples/trivial.rkt"))
 
 (define test-omit-paths
   '("examples/rosette"
-    "examples/tests/rosette"))
+    "examples/tests/rosette"               ; needs rosette
+    "examples/tests/trivial-test.rkt"      ; needs typed/racket
+    "examples/tests/mlish/sweet-map.rkt")) ; needs sweet-exp
+

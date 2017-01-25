@@ -4,9 +4,7 @@
 
 (define deps
   '("base"
-    "sweet-exp-lib"
     "lens"
-    "typed-racket-lib"
     ))
 
 (define build-deps
