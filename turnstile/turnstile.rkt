@@ -12,8 +12,7 @@
 (require (except-in (rename-in
                      macrotypes/typecheck
                      [define-typed-syntax -define-typed-syntax]
-                     [define-syntax-category -define-syntax-category]
-                     )
+                     [define-syntax-category -define-syntax-category])
                     #%module-begin))
 
 (module typecheck+ racket/base

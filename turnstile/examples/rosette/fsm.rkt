@@ -7,8 +7,6 @@
                   reject verify-automaton debug-automaton synthesize-automaton))
 (provide (rename-out [rosette:choose ?]))
 
-(require (for-syntax lens unstable/lens))
-
 (provide FSM State Pict
          (typed-out [reject : State]
                     [verify-automaton : (→ FSM Regexp (List Symbol))]

@@ -4,7 +4,8 @@
 
 (define deps
   '("base"
-    "lens"
+    "lens-common"
+    "lens-unstable"
     ))
 
 (define build-deps
