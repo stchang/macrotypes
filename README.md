@@ -1,3 +1,9 @@
+# macrotypes [![Build Status](https://travis-ci.org/stchang/macrotypes.svg?branch=master)](https://travis-ci.org/stchang/macrotypes) [![Scribble Docs](https://img.shields.io/badge/Docs-Scribble%20-blue.svg)](http://docs.racket-lang.org/turnstile/index.html)
+
+A Racket language for creating typed embedded DSLs
+
+`raco pkg install turnstile`
+
 - all languages from the paper are in implemented with both Racket syntax (in `macrotypes/examples/`) and Turnstile syntax (in `turnstile/examples/`)
 
 - see `macrotypes/examples/README.md` for language reuse information
