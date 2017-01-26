@@ -3,9 +3,9 @@
 (define collection 'multi)
 
 (define deps
-  '(("racket" #:version "6.4")
+  '(("racket" #:version "6.6")
     "base"
-    "lens-common"
+    "lens-lib"
     ))
 
 (define build-deps
