@@ -18,9 +18,7 @@ before_install:
   - export PATH="${RACKET_DIR}/bin:${PATH}"
 
 install:
- - git clone https://github.com/stchang/macrotypes.git
- - cd macrotypes
- - raco pkg install --auto -n turnstile
+ - raco pkg install --auto -n turnstile macrotypes/
 
 script:
  - raco test --package turnstile
