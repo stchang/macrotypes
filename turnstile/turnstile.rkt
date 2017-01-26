@@ -18,8 +18,8 @@
 (module typecheck+ racket/base
   (provide (all-defined-out))
   (require (for-meta -1 (except-in macrotypes/typecheck #%module-begin))
-           (only-in lens lens-view lens-set)
-           (only-in unstable/lens stx-flatten/depth-lens))
+           (only-in lens/common lens-view lens-set)
+           (only-in "stx-lens.rkt" stx-flatten/depth-lens))
   ;; infer/depth returns a list of three values:
   ;;   tvxs- ; a stx-list of the expanded versions of type variables in the tvctx
   ;;   xs-   ; a stx-list of the expanded versions of variables in the ctx
