@@ -23,7 +23,6 @@
   [⊢ e- ⇒ #,(subst #'τ.norm #'tv #'τ_body)])
 (define-typed-syntax (fld τ:type-ann e) ≫
   #:with (~μ (tv) τ_body) #'τ.norm
-  #:with τ_e (subst #'τ.norm #'tv #'τ_body)
-  [⊢ e ≫ e- ⇐ τ_e]
+  [⊢ e ≫ e- ⇐ #,(subst #'τ.norm #'tv #'τ_body)]
   --------
   [⊢ e- ⇒ τ.norm])

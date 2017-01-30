@@ -383,7 +383,7 @@
                            (format "Improper use of constructor ~a; expected ~a args, got ~a"
                                    (syntax->datum #'Name) (stx-length #'(X ...))
                                    (stx-length (stx-cdr #'stx))))])]
-                       [X (make-rename-transformer (⊢ X #%type))] ...)
+                       [X (make-rename-transformer (mk-type #'X))] ...)
                       (void ty_flat ...)))))
      #:when (or (equal? '(unbound) (syntax->datum #'(ty+ ...)))
                 (stx-map 
@@ -854,7 +854,7 @@
            (expand/df
             #'(lambda (X ...) 
                 (let-syntax 
-                 ([X (make-rename-transformer (assign-type #'X #'#%type))] ...)
+                 ([X (make-rename-transformer (mk-type #'X))] ...)
                  (let-syntax
                   ;; must have this inner macro bc body of lambda may require
                   ;; ops defined by TC to be bound
@@ -1670,7 +1670,7 @@
               (~=> TCsub ... 
                    (~TC [generic-op-expected ty-concrete-op-expected] ...)))
              _)
-            (infers/tyctx+erase #'([X : #%type] ...) #'(TC ... (Name ty ...)))
+            (infers/tyctx+erase #'([X :: #%type] ...) #'(TC ... (Name ty ...)))
      #:when (TCs-exist? #'(TCsub ...) #:ctx stx)
      ;; simulate as if the declared concrete-op* has TC ... predicates
      ;; TODO: fix this manual deconstruction and assembly

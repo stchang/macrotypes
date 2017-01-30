@@ -26,7 +26,7 @@
 (begin-for-syntax
   (define (expose t)
     (cond [(identifier? t)
-           (define sub (typeof t #:tag '<:))
+           (define sub (detach t '<:))
            (if sub (expose sub) t)]
           [else t]))
   (current-promote expose)
@@ -34,7 +34,7 @@
   (define (sub? t1 t2)
     (stlc:sub? ((current-promote) t1) t2))
   (current-sub? sub?)
-  (current-typecheck-relation (current-sub?)))
+  (current-typecheck-relation sub?))
 
 ; quasi-kind, but must be type constructor because its arguments are types
 (define-type-constructor <: #:arity >= 0) 
@@ -79,7 +79,7 @@
   ;; environment with a syntax property using another tag: '<:
   ;; The "expose" function looks for this tag to enforce the bound,
   ;; as in TaPL (fig 28-1)
-  [([tv ≫ tv- : #%type <: τsub] ...) () ⊢ e ≫ e- ⇒ τ_e]
+  [[tv ≫ tv- :: #%type <: τsub] ... ⊢ e ≫ e- ⇒ τ_e]
   --------
   [⊢ e- ⇒ (∀ ([tv- <: τsub] ...) τ_e)])
 (define-typed-syntax (inst e τ:type ...) ≫

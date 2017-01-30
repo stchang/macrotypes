@@ -161,7 +161,7 @@
 ;; lookup-Xs/keep-unsolved : (Stx-Listof Id) Constraints -> (Listof Type-Stx)
 ;; looks up each X in the constraints, returning the X if it's unconstrained
 (define (lookup-Xs/keep-unsolved Xs cs)
-  (for/list ([X (in-list (stx->list Xs))])
+  (for/list ([X (in-stx-list Xs)])
     (or (lookup X cs) X)))
 
 ;; instantiate polymorphic types

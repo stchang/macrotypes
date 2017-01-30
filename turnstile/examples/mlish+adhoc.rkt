@@ -338,7 +338,7 @@
    --------
    [≻ (begin-
         (define-syntax- f (make-rename-transformer (⊢ g : ty_fn_expected)))
-        #,(quasisyntax/loc stx
+        #,(quasisyntax/loc this-syntax
             (define- g
               ;(Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))])
               (liftedλ {Y ...} ([x : τ] ... #:where TC ...) 
@@ -387,7 +387,7 @@
                            (format "Improper use of constructor ~a; expected ~a args, got ~a"
                                    (syntax->datum #'Name) (stx-length #'(X ...))
                                    (stx-length (stx-cdr #'stx))))])]
-                       [X (make-rename-transformer (⊢ X #%type))] ...)
+                       [X (make-rename-transformer (mk-type #'X))] ...)
                       (void ty_flat ...)))))
      #:when (or (equal? '(unbound) (syntax->datum #'(ty+ ...)))
                 (stx-map 
@@ -658,10 +658,10 @@
    [⊢ e ≫ e- ⇒ τ_e]
    #:with ([(~seq p ...) (~datum ->) e_body] ...) #'clauses
    #:with (pat ...) (stx-map ; use brace to indicate root pattern
-                     (lambda (ps) (syntax-parse ps [(pp ...) (syntax/loc stx {pp ...})]))
+                     (lambda (ps) (syntax-parse ps [(pp ...) (syntax/loc this-syntax {pp ...})]))
                      #'((p ...) ...))
    #:with ([(~and ctx ([x ty] ...)) pat-] ...) (compile-pats #'(pat ...) #'τ_e)
-   #:with ty-expected (get-expected-type stx)
+   #:with ty-expected (get-expected-type this-syntax)
    [[x ≫ x- : ty] ... ⊢ [(add-expected e_body ty-expected) ≫ e_body- ⇒ ty_body]] ...
    #:when (check-exhaust #'(pat- ...) #'τ_e)
    ----
@@ -671,7 +671,7 @@
    [(_ e with . clauses) ≫
     #:fail-when (null? (syntax->list #'clauses)) "no clauses"
     [⊢ e ≫ e- ⇒ τ_e]
-    #:with t_expect (syntax-property stx 'expected-type) ; propagate inferred type
+    #:with t_expect (syntax-property this-syntax 'expected-type) ; propagate inferred type
     #:with out
     (cond
      [(×? #'τ_e) ;; e is tuple
@@ -730,7 +730,7 @@
         #:with (_ (_ (_ ConsAll) . _) ...) #'info-body
         #:fail-unless (set=? (syntax->datum #'(Clause ...))
                              (syntax->datum #'(ConsAll ...)))
-                      (type-error #:src stx
+                      (type-error #:src this-syntax
                        #:msg (string-append
                               "match: clauses not exhaustive; missing: "
                               (string-join      
@@ -842,7 +842,7 @@
            (expand/df
             #'(lambda (X ...) 
                 (let-syntax 
-                 ([X (make-rename-transformer (assign-type #'X #'#%type))] ...)
+                 ([X (make-rename-transformer (mk-type #'X))] ...)
                  (let-syntax
                   ;; must have this inner macro bc body of lambda may require
                   ;; ops defined by TC to be bound
@@ -896,7 +896,7 @@
       ⇒ (∀ Xs+ (=> TC+ ... (ext-stlc:→ ty+ ... ty-out)))]]
   [(_ ([x:id (~datum :) ty] ...) body) ≫ ; no TC
    #:with (X ...) (compute-tyvars #'(ty ...))
-   #:with (~∀ () (~ext-stlc:→ _ ... body-ty)) (get-expected-type stx)
+   #:with (~∀ () (~ext-stlc:→ _ ... body-ty)) (get-expected-type this-syntax)
    --------
    [≻ (Λ (X ...) (ext-stlc:λ ([x : ty] ...) (add-expected body body-ty)))]]
   [(_ ([x:id (~datum :) ty] ...) body) ≫ ; no TC, ignoring expected-type
@@ -904,12 +904,12 @@
    --------
    [≻ (Λ (X ...) (ext-stlc:λ ([x : ty] ...) body))]]
   [(_ (x:id ...+) body) ≫
-   #:with (~?∀ Xs expected) (get-expected-type stx)
+   #:with (~?∀ Xs expected) (get-expected-type this-syntax)
    #:do [(unless (→? #'expected)
-           (type-error #:src stx #:msg "λ parameters must have type annotations"))]
+           (type-error #:src this-syntax #:msg "λ parameters must have type annotations"))]
    #:with (~ext-stlc:→ arg-ty ... body-ty) #'expected
    #:do [(unless (stx-length=? #'[x ...] #'[arg-ty ...])
-           (type-error #:src stx #:msg
+           (type-error #:src this-syntax #:msg
                        (format "expected a function of ~a arguments, got one with ~a arguments"
                                (stx-length #'[arg-ty ...] #'[x ...]))))]
    --------
@@ -922,10 +922,9 @@
    ;; TODO is there a way to have λs that refer to ids defined after them?
    #'(Λ Xs (ext-stlc:λ x+tys . body))])
 
-
 ;; #%app --------------------------------------------------
 (define-typed-syntax mlish:#%app #:export-as #%app
-  [(_ e_fn . e_args) ≫
+  [(~and this-app (_ e_fn . e_args)) ≫
 ;   #:when (printf "app: ~a\n" (syntax->datum #'(e_fn . e_args)))
    ;; ) compute fn type (ie ∀ and →) 
    [⊢ e_fn ≫ e_fn- ⇒ (~and ty_fn (~∀ Xs ty_fnX))]
@@ -939,7 +938,7 @@
         (syntax-parse #'(e_args tyX_args)
           [((e_arg ...) (τ_inX ... _))
            #:fail-unless (stx-length=? #'(e_arg ...) #'(τ_inX ...))
-           (mk-app-err-msg stx #:expected #'(τ_inX ...) 
+           (mk-app-err-msg #'this-app #:expected #'(τ_inX ...) 
                            #:note "Wrong number of arguments.")
            #:with e_fn/ty (⊢ e_fn- : (ext-stlc:→ . tyX_args))
            #'(ext-stlc:#%app e_fn/ty (add-expected e_arg τ_inX) ...)])]
@@ -949,13 +948,13 @@
       ;; no typeclasses, duplicate code for now --------------------------------
       [(~ext-stlc:→ . tyX_args) 
        ;; ) solve for type variables Xs
-       (define/with-syntax ((e_arg1- ...) (unsolved-X ...) cs) (solve #'Xs #'tyX_args stx))
+       (define/with-syntax ((e_arg1- ...) (unsolved-X ...) cs) (solve #'Xs #'tyX_args #'this-app))
        ;; ) instantiate polymorphic function type
        (syntax-parse (inst-types/cs #'Xs #'cs #'tyX_args)
         [(τ_in ... τ_out) ; concrete types
          ;; ) arity check
          #:fail-unless (stx-length=? #'(τ_in ...) #'e_args)
-                       (mk-app-err-msg stx #:expected #'(τ_in ...)
+                       (mk-app-err-msg #'this-app #:expected #'(τ_in ...)
                         #:note "Wrong number of arguments.")
          ;; ) compute argument types; re-use args expanded during solve
          #:with ([e_arg2- τ_arg2] ...) (let ([n (stx-length #'(e_arg1- ...))])
@@ -967,7 +966,7 @@
          #:with (e_arg- ...) #'(e_arg1- ... e_arg2- ...)
          ;; ) typecheck args
          #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
-                       (mk-app-err-msg stx 
+                       (mk-app-err-msg #'this-app
                         #:given #'(τ_arg ...)
                         #:expected 
                         (stx-map 
@@ -986,13 +985,13 @@
                            (syntax-parse #'τ_out
                              [(~?∀ (Y ...) τ_out)
                               (unless (→? #'τ_out)
-                                (raise-app-poly-infer-error stx #'(τ_in ...) #'(τ_arg ...) #'e_fn))
+                                (raise-app-poly-infer-error #'this-app #'(τ_in ...) #'(τ_arg ...) #'e_fn))
                               #'(∀ (unsolved-X ... Y ...) τ_out)]))
          (⊢ (#%app- e_fn- e_arg- ...) : τ_out*)])]
       ;; handle type class constraints ----------------------------------------
       [(~=> TCX ... (~ext-stlc:→ . tyX_args))
        ;; ) solve for type variables Xs
-       (define/with-syntax ((e_arg1- ...) (unsolved-X ...) cs) (solve #'Xs #'tyX_args stx))
+       (define/with-syntax ((e_arg1- ...) (unsolved-X ...) cs) (solve #'Xs #'tyX_args #'this-app))
        ;; ) instantiate polymorphic function type
        (syntax-parse (inst-types/cs #'Xs #'cs #'((TCX ...) tyX_args))
          [((TC ...) (τ_in ... τ_out)) ; concrete types
@@ -1005,7 +1004,7 @@
                          (with-handlers 
                            ([exn:fail:syntax:unbound? 
                              (lambda (e)
-                               (type-error #:src stx
+                               (type-error #:src #'this-app
                                 #:msg 
                                 (format 
                                  (string-append
@@ -1028,9 +1027,12 @@
                                  (stx-map 
                                    (lambda (X ty-solved)
                                      (string-append (type->str X) " : " (type->str ty-solved)))
-                                   #'Xs (lookup-Xs/keep-unsolved #'Xs #'cs)) ", "))))])
+                                   #'Xs (lookup-Xs/keep-unsolved #'Xs #'cs)) ", "))))]
+                            [(lambda _ #t)
+                             (lambda (e) (displayln "other exn")(displayln e)
+                             (error 'lookup))])
                          (lookup-op o tys)))
-                       (stx-map (lambda (o) (format-id stx "~a" o #:source stx)) gen-ops)
+                       (stx-map (lambda (o) (format-id #'this-app "~a" o #:source #'this-app)) gen-ops)
                        (stx-map
                          (syntax-parser
                            [(~∀ _ (~ext-stlc:→ ty_in ... _)) #'(ty_in ...)])
@@ -1038,7 +1040,7 @@
                    #'((generic-op ...) ...) #'((ty-concrete-op ...) ...) #'(TC ...))
           ;; ) arity check
           #:fail-unless (stx-length=? #'(τ_in ...) #'e_args)
-                        (mk-app-err-msg stx #:expected #'(τ_in ...)
+                        (mk-app-err-msg #'this-app #:expected #'(τ_in ...)
                                         #:note "Wrong number of arguments.")
           ;; ) compute argument types; re-use args expanded during solve
           #:with ([e_arg2- τ_arg2] ...) (let ([n (stx-length #'(e_arg1- ...))])
@@ -1050,7 +1052,7 @@
           #:with (e_arg- ...) #'(e_arg1- ... e_arg2- ...)
           ;; ) typecheck args
           #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
-                        (mk-app-err-msg stx 
+                        (mk-app-err-msg #'this-app
                          #:given #'(τ_arg ...)
                          #:expected 
                          (stx-map 
@@ -1069,14 +1071,14 @@
                            (syntax-parse #'τ_out
                              [(~?∀ (Y ...) τ_out)
                               (unless (→? #'τ_out)
-                                (raise-app-poly-infer-error stx #'(τ_in ...) #'(τ_arg ...) #'e_fn))
+                                (raise-app-poly-infer-error #'this-app #'(τ_in ...) #'(τ_arg ...) #'e_fn))
                               #'(∀ (unsolved-X ... Y ...) τ_out)]))
           (⊢ ((#%app- e_fn- op ...) e_arg- ...) : τ_out*)])])])]]
   [(_ e_fn . e_args) ≫ ; err case; e_fn is not a function
    [⊢ e_fn ≫ e_fn- ⇒ τ_fn]
    --------
    [#:error 
-    (type-error #:src stx 
+    (type-error #:src #'this-app
                 #:msg (format "Expected expression ~a to have → type, got: ~a"
                               (syntax->datum #'e_fn) (type->str #'τ_fn)))]])
 
@@ -1658,10 +1660,10 @@
   [(_ (Name ty ...) [generic-op concrete-op] ...) ≫
    [⊢ (Name ty ...) ≫ 
       (~=> TC ... (~TC [generic-op-expected ty-concrete-op-expected] ...)) ⇒ _]
-   #:when (TCs-exist? #'(TC ...) #:ctx stx)
+   #:when (TCs-exist? #'(TC ...) #:ctx this-syntax)
    #:fail-unless (set=? (syntax->datum #'(generic-op ...)) 
                         (syntax->datum #'(generic-op-expected ...)))
-                 (type-error #:src stx
+                 (type-error #:src this-syntax
                   #:msg (format "Type class instance ~a incomplete, missing: ~a"
                           (syntax->datum #'(Name ty ...))
                           (string-join
@@ -1711,15 +1713,15 @@
                 (~=> TCsub ... 
                      (~TC [generic-op-expected ty-concrete-op-expected] ...)))
            _)
-           (infers/tyctx+erase #'([X : #%type] ...) #'(TC ... (Name ty ...)))
+           (infers/tyctx+erase #'(X ...) #'(TC ... (Name ty ...)))
    ;; this produces #%app bad stx err, so manually call infer for now
-   ;; [([X ≫ X- : #%type] ...) () ⊢ (TC ... (Name ty ...)) ≫
+   ;; [([X ≫ X- :: #%type] ...) () ⊢ (TC ... (Name ty ...)) ≫
    ;;                                (TC+ ... 
    ;;                                 (~=> TCsub ... 
    ;;                                  (~TC [generic-op-expected ty-concrete-op-expected] ...)))
    ;;                                ⇒ _]
    ;; #:with Xs+ #'(X- ...)
-   #:when (TCs-exist? #'(TCsub ...) #:ctx stx)
+   #:when (TCs-exist? #'(TCsub ...) #:ctx this-syntax)
    ;; simulate as if the declared concrete-op* has TC ... predicates
    ;; TODO: fix this manual deconstruction and assembly
    #:with ((app fa (lam _ ei ty_fn)) ...) #'(ty-concrete-op-expected ...)
@@ -1727,7 +1729,7 @@
           (stx-map (current-type-eval) #'((app fa (lam Xs+ ei (=> TC+ ... ty_fn))) ...))
    #:fail-unless (set=? (syntax->datum #'(generic-op ...)) 
                         (syntax->datum #'(generic-op-expected ...)))
-                 (type-error #:src stx
+                 (type-error #:src this-syntax
                   #:msg (format "Type class instance ~a incomplete, missing: ~a"
                           (syntax->datum #'(Name ty ...))
                           (string-join

@@ -1,6 +1,8 @@
 #lang s-exp macrotypes/typecheck
 (extends "fomega.rkt" #:except tyapp tyλ)
 
+;; NOTE 2017-02-03: currently not working
+
 ; same as fomega2.rkt --- λ and #%app works as both regular and type versions,
 ; → is both type and kind --- but reuses parts of fomega.rkt,
 ; ie removes the duplication in fomega2.rkt

@@ -26,7 +26,7 @@
 (begin-for-syntax
   (define (expose t)
     (cond [(identifier? t)
-           (define sub (typeof t #:tag '<:))
+           (define sub (detach t '<:))
            (if sub (expose sub) t)]
           [else t]))
   (current-promote expose)
@@ -75,14 +75,13 @@
                        #:msg "Expected ∀ type, got: ~a" #'any))))]))))
 
 (define-typed-syntax Λ #:datum-literals (<:)
-  [(_ ([tv:id <: τsub:type] ...) e)
+  [(_ ([X:id <: τsub:type] ...) e)
    ;; NOTE: store the subtyping relation of tv and τsub in another
    ;; "environment", ie, a syntax property with another tag: '<:
    ;; The "expose" function looks for this tag to enforce the bound,
    ;; as in TaPL (fig 28-1)
-   #:with ((tv- ...) _ (e-) (τ_e))
-          (infer #'(e) #:tvctx #'([tv : #%type <: τsub] ...))
-   (⊢ e- : (∀ ([tv- <: τsub] ...) τ_e))])
+   #:with ((X- ...) e- τ_e) (infer/ctx #'([X :: #%type <: τsub] ...) #'e)
+   (⊢ e- : (∀ ([X- <: τsub] ...) τ_e))])
 (define-typed-syntax inst
   [(_ e τ:type ...)
    #:with (e- (([tv τ_sub] ...) τ_body)) (⇑ e as ∀)

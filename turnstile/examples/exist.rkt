@@ -65,7 +65,6 @@
    ;; Γ ⊢ (open [x <= e_packed with X_2] e) : τ_e
    ;;
   [⊢ e_packed ≫ e_packed- ⇒ (~∃ (Y) τ_body)]
-  #:with τ_x (subst #'X #'Y #'τ_body)
-  [([X ≫ X- : #%type]) ([x ≫ x- : τ_x]) ⊢ e ≫ e- ⇒ τ_e]
+  [X [x ≫ x- : #,(subst #'X #'Y #'τ_body)] ⊢ e ≫ e- ⇒ τ_e]
   --------
   [⊢ (let- ([x- e_packed-]) e-) ⇒ τ_e])

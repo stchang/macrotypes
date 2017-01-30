@@ -7,12 +7,16 @@
 
 ;; example suggested by Alexis King
 
+;; this version still uses ': key for kinds
+
+;; tyλ and λ are separate forms
+
 (provide define-type-alias
          ★ ⇒ Int Bool String Float Char → ∀ tyλ tyapp
          (typed-out [+ : (→ Int Int Int)])
          λ #%app #%datum Λ inst ann)
 
-(define-syntax-category :: kind)
+(define-syntax-category kind)
 
 ;; redefine:
 ;; - current-type?: well-formed types have kind ★
@@ -25,8 +29,7 @@
   ;; (need this for define-primop, which still uses type stx-class)
   (current-type? (λ (t) (★? (kindof t))))
   ;; o.w., a valid type is one with any valid kind
-  (current-any-type? (λ (t) (define k (kindof t))
-                        (and k ((current-kind?) k))))
+  (current-any-type? (λ (t) ((current-kind?) (kindof t))))
 
   ;; TODO: I think this can be simplified
   (define (normalize τ)
@@ -49,16 +52,17 @@
   (define old-eval (current-type-eval))
   (current-type-eval (lambda (τ) (normalize (old-eval τ))))
   
-  (define old-typecheck? (current-typecheck-relation))
+  (define old-type=? (current-type=?))
   ; ty=? == syntax eq and syntax prop eq
-  (define (new-typecheck? t1 t2)
+  (define (type=? t1 t2)
     (let ([k1 (kindof t1)][k2 (kindof t2)])
       ; the extra `and` and `or` clauses are bc type=? is a structural
       ; traversal on stx objs, so not all sub stx objs will have a "type"-stx
       (and (or (and (not k1) (not k2))
-               (and k1 k2 (kindcheck? k1 k2)))
-           (old-typecheck? t1 t2))))
-  (current-typecheck-relation new-typecheck?))
+               (and k1 k2 ((current-kind=?) k1 k2)))
+           (old-type=? t1 t2))))
+  (current-type=? type=?)
+  (current-typecheck-relation type=?))
 
 ;; kinds ----------------------------------------------------------------------
 (define-internal-kind-constructor ★) ; defines ★-
@@ -75,11 +79,11 @@
   [≻ (define-syntax- alias 
        (make-variable-like-transformer #'τ.norm))])
 
-(define-base-type Int :: ★)
-(define-base-type Bool :: ★)
-(define-base-type String :: ★)
-(define-base-type Float :: ★)
-(define-base-type Char :: ★)
+(define-base-type Int : ★)
+(define-base-type Bool : ★)
+(define-base-type String : ★)
+(define-base-type Float : ★)
+(define-base-type Char : ★)
 
 (define-internal-type-constructor →) ; defines →-
 (define-kinded-syntax (→ ty ...+) ≫
@@ -88,15 +92,15 @@
   [⊢ (→- ty- ...) ⇒ ★])
 
 (define-internal-binding-type ∀) ; defines ∀-
-(define-kinded-syntax ∀
-  [(_ ctx:kind-ctx ty) ≫
-   [[ctx.x ≫ tv- :: ctx.kind] ... ⊢ ty ≫ ty- ⇒ (~★ . _)]
+(define-kinded-syntax ∀ #:datum-literals (:)
+  [(_ ([tv:id : k_in:kind] ...) ty) ≫
+   [[tv ≫ tv- : k_in.norm] ... ⊢ ty ≫ ty- ⇒ (~★ . _)]
    -------
-   [⊢ (∀- (tv- ...) ty-) ⇒ (★ ctx.kind ...)]])
+   [⊢ (∀- (tv- ...) ty-) ⇒ (★ k_in.norm ...)]])
 
 (define-kinded-syntax (tyλ bvs:kind-ctx τ_body) ≫
-  [[bvs.x ≫ tv- :: bvs.kind] ... ⊢ τ_body ≫ τ_body- ⇒ k_body]
-  #:fail-unless ((current-kind?) #'k_body) ; better err, in terms of τ_body
+  [[bvs.x ≫ tv- : bvs.kind] ... ⊢ τ_body ≫ τ_body- ⇒ k_body]
+  #:fail-unless ((current-kind?) #'k_body)
                 (format "not a valid type: ~a\n" (type->str #'τ_body))
   --------
   [⊢ (λ- (tv- ...) τ_body-) ⇒ (⇒ bvs.kind ... k_body)])
@@ -155,16 +159,17 @@
    [_ #:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])
 
 (define-typed-syntax (Λ bvs:kind-ctx e) ≫
-  [[bvs.x ≫ tv- :: bvs.kind] ... ⊢ e ≫ e- ⇒ τ_e]
+  [([bvs.x ≫ tv- : bvs.kind] ...) () ⊢ e ≫ e- ⇒ τ_e]
   --------
-  [⊢ e- ⇒ (∀ ([tv- :: bvs.kind] ...) τ_e)])
+  [⊢ e- ⇒ (∀ ([tv- : bvs.kind] ...) τ_e)])
 
-(define-typed-syntax (inst e τ:any-type ...) ≫
-  [⊢ e ≫ e- ⇒ (~∀ (tv ...) τ_body) (⇒ :: (~★ k ...))]
-;  [⊢ τ ≫ τ- ⇐ k] ...     ; ⇐ would use typechecks?
-  [⊢ τ ≫ τ- ⇒ :: k_τ] ... ; so use ⇒ and kindchecks?
+(define-typed-syntax (inst e τ ...) ≫
+  [⊢ e ≫ e- ⇒ (~∀ (tv ...) τ_body) (⇒ (~★ k ...))]
+;  [⊢ τ ≫ τ- ⇐ k] ...  ; ⇐ would use typechecks?
+  [⊢ τ ≫ τ- ⇒ k_τ] ... ; so use ⇒ and kindchecks?
   #:fail-unless (kindchecks? #'(k_τ ...) #'(k ...))
                 (typecheck-fail-msg/multi #'(k ...) #'(k_τ ...) #'(τ ...))
+  #:with τ-inst (substs #'(τ- ...) #'(tv ...) #'τ_body)
   --------
-  [⊢ e- ⇒ #,(substs #'(τ.norm ...) #'(tv ...) #'τ_body)])
+  [⊢ e- ⇒ τ-inst])
 

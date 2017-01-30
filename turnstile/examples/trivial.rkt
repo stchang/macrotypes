@@ -120,7 +120,7 @@
            ((current-type=?) t1 #'t2*)]
           [_ #f])))
   (current-type=? new-type=?)
-  (current-typecheck-relation (current-type=?))
+  (current-typecheck-relation new-type=?)
 
   ;; current-type?
   ;; TODO: disabling type validation for now
@@ -282,7 +282,7 @@
                   [x:id : ty])) ...)
       . es) ≫
    #:with (X ...) (generate-temporaries #'(x ...))
-   [([X ≫ X- : #%type] ...) ([x ≫ x- : X] ...) 
+   [([X ≫ X- :: #%type] ...) ([x ≫ x- : X] ...) 
     ⊢ (begin . es) ≫ e- ⇒ τ_out]
    ;; TODO: investigate why this extra syntax-local-introduce is needed?
    #:with τ_out* (syntax-local-introduce #'τ_out)
@@ -344,7 +344,7 @@
    #:with Bs** (prune-Bs #'Bs*)
 ;   #:when (begin (displayln "checking Cs:")
 ;                 (pretty-print (syntax->datum #'Cs*)))
-   #:with remaining-Cs (check-Cs #'Cs* stx)
+   #:with remaining-Cs (check-Cs #'Cs* this-syntax)
 ;   #:when (printf "remaining Cs: ~a\n"
 ;                  (syntax->datum #'remaining-Cs))
    #:with ty-out**

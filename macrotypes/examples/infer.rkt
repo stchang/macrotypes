@@ -51,7 +51,7 @@
                                (for/fold ([tv-id #'tv])
                                          ([s (in-list (list 'sep ...))]
                                           [k (in-list (list #'tvk ...))])
-                                 (assign-type tv-id k #:tag s))
+                                 (attach tv-id s k))
                                'tyvar #t))] ...)
               (λ- (x ...)
                 (let-syntax 

@@ -159,7 +159,7 @@
    #:with [X ...]
    (for/list ([X (in-list (generate-temporaries #'[x ...]))])
      (add-orig X X))
-   [([X ≫ X- : #%type] ...) ([x ≫ x- : X] ...)
+   [([X ≫ X- :: #%type] ...) ([x ≫ x- : X] ...)
     ⊢ [body ≫ body- ⇒ : τ_body*]]
    #:with (~?Some [V ...] τ_body (~Cs [id_2 τ_2] ...)) (syntax-local-introduce #'τ_body*)
    #:with τ_fn (some/inst/generalize #'[X- ... V ...]

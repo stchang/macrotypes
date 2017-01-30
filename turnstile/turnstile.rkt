@@ -5,9 +5,9 @@
          define-typed-syntax define-syntax-category
          (rename-out [define-typed-syntax define-typerule]
                      [define-typed-syntax define-syntax/typecheck])
-         (for-syntax syntax-parse/typed-syntax
+         (for-syntax syntax-parse/typecheck
                      (rename-out
-                      [syntax-parse/typed-syntax syntax-parse/typecheck])))
+                      [syntax-parse/typecheck syntax-parse/typed-syntax])))
 
 (require (except-in (rename-in
                      macrotypes/typecheck
@@ -25,16 +25,18 @@
   ;;   xs-   ; a stx-list of the expanded versions of variables in the ctx
   ;;   es*-  ; a nested list a depth given by the depth argument, with the same structure
   ;;         ; as es*, containing the expanded es*, with the types attached
-  (define (infer/depth #:ctx ctx #:tvctx tvctx depth es* origs*)
+  (define (infer/depth #:ctx ctx #:tvctx tvctx depth es* origs*
+                       #:tag [tag (current-tag)])
     (define flat (stx-flatten/depth-lens depth))
     (define es (lens-view flat es*))
     (define origs (lens-view flat origs*))
     (define/with-syntax [tvxs- xs- es- _]
-      (infer #:tvctx tvctx #:ctx ctx (stx-map pass-orig es origs)))
-    (define es*- (lens-set flat es* #'es-))
+      (infer #:tvctx tvctx #:ctx ctx (stx-map pass-orig es origs) #:tag tag))
+    (define es*- (lens-set flat es* #`es-))
     (list #'tvxs- #'xs- es*-))
   ;; infers/depths
-  (define (infers/depths clause-depth tc-depth tvctxs/ctxs/ess/origss*)
+  (define (infers/depths clause-depth tc-depth tvctxs/ctxs/ess/origss*
+                         #:tag [tag (current-tag)])
     (define flat (stx-flatten/depth-lens clause-depth))
     (define tvctxs/ctxs/ess/origss
       (lens-view flat tvctxs/ctxs/ess/origss*))
@@ -42,7 +44,7 @@
       (for/list ([tvctx/ctx/es/origs (in-list (stx->list tvctxs/ctxs/ess/origss))])
         (match-define (list tvctx ctx es origs)
           (stx->list tvctx/ctx/es/origs))
-        (infer/depth #:tvctx tvctx #:ctx ctx tc-depth es origs)))
+        (infer/depth #:tvctx tvctx #:ctx ctx tc-depth es origs #:tag tag)))
     (define res
       (lens-set flat tvctxs/ctxs/ess/origss* tcs))
     res)
@@ -92,44 +94,45 @@
   (define-splicing-syntax-class ⇒-prop
     #:datum-literals (⇒)
     #:attributes (e-pat)
-    [pattern (~or (~seq ⇒ tag-pat ; implicit : tag
-                        (~parse tag #':) (tag-prop:⇒-prop) ...)
+    [pattern (~or (~seq ⇒ tag-pat ; implicit tag
+                          (~parse tag #',(current-tag))
+                          (tag-prop:⇒-prop) ...)
                   (~seq ⇒ tag:id tag-pat (tag-prop:⇒-prop) ...)) ; explicit tag
              #:with e-tmp (generate-temporary)
              #:with e-pat
              #'(~and e-tmp
                      (~parse
                       (~and tag-prop.e-pat ... tag-pat)
-                      (typeof #'e-tmp #:tag 'tag)))])
+                      (detach #'e-tmp `tag)))])
   (define-splicing-syntax-class ⇒-prop/conclusion
     #:datum-literals (⇒)
     #:attributes (tag tag-expr)
-    [pattern (~or (~seq ⇒ tag-stx 
-                        (~parse tag #':)
-                        (~parse (tag-prop.tag ...) #'())
-                        (~parse (tag-prop.tag-expr ...) #'()))
+    [pattern (~or (~seq ⇒ tag-stx ; implicit tag
+                          (~parse tag #',(current-tag))
+                          (~parse (tag-prop.tag ...) #'())
+                          (~parse (tag-prop.tag-expr ...) #'()))
                   (~seq ⇒ tag:id tag-stx (tag-prop:⇒-prop/conclusion) ...))
              #:with tag-expr
              (for/fold ([tag-expr #'#`tag-stx])
-                       ([k (in-list (syntax->list #'[tag-prop.tag ...]))]
-                        [v (in-list (syntax->list #'[tag-prop.tag-expr ...]))])
+                       ([k (in-stx-list #'[tag-prop.tag ...])]
+                        [v (in-stx-list #'[tag-prop.tag-expr ...])])
                (with-syntax ([tag-expr tag-expr] [k k] [v v])
-                 #'(assign-type tag-expr #:tag 'k v)))])
+                 #'(attach tag-expr `k ((current-ev) v))))])
   (define-splicing-syntax-class ⇐-prop
-    #:datum-literals (⇐ :)
+    #:datum-literals (⇐)
     #:attributes (τ-stx e-pat)
-    [pattern (~or (~seq ⇐ τ-stx)
-                  (~seq ⇐ : τ-stx))
+    [pattern (~or (~seq ⇐ τ-stx (~parse tag #',(current-tag)))
+                  (~seq ⇐ tag:id τ-stx))
              #:with e-tmp (generate-temporary)
              #:with τ-tmp (generate-temporary)
              #:with τ-exp (generate-temporary)
              #:with e-pat
-             #'(~and e-tmp
+             #`(~and e-tmp
                      (~parse τ-exp (get-expected-type #'e-tmp))
-                     (~parse τ-tmp (typeof #'e-tmp))
+                     (~parse τ-tmp (detach #'e-tmp `tag))
                      (~parse
                       (~post
-                       (~fail #:when (and (not (typecheck? #'τ-tmp #'τ-exp))
+                       (~fail #:when (and (not (check? #'τ-tmp #'τ-exp))
                                           (get-orig #'e-tmp))
                               (typecheck-fail-msg/1 #'τ-exp #'τ-tmp #'e-tmp)))
                       (get-orig #'e-tmp)))])
@@ -153,6 +156,12 @@
   (define-splicing-syntax-class id+props+≫
     #:datum-literals (≫)
     #:attributes ([x- 1] [ctx 1])
+    [pattern (~seq (~and X:id (~not _:elipsis)))
+             #:with [x- ...] #'[_]
+             #:with [ctx ...] #'[[X :: #%type]]]
+    [pattern (~seq X:id ooo:elipsis)
+             #:with [x- ...] #'[_ ooo]
+             #:with [ctx ...] #'[[X :: #%type] ooo]]
     [pattern (~seq [x:id ≫ x--:id props:props])
              #:with [x- ...] #'[x--]
              #:with [ctx ...] #'[[x props.stuff ...]]]
@@ -165,7 +174,7 @@
              #:with [x- ...] #'[ctx1.x- ... ...]
              #:with [ctx ...] #'[ctx1.ctx ... ...]])
   (define-syntax-class tc-elem
-    #:datum-literals (⊢ ⇒ ⇐ ≫ :)
+    #:datum-literals (⊢ ⇒ ⇐ ≫)
     #:attributes (e-stx e-stx-orig e-pat)
     [pattern [e-stx ≫ e-pat* props:⇒-props]
              #:with e-stx-orig #'e-stx
@@ -198,9 +207,9 @@
                    (define max-d (apply max 0 ds))]
              #:with depth (add1 max-d)
              #:with [[es-stx* es-stx-orig* es-pat*] ...]
-             (for/list ([tc-es-stx (in-list (syntax->list #'[tc.es-stx ...]))]
-                        [tc-es-stx-orig (in-list (syntax->list #'[tc.es-stx-orig ...]))]
-                        [tc-es-pat (in-list (syntax->list #'[tc.es-pat ...]))]
+             (for/list ([tc-es-stx (in-stx-list #'[tc.es-stx ...])]
+                        [tc-es-stx-orig (in-stx-list #'[tc.es-stx-orig ...])]
+                        [tc-es-pat (in-stx-list #'[tc.es-pat ...])]
                         [d (in-list ds)])
                (list
                 (add-lists tc-es-stx (- max-d d))
@@ -226,58 +235,59 @@
               #'[ooo ...])
              #:with tvctxs/ctxs/ess/origs
              (with-depth
-              #'[(tvctx.ctx ...) (ctx.ctx ...) tc.es-stx tc.es-stx-orig]
+              #`[(tvctx.ctx ...) (ctx.ctx ...) tc.es-stx tc.es-stx-orig]
               #'[ooo ...])
              #:with pat
-             #'(~post
+             #`(~post
                 (~post
                  (~parse
                   tcs-pat
-                  (infers/depths 'clause-depth 'tc.depth #'tvctxs/ctxs/ess/origs))))]
+                  (infers/depths 'clause-depth 'tc.depth #`tvctxs/ctxs/ess/origs
+                                 #:tag (current-tag)))))]
     )
   (define-splicing-syntax-class clause
     #:attributes (pat)
-    #:datum-literals (τ⊑ τ=)
+    #:datum-literals (τ⊑ τ=) ; TODO: drop the τ in τ⊑ and τ=
     [pattern :tc-clause]
     [pattern [a τ⊑ b]
              #:with pat
              #'(~post
-                (~fail #:unless (typecheck? #'a #'b)
+                (~fail #:unless (check? #'a #'b)
                        (typecheck-fail-msg/1/no-expr #'b #'a)))]
     [pattern [a τ⊑ b #:for e]
              #:with pat
              #'(~post
-                (~fail #:unless (typecheck? #'a #'b)
+                (~fail #:unless (check? #'a #'b)
                        (typecheck-fail-msg/1 #'b #'a #'e)))]
     [pattern (~seq [a τ⊑ b] ooo:elipsis)
              #:with pat
              #'(~post
-                (~fail #:unless (typechecks? #'[a ooo] #'[b ooo])
+                (~fail #:unless (checks? #'[a ooo] #'[b ooo])
                        (typecheck-fail-msg/multi/no-exprs #'[b ooo] #'[a ooo])))]
     [pattern (~seq [a τ⊑ b #:for e] ooo:elipsis)
              #:with pat
              #'(~post
-                (~fail #:unless (typechecks? #'[a ooo] #'[b ooo])
+                (~fail #:unless (checks? #'[a ooo] #'[b ooo])
                        (typecheck-fail-msg/multi #'[b ooo] #'[a ooo] #'[e ooo])))]
     [pattern [a τ= b]
              #:with pat
              #'(~post
-                (~fail #:unless ((current-type=?) #'a #'b)
+                (~fail #:unless ((current=?) #'a #'b)
                        (typecheck-fail-msg/1/no-expr #'b #'a)))]
     [pattern [a τ= b #:for e]
              #:with pat
              #'(~post
-                (~fail #:unless ((current-type=?) #'a #'b)
+                (~fail #:unless ((current=?) #'a #'b)
                        (typecheck-fail-msg/1 #'b #'a #'e)))]
     [pattern (~seq [a τ= b] ooo:elipsis)
              #:with pat
              #'(~post
-                (~fail #:unless (types=? #'[a ooo] #'[b ooo])
+                (~fail #:unless (=s? #'[a ooo] #'[b ooo])
                        (typecheck-fail-msg/multi/no-exprs #'[b ooo] #'[a ooo])))]
     [pattern (~seq [a τ= b #:for e] ooo:elipsis)
              #:with pat
              #'(~post
-                (~fail #:unless (types=? #'[a ooo] #'[b ooo])
+                (~fail #:unless (=s? #'[a ooo] #'[b ooo])
                        (typecheck-fail-msg/multi #'[b ooo] #'[a ooo] #'[e ooo])))]
     [pattern (~seq #:when condition:expr)
              #:with pat
@@ -296,7 +306,7 @@
              #'(~post (~fail #:unless condition message))]
     )
   (define-syntax-class last-clause
-    #:datum-literals (⊢ ≫ ≻ ⇒ ⇐ :)
+    #:datum-literals (⊢ ≫ ≻ ⇒ ⇐)
     #:attributes ([pat 0] [stuff 1] [body 0])
     ;; ⇒ conclusion
     [pattern (~or [⊢ pat ≫ e-stx props:⇒-props/conclusion]
@@ -304,21 +314,25 @@
              #:with [stuff ...] #'[]
              #:with body:expr
              (for/fold ([body #'(quasisyntax/loc this-syntax e-stx)])
-                       ([k (in-list (syntax->list #'[props.tag ...]))]
-                        [v (in-list (syntax->list #'[props.tag-expr ...]))])
+                       ([k (in-stx-list #'[props.tag ...])]
+                        [v (in-stx-list #'[props.tag-expr ...])])
                (with-syntax ([body body] [k k] [v v])
-                 #'(assign-type body #:tag 'k v)))]
+                 #`(attach body `k ((current-ev) v))))]
     ;; ⇒ conclusion, implicit pat
     [pattern (~or [⊢ e-stx props:⇒-props/conclusion]
                   [⊢ [e-stx props:⇒-props/conclusion]])
              #:with :last-clause #'[⊢ [_ ≫ e-stx . props]]]
     ;; ⇐ conclusion
-    [pattern [⊢ (~and e-stx (~not [_ ≫ . rst]))]
-             #:with :last-clause #'[⊢ [_ ≫ e-stx ⇐ : _]]]
-    [pattern (~or [⊢ pat* ≫ e-stx ⇐ τ-pat]
-                  [⊢ pat* ≫ e-stx ⇐ : τ-pat]
-                  [⊢ [pat* ≫ e-stx ⇐ τ-pat]]
-                  [⊢ [pat* ≫ e-stx ⇐ : τ-pat]])
+    [pattern [⊢ (~and e-stx (~not [_ ≫ . rst]))] ;; TODO: this current tag isnt right?
+             #:with :last-clause #`[⊢ [_ ≫ e-stx ⇐ #,(datum->stx #'h (current-tag)) _]]]
+    [pattern (~or [⊢ pat* (~seq ≫ e-stx
+                                ⇐ τ-pat ; implicit tag
+                                  (~parse tag #',(current-tag)))]
+                  [⊢ pat* ≫ e-stx ⇐ tag:id τ-pat] ; explicit tag
+                  [⊢ [pat* (~seq ≫ e-stx
+                                 ⇐ τ-pat ; implicit tag
+                                   (~parse tag #',(current-tag)))]]
+                  [⊢ [pat* ≫ e-stx ⇐ tag:id τ-pat]]) ; explicit tag
              #:with stx (generate-temporary 'stx)
              #:with τ (generate-temporary #'τ-pat)
              #:with pat
@@ -330,7 +344,7 @@
                      (~parse τ-pat #'τ))
              #:with [stuff ...] #'[]
              #:with body:expr
-             #'(assign-type (quasisyntax/loc this-syntax e-stx) #`τ)]
+                    #'(attach (quasisyntax/loc this-syntax e-stx) `tag #`τ)]
     ;; macro invocations
     [pattern [≻ e-stx]
              #:with :last-clause #'[_ ≻ e-stx]]
@@ -346,11 +360,12 @@
              #:with body:expr
              ;; should never get here
              #'(error msg)])
-  (define-splicing-syntax-class pat #:datum-literals (⇐ :)
+  (define-splicing-syntax-class pat #:datum-literals (⇐)
     [pattern (~seq pat)
              #:attr transform-body identity]
-    [pattern (~or (~seq pat* left:⇐ τ-pat)
-                  (~seq pat* left:⇐ : τ-pat))
+    [pattern (~or (~seq pat* left:⇐ τ-pat ; implicit tag
+                        (~parse tag #',(current-tag)))
+                  (~seq pat* left:⇐ tag:id τ-pat)) ; explicit tag
              #:with stx (generate-temporary 'stx)
              #:with τ (generate-temporary #'τ-pat)
              #:with b (generate-temporary 'body)
@@ -363,11 +378,10 @@
                      (~parse τ-pat #'τ))
              #:attr transform-body
              (lambda (body)
-               #`(let ([b #,body])
-                   (when (and (typeof b)
-                              (not (typecheck? (typeof b) #'τ)))
-                     (raise-⇐-expected-type-error #'left b #'τ (typeof b)))
-                   (assign-type b #'τ)))])
+               #`(let* ([b #,body][ty-b (detach b `tag)])
+                   (when (and ty-b (not (check? ty-b #'τ)))
+                     (raise-⇐-expected-type-error #'left b #'τ ty-b))
+                   (attach b `tag #'τ)))])
   (define-syntax-class rule #:datum-literals (≫)
     [pattern [pat:pat ≫
               clause:clause ...
@@ -388,62 +402,59 @@
 (require (for-meta 1 'syntax-classes)
          (for-meta 2 'syntax-classes))
 
-(define-syntax define-typed-syntax
-  (lambda (stx)
-    (syntax-parse stx
-      ;; single-clause def
-      [(def (name:id . pats) . rst)
-       ;; cannot always bind name as pat var, eg #%app, so replace with _
-       #:with r:rule #'[(_ . pats) . rst]
-       #'(-define-typed-syntax name r.norm)]
-      ;; multi-clause def
-      [(def name:id
-         (~and (~seq kw-stuff ...) :stxparse-kws)
-         rule:rule
-         ...+)
-       #'(-define-typed-syntax
-          name
-          kw-stuff ...
-          rule.norm
-          ...)])))
-
 (begin-for-syntax
-  (define-syntax syntax-parse/typed-syntax
-    (lambda (stx)
-      (syntax-parse stx
-        [(stxparse
-          stx-expr
+  (define-syntax syntax-parse/typecheck
+    (syntax-parser
+      [(_ stx-expr
           (~and (~seq kw-stuff ...) :stxparse-kws)
-          rule:rule
-          ...)
-         #'(syntax-parse
-               stx-expr
-             kw-stuff ...
-             rule.norm
-             ...)]))))
+          rule:rule ...)
+       #'(syntax-parse stx-expr kw-stuff ... rule.norm ...)])))
+
+;; macrotypes/typecheck.rkt already defines (-define-syntax-category type);
+;; - just add the "def-named-syntax" part of the def-stx-cat macro below
+;; TODO: eliminate code dup with def-named-stx in define-stx-cat below?
+(define-syntax define-typed-syntax
+  (syntax-parser
+    ;; single-clause def
+    [(_ (rulename:id . pats) . rst)
+     ;; using #'rulename as patvar may cause problems, eg #%app, so use _
+     #'(define-typed-syntax rulename [(_ . pats) . rst])]
+    ;; multi-clause def
+    ;; - let stx-parse/tychk match :rule (dont double-match)
+    [(_ rulename:id
+        (~and (~seq kw-stuff ...) :stxparse-kws)
+        rule ...+)
+     #'(define-syntax (rulename stx)
+         (parameterize ([current-check-relation (current-typecheck-relation)]
+                        [current-ev (current-type-eval)]
+                        [current-tag (type-key1)])
+           (syntax-parse/typecheck stx kw-stuff ... rule ...)))]))
 
 (define-syntax define-syntax-category
- (lambda (stx)
-   (syntax-parse stx
-    [(_ name:id)
+  (syntax-parser
+    [(_ name:id)        ; default key1 = ': for types
+     #'(define-syntax-category : name)]
+    [(_ key:id name:id) ; default key2 = ':: for kinds
+     #`(define-syntax-category key name #,(mkx2 #'key))]
+    [(_ key1:id name:id key2:id)
      #:with def-named-syntax (format-id #'name "define-~aed-syntax" #'name)
-     #:with check-relation (format-id #'name "current-~acheck-relation" #'name)
+     #:with new-check-rel (format-id #'name "current-~acheck-relation" #'name)
+     #:with new-eval (format-id #'name "current-~a-eval" #'name)
      #'(begin
-        (-define-syntax-category name)
-        (define-syntax (def-named-syntax stx)
-          (syntax-parse stx
+        (-define-syntax-category key1 name key2)
+        (define-syntax def-named-syntax
+          (syntax-parser
             ;; single-clause def
-           [(_ (rulename:id . pats) . rst)
-            ;; cannot bind name as pat var, eg #%app, so replace with _
-            #:with r #'[(_ . pats) . rst]
-            #'(define-syntax (rulename stxx)
-                (parameterize ([current-typecheck-relation (check-relation)])
-                  (syntax-parse/typed-syntax stxx r)))]
-           ;; multi-clause def
-           [(_ rulename:id
+            [(_ (rulename:id . pats) . rst)
+             ;; #'rulename as a pat var may cause problems, eg #%app, so use _
+             #'(def-named-syntax rulename [(_ . pats) . rst])]
+            ;; multi-clause def
+            [(_ rulename:id
               (~and (~seq kw-stuff (... ...)) :stxparse-kws)
-              rule:rule (... ...+))
-            #'(define-syntax (rulename stxx)
-                (parameterize ([current-typecheck-relation (check-relation)])
-                  (syntax-parse/typed-syntax stxx kw-stuff (... ...)
-                    rule (... ...))))])))])))
+              rule (... ...+)) ; let stx-parse/tychk match :rule stxcls
+            #'(define-syntax (rulename stx)
+                (parameterize ([current-check-relation (new-check-rel)]
+                               [current-ev (new-eval)]
+                               [current-tag 'key1])
+                  (syntax-parse/typecheck stx kw-stuff (... ...)
+                    rule (... ...))))])))]))

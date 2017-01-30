@@ -86,9 +86,7 @@
   ;; find-free-Xs : (Stx-Listof Id) Type -> (Listof Id)
   ;; finds the free Xs in the type
   (define (find-free-Xs Xs ty)
-    (for/list ([X (in-list (stx->list Xs))]
-               #:when (stx-contains-id? ty X))
-      X))
+    (for/list ([X (in-stx-list Xs)] #:when (stx-contains-id? ty X)) X))
 
   ;; solve for Xs by unifying quantified fn type with the concrete types of stx's args
   ;;   stx = the application stx = (#%app e_fn e_arg ...)
@@ -104,8 +102,9 @@
     (syntax-parse tyXs
       [(τ_inX ... τ_outX)
        ;; generate initial constraints with expected type and τ_outX
-       #:with (~?∀ Vs expected-ty) (and (get-expected-type stx)
-                                        ((current-type-eval) (get-expected-type stx)))
+       #:with (~?∀ Vs expected-ty)
+              (and (get-expected-type stx)
+                   ((current-type-eval) (get-expected-type stx)))
        (define initial-cs
          (if (and (syntax-e #'expected-ty) (stx-null? #'Vs))
              (add-constraints Xs '() (list (list #'expected-ty #'τ_outX)))
@@ -114,8 +113,8 @@
          [(_ e_fn . args)
           (define-values (as- cs)
               (for/fold ([as- null] [cs initial-cs])
-                        ([a (in-list (syntax->list #'args))]
-                         [tyXin (in-list (syntax->list #'(τ_inX ...)))])
+                        ([a (in-stx-list #'args)]
+                         [tyXin (in-stx-list #'(τ_inX ...))])
                 (define ty_in (inst-type/cs Xs cs tyXin))
                 (define/with-syntax [a- ty_a]
                   (infer+erase (if (empty? (find-free-Xs Xs ty_in))
@@ -149,7 +148,7 @@
   (define (covariant-Xs? ty)
     (syntax-parse ((current-type-eval) ty)
       [(~?∀ Xs ty)
-       (for/and ([X (in-list (syntax->list #'Xs))])
+       (for/and ([X (in-stx-list #'Xs)])
          (covariant-X? X #'ty))]))
 
   ;; find-X-variance : Id Type [Variance] -> Variance
@@ -186,7 +185,7 @@
          (for/list ([arg-variance (in-list (get-arg-variances #'tycons))])
            (variance-compose ctxt-variance arg-variance)))
        (for/fold ([acc (make-list (length Xs) irrelevant)])
-                 ([τ (in-list (syntax->list #'[τ ...]))]
+                 ([τ (in-stx-list #'[τ ...])]
                   [τ-ctxt-variance (in-list τ-ctxt-variances)])
          (map variance-join
               acc
@@ -422,7 +421,7 @@
                            (format "Improper use of constructor ~a; expected ~a args, got ~a"
                                    (syntax->datum #'Name) (stx-length #'(X ...))
                                    (stx-length (stx-cdr #'stx))))])]
-                       [X (make-rename-transformer (⊢ X #%type))] ...)
+                       [X (make-rename-transformer (mk-type #'X))] ...)
                       (void ty_flat ...)))))
      #:when (or (equal? '(unbound) (syntax->datum #'(ty+ ...)))
                 (stx-map 
@@ -701,10 +700,10 @@
    [⊢ e ≫ e- ⇒ τ_e]
    #:with ([(~seq p ...) -> e_body] ...) #'clauses
    #:with (pat ...) (stx-map ; use brace to indicate root pattern
-                     (lambda (ps) (syntax-parse ps [(pp ...) (syntax/loc stx {pp ...})]))
+                     (lambda (ps) (syntax-parse ps [(pp ...) (syntax/loc this-syntax {pp ...})]))
                      #'((p ...) ...))
    #:with ([(~and ctx ([x ty] ...)) pat-] ...) (compile-pats #'(pat ...) #'τ_e)
-   #:with ty-expected (get-expected-type stx)
+   #:with ty-expected (get-expected-type this-syntax)
    [[x ≫ x- : ty] ... ⊢ (add-expected e_body ty-expected) ≫ e_body- ⇒ ty_body] ...
    #:when (check-exhaust #'(pat- ...) #'τ_e)
    --------
@@ -716,7 +715,7 @@
    #:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"
    [⊢ e ≫ e- ⇒ τ_e]
    #:when (×? #'τ_e)
-   #:with t_expect (get-expected-type stx) ; propagate inferred type
+   #:with t_expect (get-expected-type this-syntax) ; propagate inferred type
    #:with ([x ... -> e_body]) #'clauses
    #:with (~× ty ...) #'τ_e
    #:fail-unless (stx-length=? #'(ty ...) #'(x ...))
@@ -733,7 +732,7 @@
    #:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"
    [⊢ e ≫ e- ⇒ τ_e]
    #:when (List? #'τ_e)
-   #:with t_expect (get-expected-type stx) ; propagate inferred type
+   #:with t_expect (get-expected-type this-syntax) ; propagate inferred type
    #:with ([(~or (~and (~and xs [x ...]) (~parse rst (generate-temporary)))
                  (~and (~seq (~seq x ::) ... rst:id) (~parse xs #'())))
             -> e_body] ...+)
@@ -770,7 +769,7 @@
    #:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"
    [⊢ e ≫ e- ⇒ τ_e]
    #:when (and (not (×? #'τ_e)) (not (List? #'τ_e)))
-   #:with t_expect (get-expected-type stx) ; propagate inferred type
+   #:with t_expect (get-expected-type this-syntax) ; propagate inferred type
    #:with ([Clause:id x:id ... 
                       (~optional (~seq #:when e_guard) #:defaults ([e_guard #'(ext-stlc:#%datum . #t)]))
                       -> e_c_un] ...+) ; un = unannotated with expected ty
@@ -780,7 +779,7 @@
    #:with (_ (_ (_ ConsAll) . _) ...) #'info-body
    #:fail-unless (set=? (syntax->datum #'(Clause ...))
                         (syntax->datum #'(ConsAll ...)))
-   (type-error #:src stx
+   (type-error #:src this-syntax
                #:msg (string-append
                       "match: clauses not exhaustive; missing: "
                       (string-join      
@@ -851,22 +850,21 @@
    #:fail-unless (stx-length=? #'[x ...] #'[τ_in ...])
    (format "expected a function of ~a arguments, got one with ~a arguments"
            (stx-length #'[τ_in ...]) (stx-length #'[x ...]))
-   [([X ≫ X- : #%type] ...) ([x ≫ x- : τ_in] ...) ⊢ [body ≫ body- ⇐ τ_out]]
+   [(X ...) ([x ≫ x- : τ_in] ...) ⊢ [body ≫ body- ⇐ τ_out]]
    --------
    [⊢ (λ- (x- ...) body-)]]
   [(λ ([x : τ_x] ...) body) ⇐ (~?∀ (V ...) (~ext-stlc:→ τ_in ... τ_out)) ≫
    #:with [X ...] (compute-tyvars #'(τ_x ...))
-   [([X ≫ X- : #%type] ...) () ⊢ [τ_x ≫ τ_x- ⇐ #%type] ...]
+   [[X ≫ X- :: #%type] ... ⊢ [τ_x ≫ τ_x- ⇐ :: #%type] ...]
    [τ_in τ⊑ τ_x- #:for x] ...
    ;; TODO is there a way to have λs that refer to ids defined after them?
-   [([V ≫ V- : #%type] ... [X- ≫ X-- : #%type] ...) ([x ≫ x- : τ_x-] ...)
-    ⊢ body ≫ body- ⇐ τ_out]
+   [(V ... X- ...) ([x ≫ x- : τ_x-] ...) ⊢ body ≫ body- ⇐ τ_out]
    --------
    [⊢ (λ- (x- ...) body-)]]
   [(λ ([x : τ_x] ...) body) ≫
    #:with [X ...] (compute-tyvars #'(τ_x ...))
    ;; TODO is there a way to have λs that refer to ids defined after them?
-   [([X ≫ X- : #%type] ...) ([x ≫ x- : τ_x] ...) ⊢ body ≫ body- ⇒ τ_body]
+   [([X ≫ X- :: #%type] ...) ([x ≫ x- : τ_x] ...) ⊢ body ≫ body- ⇒ τ_body]
    #:with [τ_x* ...] (inst-types/cs #'[X ...] #'([X X-] ...) #'[τ_x ...])
    #:with τ_fn (add-orig #'(?∀ (X- ...) (ext-stlc:→ τ_x* ... τ_body))
                          #`(→ #,@(stx-map get-orig #'[τ_x* ...]) #,(get-orig #'τ_body)))
@@ -880,7 +878,7 @@
    ;; compute fn type (ie ∀ and →)
    [⊢ e_fn ≫ e_fn- ⇒ (~?∀ Xs (~ext-stlc:→ . tyX_args))]
    ;; solve for type variables Xs
-   #:with [[e_arg- ...] Xs* cs] (solve #'Xs #'tyX_args stx)
+   #:with [[e_arg- ...] Xs* cs] (solve #'Xs #'tyX_args this-syntax)
    ;; instantiate polymorphic function type
    #:with [τ_in ... τ_out] (inst-types/cs #'Xs* #'cs #'tyX_args)
    #:with (unsolved-X ...) (find-free-Xs #'Xs* #'τ_out)
@@ -896,13 +894,13 @@
                      (syntax-parse #'τ_out
                        [(~?∀ (Y ...) τ_out)
                         #:fail-unless (→? #'τ_out)
-                        (mk-app-poly-infer-error stx #'(τ_in ...) #'(τ_arg ...) #'e_fn)
+                        (mk-app-poly-infer-error this-syntax #'(τ_in ...) #'(τ_arg ...) #'e_fn)
                         (for ([X (in-list (syntax->list #'(unsolved-X ...)))])
                           (unless (covariant-X? X #'τ_out)
                             (raise-syntax-error
                              #f
-                             (mk-app-poly-infer-error stx #'(τ_in ...) #'(τ_arg ...) #'e_fn)
-                             stx)))
+                             (mk-app-poly-infer-error this-syntax #'(τ_in ...) #'(τ_arg ...) #'e_fn)
+                             this-syntax)))
                         #'(∀ (unsolved-X ... Y ...) τ_out)]))
    --------
    [⊢ (#%app- e_fn- e_arg- ...) ⇒ τ_out*]])

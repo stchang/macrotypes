@@ -80,7 +80,7 @@
    --------
    [⊢ (#%app- box- e-)
        (⇒ : (Ref τ))
-       (⇒ ν (locs #,(syntax-position stx) ns ...))
+       (⇒ ν (locs #,(syntax-position this-syntax) ns ...))
        (⇒ := (locs as ...))
        (⇒ ! (locs ds ...))]])
 (define-typed-syntax deref
@@ -95,7 +95,7 @@
        (⇒ : ty)
        (⇒ ν (locs ns ...))
        (⇒ := (locs as ...))
-       (⇒ ! (locs #,(syntax-position stx) ds ...))]])
+       (⇒ ! (locs #,(syntax-position this-syntax) ds ...))]])
 (define-typed-syntax := #:literals (:=)
   [(_ e_ref e) ≫
    [⊢ e_ref ≫ e_ref-
@@ -112,6 +112,6 @@
    [⊢ (#%app- set-box!- e_ref- e-)
        (⇒ : Unit)
        (⇒ ν (locs ns1 ... ns2 ...))
-       (⇒ := (locs #,(syntax-position stx) as1 ... as2 ...))
+       (⇒ := (locs #,(syntax-position this-syntax) as1 ... as2 ...))
        (⇒ ! (locs ds1 ... ds2 ...))]])
 

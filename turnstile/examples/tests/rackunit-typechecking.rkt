@@ -19,19 +19,20 @@
      (string-join (map add-escs (string-split givens ", ")) ".*"))))
 
 (define-syntax (check-type stx)
-  (syntax-parse stx #:datum-literals (: ⇒ ->)
+  (syntax-parse stx #:datum-literals (⇒ ->)
     ;; duplicate code to avoid redundant expansions
-    [(_ e : τ-expected (~or ⇒ ->) v)
+    [(_ e tag:id τ-expected (~or ⇒ ->) v)
      #:with e+ (expand/df #'(add-expected e τ-expected))
-     #:with τ (typeof #'e+)
+     #:with τ (detach #'e+ (stx->datum #'tag))
      #:fail-unless (typecheck? #'τ ((current-type-eval) #'τ-expected))
                    (format
                     "Expression ~a [loc ~a:~a] has type ~a, expected ~a"
                     (syntax->datum #'e) (syntax-line #'e) (syntax-column #'e)
                     (type->str #'τ) (type->str #'τ-expected))
      (syntax/loc stx (check-equal? e+ (add-expected v τ-expected)))]
-    [(_ e : τ-expected)
-     #:with τ (typeof (expand/df #'(add-expected e τ-expected)))
+    [(_ e tag:id τ-expected)
+     #:with e+ (expand/df #'(add-expected e τ-expected))
+     #:with τ (detach #'e+ (stx->datum #'tag))
      #:fail-unless
      (typecheck? #'τ ((current-type-eval) #'τ-expected))
      (format

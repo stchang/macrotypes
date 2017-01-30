@@ -1,6 +1,8 @@
 #lang turnstile/lang
 (extends "fomega.rkt" #:except tyapp tyλ)
 
+;; not current working 2017-02-03
+
 ; same as fomega2.rkt --- λ and #%app works as both regular and type versions,
 ; → is both type and kind --- but reuses parts of fomega.rkt,
 ; ie removes the duplication in fomega2.rkt
