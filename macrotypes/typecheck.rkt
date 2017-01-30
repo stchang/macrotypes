@@ -185,97 +185,136 @@
       (set-stx-prop/preserved e 'expected-type ((current-type-eval) ty))
       e))
 
+(begin-for-syntax
+  ;; Helper functions for attaching/detaching types, kinds, etc.
+  
+  ;; get-stx-prop/car : Stx Key -> Val
+  ;; Retrieves Val at Key stx prop on Stx.
+  ;; If Val is a non-empty list, return first element, otherwise return Val.
+  (define (get-stx-prop/car stx tag)
+    (define v (syntax-property stx tag))
+    (if (cons? v) (car v) v))
+
+  ;; A Tag is a Symbol serving as a stx prop key for some kind of metadata.
+  ;; e.g., ': for types, ':: for kinds, etc.
+  ;; Define new kinds of metadata with `define-syntax-category`
+
+  ;; attach : Stx Tag Val -> Stx
+  ;; Adds Tag+Val to Stx as stx prop, returns new Stx.
+  ;; e.g., Stx = expression, Tag = ':, Val = Type stx
+  (define (attach stx tag v) (set-stx-prop/preserved stx tag v))
+  ;; detach : Stx Tag -> Val
+  ;; Retrieves Val at Tag stx prop on Stx.
+  ;; If Val is a non-empty list, return first element, otherwise return Val.
+  ;; e.g., Stx = expression, Tag = ':, Val = Type stx
+  (define (detach stx tag) (get-stx-prop/car stx tag)))
+
 ;; define-syntax-category ------------------------------------------------------
+
+;; Defines a new type of metadata on syntax, e.g. types, as well as functions
+;; and macros for manipulating the metadata.
+
 ;; A syntax category requires a name and two keys,
 ;; - one to use when attaching values of this category (eg ': for types)
-;; - another for attaching types to these values (eg ':: for kinds on types)
+;; - another for attaching "types" to these values (eg ':: for kinds on types)
 ;; If key1 is unspecified, the default is ':
-;; If key2 is unspecified, the default is double key1 (ie '::)
+;; If key2 is unspecified, the default is "twice" key1 (ie '::)
 ;;
-;; examples:
+;; examples uses:
 ;; (define-syntax-category type)
 ;; (define-syntax-category : type)
 ;; (define-syntax-category : type ::)
 ;; (define-syntax-category :: kind :::)
+;;
+;; CODE NOTE: 
+;; To make this large macros-defining macro easier to read,
+;; I define a `type` patvar corresponding to the category name,
+;; and a `kind` patvar for its "type".
+;; But `name` could correspond to any kind of metadata,
+;; e.g., kinds, src locs, polymorphic bounds
 (define-syntax (define-syntax-category stx)
   (syntax-parse stx
-    [(_ name:id)        ; default key1 = ': (eg, types)
-     #'(define-syntax-category : name)] 
-    [(_ key:id name:id) ; default key2 = ':: (eg, kinds)
+    [(_ name:id)        ; default key1 = ': for types
+     #'(define-syntax-category : name)]
+    [(_ key:id name:id) ; default key2 = ':: for kinds
      #`(define-syntax-category key name #,(mkx2 #'key))]
     [(_ key1:id name:id key2:id)
-     #:with names (format-id #'name "~as" #'name)
-     #:with #%tag (mk-#% #'name)
+     ;; type well-formedness
+     #:with #%tag (mk-#% #'name) ; default "type" for this metadata, e.g. #%type
      #:with #%tag? (mk-? #'#%tag)
-     #:with is-name? (mk-? #'name)
-     #:with any-name (format-id #'name "any-~a" #'name)
-     #:with any-name? (mk-? #'any-name)
-     #:with name-ctx (format-id #'name "~a-ctx" #'name)
-     #:with name-bind (format-id #'name "~a-bind" #'name)
-     #:with current-is-name? (mk-param #'is-name?)
-     #:with current-any-name? (mk-param #'any-name?)
-     #:with current-namecheck-relation (format-id #'name "current-~acheck-relation" #'name)
-     #:with namecheck? (format-id #'name "~acheck?" #'name)
-     #:with namechecks? (format-id #'name "~achecks?" #'name)
-     #:with current-name-eval (format-id #'name "current-~a-eval" #'name)
-     #:with default-name-eval (format-id #'name "default-~a-eval" #'name)
-     #:with name-evals (format-id #'name "~a-evals" #'name)
-     #:with mk-name (format-id #'name "mk-~a" #'name)
-     #:with define-base-name (format-id #'name "define-base-~a" #'name)
-     #:with define-base-names (format-id #'name "define-base-~as" #'name)
-     #:with define-name-cons (format-id #'name "define-~a-constructor" #'name)
-     #:with define-binding-name (format-id #'name "define-binding-~a" #'name)
-     #:with define-internal-name-cons (format-id #'name "define-internal-~a-constructor" #'name)
-     #:with define-internal-binding-name (format-id #'name "define-internal-binding-~a" #'name)
-     #:with name-ann (format-id #'name "~a-ann" #'name)
-     #:with name=? (format-id #'name "~a=?" #'name)
-     #:with names=? (format-id #'names "~a=?" #'names)
-     #:with current-name=? (mk-param #'name=?)
-     #:with same-names? (format-id #'name "same-~as?" #'name)
-     #:with name-out (format-id #'name "~a-out" #'name)
-     #:with assign-name (format-id #'name "assign-~a" #'name)
-     #:with fast-assign-name (format-id #'name "fast-assign-~a" #'name)
-     #:with nameof (format-id #'name "~aof" #'name)
+     #:with mk-type (format-id #'name "mk-~a" #'name)
+     #:with type? (mk-? #'name)
+     #:with any-type? (mk-? #'any-type)
+     #:with current-type? (mk-param #'type?)
+     #:with current-any-type? (mk-param #'any-type?)
+     ;; assigning and retrieving types
+     #:with assign-type (format-id #'name "assign-~a" #'name)
+     #:with fast-assign-type (format-id #'name "fast-assign-~a" #'name)
+     #:with typeof (format-id #'name "~aof" #'name)
+     ;; syntax classes
+     #:with type #'name ; dangerous, check `type` not used in binding pos below
+     #:with any-type (format-id #'name "any-~a" #'name)
+     #:with type-ctx (format-id #'name "~a-ctx" #'name)
+     #:with type-bind (format-id #'name "~a-bind" #'name)
+     #:with type-ann (format-id #'name "~a-ann" #'name)
+     ;; type checking
+     #:with current-typecheck-relation (format-id #'name "current-~acheck-relation" #'name)
+     #:with typecheck? (format-id #'name "~acheck?" #'name)
+     #:with typechecks? (format-id #'name "~achecks?" #'name)
+     #:with type=? (format-id #'name "~a=?" #'name)
+     #:with types=? (format-id #'name "~as=?" #'name)
+     #:with current-type=? (mk-param #'type=?)
+     #:with same-types? (format-id #'name "same-~as?" #'name)
+     #:with current-type-eval (format-id #'name "current-~a-eval" #'name)
+     #:with default-type-eval (format-id #'name "default-~a-eval" #'name)
+     #:with type-evals (format-id #'name "~a-evals" #'name)
+     ;; defining types
+     #:with define-base-type (format-id #'name "define-base-~a" #'name)
+     #:with define-base-types (format-id #'name "define-base-~as" #'name)
+     #:with define-type-constructor (format-id #'name "define-~a-constructor" #'name)
+     #:with define-binding-type (format-id #'name "define-binding-~a" #'name)
+     #:with define-internal-type-constructor (format-id #'name "define-internal-~a-constructor" #'name)
+     #:with define-internal-binding-type (format-id #'name "define-internal-binding-~a" #'name)
+     #:with type-out (format-id #'name "~a-out" #'name)
      #'(begin
          (define #%tag void) ; TODO: cache expanded #%tag?
          (begin-for-syntax
-           (define (#%tag? t) (and (identifier? t) (free-identifier=? t #'#%tag)))
-           (define (nameof stx #:tag [tag 'key1])
-             (get-stx-prop/car stx tag))
-           ;; is-name?, eg type?, corresponds to "well-formed" types
-           (define (is-name? t) (#%tag? (nameof t #:tag 'key2)))
-           (define current-is-name? (make-parameter is-name?))
-           ;; any-name? corresponds to any type and defaults to is-name?
-           (define (any-name? t) (is-name? t))
-           (define current-any-name? (make-parameter any-name?))
-           (define (fast-assign-name e τ #:tag [tag 'key1])
-               (set-stx-prop/preserved e tag (syntax-local-introduce τ)))
-           (define (assign-name e τ #:tag [tag 'key1])
-               (fast-assign-name e ((current-name-eval) τ) #:tag tag))
-           (define (mk-name t)
-             (set-stx-prop/preserved t 'key2 #'#%tag))
-           (define-syntax-class name ;; e.g., well-formed types
+           ;; type-wellformedness ---------------------------------------------
+           (define (#%tag? t)        (and (id? t) (free-id=? t #'#%tag)))
+           (define (mk-type t)       (attach t 'key2 #'#%tag))
+           ;; type? corresponds to "well-formed" types
+           (define (type? t)         (#%tag? (detach t 'key2)))
+           (define current-type?     (make-parameter type?))
+           ;; any-type? corresponds to any type, defaults to type?
+           (define (any-type? t)     (type? t))
+           (define current-any-type? (make-parameter any-type?))
+           ;; assigning and retrieving types ----------------------------------
+           (define (typeof stx) (detach stx 'key1))
+           (define (fast-assign-type e τ)
+             (attach e 'key1 (syntax-local-introduce τ)))
+           (define (assign-type e τ)
+               (fast-assign-type e ((current-type-eval) τ)))
+           ;; helper stx classes ----------------------------------------------
+           (define-syntax-class type ;; e.g., well-formed types
              #:attributes (norm)
              (pattern τ
-              #:with norm ((current-name-eval) #'τ)
-              #:with k (nameof #'norm #:tag 'key2)
-              #:fail-unless ((current-is-name?) #'norm)
+              #:with norm ((current-type-eval) #'τ)
+              #:fail-unless ((current-type?) #'norm)
               (format "~a (~a:~a) not a well-formed ~a: ~a"
                       (syntax-source #'τ) (syntax-line #'τ) (syntax-column #'τ)
                       'name (type->str #'τ))))
-           (define-syntax-class any-name ;; e.g., any valid type
+           (define-syntax-class any-type ;; e.g., any valid type
              #:attributes (norm)
              (pattern τ
-              #:with norm ((current-name-eval) #'τ)
-              #:with k (nameof #'norm)
-              #:fail-unless ((current-any-name?) #'norm)
+              #:with norm ((current-type-eval) #'τ)
+              #:fail-unless ((current-any-type?) #'norm)
               (format "~a (~a:~a) not a valid ~a: ~a"
                       (syntax-source #'τ) (syntax-line #'τ) (syntax-column #'τ)
                       'name (type->str #'τ))))
-           (define-syntax-class name-bind #:datum-literals (key1)
-             #:attributes (x name)
-             (pattern [x:id key1 ~! (~var ty name)]
-                      #:attr name #'ty.norm)
+           (define-syntax-class type-bind #:datum-literals (key1)
+             #:attributes (x type)
+             (pattern [x:id key1 ~! (~var ty type)]
+                      #:attr type #'ty.norm)
              (pattern any
                       #:fail-when #t
                       (format
@@ -283,15 +322,15 @@
                         "Improperly formatted ~a annotation: ~a; should have shape [x : τ], "
                         "where τ is a valid ~a.")
                        'name (type->str #'any) 'name)
-                      #:attr x #f #:attr name #f))
-           (define-syntax-class name-ctx
-             #:attributes ((x 1) (name 1))
-             (pattern ((~var || name-bind) (... ...))))
-           (define-syntax-class name-ann ; type instantiation
+                      #:attr x #f #:attr type #f))
+           (define-syntax-class type-ctx
+             #:attributes ((x 1) (type 1))
+             (pattern ((~var || type-bind) (... ...))))
+           (define-syntax-class type-ann ; type instantiation
              #:attributes (norm)
              (pattern (~and (_)
                             (~fail #:unless (brace? this-syntax))
-                            ((~var t name) ~!))
+                            ((~var t type) ~!))
                       #:attr norm (delay #'t.norm))
              (pattern any
                       #:fail-when #t
@@ -301,39 +340,40 @@
                         "where τ is a valid ~a.")
                        'name (type->str #'any) 'name)
                       #:attr norm #f))
-           (define (name=? t1 t2)
+           ;; checking types
+           (define (type=? t1 t2)
              ;(printf "(τ=) t1 = ~a\n" #;τ1 (syntax->datum t1))
              ;(printf "(τ=) t2 = ~a\n" #;τ2 (syntax->datum t2))
-             (or (and (identifier? t1) (identifier? t2) (free-identifier=? t1 t2))
+             (or (and (id? t1) (id? t2) (free-id=? t1 t2))
                  (and (stx-null? t1) (stx-null? t2))
-                 (syntax-parse (list t1 t2)
+                 (syntax-parse (list t1 t2) ; handle binding types
                    [(((~literal #%plain-lambda) (~and (_:id (... ...)) xs) . ts1)
                      ((~literal #%plain-lambda) (~and (_:id (... ...)) ys) . ts2))
                     (and (stx-length=? #'xs #'ys) 
                          (stx-length=? #'ts1 #'ts2)
                          (stx-andmap
                           (λ (ty1 ty2)
-                            ((current-name=?) (substs #'ys #'xs ty1) ty2))
+                            ((current-type=?) (substs #'ys #'xs ty1) ty2))
                           #'ts1 #'ts2))]
                    [_ (and (stx-pair? t1) (stx-pair? t2)
-                           (names=? t1 t2))])))
-           (define current-name=? (make-parameter name=?))
-           (define (names=? τs1 τs2)
+                           (types=? t1 t2))])))
+           (define current-type=? (make-parameter type=?))
+           (define (types=? τs1 τs2)
              (and (stx-length=? τs1 τs2)
-                  (stx-andmap (current-name=?) τs1 τs2)))
+                  (stx-andmap (current-type=?) τs1 τs2)))
            ; extra indirection, enables easily overriding type=? with sub?
            ; to add subtyping, without changing any other definitions
-           (define current-namecheck-relation (make-parameter name=?))
+           (define current-typecheck-relation (make-parameter type=?))
            ;; convenience fns for current-typecheck-relation
-           (define (namecheck? t1 t2)
-             ((current-namecheck-relation) t1 t2))
-           (define (namechecks? τs1 τs2)
+           (define (typecheck? t1 t2)
+             ((current-typecheck-relation) t1 t2))
+           (define (typechecks? τs1 τs2)
              (and (= (stx-length τs1) (stx-length τs2))
-                  (stx-andmap namecheck? τs1 τs2)))
-           (define (same-names? τs)
+                  (stx-andmap typecheck? τs1 τs2)))
+           (define (same-types? τs)
              (define τs-lst (syntax->list τs))
              (or (null? τs-lst)
-                 (andmap (λ (τ) ((current-name=?) (car τs-lst) τ)) (cdr τs-lst))))
+                 (andmap (λ (τ) ((current-type=?) (car τs-lst) τ)) (cdr τs-lst))))
            ;; type eval
            ;; - default-type-eval == full expansion == canonical type representation
            ;; - must expand because:
@@ -342,15 +382,15 @@
            ;;     - could parse types but separate parser leads to duplicate code
            ;;   - later, expanding enables reuse of same mechanisms for kind checking
            ;;     and type application
-           (define (default-name-eval τ)
+           (define (default-type-eval τ)
              ; TODO: optimization: don't expand if expanded
              ; currently, this causes problems when
              ; combining unexpanded and expanded types to create new types
              (add-orig (expand/df τ) τ))
-           (define current-name-eval (make-parameter default-name-eval))
-           (define (name-evals τs) #`#,(stx-map (current-name-eval) τs)))
-         ;; helps with providing defined types
-         (define-syntax name-out
+           (define current-type-eval (make-parameter default-type-eval))
+           (define (type-evals τs) #`#,(stx-map (current-type-eval) τs)))
+         ;; defining types ----------------------------------------------------
+         (define-syntax type-out ;; helps with providing defined types
            (make-provide-transformer
             (lambda (stx modes)
               (syntax-parse stx
@@ -363,32 +403,273 @@
                                    (combine-out . ts)
                                    (for-syntax (combine-out . t-expanders) . t?s)))
                   modes)]))))
-         (define-syntax define-base-name
+         (define-syntax define-base-type
            (syntax-parser
-             [(_ (~var x id) new-key new-tag)
-              #`(define-basic-checked-id-stx x new-key new-tag)]
-             [(_ (~var x id))
-              #'(define-basic-checked-id-stx x key2 #%tag)]))
-         (define-syntax define-base-names
+            [(_ (~var x id)) ; default to 'key2 and #%tag
+             #'(define-base-type x key2 #%tag)]
+            [(_ (~var τ id) new-key2 new-#%tag)
+             #:with τ? (mk-? #'τ)
+             #:with τ-expander (mk-~ #'τ)
+             #:with τ-internal (generate-temporary #'τ)
+             #`(begin
+                (begin-for-syntax
+                 (define (τ? t)
+                   (syntax-parse t
+                    [((~literal #%plain-app) (~literal τ-internal)) #t]
+                    [_ #f]))
+                 (define-syntax τ-expander
+                   (pattern-expander
+                    (syntax-parser
+                     [(~var _ id)
+                      #'((~literal #%plain-app) (~literal τ-internal))]
+                     ; - this case used by ⇑, TODO: remove this case?
+                     ; - but it's also needed when matching a list of types,
+                     ; e.g., in stlc+sub (~Nat τ)
+                     [(_ . rst)
+                      #'(((~literal #%plain-app) (~literal τ-internal)) . rst)]))))
+                (define τ-internal
+                  (λ () (raise (exn:fail:type:runtime
+                                (format "~a: Cannot use ~a at run time" 'τ 'tag)
+                                (current-continuation-marks)))))
+                (define-syntax τ
+                  (syntax-parser
+                    [(~var _ id)
+                     (add-orig 
+                      (attach
+                       (syntax/loc this-syntax (τ-internal))
+                       'new-key2 (expand/df #'new-#%tag))
+                      #'τ)])))]))
+         (define-syntax define-base-types
            (syntax-parser
              [(_ (~var x id) (... ...))
-              #'(begin (define-base-name x) (... ...))]))
-         (define-syntax define-internal-name-cons
+              #'(begin (define-base-type x) (... ...))]))
+         (define-syntax define-internal-type-constructor
            (syntax-parser
-             [(_ (~var x id) . rst)
-              #'(define-basic-checked-stx x key2 name #:no-attach-kind . rst)]))
-         (define-syntax define-internal-binding-name
+;             [(_ (~var x id) . rst)
+;              #'(define-basic-checked-stx x key2 type #:no-attach-kind . rst)]))
+            [(_ (~var τ id)
+                (~or
+                 (~optional ; arity
+                  (~seq #:arity op n:exact-nonnegative-integer)
+                  #:defaults ([op #'=] [n #'1]))
+                 (~optional ; arg-variances
+                  (~seq #:arg-variances arg-variances-stx:expr)
+                  #:defaults
+                  ([arg-variances-stx
+                    #`(λ (stx-id)
+                        (for/list ([arg (in-stx-list (stx-cdr stx-id))])
+                          invariant))]))
+                 (~optional ; extra-info
+                  (~seq #:extra-info extra-info)
+                  #:defaults ([extra-info #'void]))) ...)
+;              #:with #%kind (mk-#% #'kind)
+             #:with τ? (mk-? #'τ)
+             #:with τ- (mk-- #'τ)
+             #:with τ-expander (mk-~ #'τ)
+             #:with τ-internal (generate-temporary #'τ)
+             #`(begin
+                (begin-for-syntax
+                  (define (τ? t)
+                    (syntax-parse t
+                      [(~Any (~literal τ-internal) . _) #t]
+                      [_ #f]))
+                  (define-syntax τ-expander
+                    (pattern-expander
+                     (syntax-parser
+                       [(_ . pat)
+                        #:with expanded-τ (generate-temporary)
+                        #'(~and expanded-τ 
+                                (~Any
+                                 (~literal/else τ-internal
+                                   (format "Expected ~a type, got: ~a"
+                                           'τ (type->str #'expanded-τ))
+                                   #'expanded-τ)
+                                 . pat))])))
+                  (define arg-variances arg-variances-stx))
+                (define τ-internal
+                  (λ _ (raise (exn:fail:type:runtime
+                               (format "~a: Cannot use ~a at run time" 'τ 'kind)
+                               (current-continuation-marks)))))
+                ; τ- is an internal constructor:
+                ; It does not validate inputs and does not attach a kind,
+                ; ie, it won't be recognized as a valid type, the programmer
+                ; must implement their own kind system
+                (define-syntax (τ- stx)
+                  (syntax-parse stx
+                    [(_ . args)
+                    #:fail-unless (op (stx-length #'args) n)
+                                  (format "wrong number of arguments, expected ~a ~a"
+                                          'op 'n)
+                     #:with τ-internal*
+                     (add-arg-variances #'τ-internal
+                                        (arg-variances #'(τ . args)))
+                     (syntax/loc stx 
+                       (τ-internal*
+                        (λ () (#%expression extra-info) . args)))]
+                   [_ ;; else fail with err msg
+                    (type-error 
+                     #:src stx
+                     #:msg
+                     (string-append
+                      "Improper usage of type constructor ~a: ~a, expected ~a ~a arguments")
+                     #'τ stx #'op #'n)])))]))
+         (define-syntax define-type-constructor
            (syntax-parser
-             [(_ (~var x id) . rst)
-              #'(define-binding-checked-stx x key2 name #:no-attach-kind . rst)]))
-         (define-syntax define-name-cons
+            [(_ (~var τ id) . options)
+             #'(begin
+                 (define-internal-type-constructor τ . options)
+;                 #'(define-basic-checked-stx x key2 type . rst)]))
+                 (define-syntax (τ stx)
+                   (syntax-parse stx
+                    [(_ . args)
+                     #:with ([arg- _] (... ...)) (infers+erase #'args)
+                     ;; args are validated on the next line rather than above
+                     ;; to ensure enough stx-parse progress for proper err msg,
+                     ;; ie, "invalid type" instead of "improper tycon usage"
+                     #:with (~! (~var _ type) (... ...)) #'(arg- (... ...))
+                     (add-orig (mk-type #'(τ- arg- (... ...))) stx)])))]))
+         (define-syntax define-internal-binding-type
            (syntax-parser
-             [(_ (~var x id) . rst)
-              #'(define-basic-checked-stx x key2 name . rst)]))
-         (define-syntax define-binding-name
+            [(_ (~var τ id)
+                (~or
+                 (~optional ; arity, here it's body exprs
+                  (~seq #:arity op n:exact-nonnegative-integer)
+                  #:defaults ([op #'=] [n #'1]))
+                 (~optional ; bvs, number of type vars to bind
+                  (~seq #:bvs bvs-op bvs-n:exact-nonnegative-integer)
+                  #:defaults ([bvs-op #'>=][bvs-n #'0]))
+                 (~optional ; name of kind constructor, to save annotations
+                  (~seq #:arr (~and kindcon (~parse has-annotations? #'#t)))
+                  #:defaults ([kindcon #'void])) ; default kindcon should never be used
+                 (~optional ; variances
+                  (~seq #:arg-variances arg-variances-stx:expr)
+                  #:defaults
+                  ([arg-variances-stx
+                    #`(λ (stx-id)
+                        (for/list ([arg (in-stx-list (stx-cdr stx-id))])
+                          invariant))]))
+                 (~optional ; extra-info
+                  (~seq #:extra-info extra-info) 
+                  #:defaults ([extra-info #'void]))) ...)
+             #:with τ? (mk-? #'τ)
+             #:with τ- (mk-- #'τ)
+             #:with τ-expander (mk-~ #'τ)
+             #:with τ-internal (generate-temporary #'τ)
+             #`(begin
+                (begin-for-syntax ; -------------------------------------------
+                 (define (τ? t)
+                   (syntax-parse t
+                     [(~Any/bvs (~literal τ-internal) _ . _)
+                      #t]
+                     [_ #f]))
+                 (define-syntax τ-expander
+                   (pattern-expander
+                    (syntax-parser
+                     ; this case used by ⇑, TODO: remove this case?
+                     ;; if has-annotations?
+                     ;; - type has surface shape:
+                     ;;     (τ ([tv : k] ...) body ...)
+                     ;; - and parses to pattern:
+                     ;;     [([tv k] ...) (body ...)]
+                     ;; if not has-annotations?
+                     ;; - type has surface shape:
+                     ;;     (τ (tv ...) body ...)
+                     ;; - and parses to pattern:
+                     ;;     [(tv ...) (body ...)]
+                     [(_ . pat:id)
+                      #:with expanded-τ (generate-temporary)
+                      #:with kindcon-expander (mk-~ #'kindcon)
+                      #'(~and expanded-τ
+                              (~Any/bvs 
+                               (~literal/else τ-internal
+                                              (format "Expected ~a type, got: ~a"
+                                                      'τ (type->str #'expanded-τ))
+                                              #'expanded-τ)
+                               (~and bvs (tv (... (... ...))))
+                               . rst)
+                              #,(if (attribute has-annotations?)
+                                    #'(~and
+                                       (~parse (kindcon-expander k (... (... ...)))
+                                               (detach #'expanded-τ))
+                                       (~parse pat
+                                               #'[([tv k] (... (... ...))) rst]))
+                                    #'(~parse
+                                       pat
+                                       #'[bvs rst])))]
+                     ;; TODO: fix this to handle has-annotations?
+                     ;; the difference with the first case is that here
+                     ;; the body is ungrouped, ie,
+                     ;; parses to pattern[(tv ...) . (body ...)]
+                     [(_ bvs-pat . pat)
+                      #:with expanded-τ (generate-temporary)
+                      #'(~and expanded-τ
+                              (~Any/bvs 
+                               (~literal/else τ-internal
+                                              (format "Expected ~a type, got: ~a"
+                                                      'τ (type->str #'expanded-τ))
+                                              #'expanded-τ)
+                               bvs-pat
+                               . pat))])))
+                 (define arg-variances arg-variances-stx))
+                 ; end define-internal-binding-type begin-for-stx -------------
+                (define τ-internal
+                  (λ _ (raise (exn:fail:type:runtime
+                               (format "~a: Cannot use ~a at run time" 'τ 'kind)
+                               (current-continuation-marks)))))
+                ; τ- is an internal constructor:
+                ; Tt does not validate inputs and does not attach a kind,
+                ; ie, it won't be recognized as a valid type, the programmer
+                ; must implement their own kind system
+                (define-syntax (τ- stx)
+                  (syntax-parse stx
+                    [(_ bvs . args)
+                     #:fail-unless (bvs-op (stx-length #'bvs+ks) bvs-n)
+                                   (format "wrong number of type vars, expected ~a ~a"
+                                           'bvs-op 'bvs-n)
+                     #:fail-unless (op (stx-length #'args) n)
+                                   (format "wrong number of arguments, expected ~a ~a"
+                                           'op 'n)
+                     #:with τ-internal* (add-arg-variances
+                                         #'τ-internal
+                                         (arg-variances #'(τ- . args))) ; drop bvs
+                     (syntax/loc stx 
+                       (τ-internal* (λ bvs (#%expression extra-info) . args)))]
+                    ;; else fail with err msg
+                    [_
+                     (type-error 
+                      #:src stx
+                      #:msg
+                      (string-append
+                       "Improper usage of type constructor ~a: ~a, expected ~a ~a arguments")
+                      #'τ stx #'op #'n)])))]))
+         (define-syntax define-binding-type
            (syntax-parser
-             [(_ (~var x id) . rst)
-              #'(define-binding-checked-stx x key2 name . rst)])))]))
+             [(_ (~var τ id) . options)
+;              #'(define-binding-checked-stx x key2 type . rst)])))]))
+              #'(begin
+                 (define-internal-binding-type τ . options)
+                 (define-syntax (τ stx)
+                   (syntax-parse stx
+                    [(_ (~or (bv:id (... ...)) 
+                             (~and bvs+ann (~parse has-annotations? #'#t)))
+                        . args)
+                     #:with bvs+ks (if #,(attribute has-annotations?)
+                                       #'bvs+ann
+                                       #'([bv key2 #%tag] (... ...)))
+                     #:with (bvs- τs- _) (infers/ctx+erase #'bvs+ks #'args)
+                     ;; args are validated on the next line rather than above
+                     ;; to ensure enough stx-parse progress for proper err msg,
+                     ;; ie, "invalid type" instead of "improper tycon usage"
+                     #:with (~! (~var _ type) (... ...)) #'τs-
+                     #:with ([tv (~datum key2) k_arg] (... ...)) #'bvs+ks
+                     #:with k_result (if #,(attribute has-annotations?)
+                                         #'(kindcon k_arg (... ...))
+                                         #'#%tag)
+                     (add-orig
+                      (attach #'(τ- bvs- . τs-) 'key2 (expand/df #'k_result))
+                      stx)])))])))]))
+
+;; end define-syntax-category -------------------------------------------------
 
 ;; pre-declare all type-related functions and forms
 (define-syntax-category type)
@@ -398,11 +679,11 @@
   ;; Type assignment macro for nicer syntax
   (define-syntax (⊢ stx)
     (syntax-parse stx
-      [(_ e tag τ) #'(assign-type #`e #`τ #:tag 'tag)]
+      [(_ e tag τ) #'(assign-type #`e #`τ)]
       [(_ e τ) #'(⊢ e : τ)]))
   (define-syntax (⊢/no-teval stx)
     (syntax-parse stx
-      [(_ e tag τ) #'(fast-assign-type #`e #`τ #:tag 'tag)]
+      [(_ e tag τ) #'(fast-assign-type #`e #`τ)]
       [(_ e τ) #'(⊢/no-teval e : τ)]))
 
   ;; Actual type assignment function.
@@ -431,7 +712,7 @@
     (get-stx-prop/car stx tag))
 
   ;; get-stx-prop/car : Syntax Any -> Any
-  (define (get-stx-prop/car stx tag)
+  #;(define (get-stx-prop/car stx tag)
     (define v (syntax-property stx tag))
     (if (cons? v) (car v) v))
   
@@ -566,8 +847,7 @@
                  (#%expression e) ... void)))))
        (list #'tvs+ #'xs+ 
              #'(e+ ...) 
-             (stx-map (λ (t s) (typeof t #:tag (stx->datum s)))
-                      #'(e+ ...) #'(sep ...)))]
+             (stx-map typeof #'(e+ ...)))]
       [([x τ] ...) (infer es #:ctx #'([x : τ] ...) #:tvctx tvctx)]))
 
   ;; fns derived from infer ---------------------------------------------------
@@ -753,7 +1033,7 @@
   (define (get-type-tags ts)
     (stx-map get-type-tag ts)))
 
-(define-syntax define-basic-checked-id-stx
+#;(define-syntax define-basic-checked-id-stx
   (syntax-parser #:datum-literals (:)
     [(_ τ:id key tag)
      #:with τ? (mk-? #'τ)
@@ -789,7 +1069,7 @@
 
 ;; The def uses pattern vars "τ" and "kind" but this form is not restricted to
 ;; only types and kinds, eg, τ can be #'★ and kind can be #'#%kind (★'s type)
-(define-syntax (define-basic-checked-stx stx)
+#;(define-syntax (define-basic-checked-stx stx)
   (syntax-parse stx #:datum-literals (:)
     [(_ τ:id key kind
         (~or
@@ -872,7 +1152,7 @@
 ;; Form for defining *binding* types, kinds, etc.
 ;; The def uses pattern vars "τ" and "kind" but this form is not restricted to
 ;; only types and kinds, eg, τ can be #'★ and kind can be #'#%kind (★'s type)
-(define-syntax (define-binding-checked-stx stx)
+#;(define-syntax (define-binding-checked-stx stx)
   (syntax-parse stx
     [(_ τ:id key kind
         (~or
@@ -930,7 +1210,7 @@
                          #,(if (attribute has-annotations?)
                                #'(~and
                                   (~parse (kindcon-expander k (... (... ...)))
-                                          (typeof #'expanded-τ))
+                                          (detach #'expanded-τ))
                                   (~parse pat
                                           #'[([tv k] (... (... ...))) rst]))
                                #'(~parse

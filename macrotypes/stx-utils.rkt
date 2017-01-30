@@ -1,6 +1,11 @@
 #lang racket/base
-(require syntax/stx syntax/parse racket/list racket/format version/utils)
+(require syntax/stx syntax/parse syntax/parse/define
+         racket/list racket/format version/utils)
 (provide (all-defined-out))
+
+;; shorthands
+(define id? identifier?)
+(define free-id=? free-identifier=?)
 
 (define (stx-cadr stx) (stx-car (stx-cdr stx)))
 (define (stx-caddr stx) (stx-cadr (stx-cdr stx)))
@@ -48,6 +53,7 @@
 
 (define (stx-list-ref stx i)
   (list-ref (stx->list stx) i))
+(define-simple-macro (in-stx-list stx) (in-list (stx->list stx)))
 
 (define (stx-str=? s1 s2)
   (string=? (syntax-e s1) (syntax-e s2)))
