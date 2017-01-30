@@ -23,9 +23,9 @@
   
   ;; well-formed types have kind ★
   ;; (need this for define-primop, which still uses type stx-class)
-  (current-type? (λ (t) (★? (typeof t))))
+  (current-type? (λ (t) (★? (kindof t))))
   ;; o.w., a valid type is one with any valid kind
-  (current-any-type? (λ (t) ((current-kind?) (typeof t))))
+  (current-any-type? (λ (t) ((current-kind?) (kindof t))))
 
   ;; TODO: I think this can be simplified
   (define (normalize τ)
@@ -51,7 +51,7 @@
   (define old-type=? (current-type=?))
   ; ty=? == syntax eq and syntax prop eq
   (define (type=? t1 t2)
-    (let ([k1 (typeof t1)][k2 (typeof t2)])
+    (let ([k1 (kindof t1)][k2 (kindof t2)])
       ; the extra `and` and `or` clauses are bc type=? is a structural
       ; traversal on stx objs, so not all sub stx objs will have a "type"-stx
       (and (or (and (not k1) (not k2))
@@ -81,7 +81,7 @@
 (define-base-type Float : ★)
 (define-base-type Char : ★)
 
-(define-internal-type-constructor →) ; defines →-
+(define-internal-type-constructor → #:arity >= 0) ; defines →-
 (define-kinded-syntax (→ ty ...+) ≫
   [⊢ ty ≫ ty- ⇒ (~★ . _)] ...
   --------

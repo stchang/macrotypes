@@ -240,6 +240,12 @@
     [(_ key:id name:id) ; default key2 = ':: for kinds
      #`(define-syntax-category key name #,(mkx2 #'key))]
     [(_ key1:id name:id key2:id)
+     ;; syntax classes
+     #:with type #'name ; dangerous, check `type` not used in binding pos below
+     #:with any-type (format-id #'name "any-~a" #'name)
+     #:with type-ctx (format-id #'name "~a-ctx" #'name)
+     #:with type-bind (format-id #'name "~a-bind" #'name)
+     #:with type-ann (format-id #'name "~a-ann" #'name)
      ;; type well-formedness
      #:with #%tag (mk-#% #'name) ; default "type" for this metadata, e.g. #%type
      #:with #%tag? (mk-? #'#%tag)
@@ -252,12 +258,6 @@
      #:with assign-type (format-id #'name "assign-~a" #'name)
      #:with fast-assign-type (format-id #'name "fast-assign-~a" #'name)
      #:with typeof (format-id #'name "~aof" #'name)
-     ;; syntax classes
-     #:with type #'name ; dangerous, check `type` not used in binding pos below
-     #:with any-type (format-id #'name "any-~a" #'name)
-     #:with type-ctx (format-id #'name "~a-ctx" #'name)
-     #:with type-bind (format-id #'name "~a-bind" #'name)
-     #:with type-ann (format-id #'name "~a-ann" #'name)
      ;; type checking
      #:with current-typecheck-relation (format-id #'name "current-~acheck-relation" #'name)
      #:with typecheck? (format-id #'name "~acheck?" #'name)
@@ -272,10 +272,10 @@
      ;; defining types
      #:with define-base-type (format-id #'name "define-base-~a" #'name)
      #:with define-base-types (format-id #'name "define-base-~as" #'name)
-     #:with define-type-constructor (format-id #'name "define-~a-constructor" #'name)
-     #:with define-binding-type (format-id #'name "define-binding-~a" #'name)
      #:with define-internal-type-constructor (format-id #'name "define-internal-~a-constructor" #'name)
+     #:with define-type-constructor (format-id #'name "define-~a-constructor" #'name)
      #:with define-internal-binding-type (format-id #'name "define-internal-binding-~a" #'name)
+     #:with define-binding-type (format-id #'name "define-binding-~a" #'name)
      #:with type-out (format-id #'name "~a-out" #'name)
      #'(begin
          (define #%tag void) ; TODO: cache expanded #%tag?
@@ -406,8 +406,8 @@
                   modes)]))))
          (define-syntax define-base-type
            (syntax-parser
-            [(_ (~var x id)) ; default to 'key2 and #%tag
-             #'(define-base-type x key2 #%tag)]
+            [(_ (~var τ id)) ; default to 'key2 and #%tag
+             #'(define-base-type τ key2 #%tag)]
             [(_ (~var τ id) new-key2 new-#%tag)
              #:with τ? (mk-? #'τ)
              #:with τ-expander (mk-~ #'τ)
@@ -462,7 +462,7 @@
                           invariant))]))
                  (~optional ; extra-info
                   (~seq #:extra-info extra-info)
-                  #:defaults ([extra-info #'void]))) ...)
+                  #:defaults ([extra-info #'void]))) (... ...))
 ;              #:with #%kind (mk-#% #'kind)
              #:with τ? (mk-? #'τ)
              #:with τ- (mk-- #'τ)
@@ -517,18 +517,19 @@
          (define-syntax define-type-constructor
            (syntax-parser
             [(_ (~var τ id) . options)
+             #:with τ- (mk-- #'τ)
              #'(begin
                  (define-internal-type-constructor τ . options)
 ;                 #'(define-basic-checked-stx x key2 type . rst)]))
                  (define-syntax (τ stx)
                    (syntax-parse stx
                     [(_ . args)
-                     #:with ([arg- _] (... ...)) (infers+erase #'args #:tag 'key2)
+                     #:with ([arg- _] (... (... ...))) (infers+erase #'args #:tag 'key2)
                      ;; args are validated on the next line rather than above
                      ;; to ensure enough stx-parse progress for proper err msg,
                      ;; ie, "invalid type" instead of "improper tycon usage"
-                     #:with (~! (~var _ type) (... ...)) #'(arg- (... ...))
-                     (add-orig (mk-type #'(τ- arg- (... ...))) stx)])))]))
+                     #:with (~! (~var _ type) (... (... ...))) #'(arg- (... (... ...)))
+                     (add-orig (mk-type #'(τ- arg- (... (... ...)))) stx)])))]))
          (define-syntax define-internal-binding-type
            (syntax-parser
             [(_ (~var τ id)
@@ -548,7 +549,7 @@
                           invariant))]))
                  (~optional ; extra-info
                   (~seq #:extra-info extra-info) 
-                  #:defaults ([extra-info #'void]))) ...)
+                  #:defaults ([extra-info #'void]))) (... ...))
              #:with τ? (mk-? #'τ)
              #:with τ- (mk-- #'τ)
              #:with τ-expander (mk-~ #'τ)
@@ -583,7 +584,7 @@
                                               (format "Expected ~a type, got: ~a"
                                                       'τ (type->str #'expanded-τ))
                                               #'expanded-τ)
-                               (~and bvs (tv (... (... ...))))
+                               (~and bvs (tv (... (... (... ...)))))
                                . rst)
                               ;; #,(if (attribute has-annotations?)
                               ;;       #'(~and
@@ -591,9 +592,9 @@
                               ;;                  (detach #'expanded-τ))
                               ;;          (~parse pat
                               ;;                  #'[([tv k] (... (... ...))) rst]))
-                                    #'(~parse
-                                       pat
-                                       #'[bvs rst]))]
+                                    (~parse
+                                     pat
+                                     #'[bvs rst]))]
                      ;; TODO: fix this to handle has-annotations?
                      ;; the difference with the first case is that here
                      ;; the body is ungrouped, ie,
@@ -621,7 +622,7 @@
                 (define-syntax (τ- stx)
                   (syntax-parse stx
                     [(_ bvs . args)
-                     #:fail-unless (bvs-op (stx-length #'bvs+ks) bvs-n)
+                     #:fail-unless (bvs-op (stx-length #'bvs) bvs-n)
                                    (format "wrong number of type vars, expected ~a ~a"
                                            'bvs-op 'bvs-n)
                      #:fail-unless (op (stx-length #'args) n)
@@ -648,31 +649,33 @@
                   #:defaults ([kindcon #'void])) ; default kindcon should never be used
                  . other-options)
 ;              #'(define-binding-checked-stx x key2 type . rst)])))]))
-              #'(begin
+              #:with τ- (mk-- #'τ)
+              #`(begin
                  (define-internal-binding-type τ . other-options)
                  (define-syntax (τ stx)
                    (syntax-parse stx
-                    [(_ (~or (bv:id (... ...)) 
+                    [(_ (~or (bv:id (... (... ...)))
                              (~and (~fail #:unless #,(attribute has-annotations?))
                                    bvs+ann))
                         . args)
                      #:with bvs+ks (if #,(attribute has-annotations?)
                                        #'bvs+ann
-                                       #'([bv key2 #%tag] (... ...)))
+                                       #'([bv key2 #%tag] (... (... ...))))
                      #:with (bvs- τs- _) (infers/ctx+erase #'bvs+ks #'args #:tag 'key2)
                      ;; args are validated on the next line rather than above
                      ;; to ensure enough stx-parse progress for proper err msg,
                      ;; ie, "invalid type" instead of "improper tycon usage"
-                     #:with (~! (~var _ type) (... ...)) #'τs-
-                     #:with ([tv (~datum key2) k_arg] (... ...)) #'bvs+ks
+                     #:with (~! (~var _ type) (... (... ...))) #'τs-
+                     #:with ([tv (~datum key2) k_arg] (... (... ...))) #'bvs+ks
                      #:with k_result (if #,(attribute has-annotations?)
-                                         #'(kindcon k_arg (... ...))
+                                         #'(kindcon k_arg (... (... ...)))
                                          #'#%tag)
                      (add-orig
                       (attach #'(τ- bvs- . τs-) 'key2 (expand/df #'k_result))
                       stx)])))])))]))
 
 ;; end define-syntax-category -------------------------------------------------
+;; ----------------------------------------------------------------------------
 
 ;; pre-declare all type-related functions and forms
 (define-syntax-category type)

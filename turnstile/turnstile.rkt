@@ -100,7 +100,7 @@
              #'(~and e-tmp
                      (~parse
                       (~and tag-prop.e-pat ... tag-pat)
-                      (typeof #'e-tmp #:tag 'tag)))])
+                      (detach #'e-tmp 'tag)))])
   (define-splicing-syntax-class ⇒-prop/conclusion
     #:datum-literals (⇒)
     #:attributes (tag tag-expr)
@@ -114,7 +114,7 @@
                        ([k (in-list (syntax->list #'[tag-prop.tag ...]))]
                         [v (in-list (syntax->list #'[tag-prop.tag-expr ...]))])
                (with-syntax ([tag-expr tag-expr] [k k] [v v])
-                 #'(assign-type tag-expr #:tag 'k v)))])
+                 #'(attach tag-expr 'k ((current-type-eval) v))))])
   (define-splicing-syntax-class ⇐-prop
     #:datum-literals (⇐ :)
     #:attributes (τ-stx e-pat)
@@ -307,7 +307,7 @@
                        ([k (in-list (syntax->list #'[props.tag ...]))]
                         [v (in-list (syntax->list #'[props.tag-expr ...]))])
                (with-syntax ([body body] [k k] [v v])
-                 #'(assign-type body #:tag 'k v)))]
+                 #'(attach body 'k ((current-type-eval) v))))]
     ;; ⇒ conclusion, implicit pat
     [pattern (~or [⊢ e-stx props:⇒-props/conclusion]
                   [⊢ [e-stx props:⇒-props/conclusion]])

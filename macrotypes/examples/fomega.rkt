@@ -53,7 +53,7 @@
 (define-kind-constructor ⇒ #:arity >= 1)
 (define-kind-constructor ∀★ #:arity >= 0)
 
-(define-binding-type ∀ #:bvs >= 0 #:arr ∀★)
+(define-binding-type ∀ #:arr ∀★)
 
 ;; alternative: normalize before type=?
 ; but then also need to normalize in current-promote

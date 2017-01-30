@@ -23,7 +23,7 @@
     ;; duplicate code to avoid redundant expansions
     [(_ e tag:id τ-expected (~or ⇒ ->) v)
      #:with e+ (expand/df #'(add-expected e τ-expected))
-     #:with τ (typeof #'e+ #:tag (stx->datum #'tag))
+     #:with τ (detach #'e+ (stx->datum #'tag))
      #:fail-unless (typecheck? #'τ ((current-type-eval) #'τ-expected))
                    (format
                     "Expression ~a [loc ~a:~a] has type ~a, expected ~a"
@@ -31,7 +31,7 @@
                     (type->str #'τ) (type->str #'τ-expected))
      (syntax/loc stx (check-equal? e+ (add-expected v τ-expected)))]
     [(_ e tag:id τ-expected)
-     #:with τ (typeof (expand/df #'(add-expected e τ-expected)) #:tag (stx->datum #'tag))
+     #:with τ (detach (expand/df #'(add-expected e τ-expected)) (stx->datum #'tag))
      #:fail-unless
      (typecheck? #'τ ((current-type-eval) #'τ-expected))
      (format
