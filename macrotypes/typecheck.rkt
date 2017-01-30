@@ -322,9 +322,9 @@
                       #:fail-when #t
                       (format
                        (string-append
-                        "Improperly formatted ~a annotation: ~a; should have shape [x : τ], "
+                        "Improperly formatted ~a annotation: ~a; should have shape [x ~a τ], "
                         "where τ is a valid ~a.")
-                       'name (type->str #'any) 'name)
+                       'name (type->str #'any) 'key1 'name)
                       #:attr x #f #:attr type #f))
            (define-syntax-class type-ctx
              #:attributes ((x 1) (type 1))
@@ -657,7 +657,7 @@
                  (define-internal-binding-type τ . other-options)
                  (define-syntax (τ stx)
                    (syntax-parse stx
-                    [(~var _ id) #'τ-] ; defer to τ- error
+                    [(~var _ id) (add-orig (syntax/loc stx τ-) stx)] ; defer to τ- error
                     [(_ (~or (bv:id (... (... ...)))
                              (~and (~fail #:unless #,(attribute has-annotations?))
                                    bvs+ann))
@@ -689,11 +689,11 @@
   ;; Type assignment macro for nicer syntax
   (define-syntax (⊢ stx)
     (syntax-parse stx
-      [(_ e tag τ) #'(assign-type #`e #`τ)]
+      [(_ e tag τ) #'(attach #`e 'tag ((current-type-eval) #`τ))]
       [(_ e τ) #'(⊢ e : τ)]))
   (define-syntax (⊢/no-teval stx)
     (syntax-parse stx
-      [(_ e tag τ) #'(fast-assign-type #`e #`τ)]
+      [(_ e tag τ) #'(attach #`e 'tag ((current-type-eval) #`τ))]
       [(_ e τ) #'(⊢/no-teval e : τ)]))
 
   ;; Actual type assignment function.

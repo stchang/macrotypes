@@ -34,13 +34,18 @@
   (current-type? (λ (t)
                    (define k (kindof t))
                    #;(or (type? t) (★? (typeof t)) (∀★? (typeof t)))
-                   (and ((current-kind?) k) (not (⇒? k))))))
+                   (and k ((current-kind?) k) (not (⇒? k)))))
+  ;; o.w., a valid type is one with any valid kind
+  (current-any-type? (λ (t) 
+                       (define k (kindof t))
+                       (and k ((current-kind?) k)))))
+
 
 ; must override, to handle kinds
 (define-syntax define-type-alias
   (syntax-parser
     [(_ alias:id τ)
-     #:with (τ- k_τ) (infer+erase #'τ)
+     #:with (τ- k_τ) (infer+erase #'τ #:tag '::)
      #:fail-unless ((current-kind?) #'k_τ)
                    (format "not a valid type: ~a\n" (type->str #'τ))
      #'(define-syntax alias 
@@ -96,31 +101,32 @@
    (⊢ e- : (∀ ([tv- :: bvs.kind] ...) τ_e))])
 
 (define-typed-syntax inst
-  [(_ e τ ...)
+  [(_ e τ:any-type ...)
    #:with [e- τ_e] (infer+erase #'e)
    #:with (~∀ (tv ...) τ_body) #'τ_e
    #:with (~∀★ k ...) (kindof #'τ_e)
-   #:with ([τ- k_τ] ...) (infers+erase #'(τ ...))
+;   #:with ([τ- k_τ] ...) (infers+erase #'(τ ...) #:tag '::)
+   #:with (k_τ ...) (stx-map kindof #'(τ.norm ...))
    #:fail-unless (kindchecks? #'(k_τ ...) #'(k ...))
                  (typecheck-fail-msg/multi 
                   #'(k ...) #'(k_τ ...) #'(τ ...))
-   #:with τ_inst (substs #'(τ- ...) #'(tv ...) #'τ_body)
+   #:with τ_inst (substs #'(τ.norm ...) #'(tv ...) #'τ_body)
    (⊢ e- : τ_inst)])
 
 ;; TODO: merge with regular λ and app?
 ;; - see fomega2.rkt
 (define-typed-syntax tyλ
   [(_ bvs:kind-ctx τ_body)
-   #:with (tvs- τ_body- k_body) (infer/ctx+erase #'bvs #'τ_body)
-   #:do [(displayln (stx->datum #'k_body))]
+   #:with (tvs- τ_body- k_body) (infer/ctx+erase #'bvs #'τ_body #:tag '::)
    #:fail-unless ((current-kind?) #'k_body)
                  (format "not a valid type: ~a\n" (type->str #'τ_body))
    (⊢ (λ- tvs- τ_body-) :: (⇒ bvs.kind ... k_body))])
 
 (define-typed-syntax tyapp
   [(_ τ_fn τ_arg ...)
-   #:with [τ_fn- (k_in ... k_out)] (⇑ τ_fn as ⇒)
-   #:with ([τ_arg- k_arg] ...) (infers+erase #'(τ_arg ...))
+;   #:with [τ_fn- (k_in ... k_out)] (⇑ τ_fn as ⇒)
+   #:with [τ_fn- (~⇒ k_in ... k_out)] (infer+erase #'τ_fn #:tag '::)
+   #:with ([τ_arg- k_arg] ...) (infers+erase #'(τ_arg ...) #:tag '::)
    #:fail-unless (kindchecks? #'(k_arg ...) #'(k_in ...))
                  (string-append
                   (format 
