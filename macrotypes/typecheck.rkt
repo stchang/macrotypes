@@ -202,12 +202,14 @@
   ;; attach : Stx Tag Val -> Stx
   ;; Adds Tag+Val to Stx as stx prop, returns new Stx.
   ;; e.g., Stx = expression, Tag = ':, Val = Type stx
-  (define (attach stx tag v) (set-stx-prop/preserved stx tag v))
+  (define (attach stx tag v #:eval [eval (λ (x) x)])
+    (set-stx-prop/preserved stx tag (eval v)))
   ;; detach : Stx Tag -> Val
   ;; Retrieves Val at Tag stx prop on Stx.
   ;; If Val is a non-empty list, return first element, otherwise return Val.
   ;; e.g., Stx = expression, Tag = ':, Val = Type stx
-  (define (detach stx tag) (get-stx-prop/car stx tag)))
+  (define (detach stx tag)
+    (get-stx-prop/car stx tag)))
 
 ;; ----------------------------------------------------------------------------
 ;; define-syntax-category ------------------------------------------------------
@@ -523,6 +525,7 @@
 ;                 #'(define-basic-checked-stx x key2 type . rst)]))
                  (define-syntax (τ stx)
                    (syntax-parse stx
+                    [(~var _ id) (add-orig (syntax/loc stx τ-) stx)] ; defer to τ- error
                     [(_ . args)
                      #:with ([arg- _] (... (... ...))) (infers+erase #'args #:tag 'key2)
                      ;; args are validated on the next line rather than above
@@ -654,6 +657,7 @@
                  (define-internal-binding-type τ . other-options)
                  (define-syntax (τ stx)
                    (syntax-parse stx
+                    [(~var _ id) #'τ-] ; defer to τ- error
                     [(_ (~or (bv:id (... (... ...)))
                              (~and (~fail #:unless #,(attribute has-annotations?))
                                    bvs+ann))
@@ -845,11 +849,11 @@
                                (for/fold ([tv-id #'tv])
                                          ([s (in-list (list 'tvsep ...))]
                                           [k (in-list (list #'tvk ...))])
-                                 (attach tv-id s k))
+                                 (attach tv-id s ((current-type-eval) k)))
                                'tyvar #t))] ...)
               (λ (x ...)
                (let-syntax 
-                ([x (make-variable-like-transformer (attach #'x 'sep #'τ))] ...)
+                ([x (make-variable-like-transformer (attach #'x 'sep ((current-type-eval) #'τ)))] ...)
                  (#%expression e) ... void)))))
        (list #'tvs+ #'xs+ 
              #'(e+ ...) 
