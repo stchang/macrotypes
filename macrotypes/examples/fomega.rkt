@@ -17,7 +17,7 @@
          (type-out ★ ⇒ ∀★ ∀)
          Λ inst tyλ tyapp)
 
-(define-syntax-category kind)
+(define-syntax-category :: kind :::)
 
 ; want #%type to be equiv to★
 ; => edit current-kind? so existing #%type annotations (with no #%kind tag)
@@ -32,7 +32,7 @@
   ;; But we no longer need type? to validate types, instead we can use 
   ;; (kind? (typeof t))
   (current-type? (λ (t)
-                   (define k (typeof t))
+                   (define k (kindof t))
                    #;(or (type? t) (★? (typeof t)) (∀★? (typeof t)))
                    (and ((current-kind?) k) (not (⇒? k))))))
 
@@ -83,9 +83,9 @@
   (define old-type=? (current-type=?))
   ; ty=? == syntax eq and syntax prop eq
   (define (type=? t1 t2)
-    (let ([k1 (typeof t1)][k2 (typeof t2)])
+    (let ([k1 (kindof t1)][k2 (kindof t2)])
       (and (or (and (not k1) (not k2))
-               (and k1 k2 ((current-type=?) k1 k2)))
+               (and k1 k2 ((current-kind=?) k1 k2)))
            (old-type=? t1 t2))))
   (current-type=? type=?)
   (current-typecheck-relation (current-type=?)))
@@ -93,15 +93,15 @@
 (define-typed-syntax Λ
   [(_ bvs:kind-ctx e)
    #:with ((tv- ...) e- τ_e) (infer/ctx+erase #'bvs #'e)
-   (⊢ e- : (∀ ([tv- : bvs.kind] ...) τ_e))])
+   (⊢ e- : (∀ ([tv- :: bvs.kind] ...) τ_e))])
 
 (define-typed-syntax inst
   [(_ e τ ...)
    #:with [e- τ_e] (infer+erase #'e)
    #:with (~∀ (tv ...) τ_body) #'τ_e
-   #:with (~∀★ k ...) (typeof #'τ_e)
+   #:with (~∀★ k ...) (kindof #'τ_e)
    #:with ([τ- k_τ] ...) (infers+erase #'(τ ...))
-   #:fail-unless (typechecks? #'(k_τ ...) #'(k ...))
+   #:fail-unless (kindchecks? #'(k_τ ...) #'(k ...))
                  (typecheck-fail-msg/multi 
                   #'(k ...) #'(k_τ ...) #'(τ ...))
    #:with τ_inst (substs #'(τ- ...) #'(tv ...) #'τ_body)
@@ -112,15 +112,16 @@
 (define-typed-syntax tyλ
   [(_ bvs:kind-ctx τ_body)
    #:with (tvs- τ_body- k_body) (infer/ctx+erase #'bvs #'τ_body)
+   #:do [(displayln (stx->datum #'k_body))]
    #:fail-unless ((current-kind?) #'k_body)
                  (format "not a valid type: ~a\n" (type->str #'τ_body))
-   (⊢ (λ- tvs- τ_body-) : (⇒ bvs.kind ... k_body))])
+   (⊢ (λ- tvs- τ_body-) :: (⇒ bvs.kind ... k_body))])
 
 (define-typed-syntax tyapp
   [(_ τ_fn τ_arg ...)
    #:with [τ_fn- (k_in ... k_out)] (⇑ τ_fn as ⇒)
    #:with ([τ_arg- k_arg] ...) (infers+erase #'(τ_arg ...))
-   #:fail-unless (typechecks? #'(k_arg ...) #'(k_in ...))
+   #:fail-unless (kindchecks? #'(k_arg ...) #'(k_in ...))
                  (string-append
                   (format 
                    "~a (~a:~a) Arguments to function ~a have wrong kinds(s), "
@@ -135,4 +136,4 @@
                   (format "Expected: ~a arguments with type(s): "
                           (stx-length #'(k_in ...)))
                   (string-join (stx-map type->str #'(k_in ...)) ", "))
-   (⊢ (#%app- τ_fn- τ_arg- ...) : k_out)])
+   (⊢ (#%app- τ_fn- τ_arg- ...) :: k_out)])

@@ -69,6 +69,6 @@
    #:with τ_x (subst #'X #'Y #'τ_body)
    #:with [(X-) (x-) (e-) (τ_e)]
           (infer #'(e)
-                 #:tvctx #'([X : #%type])
+                 #:tvctx #'([X :: #%type])
                  #:ctx   #`([x : τ_x]))
    (⊢ (let- ([x- e_packed-]) e-) : τ_e)])

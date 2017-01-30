@@ -15,7 +15,7 @@
 
 (define-typed-syntax Λ
   [(_ (tv:id ...) e)
-   #:with [(tv- ...) e- τ] (infer/tyctx+erase #'([tv : #%type] ...) #'e)
+   #:with [(tv- ...) e- τ] (infer/tyctx+erase #'([tv :: #%type] ...) #'e)
    (⊢ e- : (∀ (tv- ...) τ))])
 (define-typed-syntax inst
   [(_ e τ:type ...)

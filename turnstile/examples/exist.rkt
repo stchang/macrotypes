@@ -66,6 +66,6 @@
    ;;
   [⊢ e_packed ≫ e_packed- ⇒ (~∃ (Y) τ_body)]
   #:with τ_x (subst #'X #'Y #'τ_body)
-  [([X ≫ X- : #%type]) ([x ≫ x- : τ_x]) ⊢ e ≫ e- ⇒ τ_e]
+  [([X ≫ X- :: #%type]) ([x ≫ x- : τ_x]) ⊢ e ≫ e- ⇒ τ_e]
   --------
   [⊢ (let- ([x- e_packed-]) e-) ⇒ τ_e])

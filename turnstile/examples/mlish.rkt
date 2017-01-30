@@ -851,22 +851,22 @@
    #:fail-unless (stx-length=? #'[x ...] #'[τ_in ...])
    (format "expected a function of ~a arguments, got one with ~a arguments"
            (stx-length #'[τ_in ...]) (stx-length #'[x ...]))
-   [([X ≫ X- : #%type] ...) ([x ≫ x- : τ_in] ...) ⊢ [body ≫ body- ⇐ τ_out]]
+   [([X ≫ X- :: #%type] ...) ([x ≫ x- : τ_in] ...) ⊢ [body ≫ body- ⇐ τ_out]]
    --------
    [⊢ (λ- (x- ...) body-)]]
   [(λ ([x : τ_x] ...) body) ⇐ (~?∀ (V ...) (~ext-stlc:→ τ_in ... τ_out)) ≫
    #:with [X ...] (compute-tyvars #'(τ_x ...))
-   [([X ≫ X- : #%type] ...) () ⊢ [τ_x ≫ τ_x- ⇐ #%type] ...]
+   [([X ≫ X- :: #%type] ...) () ⊢ [τ_x ≫ τ_x- ⇐ #%type] ...]
    [τ_in τ⊑ τ_x- #:for x] ...
    ;; TODO is there a way to have λs that refer to ids defined after them?
-   [([V ≫ V- : #%type] ... [X- ≫ X-- : #%type] ...) ([x ≫ x- : τ_x-] ...)
+   [([V ≫ V- :: #%type] ... [X- ≫ X-- : #%type] ...) ([x ≫ x- : τ_x-] ...)
     ⊢ body ≫ body- ⇐ τ_out]
    --------
    [⊢ (λ- (x- ...) body-)]]
   [(λ ([x : τ_x] ...) body) ≫
    #:with [X ...] (compute-tyvars #'(τ_x ...))
    ;; TODO is there a way to have λs that refer to ids defined after them?
-   [([X ≫ X- : #%type] ...) ([x ≫ x- : τ_x] ...) ⊢ body ≫ body- ⇒ τ_body]
+   [([X ≫ X- :: #%type] ...) ([x ≫ x- : τ_x] ...) ⊢ body ≫ body- ⇒ τ_body]
    #:with [τ_x* ...] (inst-types/cs #'[X ...] #'([X X-] ...) #'[τ_x ...])
    #:with τ_fn (add-orig #'(?∀ (X- ...) (ext-stlc:→ τ_x* ... τ_body))
                          #`(→ #,@(stx-map get-orig #'[τ_x* ...]) #,(get-orig #'τ_body)))

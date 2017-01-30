@@ -14,7 +14,7 @@
 (define-binding-type ∀)
 
 (define-typed-syntax (Λ (tv:id ...) e) ≫
-  [([tv ≫ tv- : #%type] ...) () ⊢ e ≫ e- ⇒ τ]
+  [([tv ≫ tv- :: #%type] ...) () ⊢ e ≫ e- ⇒ τ]
   --------
   [⊢ e- ⇒ (∀ (tv- ...) τ)])
 

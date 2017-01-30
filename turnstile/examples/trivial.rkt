@@ -282,7 +282,7 @@
                   [x:id : ty])) ...)
       . es) ≫
    #:with (X ...) (generate-temporaries #'(x ...))
-   [([X ≫ X- : #%type] ...) ([x ≫ x- : X] ...) 
+   [([X ≫ X- :: #%type] ...) ([x ≫ x- : X] ...) 
     ⊢ (begin . es) ≫ e- ⇒ τ_out]
    ;; TODO: investigate why this extra syntax-local-introduce is needed?
    #:with τ_out* (syntax-local-introduce #'τ_out)

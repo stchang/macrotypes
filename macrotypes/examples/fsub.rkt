@@ -81,7 +81,7 @@
    ;; The "expose" function looks for this tag to enforce the bound,
    ;; as in TaPL (fig 28-1)
    #:with ((tv- ...) _ (e-) (τ_e))
-          (infer #'(e) #:tvctx #'([tv : #%type <: τsub] ...))
+          (infer #'(e) #:tvctx #'([tv :: #%type <: τsub] ...))
    (⊢ e- : (∀ ([tv- <: τsub] ...) τ_e))])
 (define-typed-syntax inst
   [(_ e τ:type ...)
