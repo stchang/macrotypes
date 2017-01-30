@@ -209,6 +209,7 @@
   ;; e.g., Stx = expression, Tag = ':, Val = Type stx
   (define (detach stx tag) (get-stx-prop/car stx tag)))
 
+;; ----------------------------------------------------------------------------
 ;; define-syntax-category ------------------------------------------------------
 
 ;; Defines a new type of metadata on syntax, e.g. types, as well as functions
@@ -522,7 +523,7 @@
                  (define-syntax (τ stx)
                    (syntax-parse stx
                     [(_ . args)
-                     #:with ([arg- _] (... ...)) (infers+erase #'args)
+                     #:with ([arg- _] (... ...)) (infers+erase #'args #:tag 'key2)
                      ;; args are validated on the next line rather than above
                      ;; to ensure enough stx-parse progress for proper err msg,
                      ;; ie, "invalid type" instead of "improper tycon usage"
@@ -538,9 +539,6 @@
                  (~optional ; bvs, number of type vars to bind
                   (~seq #:bvs bvs-op bvs-n:exact-nonnegative-integer)
                   #:defaults ([bvs-op #'>=][bvs-n #'0]))
-                 (~optional ; name of kind constructor, to save annotations
-                  (~seq #:arr (~and kindcon (~parse has-annotations? #'#t)))
-                  #:defaults ([kindcon #'void])) ; default kindcon should never be used
                  (~optional ; variances
                   (~seq #:arg-variances arg-variances-stx:expr)
                   #:defaults
@@ -578,7 +576,7 @@
                      ;;     [(tv ...) (body ...)]
                      [(_ . pat:id)
                       #:with expanded-τ (generate-temporary)
-                      #:with kindcon-expander (mk-~ #'kindcon)
+;                      #:with kindcon-expander (mk-~ #'kindcon)
                       #'(~and expanded-τ
                               (~Any/bvs 
                                (~literal/else τ-internal
@@ -587,15 +585,15 @@
                                               #'expanded-τ)
                                (~and bvs (tv (... (... ...))))
                                . rst)
-                              #,(if (attribute has-annotations?)
-                                    #'(~and
-                                       (~parse (kindcon-expander k (... (... ...)))
-                                               (detach #'expanded-τ))
-                                       (~parse pat
-                                               #'[([tv k] (... (... ...))) rst]))
+                              ;; #,(if (attribute has-annotations?)
+                              ;;       #'(~and
+                              ;;          (~parse (kindcon-expander k (... (... ...)))
+                              ;;                  (detach #'expanded-τ))
+                              ;;          (~parse pat
+                              ;;                  #'[([tv k] (... (... ...))) rst]))
                                     #'(~parse
                                        pat
-                                       #'[bvs rst])))]
+                                       #'[bvs rst]))]
                      ;; TODO: fix this to handle has-annotations?
                      ;; the difference with the first case is that here
                      ;; the body is ungrouped, ie,
@@ -644,19 +642,24 @@
                       #'τ stx #'op #'n)])))]))
          (define-syntax define-binding-type
            (syntax-parser
-             [(_ (~var τ id) . options)
+             [(_ (~var τ id)
+                 (~optional
+                  (~seq #:arr (~and kindcon (~parse has-annotations? #'#t)))
+                  #:defaults ([kindcon #'void])) ; default kindcon should never be used
+                 . other-options)
 ;              #'(define-binding-checked-stx x key2 type . rst)])))]))
               #'(begin
-                 (define-internal-binding-type τ . options)
+                 (define-internal-binding-type τ . other-options)
                  (define-syntax (τ stx)
                    (syntax-parse stx
                     [(_ (~or (bv:id (... ...)) 
-                             (~and bvs+ann (~parse has-annotations? #'#t)))
+                             (~and (~fail #:unless #,(attribute has-annotations?))
+                                   bvs+ann))
                         . args)
                      #:with bvs+ks (if #,(attribute has-annotations?)
                                        #'bvs+ann
                                        #'([bv key2 #%tag] (... ...)))
-                     #:with (bvs- τs- _) (infers/ctx+erase #'bvs+ks #'args)
+                     #:with (bvs- τs- _) (infers/ctx+erase #'bvs+ks #'args #:tag 'key2)
                      ;; args are validated on the next line rather than above
                      ;; to ensure enough stx-parse progress for proper err msg,
                      ;; ie, "invalid type" instead of "improper tycon usage"
@@ -801,18 +804,18 @@
 
   ;; basic infer function with no context:
   ;; infers the type and erases types in an expression
-  (define (infer+erase e)
+  (define (infer+erase e #:tag [tag ':])
     (define e+ (expand/df e))
-    (list e+ (typeof e+)))
+    (list e+ (detach e+ tag)))
   ;; infers the types and erases types in multiple expressions
-  (define (infers+erase es)
-    (stx-map infer+erase es))
+  (define (infers+erase es #:tag [tag ':])
+    (stx-map (λ (e) (infer+erase e #:tag tag)) es))
 
   ;; This is the main "infer" function. All others are defined in terms of this.
   ;; It should be named infer+erase but leaving it for now for backward compat.
   ;; ctx = vars and their types (or other props, denoted with "sep")
   ;; tvctx = tyvars and their kinds
-  (define (infer es #:ctx [ctx null] #:tvctx [tvctx null])
+  (define (infer es #:ctx [ctx null] #:tvctx [tvctx null] #:tag [tag ':])
     (syntax-parse ctx
       [([x sep τ] ...) ; dont expand yet bc τ may have references to tvs
        #:with ([tv (~seq tvsep:id tvk) ...] ...) tvctx
@@ -835,20 +838,20 @@
        (expand/df
         #`(λ (tv ...)
             (let-syntax ([tv (make-rename-transformer
-                              (set-stx-prop/preserved
+                              (attach
                                (for/fold ([tv-id #'tv])
                                          ([s (in-list (list 'tvsep ...))]
                                           [k (in-list (list #'tvk ...))])
-                                 (assign-type tv-id k #:tag s))
+                                 (attach tv-id s k))
                                'tyvar #t))] ...)
               (λ (x ...)
                (let-syntax 
-                ([x (make-variable-like-transformer (assign-type #'x #'τ #:tag 'sep))] ...)
+                ([x (make-variable-like-transformer (attach #'x 'sep #'τ))] ...)
                  (#%expression e) ... void)))))
        (list #'tvs+ #'xs+ 
              #'(e+ ...) 
-             (stx-map typeof #'(e+ ...)))]
-      [([x τ] ...) (infer es #:ctx #'([x : τ] ...) #:tvctx tvctx)]))
+             (stx-map (λ (e) (detach e tag)) #'(e+ ...)))]
+      [([x τ] ...) (infer es #:ctx #'([x : τ] ...) #:tvctx tvctx #:tag tag)]))
 
   ;; fns derived from infer ---------------------------------------------------
   ;; some are syntactic shortcuts, some are for backwards compat
@@ -856,17 +859,17 @@
   ;; shorter names
   ; ctx = type env for bound vars in term e, etc
   ; can also use for bound tyvars in type e
-  (define (infer/ctx+erase ctx e)
-    (syntax-parse (infer (list e) #:ctx ctx)
+  (define (infer/ctx+erase ctx e #:tag [tag ':])
+    (syntax-parse (infer (list e) #:ctx ctx #:tag tag)
       [(_ xs (e+) (τ)) (list #'xs #'e+ #'τ)]))
-  (define (infers/ctx+erase ctx es)
-    (stx-cdr (infer es #:ctx ctx)))
+  (define (infers/ctx+erase ctx es #:tag [tag ':])
+    (stx-cdr (infer es #:ctx ctx #:tag tag)))
   ; tyctx = kind env for bound type vars in term e
-  (define (infer/tyctx+erase ctx e)
-    (syntax-parse (infer (list e) #:tvctx ctx)
+  (define (infer/tyctx+erase ctx e #:tag [tag ':])
+    (syntax-parse (infer (list e) #:tvctx ctx #:tag tag)
       [(tvs _ (e+) (τ)) (list #'tvs #'e+ #'τ)]))
-  (define (infers/tyctx+erase ctx es)
-    (syntax-parse (infer es #:tvctx ctx)
+  (define (infers/tyctx+erase ctx es #:tag [tag ':])
+    (syntax-parse (infer es #:tvctx ctx #:tag tag)
       [(tvs+ _ es+ tys) (list #'tvs+ #'es+ #'tys)]))
 
   (define current-promote (make-parameter (λ (t) t)))
