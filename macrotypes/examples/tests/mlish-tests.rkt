@@ -64,6 +64,8 @@
 (check-type (g2 Nil) : (List (List Int)) ⇒ Nil)
 (check-type (g2 Nil) : (List (→ Int Int)) ⇒ Nil)
 
+(check-type (λ ([x : (List Int)]) x) : (→/test (List Int) (List Int)))
+
 (check-type (g2 (Cons 1 Nil)) : (List Int) ⇒ (Cons 1 Nil))
 (check-type (g2 (Cons "1" Nil)) : (List String) ⇒ (Cons "1" Nil))
 
@@ -675,7 +677,7 @@
 (typecheck-fail (ann 1 : Complex) #:with-msg "unbound identifier")
 (typecheck-fail (ann 1 : 1) #:with-msg "not a well-formed type")
 (typecheck-fail (ann 1 : (λ ([x : Int]) x)) #:with-msg "not a well-formed type")
-(typecheck-fail (ann Int : Int) #:with-msg "expected Int, given #%type\n *expression: Int")
+(typecheck-fail (ann Int : Int) #:with-msg "expected Int, given an invalid expression\n *expression: Int")
 
 ; let
 (check-type (let () (+ 1 1)) : Int ⇒ 2)

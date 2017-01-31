@@ -194,7 +194,8 @@
   ;; If Val is a non-empty list, return first element, otherwise return Val.
   (define (get-stx-prop/car stx tag)
     (define v (syntax-property stx tag))
-    (if (cons? v) (car v) v))
+    (let L ([v v])
+      (if (cons? v) (L (car v)) v)))
 
   ;; A Tag is a Symbol serving as a stx prop key for some kind of metadata.
   ;; e.g., ': for types, ':: for kinds, etc.
@@ -408,6 +409,7 @@
                                    (combine-out . ts) (combine-out . t-s)
                                    (for-syntax (combine-out . t-expanders) . t?s)))
                   modes)]))))
+         ;; base types --------------------------------------------------------
          (define-syntax define-base-type
            (syntax-parser
             [(_ (~var τ id)) ; default to 'key2 and #%tag
@@ -448,6 +450,7 @@
            (syntax-parser
              [(_ (~var x id) (... ...))
               #'(begin (define-base-type x) (... ...))]))
+         ;; type constructors -------------------------------------------------
          (define-syntax define-internal-type-constructor
            (syntax-parser
 ;             [(_ (~var x id) . rst)
@@ -899,7 +902,8 @@
   (define (typecheck-fail-msg/1 τ_expected τ_given expression)
     (format "type mismatch: expected ~a, given ~a\n  expression: ~s"
             (type->str τ_expected)
-            (type->str τ_given)
+            (or (and (syntax-e τ_given) (type->str τ_given))
+                "an invalid expression")
             (syntax->datum (get-orig expression))))
 
   ;; typecheck-fail-msg/1/no-expr : Type Type Stx -> String

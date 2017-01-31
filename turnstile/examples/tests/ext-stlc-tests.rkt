@@ -53,7 +53,7 @@
 (typecheck-fail (ann 1 : 1) #:with-msg "not a well-formed type")
 (typecheck-fail (ann 1 : (λ ([x : Int]) x)) #:with-msg "not a well-formed type")
 (typecheck-fail (ann Bool : Int)
-                #:with-msg "ann: type mismatch: expected Int, given #f\n *expression: Bool")
+                #:with-msg "ann: type mismatch: expected Int, given an invalid expression\n *expression: Bool")
 
 ; let
 (check-type (let () (+ 1 1)) : Int ⇒ 2)

@@ -26,7 +26,7 @@
 (begin-for-syntax
   (define (expose t)
     (cond [(identifier? t)
-           (define sub (typeof t #:tag '<:))
+           (define sub (detach t '<:))
            (if sub (expose sub) t)]
           [else t]))
   (current-promote expose)

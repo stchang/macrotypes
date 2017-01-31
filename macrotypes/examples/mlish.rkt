@@ -447,7 +447,7 @@
                            (format "Improper use of constructor ~a; expected ~a args, got ~a"
                                    (syntax->datum #'Name) (stx-length #'(X ...))
                                    (stx-length (stx-cdr #'stx))))])]
-                       [X (make-rename-transformer (⊢ X #%type))] ...)
+                       [X (make-rename-transformer (⊢ X :: #%type))] ...)
                       (void ty_flat ...)))))
      #:when (or (equal? '(unbound) (syntax->datum #'(ty+ ...)))
                 (stx-map 
