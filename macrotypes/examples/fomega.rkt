@@ -1,5 +1,5 @@
 #lang s-exp macrotypes/typecheck
-(extends "sysf.rkt" #:except #%datum ∀ ~∀ ∀? Λ inst)
+(extends "sysf.rkt" #:except #%datum ∀ ∀- ~∀ ∀? Λ inst)
 (reuse String #%datum #:from "stlc+reco+var.rkt")
 
 ;; System F_omega

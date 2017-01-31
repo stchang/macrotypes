@@ -4,6 +4,7 @@
          check-equal/rand
          (rename-out [typecheck-fail check-stx-err]))
 
+
 (begin-for-syntax
   (define (add-esc s) (string-append "\\" s))
   (define escs (map add-esc '("(" ")" "[" "]")))

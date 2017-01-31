@@ -54,7 +54,8 @@
     [(_ . stuff)
      (syntax/loc this-syntax
        (#%module-begin
-        (provide #%module-begin #%top-interaction #%top require only-in) ; useful racket forms
+        ; provide some useful racket forms
+        (provide #%module-begin #%top-interaction #%top require only-in)
         . stuff))]))
 
 (struct exn:fail:type:runtime exn:fail:user ())
@@ -401,9 +402,10 @@
                 [(_ . ts)
                  #:with t-expanders (stx-map mk-~ #'ts)
                  #:with t?s (stx-map mk-? #'ts)
+                 #:with t-s (filter identifier-binding (stx-map mk-- #'ts))
                  (expand-export
                   (syntax/loc stx (combine-out
-                                   (combine-out . ts)
+                                   (combine-out . ts) (combine-out . t-s)
                                    (for-syntax (combine-out . t-expanders) . t?s)))
                   modes)]))))
          (define-syntax define-base-type
