@@ -660,6 +660,7 @@
                     [(~var _ id) (add-orig (syntax/loc stx τ-) stx)] ; defer to τ- error
                     [(_ (~or (bv:id (... (... ...)))
                              (~and (~fail #:unless #,(attribute has-annotations?))
+                                   ([_ (~datum key2) _] (... (... ...)))
                                    bvs+ann))
                         . args)
                      #:with bvs+ks (if #,(attribute has-annotations?)
