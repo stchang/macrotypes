@@ -259,9 +259,12 @@
      #:with current-type? (mk-param #'type?)
      #:with current-any-type? (mk-param #'any-type?)
      ;; assigning and retrieving types
+     #:with type-key1 (format-id #'name "~a-key1" #'name)
+     #:with type-key2 (format-id #'name "~a-key2" #'name)
      #:with assign-type (format-id #'name "assign-~a" #'name)
      #:with fast-assign-type (format-id #'name "fast-assign-~a" #'name)
      #:with typeof (format-id #'name "~aof" #'name)
+     #:with tagoftype (format-id #'name "tagof~a" #'name)
      ;; type checking
      #:with current-typecheck-relation (format-id #'name "current-~acheck-relation" #'name)
      #:with typecheck? (format-id #'name "~acheck?" #'name)
@@ -288,17 +291,20 @@
            (define (#%tag? t)        (and (id? t) (free-id=? t #'#%tag)))
            (define (mk-type t)       (attach t 'key2 #'#%tag))
            ;; type? corresponds to "well-formed" types
-           (define (type? t)         (#%tag? (detach t 'key2)))
+           (define (type? t)         (#%tag? (tagoftype t)))
            (define current-type?     (make-parameter type?))
            ;; any-type? corresponds to any type, defaults to type?
            (define (any-type? t)     (type? t))
            (define current-any-type? (make-parameter any-type?))
            ;; assigning and retrieving types ----------------------------------
-           (define (typeof stx) (detach stx 'key1))
+           (define (type-key1) 'key1)
+           (define (type-key2) 'key2)
+           (define (typeof stx)    (detach stx 'key1))
+           (define (tagoftype stx) (detach stx 'key2)) ; = kindof if kind stx-cat defined
            (define (fast-assign-type e τ)
              (attach e 'key1 (syntax-local-introduce τ)))
            (define (assign-type e τ)
-               (fast-assign-type e ((current-type-eval) τ)))
+             (fast-assign-type e ((current-type-eval) τ)))
            ;; helper stx classes ----------------------------------------------
            (define-syntax-class type ;; e.g., well-formed types
              #:attributes (norm)
@@ -444,7 +450,7 @@
                      (add-orig 
                       (attach
                        (syntax/loc this-syntax (τ-internal))
-                       'new-key2 (expand/df #'new-#%tag))
+                       'new-key2 ((current-type-eval) #'new-#%tag))
                       #'τ)])))]))
          (define-syntax define-base-types
            (syntax-parser
@@ -681,7 +687,7 @@
                                          #'(kindcon k_arg (... (... ...)))
                                          #'#%tag)
                      (add-orig
-                      (attach #'(τ- bvs- . τs-) 'key2 (expand/df #'k_result))
+                      (attach #'(τ- bvs- . τs-) 'key2 ((current-type-eval) #'k_result))
                       stx)])))])))]))
 
 ;; end define-syntax-category -------------------------------------------------
@@ -690,16 +696,34 @@
 ;; pre-declare all type-related functions and forms
 (define-syntax-category type)
 
+;; generic, type-agnostic parameters
+;; Use these for code that is generic over types and kinds
+(begin-for-syntax
+  (define current=? (make-parameter (current-type=?)))
+  (define (=s? xs1 xs2) ; map current=? pairwise over lists
+    (and (stx-length=? xs1 xs2) (stx-andmap (current=?) xs1 xs2)))
+  (define (sames? stx)  ; check list contains same types
+    (define xs (stx->list stx))
+    (or (null? xs) (andmap (λ (x) ((current=?) (car xs) x)) (cdr xs))))
+  (define current-check-relation (make-parameter (current-typecheck-relation)))
+  (define (check? x1 x2) ((current-check-relation) x1 x2))
+  (define (checks? xs1 xs2) ; map current-check-relation pairwise of lists
+    (and (stx-length=? xs1 xs2) (stx-andmap check? xs1 xs2)))
+  ;; (define current-attach (make-parameter assign-type))
+  ;; (define current-detach (make-parameter typeof))
+  (define current-ev (make-parameter (current-type-eval)))
+  (define current-tag (make-parameter (type-key1))))
+
 ;; type assignment utilities --------------------------------------------------
 (begin-for-syntax
   ;; Type assignment macro for nicer syntax
   (define-syntax (⊢ stx)
     (syntax-parse stx
-      [(_ e tag τ) #'(attach #`e 'tag ((current-type-eval) #`τ))]
+      [(_ e tag τ) #'(attach #`e 'tag ((current-ev) #`τ))]
       [(_ e τ) #'(⊢ e : τ)]))
   (define-syntax (⊢/no-teval stx)
     (syntax-parse stx
-      [(_ e tag τ) #'(attach #`e 'tag ((current-type-eval) #`τ))]
+      [(_ e tag τ) #'(attach #`e 'tag ((current-ev) #`τ))]
       [(_ e τ) #'(⊢/no-teval e : τ)]))
 
   ;; Actual type assignment function.
@@ -817,18 +841,18 @@
 
   ;; basic infer function with no context:
   ;; infers the type and erases types in an expression
-  (define (infer+erase e #:tag [tag ':])
+  (define (infer+erase e #:tag [tag (current-tag)])
     (define e+ (expand/df e))
     (list e+ (detach e+ tag)))
   ;; infers the types and erases types in multiple expressions
-  (define (infers+erase es #:tag [tag ':])
+  (define (infers+erase es #:tag [tag (current-tag)])
     (stx-map (λ (e) (infer+erase e #:tag tag)) es))
 
   ;; This is the main "infer" function. All others are defined in terms of this.
   ;; It should be named infer+erase but leaving it for now for backward compat.
   ;; ctx = vars and their types (or other props, denoted with "sep")
   ;; tvctx = tyvars and their kinds
-  (define (infer es #:ctx [ctx null] #:tvctx [tvctx null] #:tag [tag ':])
+  (define (infer es #:ctx [ctx null] #:tvctx [tvctx null] #:tag [tag (current-tag)])
     (syntax-parse ctx
       [([x sep τ] ...) ; dont expand yet bc τ may have references to tvs
        #:with ([tv (~seq tvsep:id tvk) ...] ...) tvctx
@@ -855,16 +879,16 @@
                                (for/fold ([tv-id #'tv])
                                          ([s (in-list (list 'tvsep ...))]
                                           [k (in-list (list #'tvk ...))])
-                                 (attach tv-id s ((current-type-eval) k)))
+                                 (attach tv-id s ((current-ev) k)))
                                'tyvar #t))] ...)
               (λ (x ...)
                (let-syntax 
-                ([x (make-variable-like-transformer (attach #'x 'sep ((current-type-eval) #'τ)))] ...)
+                ([x (make-variable-like-transformer (attach #'x 'sep ((current-ev) #'τ)))] ...)
                  (#%expression e) ... void)))))
        (list #'tvs+ #'xs+ 
              #'(e+ ...) 
              (stx-map (λ (e) (detach e tag)) #'(e+ ...)))]
-      [([x τ] ...) (infer es #:ctx #'([x : τ] ...) #:tvctx tvctx #:tag tag)]))
+      [([x τ] ...) (infer es #:ctx #`([x #,tag τ] ...) #:tvctx tvctx #:tag tag)]))
 
   ;; fns derived from infer ---------------------------------------------------
   ;; some are syntactic shortcuts, some are for backwards compat
@@ -872,16 +896,16 @@
   ;; shorter names
   ; ctx = type env for bound vars in term e, etc
   ; can also use for bound tyvars in type e
-  (define (infer/ctx+erase ctx e #:tag [tag ':])
+  (define (infer/ctx+erase ctx e #:tag [tag (current-tag)])
     (syntax-parse (infer (list e) #:ctx ctx #:tag tag)
       [(_ xs (e+) (τ)) (list #'xs #'e+ #'τ)]))
-  (define (infers/ctx+erase ctx es #:tag [tag ':])
+  (define (infers/ctx+erase ctx es #:tag [tag (current-tag)])
     (stx-cdr (infer es #:ctx ctx #:tag tag)))
   ; tyctx = kind env for bound type vars in term e
-  (define (infer/tyctx+erase ctx e #:tag [tag ':])
+  (define (infer/tyctx+erase ctx e #:tag [tag (current-tag)])
     (syntax-parse (infer (list e) #:tvctx ctx #:tag tag)
       [(tvs _ (e+) (τ)) (list #'tvs #'e+ #'τ)]))
-  (define (infers/tyctx+erase ctx es #:tag [tag ':])
+  (define (infers/tyctx+erase ctx es #:tag [tag (current-tag)])
     (syntax-parse (infer es #:tvctx ctx #:tag tag)
       [(tvs+ _ es+ tys) (list #'tvs+ #'es+ #'tys)]))
 
@@ -1227,7 +1251,7 @@
                          #,(if (attribute has-annotations?)
                                #'(~and
                                   (~parse (kindcon-expander k (... (... ...)))
-                                          (detach #'expanded-τ))
+                                          (tagoftype #'expanded-τ))
                                   (~parse pat
                                           #'[([tv k] (... (... ...))) rst]))
                                #'(~parse
@@ -1363,7 +1387,7 @@
                                       (free-identifier=? #'actual #'lit))
                         fail-msg)
                  stx))])))
-  (define (merge-type-tags stx)
+  (define (merge-type-tags stx) ;; TODO: merge other tags
     (define t (syntax-property stx ':))
     (or (and (pair? t)
              (identifier? (car t)) (identifier? (cdr t))

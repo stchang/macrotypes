@@ -11,6 +11,7 @@
 (define (stx-caddr stx) (stx-cadr (stx-cdr stx)))
 (define (stx-cddr stx) (stx-cdr (stx-cdr stx)))
 
+(define datum->stx datum->syntax)
 (define (stx->datum stx)
   (if (syntax? stx)
       (syntax->datum stx)

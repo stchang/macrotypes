@@ -31,13 +31,11 @@
   ;; So now "type?" no longer validates types, rather it's a subset.
   ;; But we no longer need type? to validate types, instead we can use 
   ;; (kind? (typeof t))
-  (current-type? (λ (t)
-                   (define k (kindof t))
+  (current-type? (λ (t) (define k (kindof t))
                    #;(or (type? t) (★? (typeof t)) (∀★? (typeof t)))
                    (and k ((current-kind?) k) (not (⇒? k)))))
   ;; o.w., a valid type is one with any valid kind
-  (current-any-type? (λ (t) 
-                       (define k (kindof t))
+  (current-any-type? (λ (t) (define k (kindof t))
                        (and k ((current-kind?) k)))))
 
 

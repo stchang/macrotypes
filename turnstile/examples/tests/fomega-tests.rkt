@@ -1,82 +1,82 @@
 #lang s-exp "../fomega.rkt"
 (require "rackunit-typechecking.rkt")
 
-(check-type Int : ★)
-(check-type String : ★)
+(check-type Int :: ★)
+(check-type String :: ★)
 (typecheck-fail →)
-(check-type (→ Int Int) : ★)
+(check-type (→ Int Int) :: ★)
 (typecheck-fail (→ →))
 (typecheck-fail (→ 1))
 (check-type 1 : Int)
 
-(typecheck-fail (tyλ ([x : ★]) 1) #:with-msg "not a valid type: 1")
+(typecheck-fail (tyλ ([x :: ★]) 1) #:with-msg "not a valid type: 1")
 
-(check-type (Λ ([X : ★]) (λ ([x : X]) x)) : (∀ ([X : ★]) (→ X X)))
-(check-not-type (Λ ([X : ★]) (λ ([x : X]) x)) :
-                (∀ ([X : (∀★ ★)]) (→ X X)))
+(check-type (Λ ([X :: ★]) (λ ([x : X]) x)) : (∀ ([X :: ★]) (→ X X)))
+(check-not-type (Λ ([X :: ★]) (λ ([x : X]) x)) :
+                (∀ ([X :: (∀★ ★)]) (→ X X)))
 
-;(check-type (∀ ([t : ★]) (→ t t)) : ★)
-(check-type (∀ ([t : ★]) (→ t t)) : (∀★ ★))
-(check-type (→ (∀ ([t : ★]) (→ t t)) (→ Int Int)) : ★)
+;(check-type (∀ ([t :: ★]) (→ t t)) :: ★)
+(check-type (∀ ([t :: ★]) (→ t t)) :: (∀★ ★))
+(check-type (→ (∀ ([t :: ★]) (→ t t)) (→ Int Int)) :: ★)
 
-(check-type (Λ ([X : ★]) (λ ([x : X]) x)) : (∀ ([X : ★]) (→ X X)))
+(check-type (Λ ([X :: ★]) (λ ([x : X]) x)) : (∀ ([X :: ★]) (→ X X)))
 
-(check-type ((λ ([x : (∀ ([X : ★]) (→ X X))]) x) (Λ ([X : ★]) (λ ([x : X]) x)))
-            : (∀ ([X : ★]) (→ X X)))
-(typecheck-fail ((λ ([x : (∀ ([X : ★]) (→ X X))]) x) (Λ ([X : (⇒ ★ ★)]) (λ ([x : X]) x))))
+(check-type ((λ ([x : (∀ ([X :: ★]) (→ X X))]) x) (Λ ([X :: ★]) (λ ([x : X]) x)))
+            : (∀ ([X :: ★]) (→ X X)))
+(typecheck-fail ((λ ([x : (∀ ([X :: ★]) (→ X X))]) x) (Λ ([X : (⇒ ★ ★)]) (λ ([x : X]) x))))
 
-(check-type (tyλ ([t : ★]) t) : (⇒ ★ ★))
-(check-type (tyλ ([t : ★] [s : ★]) t) : (⇒ ★ ★ ★))
-(check-type (tyλ ([t : ★]) (tyλ ([s : ★]) t)) : (⇒ ★ (⇒ ★ ★)))
-(check-type (tyλ ([t : (⇒ ★ ★)]) t) : (⇒ (⇒ ★ ★) (⇒ ★ ★)))
-(check-type (tyλ ([t : (⇒ ★ ★ ★)]) t) : (⇒ (⇒ ★ ★ ★) (⇒ ★ ★ ★)))
-(check-type (tyλ ([arg : ★] [res : ★]) (→ arg res)) : (⇒ ★ ★ ★))
+(check-type (tyλ ([t :: ★]) t) :: (⇒ ★ ★))
+(check-type (tyλ ([t :: ★] [s :: ★]) t) :: (⇒ ★ ★ ★))
+(check-type (tyλ ([t :: ★]) (tyλ ([s :: ★]) t)) :: (⇒ ★ (⇒ ★ ★)))
+(check-type (tyλ ([t :: (⇒ ★ ★)]) t) :: (⇒ (⇒ ★ ★) (⇒ ★ ★)))
+(check-type (tyλ ([t :: (⇒ ★ ★ ★)]) t) :: (⇒ (⇒ ★ ★ ★) (⇒ ★ ★ ★)))
+(check-type (tyλ ([arg :: ★] [res :: ★]) (→ arg res)) :: (⇒ ★ ★ ★))
 
-(check-type (tyapp (tyλ ([t : ★]) t) Int) : ★)
-(check-type (λ ([x : (tyapp (tyλ ([t : ★]) t) Int)]) x) : (→ Int Int))
-(check-type ((λ ([x : (tyapp (tyλ ([t : ★]) t) Int)]) x) 1) : Int ⇒ 1)
-(check-type ((λ ([x : (tyapp (tyλ ([t : ★]) t) Int)]) (+ x 1)) 1) : Int ⇒ 2)
-(check-type ((λ ([x : (tyapp (tyλ ([t : ★]) t) Int)]) (+ 1 x)) 1) : Int ⇒ 2)
-(typecheck-fail ((λ ([x : (tyapp (tyλ ([t : ★]) t) Int)]) (+ 1 x)) "a-string"))
+(check-type (tyapp (tyλ ([t :: ★]) t) Int) :: ★)
+(check-type (λ ([x : (tyapp (tyλ ([t :: ★]) t) Int)]) x) : (→ Int Int))
+(check-type ((λ ([x : (tyapp (tyλ ([t :: ★]) t) Int)]) x) 1) : Int ⇒ 1)
+(check-type ((λ ([x : (tyapp (tyλ ([t :: ★]) t) Int)]) (+ x 1)) 1) : Int ⇒ 2)
+(check-type ((λ ([x : (tyapp (tyλ ([t :: ★]) t) Int)]) (+ 1 x)) 1) : Int ⇒ 2)
+(typecheck-fail ((λ ([x : (tyapp (tyλ ([t :: ★]) t) Int)]) (+ 1 x)) "a-string"))
 
 ;; partial-apply →
-(check-type (tyapp (tyλ ([arg : ★]) (tyλ ([res : ★]) (→ arg res))) Int)
-            : (⇒ ★ ★))
+(check-type (tyapp (tyλ ([arg :: ★]) (tyλ ([res :: ★]) (→ arg res))) Int)
+            :: (⇒ ★ ★))
 ;; f's type must have kind ★
-(typecheck-fail (λ ([f : (tyapp (tyλ ([arg : ★]) (tyλ ([res : ★]) (→ arg res))) Int)]) f))
-(check-type (Λ ([tyf : (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) f)) :
-            (∀ ([tyf : (⇒ ★ ★)]) (→ (tyapp tyf String) (tyapp tyf String))))
+(typecheck-fail (λ ([f : (tyapp (tyλ ([arg :: ★]) (tyλ ([res :: ★]) (→ arg res))) Int)]) f))
+(check-type (Λ ([tyf :: (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) f)) :
+            (∀ ([tyf :: (⇒ ★ ★)]) (→ (tyapp tyf String) (tyapp tyf String))))
 (check-type (inst
-             (Λ ([tyf : (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) f))
-             (tyapp (tyλ ([arg : ★]) (tyλ ([res : ★]) (→ arg res))) Int))
+             (Λ ([tyf :: (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) f))
+             (tyapp (tyλ ([arg :: ★]) (tyλ ([res :: ★]) (→ arg res))) Int))
             : (→ (→ Int String) (→ Int String)))
 (typecheck-fail
- (inst (Λ ([X : ★]) (λ ([x : X]) x)) 1)
- #:with-msg "inst: type mismatch: expected ★, given Int\n *expression: 1")
+ (inst (Λ ([X :: ★]) (λ ([x : X]) x)) 1)
+ #:with-msg "inst:.*not a valid type: 1")
 
 (typecheck-fail
- (Λ ([tyf : (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) (f 1)))
+ (Λ ([tyf :: (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) (f 1)))
  #:with-msg "Expected → type, got: \\(tyapp tyf String\\)")
 ;; applied f too early
 (typecheck-fail
  (inst
-  (Λ ([tyf : (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) (f 1)))
-  (tyapp (tyλ ([arg : ★]) (tyλ ([res : ★]) (→ arg res))) Int))
+  (Λ ([tyf :: (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) (f 1)))
+  (tyapp (tyλ ([arg :: ★]) (tyλ ([res :: ★]) (→ arg res))) Int))
  #:with-msg "Expected → type, got: \\(tyapp tyf String\\)")
 (check-type ((inst
-              (Λ ([tyf : (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) f))
-              (tyapp (tyλ ([arg : ★]) (tyλ ([res : ★]) (→ arg res))) Int))
+              (Λ ([tyf :: (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) f))
+              (tyapp (tyλ ([arg :: ★]) (tyλ ([res :: ★]) (→ arg res))) Int))
              (λ ([x : Int]) "int")) : (→ Int String))
 (check-type (((inst
-               (Λ ([tyf : (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) f))
-              (tyapp (tyλ ([arg : ★]) (tyλ ([res : ★]) (→ arg res))) Int))
+               (Λ ([tyf :: (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) f))
+              (tyapp (tyλ ([arg :: ★]) (tyλ ([res :: ★]) (→ arg res))) Int))
               (λ ([x : Int]) "int")) 1) : String ⇒ "int")
 
 ;; tapl examples, p441
 (typecheck-fail
  (define-type-alias tmp 1)
  #:with-msg "not a valid type: 1")
-(define-type-alias Id (tyλ ([X : ★]) X))
+(define-type-alias Id (tyλ ([X :: ★]) X))
 (check-type (λ ([f : (→ Int String)]) 1) : (→ (→ Int String) Int))
 (check-type (λ ([f : (→ Int String)]) 1) : (→ (→ Int (tyapp Id String)) Int))
 (check-type (λ ([f : (→ Int (tyapp Id String))]) 1) : (→ (→ Int String) Int))
@@ -89,104 +89,104 @@
 (check-type (λ ([f : (tyapp Id (→ Int String))]) 1) : (→ (tyapp Id (tyapp Id (→ Int String))) Int))
 
 ;; tapl examples, p451
-(define-type-alias Pair (tyλ ([A : ★] [B : ★]) (∀ ([X : ★]) (→ (→ A B X) X))))
+(define-type-alias Pair (tyλ ([A :: ★] [B :: ★]) (∀ ([X :: ★]) (→ (→ A B X) X))))
 
 ;(check-type Pair : (⇒ ★ ★ ★))
-(check-type Pair : (⇒ ★ ★ (∀★ ★)))
+(check-type Pair :: (⇒ ★ ★ (∀★ ★)))
 
-(check-type (Λ ([X : ★] [Y : ★]) (λ ([x : X][y : Y]) x)) : (∀ ([X : ★][Y : ★]) (→ X Y X)))
+(check-type (Λ ([X :: ★] [Y :: ★]) (λ ([x : X][y : Y]) x)) : (∀ ([X :: ★][Y :: ★]) (→ X Y X)))
 ; parametric pair constructor
 (check-type
- (Λ ([X : ★] [Y : ★]) (λ ([x : X][y : Y]) (Λ ([R : ★]) (λ ([p : (→ X Y R)]) (p x y)))))
- : (∀ ([X : ★][Y : ★]) (→ X Y (tyapp Pair X Y))))
+ (Λ ([X :: ★] [Y :: ★]) (λ ([x : X][y : Y]) (Λ ([R :: ★]) (λ ([p : (→ X Y R)]) (p x y)))))
+ : (∀ ([X :: ★][Y :: ★]) (→ X Y (tyapp Pair X Y))))
 ; concrete Pair Int String constructor
 (check-type
- (inst (Λ ([X : ★] [Y : ★]) (λ ([x : X][y : Y]) (Λ ([R : ★]) (λ ([p : (→ X Y R)]) (p x y)))))
+ (inst (Λ ([X :: ★] [Y :: ★]) (λ ([x : X][y : Y]) (Λ ([R :: ★]) (λ ([p : (→ X Y R)]) (p x y)))))
        Int String)
  : (→ Int String (tyapp Pair Int String)))
 ;; Pair Int String value
 (check-type
- ((inst (Λ ([X : ★] [Y : ★]) (λ ([x : X][y : Y]) (Λ ([R : ★]) (λ ([p : (→ X Y R)]) (p x y)))))
+ ((inst (Λ ([X :: ★] [Y :: ★]) (λ ([x : X][y : Y]) (Λ ([R :: ★]) (λ ([p : (→ X Y R)]) (p x y)))))
        Int String) 1 "1")
  : (tyapp Pair Int String))
 ;; fst: parametric
 (check-type
- (Λ ([X : ★][Y : ★]) (λ ([p : (∀ ([R : ★]) (→ (→ X Y R) R))]) ((inst p X) (λ ([x : X][y : Y]) x))))
- : (∀ ([X : ★][Y : ★]) (→ (tyapp Pair X Y) X)))
+ (Λ ([X :: ★][Y :: ★]) (λ ([p : (∀ ([R :: ★]) (→ (→ X Y R) R))]) ((inst p X) (λ ([x : X][y : Y]) x))))
+ : (∀ ([X :: ★][Y :: ★]) (→ (tyapp Pair X Y) X)))
 ;; fst: concrete Pair Int String accessor
 (check-type
  (inst
-  (Λ ([X : ★][Y : ★]) (λ ([p : (∀ ([R : ★]) (→ (→ X Y R) R))]) ((inst p X) (λ ([x : X][y : Y]) x))))
+  (Λ ([X :: ★][Y :: ★]) (λ ([p : (∀ ([R :: ★]) (→ (→ X Y R) R))]) ((inst p X) (λ ([x : X][y : Y]) x))))
   Int String)
  : (→ (tyapp Pair Int String) Int))
 ;; apply fst
 (check-type
  ((inst
-   (Λ ([X : ★][Y : ★]) (λ ([p : (∀ ([R : ★]) (→ (→ X Y R) R))]) ((inst p X) (λ ([x : X][y : Y]) x))))
+   (Λ ([X :: ★][Y :: ★]) (λ ([p : (∀ ([R :: ★]) (→ (→ X Y R) R))]) ((inst p X) (λ ([x : X][y : Y]) x))))
    Int String)
-  ((inst (Λ ([X : ★] [Y : ★]) (λ ([x : X][y : Y]) (Λ ([R : ★]) (λ ([p : (→ X Y R)]) (p x y)))))
+  ((inst (Λ ([X :: ★] [Y :: ★]) (λ ([x : X][y : Y]) (Λ ([R :: ★]) (λ ([p : (→ X Y R)]) (p x y)))))
          Int String) 1 "1"))
  : Int ⇒ 1)
 ;; snd
 (check-type
- (Λ ([X : ★][Y : ★]) (λ ([p : (∀ ([R : ★]) (→ (→ X Y R) R))]) ((inst p Y) (λ ([x : X][y : Y]) y))))
- : (∀ ([X : ★][Y : ★]) (→ (tyapp Pair X Y) Y)))
+ (Λ ([X :: ★][Y :: ★]) (λ ([p : (∀ ([R :: ★]) (→ (→ X Y R) R))]) ((inst p Y) (λ ([x : X][y : Y]) y))))
+ : (∀ ([X :: ★][Y :: ★]) (→ (tyapp Pair X Y) Y)))
 (check-type
  (inst
-  (Λ ([X : ★][Y : ★]) (λ ([p : (∀ ([R : ★]) (→ (→ X Y R) R))]) ((inst p Y) (λ ([x : X][y : Y]) y))))
+  (Λ ([X :: ★][Y :: ★]) (λ ([p : (∀ ([R :: ★]) (→ (→ X Y R) R))]) ((inst p Y) (λ ([x : X][y : Y]) y))))
   Int String)
  : (→ (tyapp Pair Int String) String))
 (check-type
  ((inst
-   (Λ ([X : ★][Y : ★]) (λ ([p : (∀ ([R : ★]) (→ (→ X Y R) R))]) ((inst p Y) (λ ([x : X][y : Y]) y))))
+   (Λ ([X :: ★][Y :: ★]) (λ ([p : (∀ ([R :: ★]) (→ (→ X Y R) R))]) ((inst p Y) (λ ([x : X][y : Y]) y))))
    Int String)
-  ((inst (Λ ([X : ★] [Y : ★]) (λ ([x : X][y : Y]) (Λ ([R : ★]) (λ ([p : (→ X Y R)]) (p x y)))))
+  ((inst (Λ ([X :: ★] [Y :: ★]) (λ ([x : X][y : Y]) (Λ ([R :: ★]) (λ ([p : (→ X Y R)]) (p x y)))))
          Int String) 1 "1"))
  : String ⇒ "1")
 
 ;; sysf tests wont work, unless augmented with kinds
-(check-type (Λ ([X : ★]) (λ ([x : X]) x)) : (∀ ([X : ★]) (→ X X)))
+(check-type (Λ ([X :: ★]) (λ ([x : X]) x)) : (∀ ([X :: ★]) (→ X X)))
 
-(check-type (Λ ([X : ★]) (λ ([t : X] [f : X]) t)) : (∀ ([X : ★]) (→ X X X))) ; true
-(check-type (Λ ([X : ★]) (λ ([t : X] [f : X]) f)) : (∀ ([X : ★]) (→ X X X))) ; false
-(check-type (Λ ([X : ★]) (λ ([t : X] [f : X]) f)) : (∀ ([Y : ★]) (→ Y Y Y))) ; false, alpha equiv
+(check-type (Λ ([X :: ★]) (λ ([t : X] [f : X]) t)) : (∀ ([X :: ★]) (→ X X X))) ; true
+(check-type (Λ ([X :: ★]) (λ ([t : X] [f : X]) f)) : (∀ ([X :: ★]) (→ X X X))) ; false
+(check-type (Λ ([X :: ★]) (λ ([t : X] [f : X]) f)) : (∀ ([Y :: ★]) (→ Y Y Y))) ; false, alpha equiv
 
-(check-type (Λ ([t1 : ★]) (Λ ([t2 : ★]) (λ ([x : t1]) (λ ([y : t2]) y))))
-            : (∀ ([t1 : ★]) (∀ ([t2 : ★]) (→ t1 (→ t2 t2)))))
+(check-type (Λ ([t1 :: ★]) (Λ ([t2 :: ★]) (λ ([x : t1]) (λ ([y : t2]) y))))
+            : (∀ ([t1 :: ★]) (∀ ([t2 :: ★]) (→ t1 (→ t2 t2)))))
 
-(check-type (Λ ([t1 : ★]) (Λ ([t2 : ★]) (λ ([x : t1]) (λ ([y : t2]) y))))
-            : (∀ ([t3 : ★]) (∀ ([t4 : ★]) (→ t3 (→ t4 t4)))))
+(check-type (Λ ([t1 :: ★]) (Λ ([t2 :: ★]) (λ ([x : t1]) (λ ([y : t2]) y))))
+            : (∀ ([t3 :: ★]) (∀ ([t4 :: ★]) (→ t3 (→ t4 t4)))))
 
-(check-not-type (Λ ([t1 : ★]) (Λ ([t2 : ★]) (λ ([x : t1]) (λ ([y : t2]) y))))
-            : (∀ ([t4 : ★]) (∀ ([t3 : ★]) (→ t3 (→ t4 t4)))))
+(check-not-type (Λ ([t1 :: ★]) (Λ ([t2 :: ★]) (λ ([x : t1]) (λ ([y : t2]) y))))
+            : (∀ ([t4 :: ★]) (∀ ([t3 :: ★]) (→ t3 (→ t4 t4)))))
 
-(check-type (inst (Λ ([t : ★]) (λ ([x : t]) x)) Int) : (→ Int Int))
-(check-type (inst (Λ ([t : ★]) 1) (→ Int Int)) : Int)
+(check-type (inst (Λ ([t :: ★]) (λ ([x : t]) x)) Int) : (→ Int Int))
+(check-type (inst (Λ ([t :: ★]) 1) (→ Int Int)) : Int)
 ; first inst should be discarded
-(check-type (inst (inst (Λ ([t : ★]) (Λ ([t : ★]) (λ ([x : t]) x))) (→ Int Int)) Int) : (→ Int Int))
+(check-type (inst (inst (Λ ([t :: ★]) (Λ ([t :: ★]) (λ ([x : t]) x))) (→ Int Int)) Int) : (→ Int Int))
 ; second inst is discarded
-(check-type (inst (inst (Λ ([t1 : ★]) (Λ ([t2 : ★]) (λ ([x : t1]) x))) Int) (→ Int Int)) : (→ Int Int))
+(check-type (inst (inst (Λ ([t1 :: ★]) (Λ ([t2 :: ★]) (λ ([x : t1]) x))) Int) (→ Int Int)) : (→ Int Int))
 
 ;; polymorphic arguments
-(check-type (Λ ([t : ★]) (λ ([x : t]) x)) : (∀ ([t : ★]) (→ t t)))
-(check-type (Λ ([t : ★]) (λ ([x : t]) x)) : (∀ ([s : ★]) (→ s s)))
-(check-type (Λ ([s : ★]) (Λ ([t : ★]) (λ ([x : t]) x))) : (∀ ([s : ★]) (∀ ([t : ★]) (→ t t))))
-(check-type (Λ ([s : ★]) (Λ ([t : ★]) (λ ([x : t]) x))) : (∀ ([r : ★]) (∀ ([t : ★]) (→ t t))))
-(check-type (Λ ([s : ★]) (Λ ([t : ★]) (λ ([x : t]) x))) : (∀ ([r : ★]) (∀ ([s : ★]) (→ s s))))
-(check-type (Λ ([s : ★]) (Λ ([t : ★]) (λ ([x : t]) x))) : (∀ ([r : ★]) (∀ ([u : ★]) (→ u u))))
-(check-type (λ ([x : (∀ ([t : ★]) (→ t t))]) x) : (→ (∀ ([s : ★]) (→ s s)) (∀ ([u : ★]) (→ u u))))
+(check-type (Λ ([t :: ★]) (λ ([x : t]) x)) : (∀ ([t :: ★]) (→ t t)))
+(check-type (Λ ([t :: ★]) (λ ([x : t]) x)) : (∀ ([s :: ★]) (→ s s)))
+(check-type (Λ ([s :: ★]) (Λ ([t :: ★]) (λ ([x : t]) x))) : (∀ ([s :: ★]) (∀ ([t :: ★]) (→ t t))))
+(check-type (Λ ([s :: ★]) (Λ ([t :: ★]) (λ ([x : t]) x))) : (∀ ([r :: ★]) (∀ ([t :: ★]) (→ t t))))
+(check-type (Λ ([s :: ★]) (Λ ([t :: ★]) (λ ([x : t]) x))) : (∀ ([r :: ★]) (∀ ([s :: ★]) (→ s s))))
+(check-type (Λ ([s :: ★]) (Λ ([t :: ★]) (λ ([x : t]) x))) : (∀ ([r :: ★]) (∀ ([u :: ★]) (→ u u))))
+(check-type (λ ([x : (∀ ([t :: ★]) (→ t t))]) x) : (→ (∀ ([s :: ★]) (→ s s)) (∀ ([u :: ★]) (→ u u))))
 (typecheck-fail ((λ ([x : (∀ (t) (→ t t))]) x) (λ ([x : Int]) x)))
 (typecheck-fail ((λ ([x : (∀ (t) (→ t t))]) x) 1))
-(check-type ((λ ([x : (∀ ([t : ★]) (→ t t))]) x) (Λ ([s : ★]) (λ ([y : s]) y))) : (∀ ([u : ★]) (→ u u)))
+(check-type ((λ ([x : (∀ ([t :: ★]) (→ t t))]) x) (Λ ([s :: ★]) (λ ([y : s]) y))) : (∀ ([u :: ★]) (→ u u)))
 (check-type
- (inst ((λ ([x : (∀ ([t : ★]) (→ t t))]) x) (Λ ([s : ★]) (λ ([y : s]) y))) Int) : (→ Int Int))
+ (inst ((λ ([x : (∀ ([t :: ★]) (→ t t))]) x) (Λ ([s :: ★]) (λ ([y : s]) y))) Int) : (→ Int Int))
 (check-type
- ((inst ((λ ([x : (∀ ([t : ★]) (→ t t))]) x) (Λ ([s : ★]) (λ ([y : s]) y))) Int) 10)
+ ((inst ((λ ([x : (∀ ([t :: ★]) (→ t t))]) x) (Λ ([s :: ★]) (λ ([y : s]) y))) Int) 10)
  : Int ⇒ 10)
-(check-type (λ ([x : (∀ ([t : ★]) (→ t t))]) (inst x Int)) : (→ (∀ ([t : ★]) (→ t t)) (→ Int Int)))
-(check-type (λ ([x : (∀ ([t : ★]) (→ t t))]) ((inst x Int) 10)) : (→ (∀ ([t : ★]) (→ t t)) Int))
-(check-type ((λ ([x : (∀ ([t : ★]) (→ t t))]) ((inst x Int) 10))
-             (Λ ([s : ★]) (λ ([y : s]) y)))
+(check-type (λ ([x : (∀ ([t :: ★]) (→ t t))]) (inst x Int)) : (→ (∀ ([t :: ★]) (→ t t)) (→ Int Int)))
+(check-type (λ ([x : (∀ ([t :: ★]) (→ t t))]) ((inst x Int) 10)) : (→ (∀ ([t :: ★]) (→ t t)) Int))
+(check-type ((λ ([x : (∀ ([t :: ★]) (→ t t))]) ((inst x Int) 10))
+             (Λ ([s :: ★]) (λ ([y : s]) y)))
              : Int ⇒ 10)
 
 
