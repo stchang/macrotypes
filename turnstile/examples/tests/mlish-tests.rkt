@@ -295,7 +295,7 @@
    [Nil -> 3])
  : Int ⇒ 6)
             
-;; check expected-type propagation for other match paterns
+;; check expected-type propagation for other match patterns
 
 (define-type (Option A)
   (None)
@@ -450,6 +450,13 @@
 
 (define (ok [a : A] → (Result A B))
   (Ok a))
+
+;; Cannot infer concrete type for B in (Result A B).
+;; Need expected type (see (inst result-if-1 ...) example below)
+(typecheck-fail
+ (λ ([a : Int]) (ok (Cons a Nil)))
+ #:with-msg "Could not infer instantiation of polymorphic function ok")
+
 (define (error [b : B] → (Result A B))
   (Error b))
 
@@ -512,6 +519,7 @@
             : (→ (→ Int (Result (List Int) (List String)))
                  (→ String (Result (List Int) (List String)))
                  (Result (List Int) (List String))))
+
 (check-type (((inst result-if-1 Int String (List Int) (List String)) (Ok 1))
              (λ ([a : Int])    (ok (Cons a Nil)))
              (λ ([b : String]) (error (Cons b Nil))))
@@ -671,7 +679,7 @@
 (typecheck-fail (ann 1 : Complex) #:with-msg "unbound identifier")
 (typecheck-fail (ann 1 : 1) #:with-msg "not a well-formed type")
 (typecheck-fail (ann 1 : (λ ([x : Int]) x)) #:with-msg "not a well-formed type")
-(typecheck-fail (ann Int : Int) #:with-msg "expected Int, given #%type\n *expression: Int")
+(typecheck-fail (ann Int : Int) #:with-msg "expected Int, given an invalid expression\n *expression: Int")
 
 ; let
 (check-type (let () (+ 1 1)) : Int ⇒ 2)

@@ -86,9 +86,7 @@
   ;; find-free-Xs : (Stx-Listof Id) Type -> (Listof Id)
   ;; finds the free Xs in the type
   (define (find-free-Xs Xs ty)
-    (for/list ([X (in-list (stx->list Xs))]
-               #:when (stx-contains-id? ty X))
-      X))
+    (for/list ([X (in-stx-list Xs)] #:when (stx-contains-id? ty X)) X))
 
   ;; solve for Xs by unifying quantified fn type with the concrete types of stx's args
   ;;   stx = the application stx = (#%app e_fn e_arg ...)
@@ -104,8 +102,9 @@
     (syntax-parse tyXs
       [(τ_inX ... τ_outX)
        ;; generate initial constraints with expected type and τ_outX
-       #:with (~?∀ Vs expected-ty) (and (get-expected-type stx)
-                                        ((current-type-eval) (get-expected-type stx)))
+       #:with (~?∀ Vs expected-ty)
+              (and (get-expected-type stx)
+                   ((current-type-eval) (get-expected-type stx)))
        (define initial-cs
          (if (and (syntax-e #'expected-ty) (stx-null? #'Vs))
              (add-constraints Xs '() (list (list #'expected-ty #'τ_outX)))
@@ -114,8 +113,8 @@
          [(_ e_fn . args)
           (define-values (as- cs)
               (for/fold ([as- null] [cs initial-cs])
-                        ([a (in-list (syntax->list #'args))]
-                         [tyXin (in-list (syntax->list #'(τ_inX ...)))])
+                        ([a (in-stx-list #'args)]
+                         [tyXin (in-stx-list #'(τ_inX ...))])
                 (define ty_in (inst-type/cs Xs cs tyXin))
                 (define/with-syntax [a- ty_a]
                   (infer+erase (if (empty? (find-free-Xs Xs ty_in))
@@ -149,7 +148,7 @@
   (define (covariant-Xs? ty)
     (syntax-parse ((current-type-eval) ty)
       [(~?∀ Xs ty)
-       (for/and ([X (in-list (syntax->list #'Xs))])
+       (for/and ([X (in-stx-list #'Xs)])
          (covariant-X? X #'ty))]))
 
   ;; find-X-variance : Id Type [Variance] -> Variance
@@ -186,7 +185,7 @@
          (for/list ([arg-variance (in-list (get-arg-variances #'tycons))])
            (variance-compose ctxt-variance arg-variance)))
        (for/fold ([acc (make-list (length Xs) irrelevant)])
-                 ([τ (in-list (syntax->list #'[τ ...]))]
+                 ([τ (in-stx-list #'[τ ...])]
                   [τ-ctxt-variance (in-list τ-ctxt-variances)])
          (map variance-join
               acc
@@ -856,7 +855,7 @@
    [⊢ (λ- (x- ...) body-)]]
   [(λ ([x : τ_x] ...) body) ⇐ (~?∀ (V ...) (~ext-stlc:→ τ_in ... τ_out)) ≫
    #:with [X ...] (compute-tyvars #'(τ_x ...))
-   [([X ≫ X- :: #%type] ...) () ⊢ [τ_x ≫ τ_x- ⇐ #%type] ...]
+   [([X ≫ X- :: #%type] ...) () ⊢ [τ_x ≫ τ_x- ⇐ :: #%type] ...]
    [τ_in τ⊑ τ_x- #:for x] ...
    ;; TODO is there a way to have λs that refer to ids defined after them?
    [([V ≫ V- :: #%type] ... [X- ≫ X-- :: #%type] ...) ([x ≫ x- : τ_x-] ...)
