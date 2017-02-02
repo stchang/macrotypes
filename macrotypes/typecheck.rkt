@@ -457,24 +457,33 @@
              [(_ (~var x id) (... ...))
               #'(begin (define-base-type x) (... ...))]))
          ;; type constructors -------------------------------------------------
+         ;; internal-type-constructor defines:
+         ;; - internal id identifying the constructor
+         ;; - predicate recognizing the internal id
+         ;; - expanded shape of type
+         ;; - pattern expander recognizing the shape
+         ;; - internal contructor τ-
+         ;; internal-type-constructor does no checks:
+         ;; - does not check arity
+         ;; - does not check that inputs are valid types
+         ;; - does not attach a kind to itself
          (define-syntax define-internal-type-constructor
            (syntax-parser
 ;             [(_ (~var x id) . rst)
 ;              #'(define-basic-checked-stx x key2 type #:no-attach-kind . rst)]))
             [(_ (~var τ id)
                 (~or
-                 (~optional ; arity
-                  (~seq #:arity op n:exact-nonnegative-integer)
-                  #:defaults ([op #'=] [n #'1]))
-                 (~optional ; arg-variances
+                 (~optional ; variances
                   (~seq #:arg-variances arg-variances-stx:expr)
+                  #:name "#:arg-variances keyword"
                   #:defaults
                   ([arg-variances-stx
                     #`(λ (stx-id)
-                        (for/list ([arg (in-stx-list (stx-cdr stx-id))])
-                          invariant))]))
+                        (for/list ([_ (in-stx-list (stx-cdr stx-id))])
+                                  invariant))]))
                  (~optional ; extra-info
                   (~seq #:extra-info extra-info)
+                  #:name "#:extra-info keyword"
                   #:defaults ([extra-info #'void]))) (... ...))
 ;              #:with #%kind (mk-#% #'kind)
              #:with τ? (mk-? #'τ)
@@ -495,14 +504,14 @@
                         #'(~and expanded-τ 
                                 (~Any
                                  (~literal/else τ-internal
-                                   (format "Expected ~a type, got: ~a"
-                                           'τ (type->str #'expanded-τ))
+                                   (format "Expected ~a ~a, got: ~a"
+                                           'τ 'name (type->str #'expanded-τ))
                                    #'expanded-τ)
                                  . pat))])))
-                  (define arg-variances arg-variances-stx))
+                  (define arg-vars arg-variances-stx))
                 (define τ-internal
                   (λ _ (raise (exn:fail:type:runtime
-                               (format "~a: Cannot use ~a at run time" 'τ 'kind)
+                               (format "~a: Cannot use ~a at run time" 'τ 'name)
                                (current-continuation-marks)))))
                 ; τ- is an internal constructor:
                 ; It does not validate inputs and does not attach a kind,
@@ -511,58 +520,56 @@
                 (define-syntax (τ- stx)
                   (syntax-parse stx
                     [(_ . args)
-                    #:fail-unless (op (stx-length #'args) n)
-                                  (format "wrong number of arguments, expected ~a ~a"
-                                          'op 'n)
-                     #:with τ-internal*
-                     (add-arg-variances #'τ-internal
-                                        (arg-variances #'(τ . args)))
+                     #:with τ* (add-arg-variances #'τ-internal (arg-vars stx))
                      (syntax/loc stx 
-                       (τ-internal*
-                        (λ () (#%expression extra-info) . args)))]
-                   [_ ;; else fail with err msg
-                    (type-error 
-                     #:src stx
-                     #:msg
-                     (string-append
-                      "Improper usage of type constructor ~a: ~a, expected ~a ~a arguments")
-                     #'τ stx #'op #'n)])))]))
+                       (τ* (λ () (#%expression extra-info) . args)))])))]))
          (define-syntax define-type-constructor
            (syntax-parser
-            [(_ (~var τ id) . options)
+            [(_ (~var τ id)
+                ;; TODO: allow any order of kws between τ and τ-
+                (~optional ; arity
+                 (~seq #:arity op n:exact-nonnegative-integer)
+                 #:defaults ([op #'=] [n #'1]))
+                 . (~and other-options (~not (#:arity . _))))
              #:with τ- (mk-- #'τ)
              #'(begin
-                 (define-internal-type-constructor τ . options)
+                 (define-internal-type-constructor τ . other-options)
 ;                 #'(define-basic-checked-stx x key2 type . rst)]))
                  (define-syntax (τ stx)
                    (syntax-parse stx
-                    [(~var _ id) (add-orig (syntax/loc stx τ-) stx)] ; defer to τ- error
+;                    [(~var _ id) (add-orig (syntax/loc stx τ-) stx)] ; defer to τ- error
                     [(_ . args)
+                     #:fail-unless (op (stx-length #'args) n)
+                                   (format
+                                    "wrong number of arguments, expected ~a ~a"
+                                    'op 'n)
                      #:with ([arg- _] (... (... ...))) (infers+erase #'args #:tag 'key2)
                      ;; args are validated on the next line rather than above
                      ;; to ensure enough stx-parse progress for proper err msg,
                      ;; ie, "invalid type" instead of "improper tycon usage"
                      #:with (~! (~var _ type) (... (... ...))) #'(arg- (... (... ...)))
-                     (add-orig (mk-type #'(τ- arg- (... (... ...)))) stx)])))]))
+                     (add-orig (mk-type #'(τ- arg- (... (... ...)))) stx)]
+                    [_ ;; else fail with err msg
+                     (type-error #:src stx
+                      #:msg
+                      (string-append
+                       "Improper usage of type constructor ~a: ~a, expected ~a ~a arguments")
+                      #'τ stx #'op #'n)])))]))
          (define-syntax define-internal-binding-type
            (syntax-parser
             [(_ (~var τ id)
                 (~or
-                 (~optional ; arity, here it's body exprs
-                  (~seq #:arity op n:exact-nonnegative-integer)
-                  #:defaults ([op #'=] [n #'1]))
-                 (~optional ; bvs, number of type vars to bind
-                  (~seq #:bvs bvs-op bvs-n:exact-nonnegative-integer)
-                  #:defaults ([bvs-op #'>=][bvs-n #'0]))
                  (~optional ; variances
                   (~seq #:arg-variances arg-variances-stx:expr)
+                  #:name "#:arg-variances keyword"
                   #:defaults
                   ([arg-variances-stx
                     #`(λ (stx-id)
-                        (for/list ([arg (in-stx-list (stx-cdr stx-id))])
+                        (for/list ([arg (in-stx-list (stx-cddr stx-id))])
                           invariant))]))
                  (~optional ; extra-info
-                  (~seq #:extra-info extra-info) 
+                  (~seq #:extra-info extra-info)
+                  #:name "#:extra-info keyword"
                   #:defaults ([extra-info #'void]))) (... ...))
              #:with τ? (mk-? #'τ)
              #:with τ- (mk-- #'τ)
@@ -606,9 +613,7 @@
                               ;;                  (detach #'expanded-τ))
                               ;;          (~parse pat
                               ;;                  #'[([tv k] (... (... ...))) rst]))
-                                    (~parse
-                                     pat
-                                     #'[bvs rst]))]
+                              (~parse pat #'[bvs rst]))]
                      ;; TODO: fix this to handle has-annotations?
                      ;; the difference with the first case is that here
                      ;; the body is ungrouped, ie,
@@ -618,16 +623,15 @@
                       #'(~and expanded-τ
                               (~Any/bvs 
                                (~literal/else τ-internal
-                                              (format "Expected ~a type, got: ~a"
-                                                      'τ (type->str #'expanded-τ))
+                                              (format "Expected ~a ~a, got: ~a"
+                                                      'τ 'name (type->str #'expanded-τ))
                                               #'expanded-τ)
-                               bvs-pat
-                               . pat))])))
-                 (define arg-variances arg-variances-stx))
+                               bvs-pat . pat))])))
+                 (define arg-vars arg-variances-stx))
                  ; end define-internal-binding-type begin-for-stx -------------
                 (define τ-internal
                   (λ _ (raise (exn:fail:type:runtime
-                               (format "~a: Cannot use ~a at run time" 'τ 'kind)
+                               (format "~a: Cannot use ~a at run time" 'τ 'name)
                                (current-continuation-marks)))))
                 ; τ- is an internal constructor:
                 ; Tt does not validate inputs and does not attach a kind,
@@ -636,44 +640,47 @@
                 (define-syntax (τ- stx)
                   (syntax-parse stx
                     [(_ bvs . args)
-                     #:fail-unless (bvs-op (stx-length #'bvs) bvs-n)
-                                   (format "wrong number of type vars, expected ~a ~a"
-                                           'bvs-op 'bvs-n)
-                     #:fail-unless (op (stx-length #'args) n)
-                                   (format "wrong number of arguments, expected ~a ~a"
-                                           'op 'n)
-                     #:with τ-internal* (add-arg-variances
-                                         #'τ-internal
-                                         (arg-variances #'(τ- . args))) ; drop bvs
-                     (syntax/loc stx 
-                       (τ-internal* (λ bvs (#%expression extra-info) . args)))]
-                    ;; else fail with err msg
-                    [_
-                     (type-error 
-                      #:src stx
-                      #:msg
-                      (string-append
-                       "Improper usage of type constructor ~a: ~a, expected ~a ~a arguments")
-                      #'τ stx #'op #'n)])))]))
+                     #:with τ* (add-arg-variances #'τ-internal (arg-vars stx))
+                     (syntax/loc stx
+                       (τ* (λ bvs (#%expression extra-info) . args)))])))]))
          (define-syntax define-binding-type
            (syntax-parser
              [(_ (~var τ id)
-                 (~optional
-                  (~seq #:arr (~and kindcon (~parse has-annotations? #'#t)))
-                  #:defaults ([kindcon #'void])) ; default kindcon should never be used
-                 . other-options)
+                 (~or ;; TODO: allow any order of kws between τ and τ-
+                  (~optional ; arity, ie body exprs
+                   (~seq #:arity op n:exact-nonnegative-integer)
+                   #:name "#:arity keyword"
+                   #:defaults ([op #'=] [n #'1]))
+                  (~optional ; bvs, ie num bindings tyvars
+                   (~seq #:bvs bvs-op bvs-n:exact-nonnegative-integer)
+                   #:name "#:bvs keyword" 
+                   #:defaults ([bvs-op #'>=][bvs-n #'0]))
+                  (~optional ; arr, ie constructor for kind annotations
+                   (~seq #:arr (~and kindcon (~parse has-annotations? #'#t)))
+                   #:name "#:arr keyword"
+                   #:defaults ([kindcon #'void]))) ; dont use kindcon default
+                  (... ...)
+                 . (~and other-options
+                         (~not ((~or #:arity #:bvs #:arr) . _))))
 ;              #'(define-binding-checked-stx x key2 type . rst)])))]))
               #:with τ- (mk-- #'τ)
               #`(begin
                  (define-internal-binding-type τ . other-options)
                  (define-syntax (τ stx)
                    (syntax-parse stx
-                    [(~var _ id) (add-orig (syntax/loc stx τ-) stx)] ; defer to τ- error
-                    [(_ (~or (bv:id (... (... ...)))
-                             (~and (~fail #:unless #,(attribute has-annotations?))
-                                   ([_ (~datum key2) _] (... (... ...)))
-                                   bvs+ann))
+;                    [(~var _ id) (add-orig (syntax/loc stx τ-) stx)] ; defer to τ- error
+                    [(_ (~and bvs
+                              (~or (bv:id (... (... ...)))
+                                   (~and (~fail #:unless #,(attribute has-annotations?))
+                                         ([_ (~datum key2) _] (... (... ...)))
+                                         bvs+ann)))
                         . args)
+                     #:fail-unless (bvs-op (stx-length #'bvs) bvs-n)
+                                   (format "wrong number of type vars, expected ~a ~a"
+                                           'bvs-op 'bvs-n)
+                     #:fail-unless (op (stx-length #'args) n)
+                                   (format "wrong number of arguments, expected ~a ~a"
+                                           'op 'n)
                      #:with bvs+ks (if #,(attribute has-annotations?)
                                        #'bvs+ann
                                        #'([bv key2 #%tag] (... (... ...))))
@@ -688,7 +695,13 @@
                                          #'#%tag)
                      (add-orig
                       (attach #'(τ- bvs- . τs-) 'key2 ((current-type-eval) #'k_result))
-                      stx)])))])))]))
+                      stx)]
+                    [_
+                     (type-error #:src stx
+                      #:msg
+                      (string-append
+                       "Improper usage of type constructor ~a: ~a, expected ~a ~a arguments")
+                      #'τ stx #'op #'n)])))])))]))
 
 ;; end define-syntax-category -------------------------------------------------
 ;; ----------------------------------------------------------------------------

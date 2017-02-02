@@ -49,4 +49,5 @@
          #'([l τl] ...))]
        [_ #f])))
   (current-sub? sub?)
-  (current-typecheck-relation (current-sub?)))
+  (current-typecheck-relation sub?)
+  (current-check-relation sub?))

@@ -64,7 +64,7 @@
   (current-check-relation type=?))
 
 ;; kinds ----------------------------------------------------------------------
-(define-internal-kind-constructor ★ #:arity >= 0) ; defines ★-
+(define-internal-kind-constructor ★) ; defines ★-
 (define-syntax (★ stx)
   (syntax-parse stx
     [:id (mk-kind #'(★-))]
@@ -84,7 +84,7 @@
 (define-base-type Float : ★)
 (define-base-type Char : ★)
 
-(define-internal-type-constructor → #:arity >= 0) ; defines →-
+(define-internal-type-constructor →) ; defines →-
 (define-kinded-syntax (→ ty ...+) ≫
   [⊢ ty ≫ ty- ⇒ (~★ . _)] ...
   --------
