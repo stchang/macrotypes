@@ -358,7 +358,7 @@
     [pattern (~seq pat)
              #:attr transform-body identity]
     [pattern (~or (~seq pat* left:⇐ τ-pat ; implicit tag
-                        (~parse tag #',current-tag))
+                        (~parse tag #',(current-tag)))
                   (~seq pat* left:⇐ tag:id τ-pat)) ; explicit tag
              #:with stx (generate-temporary 'stx)
              #:with τ (generate-temporary #'τ-pat)

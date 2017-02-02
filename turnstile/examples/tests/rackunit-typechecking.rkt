@@ -32,7 +32,8 @@
                     (type->str #'τ) (type->str #'τ-expected))
      (syntax/loc stx (check-equal? e+ (add-expected v τ-expected)))]
     [(_ e tag:id τ-expected)
-     #:with τ (detach (expand/df #'(add-expected e τ-expected)) (stx->datum #'tag))
+     #:with e+ (expand/df #'(add-expected e τ-expected))
+     #:with τ (detach #'e+ (stx->datum #'tag))
      #:fail-unless
      (typecheck? #'τ ((current-type-eval) #'τ-expected))
      (format

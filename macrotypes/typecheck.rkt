@@ -698,6 +698,7 @@
 
 ;; generic, type-agnostic parameters
 ;; Use these for code that is generic over types and kinds
+;; TODO: need an easier way to update all relevant params at once
 (begin-for-syntax
   (define current=? (make-parameter (current-type=?)))
   (define (=s? xs1 xs2) ; map current=? pairwise over lists

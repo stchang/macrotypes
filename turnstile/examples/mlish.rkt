@@ -422,7 +422,7 @@
                            (format "Improper use of constructor ~a; expected ~a args, got ~a"
                                    (syntax->datum #'Name) (stx-length #'(X ...))
                                    (stx-length (stx-cdr #'stx))))])]
-                       [X (make-rename-transformer (⊢ X #%type))] ...)
+                       [X (make-rename-transformer (⊢ X :: #%type))] ...)
                       (void ty_flat ...)))))
      #:when (or (equal? '(unbound) (syntax->datum #'(ty+ ...)))
                 (stx-map 
@@ -859,7 +859,7 @@
    [([X ≫ X- :: #%type] ...) () ⊢ [τ_x ≫ τ_x- ⇐ #%type] ...]
    [τ_in τ⊑ τ_x- #:for x] ...
    ;; TODO is there a way to have λs that refer to ids defined after them?
-   [([V ≫ V- :: #%type] ... [X- ≫ X-- : #%type] ...) ([x ≫ x- : τ_x-] ...)
+   [([V ≫ V- :: #%type] ... [X- ≫ X-- :: #%type] ...) ([x ≫ x- : τ_x-] ...)
     ⊢ body ≫ body- ⇐ τ_out]
    --------
    [⊢ (λ- (x- ...) body-)]]

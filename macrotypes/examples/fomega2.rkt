@@ -78,6 +78,7 @@
   (define old-eval (current-type-eval))
   (define (type-eval τ) (normalize (old-eval τ)))
   (current-type-eval type-eval)
+  (current-ev type-eval)
   
   (define old-type=? (current-type=?))
   (define (type=? t1 t2)
@@ -87,7 +88,9 @@
        ((current-kind=?) #'k1 #'k2)]
       [_ (old-type=? t1 t2)]))
   (current-type=? type=?)
-  (current-typecheck-relation (current-type=?))
+  (current=? type=?)
+  (current-typecheck-relation type=?)
+  (current-check-relation type=?)  
 
   (define old-kind=? (current-kind=?))
   (define (new-kind=? k1 k2)
@@ -95,7 +98,7 @@
         (and (#%type? k1) (★? k2))
         (old-kind=? k1 k2)))
   (current-kind=? new-kind=?)
-  (current-kindcheck-relation (current-kind=?)))
+  (current-kindcheck-relation new-kind=?))
 
 (define-typed-syntax Λ
   [(_ bvs:kind-ctx e)

@@ -82,6 +82,7 @@
   (define old-eval (current-type-eval))
   (define (type-eval τ) (normalize (old-eval τ)))
   (current-type-eval type-eval)
+  (current-ev type-eval)
   
   (define old-type=? (current-type=?))
   ; ty=? == syntax eq and syntax prop eq
@@ -91,7 +92,8 @@
                (and k1 k2 ((current-kind=?) k1 k2)))
            (old-type=? t1 t2))))
   (current-type=? type=?)
-  (current-typecheck-relation (current-type=?)))
+  (current-typecheck-relation type=?)
+  (current-check-relation type=?))
 
 (define-typed-syntax Λ
   [(_ bvs:kind-ctx e)

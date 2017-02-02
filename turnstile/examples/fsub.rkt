@@ -34,7 +34,8 @@
   (define (sub? t1 t2)
     (stlc:sub? ((current-promote) t1) t2))
   (current-sub? sub?)
-  (current-typecheck-relation (current-sub?)))
+  (current-typecheck-relation sub?)
+  (current-check-relation sub?))
 
 ; quasi-kind, but must be type constructor because its arguments are types
 (define-type-constructor <: #:arity >= 0) 

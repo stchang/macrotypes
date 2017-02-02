@@ -69,6 +69,7 @@
   (define old-eval (current-type-eval))
   (define (type-eval τ) (normalize (old-eval τ)))
   (current-type-eval type-eval)
+  (current-ev type-eval)
   
   (define old-type=? (current-type=?))
   (define (type=? t1 t2)
@@ -81,7 +82,9 @@
                [_ #t])
              (old-type=? t1 t2))))
   (current-type=? type=?)
-  (current-typecheck-relation (current-type=?)))
+  (current=? type=?)
+  (current-typecheck-relation type=?)
+  (current-check-relation type=?))
 
 (define-typed-syntax (Λ bvs:kind-ctx e) ≫
   [[bvs.x ≫ tv- : bvs.kind] ... ⊢ e ≫ e- ⇒ τ_e]

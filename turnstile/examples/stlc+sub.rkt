@@ -52,6 +52,8 @@
         (Top? τ2)))
   (define current-sub? (make-parameter sub?))
   (current-typecheck-relation sub?)
+  (current-check-relation sub?)
+
   (define (subs? τs1 τs2)
     (and (stx-length=? τs1 τs2)
          (stx-andmap (current-sub?) τs1 τs2)))
@@ -73,7 +75,8 @@
                [(τ τ2-expander) ((current-sub?) #'τ #'τ1)]
                [_ #f]))
            (current-sub? (λ (t1 t2) (or (old-sub? t1 t2) (fn t1 t2))))
-           (current-typecheck-relation (current-sub?)))]
+           (current-typecheck-relation (current-sub?))
+           (current-check-relation (current-sub?)))]
       [(_ (~seq τ1:id <: τ2:id (~and (~literal ...) ddd))
           (~seq τ3:id <: τ4:id)
            =>
@@ -93,7 +96,8 @@
                      ((current-sub?) #'τ3 #'τ4))]
                [_ #f]))
            (current-sub? (λ (t1 t2) (or (old-sub? t1 t2) (fn t1 t2))))
-           (current-typecheck-relation (current-sub?)))]))
+           (current-typecheck-relation (current-sub?))
+           (current-check-relation (current-sub?)))]))
 
   (define-sub-relation Nat <: Int)
   (define-sub-relation Int <: Num)
