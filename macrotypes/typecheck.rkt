@@ -211,7 +211,10 @@
   ;; If Val is a non-empty list, return first element, otherwise return Val.
   ;; e.g., Stx = expression, Tag = ':, Val = Type stx
   (define (detach stx tag)
-    (get-stx-prop/car stx tag)))
+;    (or
+     (get-stx-prop/car stx tag)
+;     (error 'detach "~a has no ~a prop" (stx->datum stx) tag))
+     ))
 
 ;; ----------------------------------------------------------------------------
 ;; define-syntax-category ------------------------------------------------------

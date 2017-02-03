@@ -20,7 +20,7 @@
          λ #%app Λ inst
          (for-syntax current-kind-eval kindcheck?))
 
-(define-syntax-category :: kind :::)
+(define-syntax-category :: kind)
 
 ;; modify predicates to recognize → (function type) as both type and kind
 (begin-for-syntax
@@ -40,7 +40,7 @@
 (define-syntax define-type-alias
   (syntax-parser
     [(_ alias:id τ)
-     #:with (τ- k_τ) (infer+erase #'τ)
+     #:with (τ- _) (infer+erase #'τ #:tag '::)
      #'(define-syntax alias
          (syntax-parser [x:id #'τ-][(_ . rst) #'(τ- . rst)]))]))
 

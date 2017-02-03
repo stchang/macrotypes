@@ -17,7 +17,7 @@
          (type-out ★ ⇒ ∀★ ∀)
          Λ inst tyλ tyapp)
 
-(define-syntax-category :: kind :::)
+(define-syntax-category :: kind)
 
 ; want #%type to be equiv to★
 ; => edit current-kind? so existing #%type annotations (with no #%kind tag)

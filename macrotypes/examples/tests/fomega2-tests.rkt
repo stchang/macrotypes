@@ -1,6 +1,6 @@
 #lang s-exp "../fomega2.rkt"
 (require "rackunit-typechecking.rkt")
-(require "rackunit-typechecking-fomega2.rkt")
+(require "rackunit-kindchecking.rkt")
 
 (check-kind Int :: ★)
 (check-kind String :: ★)

@@ -120,7 +120,8 @@
            ((current-type=?) t1 #'t2*)]
           [_ #f])))
   (current-type=? new-type=?)
-  (current-typecheck-relation (current-type=?))
+  (current-typecheck-relation new-type=?)
+  (current-check-relation new-type=?)
 
   ;; current-type?
   ;; TODO: disabling type validation for now
@@ -146,6 +147,7 @@
            ((current-type-eval) #'(CCs- a b c (Int (#%datum- . e-)))))]
       [_ t+]))
   (current-type-eval new-teval)
+  (current-ev new-teval)
 
   ;; type inference helpers ---------------------------------------------------
   ;; A "B" is a type binding, eg (X ty) or (ty X)
