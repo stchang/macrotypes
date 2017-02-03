@@ -77,6 +77,7 @@
     (path->string (path-replace-suffix (file-name-from-path f) "")))
   (define-syntax-parameter stx (syntax-rules ())))
 
+;; non-turnstile
 (define-syntax (define-typed-syntax stx)
   (syntax-parse stx
     [(_ name:id stx-parse-clause ...+)
