@@ -1,6 +1,8 @@
 #lang s-exp "../fomega.rkt"
 (require "rackunit-typechecking.rkt")
 
+;; ok to conflate check-kind and check-type bc
+;; kindcheck? does not require special cases
 (check-type Int :: ★)
 (check-type String :: ★)
 (typecheck-fail →)

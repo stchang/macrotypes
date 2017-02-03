@@ -7,14 +7,14 @@
 
 ;; example suggested by Alexis King
 
-;; this version still uses ':: key for kinds
+;; this version still uses ': key for kinds
 
 (provide define-type-alias
          ★ ⇒ Int Bool String Float Char → ∀ tyλ tyapp
          (typed-out [+ : (→ Int Int Int)])
          λ #%app #%datum Λ inst ann)
 
-(define-syntax-category :: kind)
+(define-syntax-category kind)
 
 ;; redefine:
 ;; - current-type?: well-formed types have kind ★
@@ -80,11 +80,11 @@
   [≻ (define-syntax- alias 
        (make-variable-like-transformer #'τ.norm))])
 
-(define-base-type Int :: ★)
-(define-base-type Bool :: ★)
-(define-base-type String :: ★)
-(define-base-type Float :: ★)
-(define-base-type Char :: ★)
+(define-base-type Int : ★)
+(define-base-type Bool : ★)
+(define-base-type String : ★)
+(define-base-type Float : ★)
+(define-base-type Char : ★)
 
 (define-internal-type-constructor →) ; defines →-
 (define-kinded-syntax (→ ty ...+) ≫
@@ -93,15 +93,15 @@
   [⊢ (→- ty- ...) ⇒ ★])
 
 (define-internal-binding-type ∀) ; defines ∀-
-(define-kinded-syntax ∀
-  [(_ ctx:kind-ctx ty) ≫
-   [[ctx.x ≫ tv- :: ctx.kind] ... ⊢ ty ≫ ty- ⇒ (~★ . _)]
+(define-kinded-syntax ∀ #:datum-literals (:)
+  [(_ ([tv:id : k_in:kind] ...) ty) ≫
+   [[tv ≫ tv- : k_in.norm] ... ⊢ ty ≫ ty- ⇒ (~★ . _)]
    -------
-   [⊢ (∀- (tv- ...) ty-) ⇒ (★ ctx.kind ...)]])
+   [⊢ (∀- (tv- ...) ty-) ⇒ (★ k_in.norm ...)]])
 
 (define-kinded-syntax (tyλ bvs:kind-ctx τ_body) ≫
-  [[bvs.x ≫ tv- :: bvs.kind] ... ⊢ τ_body ≫ τ_body- ⇒ k_body]
-  #:fail-unless ((current-kind?) #'k_body) ; better err, in terms of τ_body
+  [[bvs.x ≫ tv- : bvs.kind] ... ⊢ τ_body ≫ τ_body- ⇒ k_body]
+  #:fail-unless ((current-kind?) #'k_body)
                 (format "not a valid type: ~a\n" (type->str #'τ_body))
   --------
   [⊢ (λ- (tv- ...) τ_body-) ⇒ (⇒ bvs.kind ... k_body)])
@@ -160,21 +160,19 @@
    [_ #:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])
 
 (define-typed-syntax (Λ bvs:kind-ctx e) ≫
-  [([bvs.x ≫ tv- :: bvs.kind] ...) () ⊢ e ≫ e- ⇒ τ_e]
+  [([bvs.x ≫ tv- : bvs.kind] ...) () ⊢ e ≫ e- ⇒ τ_e]
   --------
-  [⊢ e- ⇒ (∀ ([tv- :: bvs.kind] ...) τ_e)])
+  [⊢ e- ⇒ (∀ ([tv- : bvs.kind] ...) τ_e)])
 
 ;; TODO: what to do when a def-typed-stx needs both
 ;; current-typecheck-relation and current-kindcheck-relation
 (define-typed-syntax (inst e τ ...) ≫
-  [⊢ e ≫ e- ⇒ (~∀ (tv ...) τ_body) (⇒ :: (~★ k ...))]
-  ;; switch to kindcheck? instead of typecheck?
-  #:do[(define old-check (current-check-relation))
-       (current-check-relation (current-kindcheck-relation))]
-  [⊢ τ ≫ τ- ⇐ :: k] ...
-  #:do[(current-check-relation old-check)]
-  ;; #:fail-unless (kindchecks? #'(k_τ ...) #'(k ...))
-  ;;               (typecheck-fail-msg/multi #'(k ...) #'(k_τ ...) #'(τ ...))
+  [⊢ e ≫ e- ⇒ (~∀ (tv ...) τ_body) (⇒ (~★ k ...))]
+;  [⊢ τ ≫ τ- ⇐ k] ...
+  ;; want to use kindchecks? instead of typechecks?
+  [⊢ τ ≫ τ- ⇒ k_τ] ...
+  #:fail-unless (kindchecks? #'(k_τ ...) #'(k ...))
+                (typecheck-fail-msg/multi #'(k ...) #'(k_τ ...) #'(τ ...))
   #:with τ-inst (substs #'(τ- ...) #'(tv ...) #'τ_body)
   --------
   [⊢ e- ⇒ τ-inst])
