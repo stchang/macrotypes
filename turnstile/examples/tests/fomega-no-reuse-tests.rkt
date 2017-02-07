@@ -54,7 +54,7 @@
             : (→ (→ Int String) (→ Int String)))
 (typecheck-fail ; TODO: fix err msg: "given an invalid expression"
  (inst (Λ ([X :: ★]) (λ ([x : X]) x)) 1)
- #:with-msg "inst: type mismatch: expected ★") 
+ #:with-msg "inst:.*not a valid type: 1") 
 
 (typecheck-fail
  (Λ ([tyf :: (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) (f 1)))

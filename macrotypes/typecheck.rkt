@@ -42,10 +42,11 @@
 ;; - To typecheck a surface form, it local-expands each subterm in order to get
 ;;   their types.
 ;; - With this typechecking strategy, the typechecking implementation machinery
-;;   is easily inserted into each #%- form
+;;   is easily inserted into each #%XYZ form
 ;; - A base type is just a Racket identifier, so type equality, even with
 ;;   aliasing, is just free-identifier=?
 ;; - type constructors are prefix
+;; - use different stx prop keys for different metadata, eg ':: for kinds
 
 ;; redefine #%module-begin to add some provides
 (provide (rename-out [mb #%module-begin]))
@@ -54,7 +55,7 @@
     [(_ . stuff)
      (syntax/loc this-syntax
        (#%module-begin
-        ; provide some useful racket forms
+        ; auto-provide some useful racket forms
         (provide #%module-begin #%top-interaction #%top require only-in)
         . stuff))]))
 
@@ -77,7 +78,9 @@
     (path->string (path-replace-suffix (file-name-from-path f) "")))
   (define-syntax-parameter stx (syntax-rules ())))
 
-;; non-turnstile
+;; non-Turnstile define-typed-syntax
+;; TODO: potentially confusing? get rid of this?
+;; - but it will be annoying since the `stx` stx-param is used everywhere
 (define-syntax (define-typed-syntax stx)
   (syntax-parse stx
     [(_ name:id stx-parse-clause ...+)
@@ -190,38 +193,31 @@
 (begin-for-syntax
   ;; Helper functions for attaching/detaching types, kinds, etc.
   
-  ;; get-stx-prop/car : Stx Key -> Val
-  ;; Retrieves Val at Key stx prop on Stx.
-  ;; If Val is a non-empty list, return first element, otherwise return Val.
-  (define (get-stx-prop/car stx tag)
-    (define v (syntax-property stx tag))
-    (let L ([v v])
-      (if (cons? v) (L (car v)) v)))
-
   ;; A Tag is a Symbol serving as a stx prop key for some kind of metadata.
   ;; e.g., ': for types, ':: for kinds, etc.
-  ;; Define new kinds of metadata with `define-syntax-category`
+  ;; Define new metadata via `define-syntax-category`
 
   ;; attach : Stx Tag Val -> Stx
   ;; Adds Tag+Val to Stx as stx prop, returns new Stx.
   ;; e.g., Stx = expression, Tag = ':, Val = Type stx
-  (define (attach stx tag v #:eval [eval (λ (x) x)])
-    (set-stx-prop/preserved stx tag (eval v)))
+  (define (attach stx tag v)
+    (set-stx-prop/preserved stx tag v))
   ;; detach : Stx Tag -> Val
   ;; Retrieves Val at Tag stx prop on Stx.
   ;; If Val is a non-empty list, return first element, otherwise return Val.
   ;; e.g., Stx = expression, Tag = ':, Val = Type stx
   (define (detach stx tag)
-;    (or
-     (get-stx-prop/car stx tag)
-;     (error 'detach "~a has no ~a prop" (stx->datum stx) tag))
-     ))
+    (get-stx-prop/ca*r stx tag)))
 
 ;; ----------------------------------------------------------------------------
-;; define-syntax-category ------------------------------------------------------
+;; ----------------------------------------------------------------------------
+;; define-syntax-category -----------------------------------------------------
+;; ----------------------------------------------------------------------------
+;; ----------------------------------------------------------------------------
 
-;; Defines a new type of metadata on syntax, e.g. types, as well as functions
-;; and macros for manipulating the metadata.
+;; This is a huge macro.
+;; Defines a new type of metadata on syntax, e.g. types, and functions
+;; and macros for manipulating the metadata, e.g. define-base-type, type=?, etc
 
 ;; A syntax category requires a name and two keys,
 ;; - one to use when attaching values of this category (eg ': for types)
@@ -229,7 +225,7 @@
 ;; If key1 is unspecified, the default is ':
 ;; If key2 is unspecified, the default is "twice" key1 (ie '::)
 ;;
-;; examples uses:
+;; example uses:
 ;; (define-syntax-category type)
 ;; (define-syntax-category : type)
 ;; (define-syntax-category : type ::)
@@ -237,8 +233,8 @@
 ;;
 ;; CODE NOTE: 
 ;; To make this large macros-defining macro easier to read,
-;; I define a `type` patvar corresponding to the category name,
-;; and a `kind` patvar for its "type".
+;; I use a `type` pat var corresponding to the category name,
+;; and a `kind` pat var for its "type".
 ;; But `name` could correspond to any kind of metadata,
 ;; e.g., kinds, src locs, polymorphic bounds
 (define-syntax (define-syntax-category stx)
@@ -249,7 +245,7 @@
      #`(define-syntax-category key name #,(mkx2 #'key))]
     [(_ key1:id name:id key2:id)
      ;; syntax classes
-     #:with type #'name ; dangerous, check `type` not used in binding pos below
+     #:with type #'name ; dangerous? check `type` not used in binding pos below
      #:with any-type (format-id #'name "any-~a" #'name)
      #:with type-ctx (format-id #'name "~a-ctx" #'name)
      #:with type-bind (format-id #'name "~a-bind" #'name)
@@ -305,7 +301,7 @@
            (define (type-key2) 'key2)
            (define (typeof stx)    (detach stx 'key1))
            (define (tagoftype stx) (detach stx 'key2)) ; = kindof if kind stx-cat defined
-           (define (fast-assign-type e τ)
+           (define (fast-assign-type e τ) ; TODO: does this actually help?
              (attach e 'key1 (syntax-local-introduce τ)))
            (define (assign-type e τ)
              (fast-assign-type e ((current-type-eval) τ)))
@@ -357,8 +353,8 @@
                       #:attr norm #f))
            ;; checking types
            (define (type=? t1 t2)
-             ;(printf "(τ=) t1 = ~a\n" #;τ1 (syntax->datum t1))
-             ;(printf "(τ=) t2 = ~a\n" #;τ2 (syntax->datum t2))
+             ;; (printf "(τ=) t1 = ~a\n" #;τ1 (stx->datum t1))
+             ;; (printf "(τ=) t2 = ~a\n" #;τ2 (stx->datum t2))
              (or (and (id? t1) (id? t2) (free-id=? t1 t2))
                  (and (stx-null? t1) (stx-null? t2))
                  (syntax-parse (list t1 t2) ; handle binding types
@@ -376,7 +372,7 @@
            (define (types=? τs1 τs2)
              (and (stx-length=? τs1 τs2)
                   (stx-andmap (current-type=?) τs1 τs2)))
-           ; extra indirection, enables easily overriding type=? with sub?
+           ; extra indirection, enables easily overriding type=? with eg sub?
            ; to add subtyping, without changing any other definitions
            (define current-typecheck-relation (make-parameter type=?))
            ;; convenience fns for current-typecheck-relation
@@ -399,8 +395,9 @@
            ;;     and type application
            (define (default-type-eval τ)
              ; TODO: optimization: don't expand if expanded
-             ; currently, this causes problems when
-             ; combining unexpanded and expanded types to create new types
+             ; - but this causes problems when combining unexpanded and
+             ;   expanded types to create new types
+             ; - alternative: use syntax-local-expand-expression?
              (add-orig (expand/df τ) τ))
            (define current-type-eval (make-parameter default-type-eval))
            (define (type-evals τs) #`#,(stx-map (current-type-eval) τs)))
@@ -454,7 +451,7 @@
                      (add-orig 
                       (attach
                        (syntax/loc this-syntax (τ-internal))
-                       'new-key2 ((current-type-eval) #'new-#%tag))
+                       'new-key2 (expand/df #'new-#%tag))
                       #'τ)])))]))
          (define-syntax define-base-types
            (syntax-parser
@@ -698,7 +695,7 @@
                                          #'(kindcon k_arg (... (... ...)))
                                          #'#%tag)
                      (add-orig
-                      (attach #'(τ- bvs- . τs-) 'key2 ((current-type-eval) #'k_result))
+                      (attach #'(τ- bvs- . τs-) 'key2 (default-type-eval #'k_result))
                       stx)]
                     [_
                      (type-error #:src stx
@@ -707,15 +704,17 @@
                        "Improper usage of type constructor ~a: ~a, expected ~a ~a arguments")
                       #'τ stx #'op #'n)])))])))]))
 
-;; end define-syntax-category -------------------------------------------------
+;; ----------------------------------------------------------------------------
+;; ----------------------------------------------------------------------------
+;; end of define-syntax-category ----------------------------------------------
+;; ----------------------------------------------------------------------------
 ;; ----------------------------------------------------------------------------
 
 ;; pre-declare all type-related functions and forms
 (define-syntax-category type)
 
 ;; generic, type-agnostic parameters
-;; Use these for code that is generic over types and kinds
-;; TODO: need an easier way to update all relevant params at once
+;; Use in code that is generic over types and kinds, e.g., in #lang Turnstile
 (begin-for-syntax
   (define current=? (make-parameter (current-type=?)))
   (define (=s? xs1 xs2) ; map current=? pairwise over lists
@@ -734,14 +733,14 @@
 
 ;; type assignment utilities --------------------------------------------------
 (begin-for-syntax
-  ;; Type assignment macro for nicer syntax
+  ;; Type assignment macro (ie assign-type) for nicer syntax
   (define-syntax (⊢ stx)
     (syntax-parse stx
-      [(_ e tag τ) #'(attach #`e 'tag ((current-ev) #`τ))]
+      [(_ e tag τ) #'(assign-type #`e #`τ)]
       [(_ e τ) #'(⊢ e : τ)]))
   (define-syntax (⊢/no-teval stx)
     (syntax-parse stx
-      [(_ e tag τ) #'(attach #`e 'tag ((current-ev) #`τ))]
+      [(_ e tag τ) #'(fast-assign-type #`e #`τ)]
       [(_ e τ) #'(⊢/no-teval e : τ)]))
 
   ;; Actual type assignment function.
@@ -774,14 +773,7 @@
     (define v (syntax-property stx tag))
     (if (cons? v) (car v) v))
   
-  ;; get-stx-prop/cd*r : Syntax Any -> Any
-  (define (get-stx-prop/cd*r stx tag)
-    (cd*r (syntax-property stx tag)))
-
-  ;; cd*r : Any -> Any
-  (define (cd*r v)
-    (if (cons? v) (cd*r (cdr v)) v))
-  
+  (define (mk-tyvar X) (attach X 'tyvar #t))
   (define (tyvar? X) (syntax-property X 'tyvar))
   
   (define type-pat "[A-Za-z]+")
@@ -859,8 +851,8 @@
 
   ;; basic infer function with no context:
   ;; infers the type and erases types in an expression
-  (define (infer+erase e #:tag [tag (current-tag)])
-    (define e+ (expand/df e))
+  (define (infer+erase e #:tag [tag (current-tag)] #:expa [expa expand/df])
+    (define e+ (expa e))
     (list e+ (detach e+ tag)))
   ;; infers the types and erases types in multiple expressions
   (define (infers+erase es #:tag [tag (current-tag)])
@@ -870,7 +862,15 @@
   ;; It should be named infer+erase but leaving it for now for backward compat.
   ;; ctx = vars and their types (or other props, denoted with "sep")
   ;; tvctx = tyvars and their kinds
-  (define (infer es #:ctx [ctx null] #:tvctx [tvctx null] #:tag [tag (current-tag)])
+  ;; TODO: infer currently tries to be generic over types and kinds
+  ;;       but I'm not sure it properly generalizes
+  ;;       eg, what if I need separate type-eval and kind-eval fns?
+  ;; - should infer be moved into define-syntax-category?
+  (define (infer es #:ctx [ctx null] #:tvctx [tvctx null]
+                    #:tag [tag (current-tag)] ; the "type" to return from es
+                    #:expa [expa expand/df] ; used to expand e
+                    #:tev [tev #'(current-type-eval)]  ; type-eval (τ in ctx)
+                    #:key [kev #'(current-type-eval)]) ; kind-eval (tvk in tvctx)
     (syntax-parse ctx
       [([x sep τ] ...) ; dont expand yet bc τ may have references to tvs
        #:with ([tv (~seq tvsep:id tvk) ...] ...) tvctx
@@ -890,19 +890,18 @@
           ((~literal #%plain-lambda) xs+
            ((~literal let-values) () ((~literal let-values) ()
             ((~literal #%expression) e+) ... (~literal void))))))))
-       (expand/df
+       (expa
         #`(λ (tv ...)
             (let-syntax ([tv (make-rename-transformer
-                              (attach
+                              (mk-tyvar
                                (for/fold ([tv-id #'tv])
-                                         ([s (in-list (list 'tvsep ...))]
-                                          [k (in-list (list #'tvk ...))])
-                                 (attach tv-id s ((current-ev) k)))
-                               'tyvar #t))] ...)
+                                         ([s (in-list '(tvsep ...))]
+                                          [k (in-stx-list #'(tvk ...))])
+                                 (attach tv-id s (#,kev k)))))] ...)
               (λ (x ...)
-               (let-syntax 
-                ([x (make-variable-like-transformer (attach #'x 'sep ((current-ev) #'τ)))] ...)
-                 (#%expression e) ... void)))))
+                (let-syntax ([x (make-variable-like-transformer
+                                 (attach #'x 'sep (#,tev #'τ)))] ...)
+                  (#%expression e) ... void)))))
        (list #'tvs+ #'xs+ 
              #'(e+ ...) 
              (stx-map (λ (e) (detach e tag)) #'(e+ ...)))]

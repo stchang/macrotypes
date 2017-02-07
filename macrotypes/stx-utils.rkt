@@ -88,6 +88,27 @@
 (define (generate-temporariesss stx)
   (stx-map generate-temporariess stx))
 
+;; stx prop helpers
+
+;; ca*r : Any -> Any
+(define (ca*r v)
+  (if (cons? v) (ca*r (car v)) v))
+;; cd*r : Any -> Any
+(define (cd*r v)
+  (if (cons? v) (cd*r (cdr v)) v))
+
+;; get-stx-prop/ca*r : Syntax Key -> Val
+;; Retrieves Val at Key stx prop on Stx.
+;; If Val is a non-empty list, continue down head until non-list.
+(define (get-stx-prop/ca*r stx tag)
+  (ca*r (syntax-property stx tag)))
+
+;; get-stx-prop/cd*r : Syntax Key -> Val
+(define (get-stx-prop/cd*r stx tag)
+  (cd*r (syntax-property stx tag)))
+
+  
+
 ;; transfers properties and src loc from orig to new
 (define (transfer-stx-props new orig #:ctx [ctx new])
   (datum->syntax ctx (syntax-e new) orig orig))

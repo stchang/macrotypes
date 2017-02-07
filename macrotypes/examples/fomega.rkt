@@ -1,53 +1,30 @@
 #lang s-exp macrotypes/typecheck
-(extends "sysf.rkt" #:except #%datum ∀ ∀- ~∀ ∀? Λ inst)
-(reuse String #%datum #:from "stlc+reco+var.rkt")
+(reuse λ #%app Int → + #:from "sysf.rkt")
+(reuse define-type-alias String #%datum #:from "stlc+reco+var.rkt")
 
 ;; System F_omega
-;; Type relation:
 ;; Types:
-;; - types from sysf.rkt
-;; - String from stlc+reco+var
+;; - redefine ∀
+;; - extend kind? and kind=? to include #%type
+;; - extend sysf with tyλ and tyapp
 ;; Terms:
-;; - extend ∀ Λ inst from sysf
-;; - add tyλ and tyapp
-;; - #%datum from stlc+reco+var
+;; - extend sysf with Λ inst
 
-(provide (for-syntax current-kind?)
-         define-type-alias
-         (type-out ★ ⇒ ∀★ ∀)
-         Λ inst tyλ tyapp)
+(provide (type-out ∀) (kind-out ★ ⇒ ∀★ ∀) Λ inst tyλ tyapp)
 
 (define-syntax-category :: kind)
 
-; want #%type to be equiv to★
-; => edit current-kind? so existing #%type annotations (with no #%kind tag)
-;    are treated as kinds
-; <= define ★ as rename-transformer expanding to #%type
+;; want #%type to be equiv to ★
+;; => extend current-kind? to recognize #%type
+;; <= define ★ as rename-transformer expanding to #%type
 (begin-for-syntax
   (current-kind? (λ (k) (or (#%type? k) (kind? k))))
-  ;; Try to keep "type?" backward compatible with its uses so far,
-  ;; eg in the definition of λ or previous type constuctors.
-  ;; (However, this is not completely possible, eg define-type-alias)
-  ;; So now "type?" no longer validates types, rather it's a subset.
-  ;; But we no longer need type? to validate types, instead we can use 
-  ;; (kind? (typeof t))
+  ;; well-formed types, ie not types with ⇒ kind
   (current-type? (λ (t) (define k (kindof t))
-                   #;(or (type? t) (★? (typeof t)) (∀★? (typeof t)))
                    (and k ((current-kind?) k) (not (⇒? k)))))
-  ;; o.w., a valid type is one with any valid kind
+  ;; any valid type (includes ⇒-kinded types)
   (current-any-type? (λ (t) (define k (kindof t))
                        (and k ((current-kind?) k)))))
-
-
-; must override, to handle kinds
-(define-syntax define-type-alias
-  (syntax-parser
-    [(_ alias:id τ)
-     #:with (τ- k_τ) (infer+erase #'τ #:tag '::)
-     #:fail-unless ((current-kind?) #'k_τ)
-                   (format "not a valid type: ~a\n" (type->str #'τ))
-     #'(define-syntax alias 
-         (syntax-parser [x:id #'τ-][(_ . rst) #'(τ- . rst)]))]))
 
 (begin-for-syntax
   (define ★? #%type?)
@@ -59,7 +36,7 @@
 (define-binding-type ∀ #:arr ∀★)
 
 ;; alternative: normalize before type=?
-; but then also need to normalize in current-promote
+;; but then also need to normalize in current-promote?
 (begin-for-syntax
   (define (normalize τ)
     (syntax-parse τ #:literals (#%plain-app #%plain-lambda)
@@ -82,7 +59,6 @@
   (define old-eval (current-type-eval))
   (define (type-eval τ) (normalize (old-eval τ)))
   (current-type-eval type-eval)
-  (current-ev type-eval)
   
   (define old-type=? (current-type=?))
   ; ty=? == syntax eq and syntax prop eq
@@ -91,9 +67,7 @@
       (and (or (and (not k1) (not k2))
                (and k1 k2 ((current-kind=?) k1 k2)))
            (old-type=? t1 t2))))
-  (current-type=? type=?)
-  (current-typecheck-relation type=?)
-  (current-check-relation type=?))
+  (current-typecheck-relation type=?))
 
 (define-typed-syntax Λ
   [(_ bvs:kind-ctx e)
@@ -120,7 +94,7 @@
    #:with (tvs- τ_body- k_body) (infer/ctx+erase #'bvs #'τ_body #:tag '::)
    #:fail-unless ((current-kind?) #'k_body)
                  (format "not a valid type: ~a\n" (type->str #'τ_body))
-   (⊢ (λ- tvs- τ_body-) :: (⇒ bvs.kind ... k_body))])
+   (assign-kind #'(λ- tvs- τ_body-) #'(⇒ bvs.kind ... k_body))])
 
 (define-typed-syntax tyapp
   [(_ τ_fn τ_arg ...)
@@ -142,4 +116,4 @@
                   (format "Expected: ~a arguments with type(s): "
                           (stx-length #'(k_in ...)))
                   (string-join (stx-map type->str #'(k_in ...)) ", "))
-   (⊢ (#%app- τ_fn- τ_arg- ...) :: k_out)])
+   (assign-kind #'(#%app- τ_fn- τ_arg- ...) #'k_out)])

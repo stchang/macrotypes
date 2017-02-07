@@ -121,7 +121,6 @@
           [_ #f])))
   (current-type=? new-type=?)
   (current-typecheck-relation new-type=?)
-  (current-check-relation new-type=?)
 
   ;; current-type?
   ;; TODO: disabling type validation for now
@@ -147,7 +146,6 @@
            ((current-type-eval) #'(CCs- a b c (Int (#%datum- . e-)))))]
       [_ t+]))
   (current-type-eval new-teval)
-  (current-ev new-teval)
 
   ;; type inference helpers ---------------------------------------------------
   ;; A "B" is a type binding, eg (X ty) or (ty X)
@@ -346,7 +344,7 @@
    #:with Bs** (prune-Bs #'Bs*)
 ;   #:when (begin (displayln "checking Cs:")
 ;                 (pretty-print (syntax->datum #'Cs*)))
-   #:with remaining-Cs (check-Cs #'Cs* stx)
+   #:with remaining-Cs (check-Cs #'Cs* this-syntax)
 ;   #:when (printf "remaining Cs: ~a\n"
 ;                  (syntax->datum #'remaining-Cs))
    #:with ty-out**

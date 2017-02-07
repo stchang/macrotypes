@@ -421,7 +421,7 @@
                            (format "Improper use of constructor ~a; expected ~a args, got ~a"
                                    (syntax->datum #'Name) (stx-length #'(X ...))
                                    (stx-length (stx-cdr #'stx))))])]
-                       [X (make-rename-transformer (⊢ X :: #%type))] ...)
+                       [X (make-rename-transformer (mk-type #'X))] ...)
                       (void ty_flat ...)))))
      #:when (or (equal? '(unbound) (syntax->datum #'(ty+ ...)))
                 (stx-map 
@@ -700,10 +700,10 @@
    [⊢ e ≫ e- ⇒ τ_e]
    #:with ([(~seq p ...) -> e_body] ...) #'clauses
    #:with (pat ...) (stx-map ; use brace to indicate root pattern
-                     (lambda (ps) (syntax-parse ps [(pp ...) (syntax/loc stx {pp ...})]))
+                     (lambda (ps) (syntax-parse ps [(pp ...) (syntax/loc this-syntax {pp ...})]))
                      #'((p ...) ...))
    #:with ([(~and ctx ([x ty] ...)) pat-] ...) (compile-pats #'(pat ...) #'τ_e)
-   #:with ty-expected (get-expected-type stx)
+   #:with ty-expected (get-expected-type this-syntax)
    [[x ≫ x- : ty] ... ⊢ (add-expected e_body ty-expected) ≫ e_body- ⇒ ty_body] ...
    #:when (check-exhaust #'(pat- ...) #'τ_e)
    --------
@@ -715,7 +715,7 @@
    #:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"
    [⊢ e ≫ e- ⇒ τ_e]
    #:when (×? #'τ_e)
-   #:with t_expect (get-expected-type stx) ; propagate inferred type
+   #:with t_expect (get-expected-type this-syntax) ; propagate inferred type
    #:with ([x ... -> e_body]) #'clauses
    #:with (~× ty ...) #'τ_e
    #:fail-unless (stx-length=? #'(ty ...) #'(x ...))
@@ -732,7 +732,7 @@
    #:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"
    [⊢ e ≫ e- ⇒ τ_e]
    #:when (List? #'τ_e)
-   #:with t_expect (get-expected-type stx) ; propagate inferred type
+   #:with t_expect (get-expected-type this-syntax) ; propagate inferred type
    #:with ([(~or (~and (~and xs [x ...]) (~parse rst (generate-temporary)))
                  (~and (~seq (~seq x ::) ... rst:id) (~parse xs #'())))
             -> e_body] ...+)
@@ -769,7 +769,7 @@
    #:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"
    [⊢ e ≫ e- ⇒ τ_e]
    #:when (and (not (×? #'τ_e)) (not (List? #'τ_e)))
-   #:with t_expect (get-expected-type stx) ; propagate inferred type
+   #:with t_expect (get-expected-type this-syntax) ; propagate inferred type
    #:with ([Clause:id x:id ... 
                       (~optional (~seq #:when e_guard) #:defaults ([e_guard #'(ext-stlc:#%datum . #t)]))
                       -> e_c_un] ...+) ; un = unannotated with expected ty
@@ -779,7 +779,7 @@
    #:with (_ (_ (_ ConsAll) . _) ...) #'info-body
    #:fail-unless (set=? (syntax->datum #'(Clause ...))
                         (syntax->datum #'(ConsAll ...)))
-   (type-error #:src stx
+   (type-error #:src this-syntax
                #:msg (string-append
                       "match: clauses not exhaustive; missing: "
                       (string-join      
@@ -879,7 +879,7 @@
    ;; compute fn type (ie ∀ and →)
    [⊢ e_fn ≫ e_fn- ⇒ (~?∀ Xs (~ext-stlc:→ . tyX_args))]
    ;; solve for type variables Xs
-   #:with [[e_arg- ...] Xs* cs] (solve #'Xs #'tyX_args stx)
+   #:with [[e_arg- ...] Xs* cs] (solve #'Xs #'tyX_args this-syntax)
    ;; instantiate polymorphic function type
    #:with [τ_in ... τ_out] (inst-types/cs #'Xs* #'cs #'tyX_args)
    #:with (unsolved-X ...) (find-free-Xs #'Xs* #'τ_out)
@@ -895,13 +895,13 @@
                      (syntax-parse #'τ_out
                        [(~?∀ (Y ...) τ_out)
                         #:fail-unless (→? #'τ_out)
-                        (mk-app-poly-infer-error stx #'(τ_in ...) #'(τ_arg ...) #'e_fn)
+                        (mk-app-poly-infer-error this-syntax #'(τ_in ...) #'(τ_arg ...) #'e_fn)
                         (for ([X (in-list (syntax->list #'(unsolved-X ...)))])
                           (unless (covariant-X? X #'τ_out)
                             (raise-syntax-error
                              #f
-                             (mk-app-poly-infer-error stx #'(τ_in ...) #'(τ_arg ...) #'e_fn)
-                             stx)))
+                             (mk-app-poly-infer-error this-syntax #'(τ_in ...) #'(τ_arg ...) #'e_fn)
+                             this-syntax)))
                         #'(∀ (unsolved-X ... Y ...) τ_out)]))
    --------
    [⊢ (#%app- e_fn- e_arg- ...) ⇒ τ_out*]])

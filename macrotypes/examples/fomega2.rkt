@@ -1,8 +1,10 @@
 #lang s-exp macrotypes/typecheck
-(extends "sysf.rkt" #:except #%datum ∀ ~∀ ∀? Λ inst λ #%app →)
-(reuse String #%datum #:from "stlc+reco+var.rkt")
+(reuse Int + #:from "sysf.rkt")
+(require (prefix-in sysf: (only-in "sysf.rkt" →- → #%app λ))
+         (only-in "sysf.rkt" ~→ →?))
+(reuse define-type-alias String #%datum #:from "stlc+reco+var.rkt")
 
-; same as fomega.rkt except here λ and #%app works as both type and terms
+; same as fomega.rkt except λ and #%app works as both type and terms,
 ; - uses definition from stlc, but tweaks type? and kind? predicates
 ;; → is also both type and kind
 
@@ -15,9 +17,7 @@
 ;; - extend ∀ Λ inst from sysf
 ;; - #%datum from stlc+reco+var
 
-(provide define-type-alias
-         ★ ∀★ ∀ →
-         λ #%app Λ inst
+(provide (kind-out ★ ∀★) (type-out ∀) → λ #%app Λ inst
          (for-syntax current-kind-eval kindcheck?))
 
 (define-syntax-category :: kind)
@@ -35,14 +35,6 @@
   ;; o.w., a valid type is one with any valid kind
   (current-any-type? (λ (t) (define k (kindof t))
                         (and k ((current-kind?) k)))))
-
-; must override
-(define-syntax define-type-alias
-  (syntax-parser
-    [(_ alias:id τ)
-     #:with (τ- _) (infer+erase #'τ #:tag '::)
-     #'(define-syntax alias
-         (syntax-parser [x:id #'τ-][(_ . rst) #'(τ- . rst)]))]))
 
 ;; extend → to serve as both type and kind
 (define-syntax (→ stx)
@@ -78,20 +70,17 @@
   (define old-eval (current-type-eval))
   (define (type-eval τ) (normalize (old-eval τ)))
   (current-type-eval type-eval)
-  (current-ev type-eval)
   
-  (define old-type=? (current-type=?))
-  (define (type=? t1 t2)
+  (define old-typecheck? (current-typecheck-relation))
+  (define (new-typecheck? t1 t2)
     (syntax-parse (list t1 t2) #:datum-literals (:)
       [((~∀ ([tv1 : k1]) tbody1)
         (~∀ ([tv2 : k2]) tbody2))
-       ((current-kind=?) #'k1 #'k2)]
-      [_ (old-type=? t1 t2)]))
-  (current-type=? type=?)
-  (current=? type=?)
-  (current-typecheck-relation type=?)
-  (current-check-relation type=?)  
+       (and (kindcheck? #'k1 #'k2) (typecheck? #'tbody1 #'tbody2))]
+      [_ (old-typecheck? t1 t2)]))
+  (current-typecheck-relation new-typecheck?)
 
+  ;; must be kind= (and not kindcheck?) since old-kind=? recurs on curr-kind=
   (define old-kind=? (current-kind=?))
   (define (new-kind=? k1 k2)
     (or (and (★? k1) (#%type? k2))
@@ -102,8 +91,7 @@
 
 (define-typed-syntax Λ
   [(_ bvs:kind-ctx e)
-   #:with ((tv- ...) e- τ_e)
-          (infer/ctx+erase #'bvs #'e)
+   #:with ((tv- ...) e- τ_e) (infer/ctx+erase #'bvs #'e)
    (⊢ e- : (∀ ([tv- :: bvs.kind] ...) τ_e))])
 
 (define-typed-syntax inst
@@ -124,7 +112,7 @@
 (define-typed-syntax λ
   [(_ bvs:kind-ctx τ)           ; type
    #:with (Xs- τ- k_res) (infer/ctx+erase #'bvs #'τ #:tag '::)
-   (⊢ (λ- Xs- τ-) :: (→ bvs.kind ... k_res))]
+   (assign-kind #'(λ- Xs- τ-) #'(→ bvs.kind ... k_res))]
   [(_ . rst) #'(sysf:λ . rst)]) ; term
 
 ;; extend #%app to also work as a type
@@ -150,5 +138,5 @@
                   (format "Expected: ~a arguments with type(s): "
                           (stx-length #'(k_in ...)))
                   (string-join (stx-map type->str #'(k_in ...)) ", "))
-   (⊢ (#%app- τ_fn- τ_arg- ...) :: k_out)]
+   (assign-kind #'(#%app- τ_fn- τ_arg- ...) #'k_out)]
   [(_ . rst) #'(sysf:#%app . rst)]) ; term

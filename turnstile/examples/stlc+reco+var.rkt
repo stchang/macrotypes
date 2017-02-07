@@ -122,7 +122,7 @@
    (∨-ref #'τ #'l #:else
           (λ () (raise-syntax-error #f
                    (format "~a field does not exist" (syntax->datum #'l))
-                   stx)))
+                   this-syntax)))
    [⊢ e ≫ e- ⇐ τ_e]
    --------
    [⊢ (list- 'l e)]])

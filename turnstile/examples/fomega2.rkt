@@ -80,28 +80,24 @@
   (define old-eval (current-type-eval))
   (define (type-eval τ) (normalize (old-eval τ)))
   (current-type-eval type-eval)
-  (current-ev type-eval)
   
-  (define old-type=? (current-type=?))
-  (define (type=? t1 t2)
-    (syntax-parse (list t1 t2) #:datum-literals (:)
-                  ;; TODO: compare tbody1 and tbody2
-     [((~∀ ([tv1 : k1]) tbody1)
-       (~∀ ([tv2 : k2]) tbody2))
-      ((current-kind=?) #'k1 #'k2)]
-     [_ (old-type=? t1 t2)]))
-  (current-type=? type=?)
-  (current=? type=?)
-  (current-typecheck-relation type=?)
-  (current-check-relation type=?)
-
+  ;; must be kind= (and not kindcheck?) since old-kind=? recurs on curr-kind=
   (define old-kind=? (current-kind=?))
   (define (new-kind=? k1 k2)
     (or (and (★? k1) (#%type? k2)) ; enables use of existing type defs
         (and (#%type? k1) (★? k2))
         (old-kind=? k1 k2)))
   (current-kind=? new-kind=?)
-  (current-kindcheck-relation new-kind=?))
+  (current-kindcheck-relation new-kind=?)
+
+  (define old-typecheck? (current-typecheck-relation))
+  (define (new-typecheck? t1 t2)
+    (syntax-parse (list t1 t2) #:datum-literals (:)
+     [((~∀ ([tv1 : k1]) tbody1)
+       (~∀ ([tv2 : k2]) tbody2))
+      (and (kindcheck? #'k1 #'k2) (typecheck? #'tbody1 #'tbody2))]
+     [_ (old-typecheck? t1 t2)]))
+  (current-typecheck-relation new-typecheck?))
 
 (define-typed-syntax (Λ bvs:kind-ctx e) ≫
   [[bvs.x ≫ tv- :: bvs.kind] ... ⊢ e ≫ e- ⇒ τ_e]
@@ -110,36 +106,28 @@
 
 (define-typed-syntax (inst e τ:any-type ...) ≫
   [⊢ e ≫ e- ⇒ (~∀ (tv ...) τ_body) (⇒ :: (~∀★ k ...))]
-   #:do[(define old-check (current-check-relation))
-        (current-check-relation new-kind=?)]
-  [⊢ τ ≫ τ- ⇐ :: k] ...
-   #:do[(current-check-relation old-check)]
-  #:with τ-inst (substs #'(τ- ...) #'(tv ...) #'τ_body)
+;  [⊢ τ ≫ τ- ⇐ :: k] ... ; doesnt work since def-typed-s ⇐ not using kindcheck?
+  #:with (k_τ ...) (stx-map kindof #'(τ.norm ...))
+  #:fail-unless (kindchecks? #'(k_τ ...) #'(k ...))
+                (typecheck-fail-msg/multi #'(k ...) #'(k_τ ...) #'(τ ...))
   --------
-  [⊢ e- ⇒ τ-inst])
+  [⊢ e- ⇒ #,(substs #'(τ.norm ...) #'(tv ...) #'τ_body)])
 
 ;; extend λ to also work as a type
-;; must be define-typed-syntax because of default case
-;; so use explicit tag in first case
-(define-typed-syntax λ
-  [(_ bvs:kind-ctx τ) ≫ ; type
-   [[bvs.x ≫ X- :: bvs.kind] ... ⊢ τ ≫ τ- ⇒ :: k_res]
+(define-kinded-syntax λ
+  [(_ bvs:kind-ctx τ) ≫                 ; type
+   [[bvs.x ≫ X- :: bvs.kind] ... ⊢ τ ≫ τ- ⇒ k_res]
    ------------
-   [⊢ (λ- (X- ...) τ-) ⇒ :: (→ bvs.kind ... k_res)]]
-  [(_ . rst) ≫
-   --- [≻ (sysf:λ . rst)]])  ; term
+   [⊢ (λ- (X- ...) τ-) ⇒ (→ bvs.kind ... k_res)]]
+  [(_ . rst) ≫ --- [≻ (sysf:λ . rst)]]) ; term
 
 ;; extend #%app to also work as a type
-(define-typed-syntax #%app
-  [(_ τ_fn τ_arg ...) ≫ ; type
-   [⊢ τ_fn ≫ τ_fn- ⇒ :: (~→ k_in ... k_out)]
+(define-kinded-syntax #%app
+  [(_ τ_fn τ_arg ...) ≫                     ; type
+   [⊢ τ_fn ≫ τ_fn- ⇒ (~→ k_in ... k_out)]
    #:fail-unless (stx-length=? #'[k_in ...] #'[τ_arg ...])
                  (num-args-fail-msg #'τ_fn #'[k_in ...] #'[τ_arg ...])
-   #:do[(define old-check (current-check-relation))
-        (current-check-relation new-kind=?)]
-   [⊢ τ_arg ≫ τ_arg- ⇐ :: k_in] ...
-   #:do[(current-check-relation old-check)]
+   [⊢ τ_arg ≫ τ_arg- ⇐ k_in] ...
    -------------
-   [⊢ (#%app- τ_fn- τ_arg- ...) ⇒ :: k_out]]
-  [(_ . rst) ≫
-   --- [≻ (sysf:#%app . rst)]]) ; term
+   [⊢ (#%app- τ_fn- τ_arg- ...) ⇒ k_out]]
+  [(_ . rst) ≫ --- [≻ (sysf:#%app . rst)]]) ; term

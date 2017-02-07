@@ -9,7 +9,7 @@
 
 (define test-omit-paths
   '("examples/tests/mlish/sweet-map.rkt" ; needs sweet-exp
-    "examples/tests/fomega3.rkt"
+    "examples/fomega3.rkt"
     "examples/tests/fomega3-tests.rkt"
     "examples/tests/mlish/bg/README.md"))
 

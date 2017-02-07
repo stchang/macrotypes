@@ -124,7 +124,6 @@
        [_ #f])))
   (define current-sub? (make-parameter sub?))
   (current-typecheck-relation sub?)
-  (current-check-relation sub?)
   (define (subs? τs1 τs2)
     (and (stx-length=? τs1 τs2)
          (stx-andmap (current-sub?) τs1 τs2)))

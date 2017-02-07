@@ -27,7 +27,8 @@
   ;; (need this for define-primop, which still uses type stx-class)
   (current-type? (λ (t) (★? (kindof t))))
   ;; o.w., a valid type is one with any valid kind
-  (current-any-type? (λ (t) ((current-kind?) (kindof t))))
+  (current-any-type? (λ (t) (define k (kindof t))
+                        (and k ((current-kind?) k))))
 
   ;; TODO: I think this can be simplified
   (define (normalize τ)
@@ -49,21 +50,29 @@
       [_ τ]))
   (define old-eval (current-type-eval))
   (current-type-eval (lambda (τ) (normalize (old-eval τ))))
-  (current-ev (current-type-eval))
   
-  (define old-type=? (current-type=?))
+  ;; (define old-type=? (current-type=?))
+  ;; ; ty=? == syntax eq and syntax prop eq
+  ;; (define (type=? t1 t2)
+  ;;   (let ([k1 (kindof t1)][k2 (kindof t2)])
+  ;;     ; the extra `and` and `or` clauses are bc type=? is a structural
+  ;;     ; traversal on stx objs, so not all sub stx objs will have a "type"-stx
+  ;;     (and (or (and (not k1) (not k2))
+  ;;              (and k1 k2 ((current-kind=?) k1 k2)))
+  ;;          (old-type=? t1 t2))))
+  ;; (current-type=? type=?)
+  ;; (current-typecheck-relation type=?))
+  (define old-typecheck? (current-typecheck-relation))
   ; ty=? == syntax eq and syntax prop eq
-  (define (type=? t1 t2)
+  (define (new-typecheck? t1 t2)
     (let ([k1 (kindof t1)][k2 (kindof t2)])
       ; the extra `and` and `or` clauses are bc type=? is a structural
       ; traversal on stx objs, so not all sub stx objs will have a "type"-stx
       (and (or (and (not k1) (not k2))
-               (and k1 k2 ((current-kind=?) k1 k2)))
-           (old-type=? t1 t2))))
-  (current-type=? type=?)
-  (current-typecheck-relation type=?)
-  (current=? type=?)
-  (current-check-relation type=?))
+               (and k1 k2 (kindcheck? k1 k2)))
+           (old-typecheck? t1 t2))))
+;  (current-type=? type=?)
+  (current-typecheck-relation new-typecheck?))
 
 ;; kinds ----------------------------------------------------------------------
 (define-internal-kind-constructor ★) ; defines ★-
@@ -166,16 +175,12 @@
 
 ;; TODO: what to do when a def-typed-stx needs both
 ;; current-typecheck-relation and current-kindcheck-relation
-(define-typed-syntax (inst e τ ...) ≫
+(define-typed-syntax (inst e τ:any-type ...) ≫
   [⊢ e ≫ e- ⇒ (~∀ (tv ...) τ_body) (⇒ :: (~★ k ...))]
-  ;; switch to kindcheck? instead of typecheck?
-  #:do[(define old-check (current-check-relation))
-       (current-check-relation (current-kindcheck-relation))]
-  [⊢ τ ≫ τ- ⇐ :: k] ...
-  #:do[(current-check-relation old-check)]
-  ;; #:fail-unless (kindchecks? #'(k_τ ...) #'(k ...))
-  ;;               (typecheck-fail-msg/multi #'(k ...) #'(k_τ ...) #'(τ ...))
-  #:with τ-inst (substs #'(τ- ...) #'(tv ...) #'τ_body)
+;  [⊢ τ ≫ τ- ⇐ :: k] ... ; doesnt work since def-typed-s ⇐ not using kindcheck?
+  #:with (k_τ ...) (stx-map kindof #'(τ.norm ...))
+  #:fail-unless (kindchecks? #'(k_τ ...) #'(k ...))
+                (typecheck-fail-msg/multi #'(k ...) #'(k_τ ...) #'(τ ...))
   --------
-  [⊢ e- ⇒ τ-inst])
+  [⊢ e- ⇒ #,(substs #'(τ.norm ...) #'(tv ...) #'τ_body)])
 

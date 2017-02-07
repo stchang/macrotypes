@@ -58,7 +58,6 @@
   (define old-eval (current-type-eval))
   (define (new-type-eval τ) (normalize (old-eval τ)))
   (current-type-eval new-type-eval)
-  (current-ev new-type-eval)
   
   (define old-type=? (current-type=?))
   ;; need to also compare kinds of types
@@ -69,20 +68,20 @@
       (and (or (and (not k1) (not k2))
                (and k1 k2 ((current-kind=?) k1 k2)))
            (old-type=? t1 t2))))
-  (current-type=? new-type=?)
-  (current-typecheck-relation new-type=?)
-  (current-check-relation new-type=?))
+  (current-typecheck-relation new-type=?))
 
 (define-typed-syntax (Λ bvs:kind-ctx e) ≫
   [[bvs.x ≫ tv- :: bvs.kind] ... ⊢ e ≫ e- ⇒ τ_e]
   --------
   [⊢ e- ⇒ (∀ ([tv- :: bvs.kind] ...) τ_e)])
 
+;; τ.norm invokes current-type-eval while "≫ τ-" uses only local-expand
+;; (via infer fn)
 (define-typed-syntax (inst e τ:any-type ...) ≫
   [⊢ e ≫ e- ⇒ (~∀ tvs τ_body) (⇒ :: (~∀★ k ...))]
   [⊢ τ ≫ τ- ⇐ :: k] ...
   --------
-  [⊢ e- ⇒ #,(substs #'(τ- ...) #'tvs #'τ_body)])
+  [⊢ e- ⇒ #,(substs #'(τ.norm ...) #'tvs #'τ_body)])
 
 ;; - see fomega2.rkt for example with no explicit tyλ and tyapp
 (define-kinded-syntax (tyλ bvs:kind-ctx τ_body) ≫

@@ -9,6 +9,8 @@
 
 ;; this version still uses ': key for kinds
 
+;; tyλ and λ are separate forms
+
 (provide define-type-alias
          ★ ⇒ Int Bool String Float Char → ∀ tyλ tyapp
          (typed-out [+ : (→ Int Int Int)])
@@ -49,7 +51,6 @@
       [_ τ]))
   (define old-eval (current-type-eval))
   (current-type-eval (lambda (τ) (normalize (old-eval τ))))
-  (current-ev (current-type-eval))
   
   (define old-type=? (current-type=?))
   ; ty=? == syntax eq and syntax prop eq
@@ -61,9 +62,7 @@
                (and k1 k2 ((current-kind=?) k1 k2)))
            (old-type=? t1 t2))))
   (current-type=? type=?)
-  (current-typecheck-relation type=?)
-  (current=? type=?)
-  (current-check-relation type=?))
+  (current-typecheck-relation type=?))
 
 ;; kinds ----------------------------------------------------------------------
 (define-internal-kind-constructor ★) ; defines ★-

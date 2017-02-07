@@ -135,8 +135,7 @@
        (τ-eval τ)]
       [_
        (τ-eval τ-stx)]))))
-  (current-type-eval ∪-eval)
-  (current-ev ∪-eval))
+  (current-type-eval ∪-eval))
 
 ;; -----------------------------------------------------------------------------
 ;; --- Subtyping

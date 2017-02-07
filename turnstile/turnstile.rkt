@@ -5,9 +5,9 @@
          define-typed-syntax define-syntax-category
          (rename-out [define-typed-syntax define-typerule]
                      [define-typed-syntax define-syntax/typecheck])
-         (for-syntax syntax-parse/typed-syntax
+         (for-syntax syntax-parse/typecheck
                      (rename-out
-                      [syntax-parse/typed-syntax syntax-parse/typecheck])))
+                      [syntax-parse/typecheck syntax-parse/typed-syntax])))
 
 (require (except-in (rename-in
                      macrotypes/typecheck
@@ -201,9 +201,9 @@
                    (define max-d (apply max 0 ds))]
              #:with depth (add1 max-d)
              #:with [[es-stx* es-stx-orig* es-pat*] ...]
-             (for/list ([tc-es-stx (in-list (syntax->list #'[tc.es-stx ...]))]
-                        [tc-es-stx-orig (in-list (syntax->list #'[tc.es-stx-orig ...]))]
-                        [tc-es-pat (in-list (syntax->list #'[tc.es-pat ...]))]
+             (for/list ([tc-es-stx (in-stx-list #'[tc.es-stx ...])]
+                        [tc-es-stx-orig (in-stx-list #'[tc.es-stx-orig ...])]
+                        [tc-es-pat (in-stx-list #'[tc.es-pat ...])]
                         [d (in-list ds)])
                (list
                 (add-lists tc-es-stx (- max-d d))
@@ -311,7 +311,7 @@
                        ([k (in-stx-list #'[props.tag ...])]
                         [v (in-stx-list #'[props.tag-expr ...])])
                (with-syntax ([body body] [k k] [v v])
-                 #'(attach body `k ((current-ev) v))))]
+                 #`(attach body `k ((current-ev) v))))]
     ;; ⇒ conclusion, implicit pat
     [pattern (~or [⊢ e-stx props:⇒-props/conclusion]
                   [⊢ [e-stx props:⇒-props/conclusion]])
@@ -338,7 +338,7 @@
                      (~parse τ-pat #'τ))
              #:with [stuff ...] #'[]
              #:with body:expr
-             #'(attach (quasisyntax/loc this-syntax e-stx) `tag #`τ)]
+                    #'(attach (quasisyntax/loc this-syntax e-stx) `tag #`τ)]
     ;; macro invocations
     [pattern [≻ e-stx]
              #:with :last-clause #'[_ ≻ e-stx]]
@@ -396,80 +396,59 @@
 (require (for-meta 1 'syntax-classes)
          (for-meta 2 'syntax-classes))
 
-(define-syntax define-typed-syntax
-  (lambda (stx)
-    (syntax-parse stx
-      ;; single-clause def
-      [(def (name:id . pats) . rst)
-       ;; cannot always bind name as pat var, eg #%app, so replace with _
-       #:with r:rule #'[(_ . pats) . rst]
-       #'(-define-typed-syntax name r.norm)]
-      ;; multi-clause def
-      [(def name:id
-         (~and (~seq kw-stuff ...) :stxparse-kws)
-         rule:rule
-         ...+)
-       #'(-define-typed-syntax
-          name
-          kw-stuff ...
-          rule.norm
-          ...)])))
-
 (begin-for-syntax
-  (define-syntax syntax-parse/typed-syntax
-    (lambda (stx)
-      (syntax-parse stx
-        [(stxparse
-          stx-expr
+  (define-syntax syntax-parse/typecheck
+    (syntax-parser
+      [(_ stx-expr
           (~and (~seq kw-stuff ...) :stxparse-kws)
-          rule:rule
-          ...)
-         #'(syntax-parse
-               stx-expr
-             kw-stuff ...
-             rule.norm
-             ...)]))))
+          rule:rule ...)
+       #'(syntax-parse stx-expr kw-stuff ... rule.norm ...)])))
+
+;; macrotypes/typecheck.rkt already defines (-define-syntax-category type);
+;; - just add the "def-named-syntax" part of the def-stx-cat macro below
+;; TODO: eliminate code dup with def-named-stx in define-stx-cat below?
+(define-syntax define-typed-syntax
+  (syntax-parser
+    ;; single-clause def
+    [(_ (rulename:id . pats) . rst)
+     ;; using #'rulename as patvar may cause problems, eg #%app, so use _
+     #'(define-typed-syntax rulename [(_ . pats) . rst])]
+    ;; multi-clause def
+    ;; - let stx-parse/tychk match :rule (dont double-match)
+    [(_ rulename:id
+        (~and (~seq kw-stuff ...) :stxparse-kws)
+        rule ...+)
+     #'(define-syntax (rulename stx)
+         (parameterize ([current-check-relation (current-typecheck-relation)]
+                        [current-ev (current-type-eval)]
+                        [current-tag (type-key1)])
+           (syntax-parse/typecheck stx kw-stuff ... rule ...)))]))
 
 (define-syntax define-syntax-category
- (lambda (stx)
-   (syntax-parse stx
+  (syntax-parser
     [(_ name:id)        ; default key1 = ': for types
      #'(define-syntax-category : name)]
     [(_ key:id name:id) ; default key2 = ':: for kinds
      #`(define-syntax-category key name #,(mkx2 #'key))]
     [(_ key1:id name:id key2:id)
      #:with def-named-syntax (format-id #'name "define-~aed-syntax" #'name)
-     #:with new-check-relation (format-id #'name "current-~acheck-relation" #'name)
-     ;; #:with new-attach (format-id #'name "assign-~a" #'name)
-     ;; #:with new-detach (format-id #'name "~aof" #'name)
+     #:with new-check-rel (format-id #'name "current-~acheck-relation" #'name)
      #:with new-eval (format-id #'name "current-~a-eval" #'name)
      #'(begin
         (-define-syntax-category key1 name key2)
-        (define-syntax (def-named-syntax stx)
-          (syntax-parse stx
+        (define-syntax def-named-syntax
+          (syntax-parser
             ;; single-clause def
-            #;[(_ (rulename:id . pats) . rst)
-            ;; cannot bind name as pat var, eg #%app, so replace with _
-            #:with r #'[(_ . pats) . rst]
-            #'(define-syntax (rulename stxx)
-                (parameterize ([current-check-relation (new-check-relation)]
-                               [current-attach new-attach]
-                               [current-detach new-detach]
-                               [current-tag 'key1])
-                  (syntax-parse/typed-syntax stxx r)))]
             [(_ (rulename:id . pats) . rst)
-            ;; cannot bind name as pat var, eg #%app, so replace with _
-            #:with r #'[(_ . pats) . rst]
-             #'(def-named-syntax rulename r)]
-           ;; multi-clause def
-           [(_ rulename:id
+             ;; #'rulename as a pat var may cause problems, eg #%app, so use _
+             #'(def-named-syntax rulename [(_ . pats) . rst])]
+            ;; multi-clause def
+            [(_ rulename:id
               (~and (~seq kw-stuff (... ...)) :stxparse-kws)
-              rule:rule (... ...+))
-            #'(define-syntax (rulename stxx)
-                (parameterize ([current-check-relation (new-check-relation)]
-                               ;; [current-attach new-attach]
-                               ;; [current-detach new-detach]
+              rule (... ...+)) ; let stx-parse/tychk match :rule stxcls
+            #'(define-syntax (rulename stx)
+                (parameterize ([current-check-relation (new-check-rel)]
                                [current-ev (new-eval)]
                                [current-tag 'key1])
-                  (syntax-parse/typed-syntax stxx kw-stuff (... ...)
-                    rule (... ...))))])))])))
+                  (syntax-parse/typecheck stx kw-stuff (... ...)
+                    rule (... ...))))])))]))
