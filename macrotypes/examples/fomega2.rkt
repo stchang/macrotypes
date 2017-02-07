@@ -73,11 +73,8 @@
   
   (define old-typecheck? (current-typecheck-relation))
   (define (new-typecheck? t1 t2)
-    (syntax-parse (list t1 t2) #:datum-literals (:)
-      [((~∀ ([tv1 : k1]) tbody1)
-        (~∀ ([tv2 : k2]) tbody2))
-       (and (kindcheck? #'k1 #'k2) (typecheck? #'tbody1 #'tbody2))]
-      [_ (old-typecheck? t1 t2)]))
+    (and (kindcheck? (kindof t1) (kindof t2))
+         (old-typecheck? t1 t2)))
   (current-typecheck-relation new-typecheck?)
 
   ;; must be kind= (and not kindcheck?) since old-kind=? recurs on curr-kind=

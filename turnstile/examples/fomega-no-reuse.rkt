@@ -169,7 +169,7 @@
    [_ #:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])
 
 (define-typed-syntax (Λ bvs:kind-ctx e) ≫
-  [([bvs.x ≫ tv- :: bvs.kind] ...) () ⊢ e ≫ e- ⇒ τ_e]
+  [[bvs.x ≫ tv- :: bvs.kind] ... ⊢ e ≫ e- ⇒ τ_e]
   --------
   [⊢ e- ⇒ (∀ ([tv- :: bvs.kind] ...) τ_e)])
 

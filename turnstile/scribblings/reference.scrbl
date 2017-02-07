@@ -34,7 +34,7 @@ and then press Control-@litchar{\}.
 
 @; define-typed-syntax---------------------------------------------------------
 @defform*[
-  #:literals (≫ ⊢ ⇒ ⇐ ≻ : --------)
+  #:literals (≫ ⊢ ⇒ ⇐ ≻ --------)
   ((define-typed-syntax (name-id . pattern) ≫
      premise ...
      --------
@@ -50,7 +50,7 @@ and then press Control-@litchar{\}.
           premise ...
           --------
           ⇐-conclusion]
-         [expr-pattern ⇐ key type-pattern ≫
+         [expr-pattern ⇐ key pattern ≫
           premise ...
           --------
           ⇐-conclusion]]
@@ -70,21 +70,22 @@ and then press Control-@litchar{\}.
             type-relation
             (code:line @#,racket[syntax-parse] @#,tech:pat-directive)]
    [ctx (ctx-elem ...)]
-   [ctx-elem (code:line [id ≫ id : type-template] ooo ...)]
+   [ctx-elem (code:line [id ≫ id key template ... ...] ooo ...)
+             (code:line id ooo ...)]
    [tc (code:line tc-elem ooo ...)]
    [tc-elem [expr-template ≫ expr-pattern ⇒ type-pattern]
-             [expr-template ≫ expr-pattern ⇒ key type-pattern]
-             [expr-template ≫ expr-pattern (⇒ key type-pattern) ooo ...]
+             [expr-template ≫ expr-pattern ⇒ key pattern]
+             [expr-template ≫ expr-pattern (⇒ key pattern) ooo ...]
              [expr-template ≫ expr-pattern ⇐ type-template]
-             [expr-template ≫ expr-pattern ⇐ key type-template]
-             [expr-template ≫ expr-pattern (⇐ key type-template) ooo ...]]
+             [expr-template ≫ expr-pattern ⇐ key template]
+             [expr-template ≫ expr-pattern (⇐ key template) ooo ...]]
    [type-relation (code:line [type-template τ= type-template] ooo ...)
                   (code:line [type-template τ= type-template #:for expr-template] ooo ...)
                   (code:line [type-template τ⊑ type-template] ooo ...)
                   (code:line [type-template τ⊑ type-template #:for expr-template] ooo ...)]
    [conclusion [⊢ expr-template ⇒ type-template]
-               [⊢ expr-template ⇒ key type-template]
-               [⊢ expr-template (⇒ key type-template) ooo ...]
+               [⊢ expr-template ⇒ key template]
+               [⊢ expr-template (⇒ key template) ooo ...]
                [≻ expr-template]
                [#:error expr-template]]
    [⇐-conclusion [⊢ expr-template]]
@@ -104,14 +105,27 @@ declares that expression @racket[e] expands to @racket[e-] and has type
 outputs. Syntactically, @racket[e] is a syntax template position and
 @racket[e-] @racket[τ] are syntax pattern positions.
 
-A programmer may use the generalized form @racket[[⊢ e ≫ e- (⇒ key τ) ...]] to
-specify propagation of arbitrary values, associated with any number of
+A programmer may use the generalized form @racket[[⊢ e ≫ e- (⇒ key pat) ...]]
+to specify propagation of arbitrary values, associated with any number of
 keys. For example, a type and effect system may wish to additionally propagate
 source locations of allocations and mutations. When no key is specified,
 @litchar{:}, i.e., the "type" key, is used.  Dually, one may write @racket[[⊢ e
 ≫ e- ⇐ τ]] to check that @racket[e] has type @racket[τ]. Here, both @racket[e]
 and @racket[τ] are inputs (templates) and only @racket[e-] is an
 output (pattern).
+
+A context may be specified to the left of the turnstile. A context element has
+shape @racket[[⊢ x ≫ x- key pat ... ...]] where @racket[x-] is the expansion of
+@racket[x] and the @racket[(key pat) ...] are arbitrary key-value pairs, e.g. a
+@litchar{:} key and type pattern. Elements in the context have @racket[let*]
+semantics where each binding is in scope for subsequent parts of the
+context. This means type and term variables may be in the same context (though
+order matters). Nevertheless, Turnstile allows writing two separate contexts,
+where bindings in first are in scope for the second. This is often convenient
+for separating the context bindings and using their outputs in different forms.
+
+For convenience, lone identifiers written to the left of the turnstile are
+automatically treated as type variables.
 
 The @racket[≻] conclusion form is useful in many scenarios where the rule being
 implemented may not want to attach type information. E.g.,

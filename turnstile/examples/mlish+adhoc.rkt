@@ -1713,7 +1713,7 @@
                 (~=> TCsub ... 
                      (~TC [generic-op-expected ty-concrete-op-expected] ...)))
            _)
-           (infers/tyctx+erase #'([X :: #%type] ...) #'(TC ... (Name ty ...)))
+           (infers/tyctx+erase #'(X ...) #'(TC ... (Name ty ...)))
    ;; this produces #%app bad stx err, so manually call infer for now
    ;; [([X ≫ X- :: #%type] ...) () ⊢ (TC ... (Name ty ...)) ≫
    ;;                                (TC+ ... 

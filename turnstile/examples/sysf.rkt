@@ -14,17 +14,14 @@
 (define-binding-type ∀)
 
 (define-typed-syntax (Λ (tv:id ...) e) ≫
-  [([tv ≫ tv- :: #%type] ...) () ⊢ e ≫ e- ⇒ τ]
+  [[tv ≫ tv- :: #%type] ... ⊢ e ≫ e- ⇒ τ]
   --------
   [⊢ e- ⇒ (∀ (tv- ...) τ)])
 
 (define-typed-syntax inst
   [(_ e τ:type ...) ≫
    [⊢ e ≫ e- ⇒ (~∀ tvs τ_body)]
-   #:with τ_inst (substs #'(τ.norm ...) #'tvs #'τ_body)
    --------
-   [⊢ e- ⇒ τ_inst]]
-  [(_ e) ≫
-   --------
-   [≻ e]])
+   [⊢ e- ⇒ #,(substs #'(τ.norm ...) #'tvs #'τ_body)]]
+  [(_ e) ≫ --- [≻ e]])
 

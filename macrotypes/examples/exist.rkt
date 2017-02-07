@@ -67,8 +67,5 @@
      ;;
    #:with [e_packed- (~∃ (Y) τ_body)] (infer+erase #'e_packed)
    #:with τ_x (subst #'X #'Y #'τ_body)
-   #:with [(X-) (x-) (e-) (τ_e)]
-          (infer #'(e)
-                 #:tvctx #'([X :: #%type])
-                 #:ctx   #`([x : τ_x]))
+   #:with [(_ x-) e- τ_e] (infer/ctx+erase #'(X [x : τ_x]) #'e)
    (⊢ (let- ([x- e_packed-]) e-) : τ_e)])

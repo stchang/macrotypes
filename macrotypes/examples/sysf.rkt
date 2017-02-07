@@ -15,11 +15,10 @@
 
 (define-typed-syntax Λ
   [(_ (tv:id ...) e)
-   #:with [(tv- ...) e- τ] (infer/tyctx+erase #'([tv :: #%type] ...) #'e)
-   (⊢ e- : (∀ (tv- ...) τ))])
+   #:with [tvs- e- τ-] (infer/ctx #'(tv ...) #'e)
+   (⊢ e- : (∀ tvs- τ-))])
 (define-typed-syntax inst
   [(_ e τ:type ...)
    #:with [e- (~∀ tvs τ_body)] (infer+erase #'e)
-   #:with τ_inst (substs #'(τ.norm ...) #'tvs #'τ_body)
-   (⊢ e- : τ_inst)]
+   (⊢ e- : #,(substs #'(τ.norm ...) #'tvs #'τ_body))]
   [(_ e) #'e])

@@ -32,7 +32,7 @@
     (define origs (lens-view flat origs*))
     (define/with-syntax [tvxs- xs- es- _]
       (infer #:tvctx tvctx #:ctx ctx (stx-map pass-orig es origs) #:tag tag))
-    (define es*- (lens-set flat es* #'es-))
+    (define es*- (lens-set flat es* #`es-))
     (list #'tvxs- #'xs- es*-))
   ;; infers/depths
   (define (infers/depths clause-depth tc-depth tvctxs/ctxs/ess/origss*
@@ -156,6 +156,12 @@
   (define-splicing-syntax-class id+props+≫
     #:datum-literals (≫)
     #:attributes ([x- 1] [ctx 1])
+    [pattern (~seq (~and X:id (~not _:elipsis)))
+             #:with [x- ...] #'[_]
+             #:with [ctx ...] #'[[X :: #%type]]]
+    [pattern (~seq X:id ooo:elipsis)
+             #:with [x- ...] #'[_ ooo]
+             #:with [ctx ...] #'[[X :: #%type] ooo]]
     [pattern (~seq [x:id ≫ x--:id props:props])
              #:with [x- ...] #'[x--]
              #:with [ctx ...] #'[[x props.stuff ...]]]
@@ -229,19 +235,19 @@
               #'[ooo ...])
              #:with tvctxs/ctxs/ess/origs
              (with-depth
-              #'[(tvctx.ctx ...) (ctx.ctx ...) tc.es-stx tc.es-stx-orig]
+              #`[(tvctx.ctx ...) (ctx.ctx ...) tc.es-stx tc.es-stx-orig]
               #'[ooo ...])
              #:with pat
              #`(~post
                 (~post
                  (~parse
                   tcs-pat
-                  (infers/depths 'clause-depth 'tc.depth #'tvctxs/ctxs/ess/origs
+                  (infers/depths 'clause-depth 'tc.depth #`tvctxs/ctxs/ess/origs
                                  #:tag (current-tag)))))]
     )
   (define-splicing-syntax-class clause
     #:attributes (pat)
-    #:datum-literals (τ⊑ τ=) ; TODO: drop the τ
+    #:datum-literals (τ⊑ τ=) ; TODO: drop the τ in τ⊑ and τ=
     [pattern :tc-clause]
     [pattern [a τ⊑ b]
              #:with pat
