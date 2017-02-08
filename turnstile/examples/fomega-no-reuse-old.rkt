@@ -163,13 +163,10 @@
   --------
   [⊢ e- ⇒ (∀ ([tv- : bvs.kind] ...) τ_e)])
 
-;; TODO: what to do when a def-typed-stx needs both
-;; current-typecheck-relation and current-kindcheck-relation
 (define-typed-syntax (inst e τ ...) ≫
   [⊢ e ≫ e- ⇒ (~∀ (tv ...) τ_body) (⇒ (~★ k ...))]
-;  [⊢ τ ≫ τ- ⇐ k] ...
-  ;; want to use kindchecks? instead of typechecks?
-  [⊢ τ ≫ τ- ⇒ k_τ] ...
+;  [⊢ τ ≫ τ- ⇐ k] ...  ; ⇐ would use typechecks?
+  [⊢ τ ≫ τ- ⇒ k_τ] ... ; so use ⇒ and kindchecks?
   #:fail-unless (kindchecks? #'(k_τ ...) #'(k ...))
                 (typecheck-fail-msg/multi #'(k ...) #'(k_τ ...) #'(τ ...))
   #:with τ-inst (substs #'(τ- ...) #'(tv ...) #'τ_body)

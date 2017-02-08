@@ -7,8 +7,6 @@
 
 ;; example suggested by Alexis King
 
-;; this version still uses ':: key for kinds
-
 (provide define-type-alias
          ★ ⇒ Int Bool String Float Char → ∀ tyλ tyapp
          (typed-out [+ : (→ Int Int Int)])
@@ -51,17 +49,6 @@
   (define old-eval (current-type-eval))
   (current-type-eval (lambda (τ) (normalize (old-eval τ))))
   
-  ;; (define old-type=? (current-type=?))
-  ;; ; ty=? == syntax eq and syntax prop eq
-  ;; (define (type=? t1 t2)
-  ;;   (let ([k1 (kindof t1)][k2 (kindof t2)])
-  ;;     ; the extra `and` and `or` clauses are bc type=? is a structural
-  ;;     ; traversal on stx objs, so not all sub stx objs will have a "type"-stx
-  ;;     (and (or (and (not k1) (not k2))
-  ;;              (and k1 k2 ((current-kind=?) k1 k2)))
-  ;;          (old-type=? t1 t2))))
-  ;; (current-type=? type=?)
-  ;; (current-typecheck-relation type=?))
   (define old-typecheck? (current-typecheck-relation))
   ; ty=? == syntax eq and syntax prop eq
   (define (new-typecheck? t1 t2)
@@ -71,7 +58,6 @@
       (and (or (and (not k1) (not k2))
                (and k1 k2 (kindcheck? k1 k2)))
            (old-typecheck? t1 t2))))
-;  (current-type=? type=?)
   (current-typecheck-relation new-typecheck?))
 
 ;; kinds ----------------------------------------------------------------------
@@ -173,12 +159,10 @@
   --------
   [⊢ e- ⇒ (∀ ([tv- :: bvs.kind] ...) τ_e)])
 
-;; TODO: what to do when a def-typed-stx needs both
-;; current-typecheck-relation and current-kindcheck-relation
 (define-typed-syntax (inst e τ:any-type ...) ≫
   [⊢ e ≫ e- ⇒ (~∀ (tv ...) τ_body) (⇒ :: (~★ k ...))]
-;  [⊢ τ ≫ τ- ⇐ :: k] ... ; doesnt work since def-typed-s ⇐ not using kindcheck?
-  #:with (k_τ ...) (stx-map kindof #'(τ.norm ...))
+;  [⊢ τ ≫ τ- ⇐ k] ...     ; ⇐ would use typechecks?
+  [⊢ τ ≫ τ- ⇒ :: k_τ] ... ; so use ⇒ and kindchecks?
   #:fail-unless (kindchecks? #'(k_τ ...) #'(k ...))
                 (typecheck-fail-msg/multi #'(k ...) #'(k_τ ...) #'(τ ...))
   --------
