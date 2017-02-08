@@ -92,40 +92,64 @@ and then press Control-@litchar{\}.
    [ooo ...])
  ]{
 
-Defines a macro that additionally performs typechecking. It uses
-@racket[syntax-parse] @tech:stx-pats and @tech:pat-directives and
- additionally allows writing type-judgement-like clauses that interleave
- typechecking and macro expansion.
+Generates a macro definition that also performs type checking. The macro is
+generated from @racket[syntax-parse] @tech:stx-pats and @tech:pat-directives,
+along with type-judgement-like clauses that interleave typechecking and macro
+expansion.  The resulting macro type checks its surface syntax as part of macro
+expansion and the resulting type is attached to the expanded expression.
 
-Type checking is computed as part of macro expansion and the resulting type is
-attached to an expanded expression. In addition, Turnstile supports
-bidirectional type checking clauses. For example @racket[[⊢ e ≫ e- ⇒ τ]]
-declares that expression @racket[e] expands to @racket[e-] and has type
-@racket[τ], where @racket[e] is the input and, @racket[e-] and @racket[τ]
-outputs. Syntactically, @racket[e] is a syntax template position and
-@racket[e-] @racket[τ] are syntax pattern positions.
+@; ----------------------------------------------------------------------------
+@bold{Premises}
 
-A programmer may use the generalized form @racket[[⊢ e ≫ e- (⇒ key pat) ...]]
-to specify propagation of arbitrary values, associated with any number of
-keys. For example, a type and effect system may wish to additionally propagate
-source locations of allocations and mutations. When no key is specified,
-@litchar{:}, i.e., the "type" key, is used.  Dually, one may write @racket[[⊢ e
+@italic{Bidirectional judgements}
+
+Turnstile @racket[define-typed-syntax] rules use bidirectional type checking
+judgements:
+@itemlist[
+  @item{@racket[[⊢ e ≫ e- ⇒ τ]] declares that expression @racket[e] expands to
+@racket[e-] and has type @racket[τ], where @racket[e] is the input and,
+@racket[e-] and @racket[τ] outputs. Syntactically, @racket[e] is a syntax
+template position and @racket[e-] and @racket[τ] are syntax pattern positions.}
+
+  @item{Dually, one may write @racket[[⊢ e
 ≫ e- ⇐ τ]] to check that @racket[e] has type @racket[τ]. Here, both @racket[e]
 and @racket[τ] are inputs (templates) and only @racket[e-] is an
-output (pattern).
+output (pattern).}]
+
+Each bidirectional arrow has a generalized form that associates a key with a
+value, e.g., @racket[[⊢ e ≫ e- (⇒ key pat) ...]]. A programmer may use this
+generalized form to specify propagation of arbitrary values, associated with
+any number of keys. For example, a type and effect system may wish to
+additionally propagate source locations of allocations and mutations. When no
+key is specified, @litchar{:}, i.e., the "type" key, is used.
+
+@italic{Contexts}
 
 A context may be specified to the left of the turnstile. A context element has
-shape @racket[[⊢ x ≫ x- key pat ... ...]] where @racket[x-] is the expansion of
-@racket[x] and the @racket[(key pat) ...] are arbitrary key-value pairs, e.g. a
-@litchar{:} key and type pattern. Elements in the context have @racket[let*]
-semantics where each binding is in scope for subsequent parts of the
-context. This means type and term variables may be in the same context (though
-order matters). Nevertheless, Turnstile allows writing two separate contexts,
-where bindings in first are in scope for the second. This is often convenient
-for separating the context bindings and using their outputs in different forms.
+shape @racket[[⊢ x ≫ x- key pat ... ...]] where @racket[x-] is a pattern
+matching the expansion of @racket[x] and the interleaved @racket[key ...] and
+@racket[pat ...] are arbitrary key-value pairs, e.g. a @litchar{:} key and type
+pattern.
+
+A context has @racket[let*] semantics where each binding is in scope for
+subsequent parts of the context. This means type and term variables may be in
+the same context (if properly ordered). In addition, Turnstile allows writing
+two separate contexts, grouped by parens, where bindings in first are in scope
+for the second. This is often convenient for scenarios that Racket's pattern
+language cannot express, e.g., when there two distinct groups of bindings, a
+pattern @racket[x ... y ...] will not work as expected.
 
 For convenience, lone identifiers written to the left of the turnstile are
 automatically treated as type variables.
+
+@; ----------------------------------------------------------------------------
+@bold{Conclusion}
+
+Bidirectional judgements below the conclusion line invert their inputs and
+outputs so that both positions in @racket[[⊢ e- ⇒ τ]] are syntax templates and
+means that @racket[e-] is the output of the generated macro and it has type τ
+attached. The generalized key-value form of the bidirectional judgements may
+also be used in the conclusion.
 
 The @racket[≻] conclusion form is useful in many scenarios where the rule being
 implemented may not want to attach type information. E.g.,
@@ -194,6 +218,13 @@ attach type information to the top-level @tt{x} identifier, so the
 
 ]}
 
+@; ----------------------------------------------------------------------------
+@bold{Note}
+
+@racket[define-typed-syntax] is generated by
+@racket[define-syntax-category]. See @racket[define-syntax-category] for more
+information.
+
 @defform[(define-typerule ....)]{Alias for @racket[define-typed-syntax].}
 @defform[(define-syntax/typecheck ....)]{Alias for @racket[define-typed-syntax].}
 
@@ -217,10 +248,30 @@ When not specified, @racket[op-id] is @racket[typed-op-id] suffixed with
 @litchar{-} (see @secref{racket-}).}
 
 @; define-syntax-category -----------------------------------------------------
-@defform[(define-syntax-category name-id)]{
+@defform*[((define-syntax-category name-id)
+           (define-syntax-category key1 name-id)
+           (define-syntax-category key1 name-id key2))]{
+
 Defines a new "category" of syntax by defining a series of forms and functions.
 Turnstile pre-declares @racket[(define-syntax-category type)], which in turn
- defines the following forms and functions:
+defines the forms and functions below.
+
+Each category of syntax is associated with two keys: @racket[key1] is used when
+attaching values in the category to other syntax, e.g., attaching types to
+terms, and @racket[key2] is used for attaching an additional syntax property to
+values in the category, e.g. using @racket[#%type] to indicate well-formedness.
+
+If no keys are specified, @racket[key1] is @litchar{:} and @racket[key2] is
+@litchar{::}. If only @racket[key1] is given, then @racket[key2] is
+@racket[key1] appended to itself.
+
+Defining another category, e.g., @racket[(define-syntax-category kind)],
+defines a separate set of forms and functions, e.g.,
+@racket[define-kinded-syntax], @racket[define-base-kind], @racket[kind=?], etc.
+
+@; ----------------------------------------------------------------------------
+@italic{The following forms and functions are automatically defined by a
+@racket[(define-syntax-category type)] declaration:}
 
 @margin-note{It's not important to immediately understand all these
 definitions. Some, like @racket[type?] and @racket[mk-type], are
@@ -230,35 +281,48 @@ are probably @racket[define-typed-syntax], and the type-defining forms
 @racket[define-binding-type].}
 
  @itemlist[
- @item{@racket[define-typed-syntax], as described above.
-   Uses @racket[current-typecheck-relation] for typechecking.}
+
+ @item{@racket[define-typed-syntax], as described above. Uses
+@racket[current-typecheck-relation] @racket[current-type-eval] for
+typechecking, and uses @litchar{:} as the key when an explicit key is not specificed in type judgements.}
+
  @item{@defform*[((define-base-type base-type-name-id)
-                  (define-base-type base-type-name-id : kind))]{
+                  (define-base-type base-type-name-id key tag))]{
    Defines a base type. @racket[(define-base-type τ)] in turn defines:
   @itemlist[@item{@racket[τ], an identifier macro representing type @racket[τ].}
             @item{@racket[τ?], a phase 1 predicate recognizing type @racket[τ].}
             @item{@racket[~τ], a phase 1 @tech:pat-expander recognizing type @racket[τ].}]}
 
-  The second form is useful when implementing your own kind system.
-   @racket[#%type] is used as the @tt{kind} when it's not specified.}
- @item{@defform[(define-base-types base-type-name-id ...)]{Defines multiple base types.}}
+  Types defined with @racket[define-base-type] are automatically tagged with a
+@racket[key2]-keyed (as specified in the @racket[define-syntax-category]
+declaration) @racket[#%type] syntax property, unless second form above is used,
+in which case the specified @tt{tag} is attached to the type using the
+specified @tt{key}.}
+
+ @item{@defform[(define-base-types base-type-name-id ...)]{Defines multiple base types, each using the default key.}}
+
  @item{
   @defform[(define-type-constructor name-id option ...)
             #:grammar
            ([option (code:line #:arity op n)
                     (code:line #:arg-variances expr)
                     (code:line #:extra-info stx)])]{
-    Defines a type constructor that does not bind type variables.
-    Defining a type constructor @racket[τ] defines:
-  @itemlist[@item{@racket[τ], a macro for constructing an instance of type
-                  @racket[τ], with the specified arity.
-                  Validates inputs and expands to @racket[τ-], attaching kind.}
-            @item{@racket[τ-], an internal macro that expands to the internal
-                  (i.e., fully expanded) type representation. Does not validate
-                  inputs or attach kinds. This macro is useful when creating
-                  a separate kind system, see @racket[define-internal-type-constructor].}
-            @item{@racket[τ?], a phase 1 predicate recognizing type @racket[τ].}
-            @item{@racket[~τ], a phase 1 @tech:pat-expander recognizing type @racket[τ].}]
+    Defines a type constructor (that does not bind type variables).
+    Defining a type constructor @racket[τ] subsequently defines:
+  @itemlist[
+
+    @item{@racket[τ], a macro for constructing an instance of type @racket[τ],
+          with the specified arity.  Validates inputs and expands to
+          @racket[τ-], attaching @racket[#%type] at @tt{key2}.}
+
+    @item{@racket[τ-], an internal macro that expands to the internal
+          (i.e., fully expanded) type representation. Does not validate inputs
+          or attach any extra properties. This macro is useful when creating a
+          separate kind system, see @racket[define-internal-type-constructor].}
+
+    @item{@racket[τ?], a phase 1 predicate recognizing type @racket[τ].}
+          @item{@racket[~τ], a phase 1 @tech:pat-expander recognizing type
+          @racket[τ].}]
 
   The @racket[#:arity] argument specifies the valid shapes
     for the type. For example
@@ -288,16 +352,18 @@ are probably @racket[define-typed-syntax], and the type-defining forms
                          (list covariant))])))]
     
     The @racket[#:extra-info] argument is useful for attaching additional
-    metainformation to types, for example to implement pattern matching.}}
+    metainformation to types, for example to communicate accessors to a pattern
+    matching form.}}
  @item{
   @defform[(define-internal-type-constructor name-id option ...)
             #:grammar
-           ([option (code:line #:arity op n)
-                    (code:line #:arg-variances expr)
+           ([option (code:line #:arg-variances expr)
                     (code:line #:extra-info stx)])]{
-  Like @racket[define-type-constructor], except the surface macro is not defined.
-  Use this form, for example, when creating a separate kind system so that
-  you can still use other Turnstile conveniences like pattern expanders.}}
+
+  Like @racket[define-type-constructor], except the surface macro is not
+defined. Use this form, for example, when creating a separate kind system so
+that you can still use other Turnstile conveniences like pattern expanders.}}
+
  @item{
   @defform[(define-binding-type name-id option ...)
             #:grammar
@@ -325,12 +391,10 @@ are probably @racket[define-typed-syntax], and the type-defining forms
  @item{
   @defform[(define-internal-binding-type name-id option ...)
             #:grammar
-           ([option (code:line #:arity op n)
-                    (code:line #:bvs op n)
-                    (code:line #:arr kindcon)
+           ([option (code:line #:arr kindcon)
                     (code:line #:arg-variances expr)
                     (code:line #:extra-info stx)])]{
-  Analogous to @racket[define-internal-type-constructor].}}
+  Analogous to @racket[define-internal-type-constructor], but for binding types.}}
 @item{
 @defform[(type-out ty-id)]{
 A @racket[provide]-spec that, given @racket[ty-id], provides @racket[ty-id], 
@@ -340,7 +404,7 @@ and provides @racket[for-syntax] a predicate @racket[ty-id?] and a @tech:pat-exp
  A phase 1 parameter for controlling "type evaluation". A @racket[type-eval]
 function consumes and produces syntax. It is typically used to convert a type
 into a canonical representation. The @racket[(current-type-eval)] is called
-immediately before attacing a type to a syntax object, i.e., by
+immediately before attaching a type to a syntax object, i.e., by
 @racket[assign-type].
 
  It defaults to full expansion, i.e., @racket[(lambda (stx) (local-expand stx 'expression null))], and also stores extra surface syntax information used for error reporting.
@@ -434,6 +498,13 @@ equality, but includes alpha-equivalence.
       syntax objects with shape @racket[(b:type-bind ...)].}}
  @item{@defthing[type-ann stx-class]{A syntax class recognizing
        syntax objects with shape @racket[{τ:type}] where the braces are required.}}
+
+ @item{@defproc[(assign-type [e syntax?] [τ syntax?]) syntax?]{
+Phase 1 function that calls @racket[current-type-eval] on @racket[τ] and attaches it to @racket[e] using @tt{key1}.}}
+
+ @item{@defproc[(typeof [e expr-stx]) type-stx]{
+Phase 1 function returning type of @racket[e], at @tt{key1}.}}
+
  ]
 }
 
@@ -474,13 +545,14 @@ Reuses @racket[name]s from @racket[base-lang].}
 
 To help avoid name conflicts, Turnstile re-provides all Racket bindings with a
 @litchar{-} suffix. These bindings are automatically used in some cases, e.g.,
-@racket[define-primop], but in general are useful for avoiding name conflicts.
+@racket[define-primop], but in general are useful for avoiding name conflicts,
+particularly for commonly used macros like @racket[#%app].
 
 @; Sec: turnstile/lang ----------------------------------------------
 @section[#:tag "turnstilelang"]{@hash-lang[] @racketmodname[turnstile]/lang}
 
 Languages implemented using @hash-lang[] @racketmodname[turnstile]
-must additionally provide @racket[#%module-begin] and other forms required by
+must manually provide @racket[#%module-begin] and other forms required by
 Racket. 
 
 For convenience, Turnstile additionally supplies @hash-lang[]
@@ -496,18 +568,30 @@ necessary to call these directly, since @racket[define-typed-syntax] and other
 forms already do so, but some type systems may require extending some
 functionality.
 
-@defproc[(assign-type [e syntax?] [τ syntax?]) syntax?]{
-Phase 1 function that calls @racket[current-type-eval] on @racket[τ] and attaches it to @racket[e]}
-
-@defproc[(typeof [e expr-stx]) type-stx]{
-Phase 1 function returning type of @racket[e].}
-
 @defproc[(infer [es (listof expr-stx)]
                 [#:ctx ctx (listof bindings) null]
-                [#:tvctx tvctx (listof tyvar-bindings) null]) (list tvs xs es τs)]{
-Phase 1 function expanding a list of expressions, in the given contexts and computes their types.
- Returns the expanded expressions, their types, and expanded identifiers from the
- contexts, e.g. @racket[(infer (list #'(+ x 1)) #:ctx ([x : Int]))].}
+                [#:tvctx tvctx (listof tyvar-bindings) null]
+                [#:tag tag symbol? ':])
+                (list tvs xs es τs)]{
+
+Phase 1 function expanding a list of expressions, in the given contexts and
+computes their types. Returns the expanded expressions, their types, and
+expanded identifiers from the contexts, e.g.
+
+@racket[(infer (list #'(+ x 1)) #:ctx ([x : Int]))]
+
+might return
+
+@racket[(list '() (list #'x-) (list #'(#%plain-app x- 1))(list #'Int))].
+
+The context elements have the same shape as in @racket[define-typed-syntax].
+The contexts use @racket[let*] semantics, where each binding is in scope for
+subsequent bindings.
+
+Use the @tt{tag} keyword argument to specify the key for the
+returned "type". The default key is @litchar{:}. For example, a programmer may
+want to specify a @litchar{::} key when using @racket[infer] to compute the
+kinds on types.}
 
 @defproc[(subst [τ type-stx]
                 [x id]
