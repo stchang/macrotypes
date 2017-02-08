@@ -22,5 +22,5 @@
     "examples/tests/mlish/bg/README.md"))
 
 (define test-timeouts
-  '(("examples/tests/mlish/generic.mlish" 200)
+  '(("examples/tests/mlish/generic.mlish" 300)
     ("examples/tests/tlb-infer-tests.rkt" 1800)))

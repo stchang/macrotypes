@@ -14,4 +14,4 @@
     "examples/tests/mlish/bg/README.md"))
 
 (define test-timeouts
-  '(("examples/tests/mlish/generic.mlish" 200)))
+  '(("examples/tests/mlish/generic.mlish" 300)))
