@@ -13,9 +13,9 @@
 
 (define datum->stx datum->syntax)
 (define (stx->datum stx)
-  (if (syntax? stx)
-      (syntax->datum stx)
-      (map syntax->datum stx)))
+  (cond [(syntax? stx) (syntax->datum stx)]
+        [(list? stx) (map stx->datum stx)]
+        [else stx]))
 
 (define (stx-rev stx)
   (reverse (stx->list stx)))
