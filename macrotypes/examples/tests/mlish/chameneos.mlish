@@ -118,9 +118,16 @@
   ;;          (list 66 0)
   ;;          (list 67 0)))
 
-(check-type (map (λ ([x : Result]) (proj x 0))
-                 (go 1000 (list Blue Red Yellow Red Yellow Blue)))
-  : (List Int) -> (list 333 333 333 333 334 334))
+(define res2 
+  (map (λ ([x : Result]) (proj x 0))
+       (go 1000 (list Blue Red Yellow Red Yellow Blue))))
+(check-type res2 : (List Int))
+(define (=333/4 [x : Int] -> Bool) (or (= x 333) (= x 334)))
+(define (andmap [p? : (→ X Bool)] [xs : (List X)] → Bool)
+  (match2 xs with
+   [nil -> #t]
+   [x :: rst -> (and (p? x) (andmap p? rst))]))         
+(check-type (andmap =333/4 res2) : Bool -> #t)
   ;; -> (list (list 333 0)
   ;;          (list 333 0)
   ;;          (list 333 0)
