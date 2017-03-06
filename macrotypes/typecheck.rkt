@@ -360,6 +360,9 @@
              ;; (printf "(τ=) t2 = ~a\n" #;τ2 (stx->datum t2))
              (or (and (id? t1) (id? t2) (free-id=? t1 t2))
                  (and (stx-null? t1) (stx-null? t2))
+                 (and (not (stx-pair? t1)) (not (id? t1))
+                      (not (stx-pair? t2)) (not (id? t1)) ; datums
+                      (equal? (stx->datum t1) (stx->datum t2)))
                  (syntax-parse (list t1 t2) ; handle binding types
                    [(((~literal #%plain-lambda) (~and (_:id (... ...)) xs) . ts1)
                      ((~literal #%plain-lambda) (~and (_:id (... ...)) ys) . ts2))
