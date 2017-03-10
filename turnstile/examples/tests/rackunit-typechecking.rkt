@@ -69,9 +69,13 @@
 
 (define-syntax (typecheck-fail stx)
   (syntax-parse stx #:datum-literals (:)
-    [(_ e (~optional (~seq #:with-msg msg-pat) #:defaults ([msg-pat #'""])))
-     #:with msg:str 
-            (eval-syntax (datum->syntax #'here (syntax->datum #'msg-pat)))
+    [(_ e (~or
+           (~optional (~seq #:with-msg msg-pat) #:defaults ([msg-pat #'""]))
+           (~optional (~seq #:verb-msg vmsg) #:defaults ([vmsg #'""]))))
+     #:with msg:str
+            (if (attribute msg-pat)
+                (eval-syntax (datum->stx #'h (stx->datum #'msg-pat)))
+                (eval-syntax (datum->stx #'h `(add-escs ,(stx->datum #'vmsg)))))
      #:when (with-check-info*
              (list (make-check-expected (syntax-e #'msg))
                    (make-check-expression (syntax->datum stx))

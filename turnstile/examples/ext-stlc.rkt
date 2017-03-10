@@ -50,17 +50,6 @@
             #:with τ:any-type #'ty
             #'τ.norm]))]))
 
-(begin-for-syntax
-  (define (transfer-prop p from to)
-    (define v (syntax-property from p))
-    (syntax-property to p v))
-  (define (transfer-props from to)
-    (define props (syntax-property-symbol-keys from))
-    (define props/filtered (remove 'origin (remove 'orig (remove ': props))))
-    (foldl (lambda (p stx) (transfer-prop p from stx)) 
-           to 
-           props/filtered)))
-
 (define-typed-syntax define
   [(_ x:id (~datum :) τ:type e:expr) ≫
    ;[⊢ e ≫ e- ⇐ τ.norm]

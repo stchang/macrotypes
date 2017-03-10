@@ -107,13 +107,22 @@
 (define (get-stx-prop/cd*r stx tag)
   (cd*r (syntax-property stx tag)))
 
-  
-
 ;; transfers properties and src loc from orig to new
 (define (transfer-stx-props new orig #:ctx [ctx new])
   (datum->syntax ctx (syntax-e new) orig orig))
 (define (replace-stx-loc old new)
   (datum->syntax (syntax-disarm old #f) (syntax-e (syntax-disarm old #f)) new old))
+
+;; transfer single prop
+(define (transfer-prop p from to)
+  (define v (syntax-property from p))
+  (syntax-property to p v))
+;; transfer all props except 'origin, 'orig, and ':
+(define (transfer-props from to #:except [dont-transfer '(origin orig :)])
+  (define (transfer-from prop to) (transfer-prop prop from to))
+  (define props (syntax-property-symbol-keys from))
+  (define props/filtered (foldr remove props dont-transfer))
+  (foldl transfer-from to props/filtered))
 
 ;; set-stx-prop/preserved : Stx Any Any -> Stx
 ;; Returns a new syntax object with the prop property set to val. If preserved
