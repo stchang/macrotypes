@@ -94,3 +94,54 @@
  #:verb-msg
  "#%app: type mismatch: expected A, given C") ; TODO: err msg should be B not C?
 (check-type and-commutes : (∀ (A B) (→ (And A B) (And B A))))
+
+;; nats -----------------------------------------------------------------------
+(define-type-alias nat (∀ (A) (→ A (→ A A) A)))
+
+(define-type-alias z (λ ([Ty : *]) (λ ([zero : Ty][succ : (→ Ty Ty)]) zero)))
+(define-type-alias s (λ ([n : nat])
+                       (λ ([Ty : *])
+                         (λ ([zero : Ty][succ : (→ Ty Ty)])
+                           (succ ((n Ty) zero succ))))))
+(check-type z : nat)
+(check-type s : (→ nat nat))
+
+(define-type-alias one (s z))
+(define-type-alias two (s (s z)))
+(check-type one : nat)
+(check-type two : nat)
+
+(define-type-alias plus
+  (λ ([x : nat][y : nat])
+    ((x nat) y s)))
+(check-type plus : (→ nat nat nat))
+
+;; equality -------------------------------------------------------------------
+
+(check-type (eq-refl one) : (= one one))
+(check-type (eq-refl one) : (= (s z) one))
+(check-type (eq-refl two) : (= (s (s z)) two))
+(check-type (eq-refl two) : (= (s one) two))
+(check-type (eq-refl two) : (= two (s one)))
+(check-type (eq-refl two) : (= (s (s z)) (s one)))
+(check-type (eq-refl two) : (= (plus one one) two))
+(check-not-type (eq-refl two) : (= (plus one one) one))
+
+;; symmetry of =
+(check-type 
+ (λ ([A : *][B : *])
+   (λ ([e : (= A B)])
+     (eq-elim A (λ ([W : *]) (= W A)) (eq-refl A) B e)))
+ : (∀ (A B) (→ (= A B) (= B A))))
+(check-not-type
+ (λ ([A : *][B : *])
+   (λ ([e : (= A B)])
+     (eq-elim A (λ ([W : *]) (= W A)) (eq-refl A) B e)))
+ : (∀ (A B) (→ (= A B) (= A B))))
+
+;; transitivity of =
+(check-type
+ (λ ([X : *][Y : *][Z : *])
+   (λ ([e1 : (= X Y)][e2 : (= Y Z)])
+     (eq-elim Y (λ ([W : *]) (= X W)) e1 Z e2)))
+ : (∀ (A B C) (→ (= A B) (= B C) (= A C))))
