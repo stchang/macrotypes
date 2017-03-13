@@ -109,7 +109,7 @@
         (printf "args: ~a\n" (stx->datum #'(e_arg ...)))]
    #:fail-unless (stx-length=? #'[τ_inX ...] #'[e_arg ...])
                  (num-args-fail-msg #'e_fn #'[τ_inX ...] #'[e_arg ...])
-   [⊢ e_arg ≫ e_arg- ⇒ ty-argX] ... ; typechecking args must be fold; do in 2 steps
+   [⊢ e_arg ≫ e_argX- ⇒ ty-argX] ... ; typechecking args must be fold; do in 2 steps
    #:do[(define (ev e)
           (syntax-parse e
 ;            [_ #:do[(printf "eval: ~a\n" (stx->datum e))] #:when #f #'(void)]
@@ -132,22 +132,23 @@
              (syntax-property #`#,(stx-map ev #'(x ...)) ': (typeof e))]
             [_  e] ; other literals
             #;[es (stx-map L #'es)]))]
+   #:with (ty-arg ...)
+          (stx-map
+           (λ (t) (ev (substs #'(e_argX- ...) #'(X ...) t)))
+           #'(ty-argX ...))
+   #:with (e_arg- ...) (stx-map (λ (e t) (assign-type e t)) #'(e_argX- ...) #'(ty-arg ...))
    #:with (τ_in ... τ_out)
           (stx-map
            (λ (t) (ev (substs #'(e_arg- ...) #'(X ...) t)))
            #'(τ_inX ... τ_outX))
-   #:with (ty-arg ...)
-          (stx-map
-           (λ (t) (ev (substs #'(e_arg- ...) #'(X ...) t)))
-           #'(ty-argX ...))
 ;   #:do[(printf "vars: ~a\n" #'(X ...))]
 ;   #:when (stx-andmap (λ (t1 t2)(displayln (stx->datum t1)) (displayln (stx->datum t2)) (displayln (typecheck? t1 t2)) #;(typecheck? t1 t2)) #'(ty-arg ...) #'(τ_in ...))
    ;; #:do[(stx-map
    ;;       (λ (tx t) (printf "ty_in inst: \n~a\n~a\n" (stx->datum tx) (stx->datum t)))
    ;;       #'(τ_inX ...)          #'(τ_in ...))]
-   [⊢ e_arg ≫ _ ⇐ τ_in] ...
-  ;; #:do[(printf "res e =\n~a\n" (stx->datum (substs #'(e_arg- ...) #'(x ...) #'e)))
-  ;;      (printf "res t = ~a\n" (stx->datum (substs #'(e_arg- ...) #'(X ...) #'τ_out)))]
+;   [⊢ e_arg- ≫ _ ⇐ τ_in] ...
+    #:do[(printf "res e =\n~a\n" (stx->datum (substs #'(e_arg- ...) #'(x ...) #'e)))
+         (printf "res t = ~a\n" (stx->datum (substs #'(e_arg- ...) #'(X ...) #'τ_out)))]
    #:with res-e (let L ([e (substs #'(e_arg- ...) #'(x ...) #'e)]) ; eval
                   (syntax-parse e
                     [(~or _:id
@@ -183,7 +184,7 @@
    ;;                [other #'other])
    #:fail-unless (stx-length=? #'[τ_inX ...] #'[e_arg ...])
                  (num-args-fail-msg #'e_fn #'[τ_inX ...] #'[e_arg ...])
-   [⊢ e_arg ≫ e_arg- ⇒ ty-argX] ... ; typechecking args must be fold; do in 2 steps
+   [⊢ e_arg ≫ e_argX- ⇒ ty-argX] ... ; typechecking args must be fold; do in 2 steps
    #:do[(define (ev e)
           (syntax-parse e
 ;            [_ #:do[(printf "eval: ~a\n" (stx->datum e))] #:when #f #'(void)]
@@ -206,20 +207,21 @@
              (syntax-property #`#,(stx-map ev #'(x ...)) ': (typeof e))]
             [_  e] ; other literals
             #;[es (stx-map L #'es)]))]
+   #:with (ty-arg ...)
+          (stx-map
+           (λ (t) (ev (substs #'(e_argX- ...) #'(X ...) t)))
+           #'(ty-argX ...))
+   #:with (e_arg- ...) (stx-map (λ (e t) (assign-type e t)) #'(e_argX- ...) #'(ty-arg ...))
    #:with (τ_in ... τ_out)
           (stx-map
            (λ (t) (ev (substs #'(e_arg- ...) #'(X ...) t)))
            #'(τ_inX ... τ_outX))
-   #:with (ty-arg ...)
-          (stx-map
-           (λ (t) (ev (substs #'(e_arg- ...) #'(X ...) t)))
-           #'(ty-argX ...))
    ;; #:do[(printf "vars: ~a\n" #'(X ...))]
-   #:when (stx-andmap (λ (e t1 t2)(displayln (stx->datum e))(displayln (stx->datum t1)) (displayln (stx->datum t2)) (displayln (typecheck? t1 t2)) #;(typecheck? t1 t2)) #'(e_arg ...)#'(ty-arg ...) #'(τ_in ...))
+;  #:when (stx-andmap (λ (e t1 t2)(displayln (stx->datum e))(displayln (stx->datum t1)) (displayln (stx->datum t2)) (displayln (typecheck? t1 t2)) #;(typecheck? t1 t2)) #'(e_arg ...)#'(ty-arg ...) #'(τ_in ...))
    ;; #:do[(stx-map
    ;;       (λ (tx t) (printf "ty_in inst: \n~a\n~a\n" (stx->datum tx) (stx->datum t)))
    ;;       #'(τ_inX ...)          #'(τ_in ...))]
-   [⊢ e_arg ≫ _ ⇐ τ_in] ...
+;   [⊢ e_arg ≫ _ ⇐ τ_in] ...
 ;  #:do[(printf "res e2 =\n~a\n" (stx->datum #'(#%app- e_fn- e_arg- ...)))
 ;       (printf "res t2 = ~a\n" (stx->datum (substs #'(e_arg- ...) #'(X ...) #'τ_out)))]
    ;; #:with res-e (syntax-parse #'e_fn-

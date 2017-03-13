@@ -32,7 +32,8 @@
 ;(check-type ((plus (S Z)) (S Z)) : Nat -> 2)
 ;(check-type ((plus (S Z)) Z) : Nat -> 1)
 
-;; ;; plus zero left
+;; TODO: implement nat-ind reductions
+;; plus zero left
 ;; (check-type
 ;;  (λ ([n : Nat]) (eq-refl n))
 ;;  : (Π ([n : Nat]) (= ((plus Z) n) n)))
