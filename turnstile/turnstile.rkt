@@ -473,6 +473,7 @@
         rule ...+)
      #'(define-syntax (rulename stx)
          (parameterize ([current-check-relation (current-typecheck-relation)]
+                        [current=? (current-type=?)]
                         [current-ev (current-type-eval)]
                         [current-tag (type-key1)])
            (syntax-parse/typecheck stx kw-stuff ... rule ...)))]))
