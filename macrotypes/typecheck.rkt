@@ -757,6 +757,11 @@
   (define current-tag (make-parameter (type-key1))))
 
 ;; type assignment utilities --------------------------------------------------
+(define-simple-macro (with-ctx ([x x- ty] ...) e ...)
+  (let-syntax
+      ([x (make-variable-like-transformer (assign-type #'x- #'ty))] ...)
+    e ...))
+
 (define-syntax (let*-syntax stx)
   (syntax-parse stx
     [(_ () . body) #'(let-syntax () . body)]
