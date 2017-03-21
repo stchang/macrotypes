@@ -401,7 +401,7 @@
   [(_ x:id e) ≫
    [⊢ x ≫ x- ⇒ ty-x]
    [⊢ e ≫ e- ⇒ ty-e]
-   #:fail-unless (cast-ok? #'ty-e #'ty-x stx)
+   #:fail-unless (cast-ok? #'ty-e #'ty-x this-syntax)
            (format "cannot cast ~a to ~a" (type->str #'ty-e) (type->str #'ty-x))
    #:with conv (get-convert #'ty-x)
    --------
