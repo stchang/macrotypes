@@ -183,7 +183,7 @@
   [(_ vec sel) ≫ ; applying vector to one arg is selector
    [⊢ vec ≫ vec- ⇒ ty-vec]
    #:when (vector-type? #'ty-vec)
-   #:with selector (cl:parse-selector #t #'sel stx)
+   #:with selector (cl:parse-selector #t #'sel this-syntax)
    #:do [(define split-ty (ty->len #'ty-vec))]
    #:when (and split-ty (= 3 (length split-ty)))
    #:do [(define base-str (cadr split-ty))
@@ -413,7 +413,7 @@
    #:with out-e (if (pointer-type? #'ty-x)
                     (with-syntax ([conv (mk-to (get-pointer-base #'ty-x))])
                       #'(ro:begin (cl:pointer-set! x- sel (conv e-)) x-))
-                    (with-syntax ([selector (cl:parse-selector #f #'sel stx)])
+                    (with-syntax ([selector (cl:parse-selector #f #'sel this-syntax)])
                       #`(ro:let ([out (ro:vector-copy x-)])
                         #,(if (= 1 (length (stx->list #'selector)))
                             #`(ro:vector-set! out (car 'selector) e-)
