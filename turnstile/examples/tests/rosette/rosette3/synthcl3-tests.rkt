@@ -245,19 +245,16 @@
 (typecheck-fail [w ""]
  #:with-msg "expected int, given char*")
 (check-runtime-exn [w 2])
-(typecheck-fail (procedure int (bad))
- #:with-msg "expected void, given int"
- #:ctx top-level)
-(typecheck-fail (procedure) #:with-msg "expected more terms" #:ctx top-level)
-(typecheck-fail (kernel int (bad) 1)
- #:with-msg "expected void, given int"
- #:ctx top-level)
+(typecheck-fail/toplvl (procedure int (bad))
+ #:with-msg "expected void, given int")
+(typecheck-fail/toplvl (procedure) #:with-msg "expected more terms")
+(typecheck-fail/toplvl (kernel int (bad) 1)
+ #:with-msg "expected void, given int")
 ;(procedure void (w)) ; duplication definition for identifier w
 (typecheck-fail (int_iden "")
  #:with-msg "no implicit conversion from char\\* to int")
-(typecheck-fail (procedure float (bad) "")
- #:with-msg "expected float, given char*"
- #:ctx top-level)
+(typecheck-fail/toplvl (procedure float (bad) "")
+ #:with-msg "expected float, given char*")
 
 ;; more-snippets.rkt --------------------------------------------------
 
@@ -314,7 +311,7 @@
             #:ensure (assert (&& (== x (tiny0 x)) 
                                  (== (- x 1) (tiny1 x)))))))
  : CString
- -> "/home/stchang/NEU_Research/macrotypes/turnstile/examples/tests/rosette/rosette3/synthcl3-tests.rkt:295:0\n'(procedure int (tiny0 (int x)) (- x 0))\n/home/stchang/NEU_Research/macrotypes/turnstile/examples/tests/rosette/rosette3/synthcl3-tests.rkt:298:0\n'(procedure int (tiny1 (int x)) (- x 1))\n")
+ -> "/home/stchang/NEU_Research/macrotypes/turnstile/examples/tests/rosette/rosette3/synthcl3-tests.rkt:292:0\n'(procedure int (tiny0 (int x)) (- x 0))\n/home/stchang/NEU_Research/macrotypes/turnstile/examples/tests/rosette/rosette3/synthcl3-tests.rkt:295:0\n'(procedure int (tiny1 (int x)) (- x 1))\n")
 ;; (procedure int (tiny0 (int x)) (- x 0))
 ;; (procedure int (tiny1 (int x)) (- x 1))
 
