@@ -1,6 +1,7 @@
 #lang s-exp macrotypes/typecheck
 (require
- racket/fixnum racket/flonum
+ (postfix-in - racket/fixnum)
+ (postfix-in - racket/flonum)
  (for-syntax macrotypes/type-constraints macrotypes/variance-constraints))
 
 (extends

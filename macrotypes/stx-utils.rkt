@@ -6,6 +6,7 @@
 ;; shorthands
 (define id? identifier?)
 (define free-id=? free-identifier=?)
+(define fmt format)
 
 (define (stx-cadr stx) (stx-car (stx-cdr stx)))
 (define (stx-caddr stx) (stx-cadr (stx-cdr stx)))
@@ -82,6 +83,22 @@
 
 (define (stx-drop stx n)
   (drop (stx->list stx) n))
+
+(define (id-lower-case? stx)
+  (unless (identifier? stx)
+    (error 'stx-upcase "Expected identifier, given ~a" stx))
+  (char-lower-case? 
+   (car (string->list (symbol->string (syntax->datum stx))))))
+
+(define (id-upcase stx)
+  (unless (identifier? stx)
+    (error 'stx-upcase "Expected identifier, given ~a" stx))
+  (define chars (string->list (symbol->string (syntax->datum stx))))
+  (define fst (car chars))
+  (define rst (cdr chars))
+  (datum->syntax 
+   stx 
+   (string->symbol (apply string (cons (char-upcase fst) rst)))))
 
 (define (generate-temporariess stx)
   (stx-map generate-temporaries stx))

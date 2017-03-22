@@ -1,7 +1,8 @@
 #lang s-exp "../typecheck.rkt"
 (require (only-in "../typecheck.rkt"
                   [define-typed-syntax def-typed-stx/no-provide]))
-(require racket/fixnum racket/flonum)
+(require (postfix-in - racket/fixnum)
+         (postfix-in - racket/flonum))
 
 (extends
  "ext-stlc.rkt"

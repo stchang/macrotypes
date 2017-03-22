@@ -56,7 +56,8 @@
      (syntax/loc this-syntax
        (#%module-begin
         ; auto-provide some useful racket forms
-        (provide #%module-begin #%top-interaction #%top require only-in)
+        (provide #%module-begin #%top-interaction #%top
+         require only-in prefix-in rename-in)
         . stuff))]))
 
 (struct exn:fail:type:runtime exn:fail:user ())
@@ -73,10 +74,14 @@
   ;; drop-file-ext : String -> String
   (define (drop-file-ext filename)
     (car (string-split filename ".")))
-  ;; extract-filename : PathString -> String
-  (define (extract-filename f)
+  ;; extract-filename : PathString or Symbol -> String
+  (define (extract-filename file)
+    (define f (if (string? file) file (symbol->string file)))
     (path->string (path-replace-suffix (file-name-from-path f) "")))
-  (define-syntax-parameter stx (syntax-rules ())))
+  (define-syntax-parameter stx (syntax-rules ()))
+
+  ;; parameter is an identifier transformer
+  (define current-host-lang (make-parameter mk--)))
 
 ;; non-Turnstile define-typed-syntax
 ;; TODO: potentially confusing? get rid of this?
@@ -154,7 +159,8 @@
     [(_ (~or x:id [old:id new:id]) ... #:from base-lang)
      #:with pre: 
             (let ([pre (or (let ([dat (syntax-e #'base-lang)])
-                             (and (string? dat) (extract-filename dat)))
+                             (and (or (string? dat) (symbol? dat))
+                                  (extract-filename dat)))
                            #'base-lang)])
               (format-id #'base-lang "~a:" pre))
      #`(begin
@@ -718,7 +724,7 @@
    (lambda (stx modes)
      (syntax-parse stx #:datum-literals (:)
        ;; cannot write ty:type bc provides might precede type def
-       [(_ (~and (~or (~and [out-x:id (~optional :) ty] (~parse x #'out-x))
+       [(_ (~and (~or (~and [out-x:id (~optional :) ty] (~parse x ((current-host-lang)#'out-x)))
                       [[x:id (~optional :) ty] out-x:id])) ...)
         #:with (x/tc ...) (generate-temporaries #'(x ...))
         #:when (stx-map
@@ -732,7 +738,7 @@
 (define-syntax define-primop
   (syntax-parser #:datum-literals (:)
     [(define-primop op:id (~optional :) τ)
-     #:with op- (format-id #'op "~a-" #'op)
+     #:with op- ((current-host-lang) #'op)
      #'(define-primop op op- τ)]
     [(define-primop op/tc:id (~optional #:as) op:id (~optional :) τ:type)
      ; rename-transformer doesnt seem to expand at the right time
@@ -766,6 +772,12 @@
   (syntax-parse stx
     [(_ () . body) #'(let-syntax () . body)]
     [(_ (b . bs) . es) #'(let-syntax (b) (let*-syntax bs . es))]))
+
+(define-syntax (⊢m stx)
+  (syntax-parse stx #:datum-literals (:)
+   [(_ e : τ) (assign-type #`e #`τ)]
+   [(_ e τ) (assign-type #`e #`τ)]))
+
 (begin-for-syntax
   ;; Type assignment macro (ie assign-type) for nicer syntax
   (define-syntax (⊢ stx)
