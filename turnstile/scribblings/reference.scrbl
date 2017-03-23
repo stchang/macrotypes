@@ -493,11 +493,16 @@ equality, but includes alpha-equivalence.
     to validate types.
   Binds a @racket[norm] attribute to the type's expanded representation.}}
  @item{@defthing[type-bind stx-class]{A syntax class recognizing
-     syntax objects with shape @racket[[x:id (~datum :) τ:type]].}}
+     syntax objects with shape @racket[[x:id (~datum :) τ:type]].
+  Binds a @racket[x] attribute to the binding identifier, and a @racket[type] attribute
+  to the type's expanded representation.}}
  @item{@defthing[type-ctx stx-class]{A syntax class recognizing
-      syntax objects with shape @racket[(b:type-bind ...)].}}
+      syntax objects with shape @racket[(b:type-bind ...)].
+  Binds a @racket[x] attribute to the binding identifiers, and a @racket[type] attribute
+  to the expanded representation of the types.}}
  @item{@defthing[type-ann stx-class]{A syntax class recognizing
-       syntax objects with shape @racket[{τ:type}] where the braces are required.}}
+       syntax objects with shape @racket[{τ:type}] where the braces are required.
+  Binds a @racket[norm] attribute to the type's expanded representation.}}
 
  @item{@defproc[(assign-type [e syntax?] [τ syntax?]) syntax?]{
 Phase 1 function that calls @racket[current-type-eval] on @racket[τ] and attaches it to @racket[e] using @tt{key1}.}}
@@ -601,7 +606,7 @@ Phase 1 function that replaces occurrences of @racket[x], as determined by @rack
  @racket[τ] in @racket[e].}
 
 @defproc[(substs [τs (listof type-stx)]
-                 [xs (listof id)]
+                 [xs (listof identifier?)]
                  [e expr-stx]
                  [cmp (-> identifier? identifier? boolean?) bound-identifier=?]) expr-stx]{
 Phase 1 function folding @racket[subst] over the given @racket[τs] and @racket[xs].}
