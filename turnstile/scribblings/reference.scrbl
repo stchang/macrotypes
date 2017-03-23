@@ -396,8 +396,8 @@ that you can still use other Turnstile conveniences like pattern expanders.}}
                     (code:line #:extra-info stx)])]{
   Analogous to @racket[define-internal-type-constructor], but for binding types.}}
 @item{
-@defform[(type-out ty-id)]{
-A @racket[provide]-spec that, given @racket[ty-id], provides @racket[ty-id], 
+@defform[(type-out ty-id ...)]{
+A @racket[provide]-spec that, for each given @racket[ty-id], provides @racket[ty-id],
 and provides @racket[for-syntax] a predicate @racket[ty-id?] and a @tech:pat-expander @racket[~ty-id].}}
 
 @item{@defparam[current-type-eval type-eval type-eval]{
@@ -582,7 +582,7 @@ expanded identifiers from the contexts, e.g.
 
 might return
 
-@racket[(list '() (list #'x-) (list #'(#%plain-app x- 1))(list #'Int))].
+@racket[(list #'() #'(x-) #'((#%plain-app x- 1)) #'(Int))].
 
 The context elements have the same shape as in @racket[define-typed-syntax].
 The contexts use @racket[let*] semantics, where each binding is in scope for
@@ -594,7 +594,7 @@ want to specify a @litchar{::} key when using @racket[infer] to compute the
 kinds on types.}
 
 @defproc[(subst [τ type-stx]
-                [x id]
+                [x identifier?]
                 [e expr-stx]
                 [cmp (-> identifier? identifier? boolean?) bound-identifier=?]) expr-stx]{
 Phase 1 function that replaces occurrences of @racket[x], as determined by @racket[cmp], with
@@ -630,7 +630,7 @@ The possible variances are:
 
 These are all phase 1 functions.
 
-@defproc[(stx-length [stx syntax?]) Nat]{Analogous to @racket[length].}
+@defproc[(stx-length [stx syntax?]) exact-nonnegative-integer?]{Analogous to @racket[length].}
 @defproc[(stx-length=? [stx1 syntax?] [stx2 syntax?]) boolean?]{
  Returns true if two syntax objects are of equal length.}
 @defproc[(stx-andmap [p? (-> syntax? boolean?)] [stx syntax?]) (listof syntax?)]{
