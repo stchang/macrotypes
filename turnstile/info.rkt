@@ -7,6 +7,7 @@
   '("examples/rosette"
     "examples/fomega3.rkt"
     "examples/tests"
+    "rackunit-typechecking.rkt"
     "examples/trivial.rkt")) ; needs typed racket
 
 (define test-include-paths
@@ -19,8 +20,7 @@
     "examples/tests/mlish/sweet-map.rkt" ; needs sweet-exp
     "examples/fomega3.rkt"
     "examples/tests/fomega3-tests.rkt"
-    "examples/tests/mlish/bg/README.md"
-    "rackunit-typechecking.rkt"))
+    "examples/tests/mlish/bg/README.md"))
 
 (define test-timeouts
   '(("examples/tests/mlish/generic.mlish" 300)
