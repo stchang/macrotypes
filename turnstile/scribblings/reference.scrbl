@@ -238,7 +238,9 @@ A @racket[syntax-parse]-like form that supports
 @defform*[((define-primop typed-op-id τ)
            (define-primop typed-op-id : τ)
            (define-primop typed-op-id op-id τ)
-           (define-primop typed-op-id op-id : τ))]{
+           (define-primop typed-op-id op-id : τ)
+           (define-primop typed-op-id #:as op-id τ)
+           (define-primop typed-op-id #:as op-id : τ))]{
 Defines @racket[typed-op-id] by attaching type @racket[τ] to (untyped) 
 identifier @racket[op-id], e.g.:
 
