@@ -19,7 +19,8 @@
     "examples/tests/mlish/sweet-map.rkt" ; needs sweet-exp
     "examples/fomega3.rkt"
     "examples/tests/fomega3-tests.rkt"
-    "examples/tests/mlish/bg/README.md"))
+    "examples/tests/mlish/bg/README.md"
+    "rackunit-typechecking.rkt"))
 
 (define test-timeouts
   '(("examples/tests/mlish/generic.mlish" 300)
