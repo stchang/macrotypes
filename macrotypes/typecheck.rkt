@@ -104,15 +104,19 @@
 (define-syntax extends
   (syntax-parser
     [(_ base-lang
+        (~optional (~seq #:prefix pre))
         (~optional (~seq #:except (~and x:id (~not _:keyword)) ...) 
                    #:defaults ([(x 1) null]))
         (~optional (~seq #:rename [old new] ...) 
                    #:defaults ([(old 1) null][(new 1) null])))
      #:with pre: 
+           (or
+            (attribute pre)
             (let ([pre (or (let ([dat (syntax-e #'base-lang)])
-                             (and (string? dat) (extract-filename dat)))
+                             (and (or (string? dat) (symbol? dat))
+                                  (extract-filename dat)))
                            #'base-lang)])
-              (format-id #'base-lang "~a:" pre))
+              (format-id #'base-lang "~a:" pre)))
      #:with internal-pre (generate-temporary)
      #:with non-excluded-imports #'(except-in base-lang x ... old ...)
      #:with conflicted? #'(λ (n) (member (string->symbol n) '(#%app λ #%datum begin let let* letrec if define)))
