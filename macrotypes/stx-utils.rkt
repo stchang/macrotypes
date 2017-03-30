@@ -48,8 +48,9 @@
   (findf f (stx->list stx)))
 
 (define (stx-length stx) (length (stx->list stx)))
-(define (stx-length=? stx1 stx2)
-  (= (stx-length stx1) (stx-length stx2)))
+(define (stx-length=? stx1 stx2)   (= (stx-length stx1) (stx-length stx2)))
+(define (stx-length>=? stx1 stx2)  (>= (stx-length stx1) (stx-length stx2)))
+(define (stx-length<=? stx1 stx2)  (<= (stx-length stx1) (stx-length stx2)))
 
 (define (stx-last stx) (last (stx->list stx)))
 
