@@ -35,11 +35,17 @@
   (define paren-prop (syntax-property stx 'paren-shape))
   (and paren-prop (char=? #\{ paren-prop)))
 
-(define (stx-member v stx)
-  (member v (stx->list stx) free-identifier=?))
+(define (stx-datum-equal? x y [eq equal?])
+  (eq (datum->stx x) (datum->stx y)))
+
+(define (stx-member v stx [eq free-id=?])
+  (member v (stx->list stx) eq))
+
+(define (stx-datum-member v stx [eq stx-datum-equal?])
+  (stx-member v stx eq))
 
 (define (str-stx-member v stx)
-  (member (datum->syntax v) (map datum->syntax (stx->list stx)) string=?))
+  (stx-datum-member v stx))
 (define (str-stx-assoc v stx)
   (assoc v (map stx->list (stx->list stx)) stx-str=?))
 (define (stx-assoc v stx [cmp free-identifier=?]) ; v = id
@@ -81,6 +87,8 @@
 
 (define (stx-remove-dups Xs)
   (remove-duplicates (stx->list Xs) free-identifier=?))
+(define (stx-remove v lst [f free-id=?])
+  (remove v (stx->list lst) f))
 
 (define (stx-drop stx n)
   (drop (stx->list stx) n))
