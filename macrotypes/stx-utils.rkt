@@ -36,7 +36,7 @@
   (and paren-prop (char=? #\{ paren-prop)))
 
 (define (stx-datum-equal? x y [eq equal?])
-  (eq (datum->stx x) (datum->stx y)))
+  (eq (stx->datum x) (stx->datum y)))
 
 (define (stx-member v stx [eq free-id=?])
   (member v (stx->list stx) eq))
