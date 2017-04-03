@@ -559,7 +559,7 @@
                      ;; to ensure enough stx-parse progress for proper err msg,
                      ;; ie, "invalid type" instead of "improper tycon usage"
                      #:with (~! (~var _ type) (... (... ...))) #'(arg- (... (... ...)))
-                     (add-orig (mk-type #'(τ- arg- (... (... ...)))) stx)]
+                     (add-orig (mk-type (syntax/loc stx (τ- arg- (... (... ...))))) stx)]
                     [_ ;; else fail with err msg
                      (type-error #:src stx
                       #:msg
