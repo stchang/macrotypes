@@ -27,7 +27,8 @@
                     [* : (→ Num Num Num)]
                     [add1 : (→ Int Int)]
                     [sub1 : (→ Int Int)])
-         #%datum #%app)
+         #%datum #%app
+         (for-syntax ~True ~False))
 
 (define-syntax define-named-type-alias
   (syntax-parser
