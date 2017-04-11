@@ -3,6 +3,8 @@
  #:except #%app #%datum + add1 sub1 *
           Int Int? ~Int Float Float? ~Float Bool ~Bool Bool?)
 
+(require (for-syntax "util/filter-maximal.rkt"))
+
 ;; Simply-Typed Lambda Calculus, plus union types
 ;; Types:
 ;; - types from and ext+stlc.rkt
@@ -45,11 +47,9 @@
 
 (define-for-syntax (prune+sort tys)
   (stx-sort 
-   (remove-duplicates 
+   (filter-maximal 
     (stx->list tys)
-    ;; remove dups keeps first element
-    ;; but we want to keep supertype
-    (lambda (x y) (typecheck? y x)))))
+    typecheck?)))
   
 (define-syntax (U stx)
   (syntax-parse stx
