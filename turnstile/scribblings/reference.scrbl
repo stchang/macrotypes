@@ -240,6 +240,21 @@ A @racket[syntax-parse]-like form that supports
 A @racket[syntax-parse] @tech[#:doc '(lib "syntax/scribblings/syntax.scrbl")]{pattern expander}
 that supports typechecking syntax.
 
+For example the pattern
+
+@racketblock[
+  (~typecheck
+   [⊢ a ≫ a- ⇒ τ_a]
+   [⊢ b ≫ b- ⇐ τ_a])]
+
+typechecks @racket[a] and @racket[b], expecting @racket[b] to have the
+type of @racket[a], and binding @racket[a-] and @racket[b-] to the
+expanded versions.
+
+This is most useful in places where you want to do typechecking in
+something other than a type rule, like in a function or a syntax
+class.
+
 @(let ([ev (make-base-eval)])
    (ev '(require turnstile/turnstile))
    @examples[
@@ -259,6 +274,10 @@ that supports typechecking syntax.
 @defform*[[(~⊢ tc ...)]]{
 A shorthand @tech[#:doc '(lib "syntax/scribblings/syntax.scrbl")]{pattern expander}
 for @racket[(~typcheck [⊢ tc ...])].
+
+For example the pattern @racket[(~⊢ a ≫ a- ⇒ τ_a)] typechecks
+@racket[a], binding the expanded version to @racket[a-] and the type
+to @racket[τ_a].
 
 @(let ([ev (make-base-eval)])
    (ev '(require turnstile/turnstile))
