@@ -234,6 +234,47 @@ A @racket[syntax-parse]-like form that supports
 @racket[define-typed-syntax]-style clauses. In particular, see the
 "rule" part of @racket[define-typed-syntax]'s grammar above.}
 
+@; ~typecheck and ~⊢
+
+@defform[(~typecheck premise ...)]{
+A @racket[syntax-parse] @tech[#:doc '(lib "syntax/scribblings/syntax.scrbl")]{pattern expander}
+that supports typechecking syntax.
+
+@(let ([ev (make-base-eval)])
+   (ev '(require turnstile/turnstile))
+   @examples[
+     #:eval ev
+     (begin-for-syntax
+       (struct clause [stx- result-type])
+       (code:comment "f : Stx -> Clause")
+       (define (f stx)
+         (syntax-parse stx
+           [(~and [condition:expr body:expr]
+                  (~typecheck
+                   [⊢ condition ≫ condition- ⇐ Bool]
+                   [⊢ body ≫ body- ⇒ τ_body]))
+            (clause #'[condition- body-] #'τ_body)])))
+     ])}
+
+@defform*[[(~⊢ tc ...)]]{
+A shorthand @tech[#:doc '(lib "syntax/scribblings/syntax.scrbl")]{pattern expander}
+for @racket[(~typcheck [⊢ tc ...])].
+
+@(let ([ev (make-base-eval)])
+   (ev '(require turnstile/turnstile))
+   @examples[
+     #:eval ev
+     (begin-for-syntax
+       (struct clause [stx- result-type])
+       (code:comment "f : Stx -> Clause")
+       (define (f stx)
+         (syntax-parse stx
+           [(~and [condition:expr body:expr]
+                  (~⊢ condition ≫ condition- ⇐ Bool)
+                  (~⊢ body ≫ body- ⇒ τ_body))
+            (clause #'[condition- body-] #'τ_body)])))
+     ])}
+
 @; define-primop --------------------------------------------------------------
 @defform*[((define-primop typed-op-id τ)
            (define-primop typed-op-id : τ)
