@@ -234,6 +234,66 @@ A @racket[syntax-parse]-like form that supports
 @racket[define-typed-syntax]-style clauses. In particular, see the
 "rule" part of @racket[define-typed-syntax]'s grammar above.}
 
+@; ~typecheck and ~⊢
+
+@defform[(~typecheck premise ...)]{
+A @racket[syntax-parse] @tech[#:doc '(lib "syntax/scribblings/syntax.scrbl")]{pattern expander}
+that supports typechecking syntax.
+
+For example the pattern
+
+@racketblock[
+  (~typecheck
+   [⊢ a ≫ a- ⇒ τ_a]
+   [⊢ b ≫ b- ⇐ τ_a])]
+
+typechecks @racket[a] and @racket[b], expecting @racket[b] to have the
+type of @racket[a], and binding @racket[a-] and @racket[b-] to the
+expanded versions.
+
+This is most useful in places where you want to do typechecking in
+something other than a type rule, like in a function or a syntax
+class.
+
+@(let ([ev (make-base-eval)])
+   (ev '(require turnstile/turnstile))
+   @examples[
+     #:eval ev
+     (begin-for-syntax
+       (struct clause [stx- result-type])
+       (code:comment "f : Stx -> Clause")
+       (define (f stx)
+         (syntax-parse stx
+           [(~and [condition:expr body:expr]
+                  (~typecheck
+                   [⊢ condition ≫ condition- ⇐ Bool]
+                   [⊢ body ≫ body- ⇒ τ_body]))
+            (clause #'[condition- body-] #'τ_body)])))
+     ])}
+
+@defform*[[(~⊢ tc ...)]]{
+A shorthand @tech[#:doc '(lib "syntax/scribblings/syntax.scrbl")]{pattern expander}
+for @racket[(~typcheck [⊢ tc ...])].
+
+For example the pattern @racket[(~⊢ a ≫ a- ⇒ τ_a)] typechecks
+@racket[a], binding the expanded version to @racket[a-] and the type
+to @racket[τ_a].
+
+@(let ([ev (make-base-eval)])
+   (ev '(require turnstile/turnstile))
+   @examples[
+     #:eval ev
+     (begin-for-syntax
+       (struct clause [stx- result-type])
+       (code:comment "f : Stx -> Clause")
+       (define (f stx)
+         (syntax-parse stx
+           [(~and [condition:expr body:expr]
+                  (~⊢ condition ≫ condition- ⇐ Bool)
+                  (~⊢ body ≫ body- ⇒ τ_body))
+            (clause #'[condition- body-] #'τ_body)])))
+     ])}
+
 @; define-primop --------------------------------------------------------------
 @defform*[((define-primop typed-op-id τ)
            (define-primop typed-op-id : τ)

@@ -6,6 +6,7 @@
          (rename-out [define-typed-syntax define-typerule]
                      [define-typed-syntax define-syntax/typecheck])
          (for-syntax syntax-parse/typecheck
+                     ~typecheck ~⊢
                      (rename-out
                       [syntax-parse/typecheck syntax-parse/typed-syntax])))
 
@@ -403,6 +404,17 @@
          (for-meta 2 'syntax-classes))
 
 (begin-for-syntax
+  (define-syntax ~typecheck
+    (pattern-expander
+     (syntax-parser
+       [(_ clause:clause ...)
+        #'(~and clause.pat ...)])))
+  (define-syntax ~⊢
+    (pattern-expander
+     (syntax-parser
+       [(_ . stuff)
+        #'(~typecheck [⊢ . stuff])])))
+
   (define-syntax syntax-parse/typecheck
     (syntax-parser
       [(_ stx-expr
