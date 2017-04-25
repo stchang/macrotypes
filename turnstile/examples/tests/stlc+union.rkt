@@ -27,6 +27,14 @@
 (define-type-alias NNN (U (U Nat Nat) (U (U Nat Nat Nat) (U Nat Nat))))
 (check-type ((λ ([x : NNN]) x) 1) : Nat -> 1)
 
+; check that pruning and collapsing don't throw away types when the union
+; contains another empty union
+(typecheck-fail
+ (λ ([x : (U (U) String)])
+   (ann x : (U)))
+ #:with-msg
+ "expected \\(U\\), given \\(U \\(U\\) String\\)")
+
 
 ;; tests from stlc+sub ---------------------
 (check-type 1 : Num)

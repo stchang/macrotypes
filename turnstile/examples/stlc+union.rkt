@@ -58,7 +58,7 @@
      #:with ((~or (~U* ty1- ...) ty2-) ...) (stx-map (current-type-eval) #'tys)
      #:with tys- (prune+sort #'(ty1- ... ... ty2- ...))
      (if (= 1 (stx-length #'tys-))
-         (stx-car #'tys)
+         (stx-car #'tys-)
          #'(U* . tys-))]))
 (define-syntax Bool
   (make-variable-like-transformer
