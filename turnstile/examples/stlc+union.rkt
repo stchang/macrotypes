@@ -30,7 +30,7 @@
                     [add1 : (→ Int Int)]
                     [sub1 : (→ Int Int)])
          #%datum #%app
-         (for-syntax ~True ~False))
+         (for-syntax ~PosInt ~Zero ~NegInt ~True ~False))
 
 (define-syntax define-named-type-alias
   (syntax-parser
