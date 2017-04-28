@@ -948,7 +948,8 @@
                 (let*-syntax ([X (make-variable-like-transformer
                                  (mk-tyvar (attach #'X ':: (#,kev #'#%type))))] ...
                               [x (make-variable-like-transformer
-                                  (attachs #'x '(sep ...) #'(τ ...)
+                                  (attachs (attach #'x 'orig-binding #'x)
+                                           '(sep ...) #'(τ ...)
                                            #:ev #,tev))] ...)
                   (#%expression e) ... void)))))
        (list #'tvs+ #'xs+ 
