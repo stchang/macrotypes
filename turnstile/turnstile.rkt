@@ -1,8 +1,9 @@
 #lang racket/base
 
-(provide (except-out (all-from-out macrotypes/typecheck) 
+(provide (except-out (all-from-out macrotypes/typecheck)
                      -define-typed-syntax -define-syntax-category)
          define-typed-syntax define-syntax-category
+         define-typed-variable-syntax
          (rename-out [define-typed-syntax define-typerule]
                      [define-typed-syntax define-syntax/typecheck])
          (for-syntax syntax-parse/typecheck
@@ -527,3 +528,33 @@
                                [current-tag 'key1])
                   (syntax-parse/typecheck stx kw-stuff (... ...)
                     rule (... ...))))])))]))
+
+(define-syntax define-typed-variable-syntax
+  (syntax-parser
+    [(_ (NAME:id orig-var-pat . props-pat)
+        (~and (~seq kw-stuff ...) :stxparse-kws)
+        rule ...+)
+     #:with ((~seq tag:id _) ...) #'props-pat
+     #:with make-transformer (generate-temporary #'name)
+     #:with invalid-invok-str (format "invalid invocation of var, expected tags: ~a"
+                                      (syntax->datum #'(tag ...)))
+     #'(begin-for-syntax
+         (define (make-transformer stx)
+           (syntax-parse stx
+             #:datum-literals (tag ...)
+             [(orig-var-pat . props-pat)
+              (make-set!-transformer
+               (syntax-parser
+                 [(~var _ identifier)
+                  (syntax-parse/typecheck this-syntax
+                                          kw-stuff ...
+                                          rule ...)]
+                 [(id . args)
+                  #:with ap (datum->syntax this-syntax '#%app)
+                  (syntax/loc this-syntax (ap id . args))]))]
+             [_
+              (raise-syntax-error #f 'invalid-invok-str this-syntax)]))
+         (define-syntax (NAME stx)
+           (syntax-case stx ()
+             [(_ . args)
+              #'(make-transformer #'args)])))]))
