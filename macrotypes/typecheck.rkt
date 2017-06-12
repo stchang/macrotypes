@@ -782,6 +782,14 @@
    [(_ e : τ) (assign-type #`e #`τ)]
    [(_ e τ) (assign-type #`e #`τ)]))
 
+(define-syntax #%var-assign
+  (syntax-parser
+    [(_ x:id ([sep:id τ] ...))
+     (define tev (current-type-eval))
+     (attachs (attach #'x 'orig-binding (detach #'x 'orig-binding))
+              (syntax->datum #'(sep ...)) #'(τ ...)
+              #:ev tev)]))
+
 (begin-for-syntax
   ;; Type assignment macro (ie assign-type) for nicer syntax
   (define-syntax (⊢ stx)
@@ -948,9 +956,10 @@
                 (let*-syntax ([X (make-variable-like-transformer
                                  (mk-tyvar (attach #'X ':: (#,kev #'#%type))))] ...
                               [x (make-variable-like-transformer
-                                  (attachs (attach #'x 'orig-binding #'x)
-                                           '(sep ...) #'(τ ...)
-                                           #:ev #,tev))] ...)
+                                  ;; TODO: find a way to use #,tev properly
+                                  #`(#%var-assign
+                                     #,(attach #'x 'orig-binding #'x)
+                                     ([sep τ] ...)))] ...)
                   (#%expression e) ... void)))))
        (list #'tvs+ #'xs+ 
              #'(e+ ...) 
