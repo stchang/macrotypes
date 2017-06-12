@@ -783,6 +783,16 @@
    [(_ e τ) (assign-type #`e #`τ)]))
 
 (begin-for-syntax
+  ;; var-assign :
+  ;; Id (Listof Sym) (StxListof TypeStx) -> Stx
+  (define (var-assign x seps τs)
+    (attachs x seps τs #:ev (current-type-eval)))
+
+  ;; current-var-assign :
+  ;; (Parameterof [Id (Listof Sym) (StxListof TypeStx) -> Stx])
+  (define current-var-assign
+    (make-parameter var-assign))
+  
   ;; Type assignment macro (ie assign-type) for nicer syntax
   (define-syntax (⊢ stx)
     (syntax-parse stx
@@ -922,7 +932,6 @@
   (define (infer es #:ctx [ctx null] #:tvctx [tvctx null]
                     #:tag [tag (current-tag)] ; the "type" to return from es
                     #:expa [expa expand/df] ; used to expand e
-                    #:tev [tev #'(current-type-eval)]  ; type-eval (τ in ctx)
                     #:key [kev #'(current-type-eval)]) ; kind-eval (tvk in tvctx)
      (syntax-parse ctx
        [((~or X:id [x:id (~seq sep:id τ) ...]) ...) ; dont expand; τ may reference to tv
@@ -948,8 +957,10 @@
                 (let*-syntax ([X (make-variable-like-transformer
                                  (mk-tyvar (attach #'X ':: (#,kev #'#%type))))] ...
                               [x (make-variable-like-transformer
-                                  (attachs #'x '(sep ...) #'(τ ...)
-                                           #:ev #,tev))] ...)
+                                  ((current-var-assign)
+                                   #'x
+                                   '(sep ...)
+                                   #'(τ ...)))] ...)
                   (#%expression e) ... void)))))
        (list #'tvs+ #'xs+ 
              #'(e+ ...) 
