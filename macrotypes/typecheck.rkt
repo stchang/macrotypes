@@ -919,42 +919,78 @@
   ;;       but I'm not sure it properly generalizes
   ;;       eg, what if I need separate type-eval and kind-eval fns?
   ;; - should infer be moved into define-syntax-category?
-  (define (infer es #:ctx [ctx null] #:tvctx [tvctx null]
-                    #:tag [tag (current-tag)] ; the "type" to return from es
-                    #:expa [expa expand/df] ; used to expand e
-                    #:tev [tev #'(current-type-eval)]  ; type-eval (τ in ctx)
-                    #:key [kev #'(current-type-eval)]) ; kind-eval (tvk in tvctx)
-     (syntax-parse ctx
-       [((~or X:id [x:id (~seq sep:id τ) ...]) ...) ; dont expand; τ may reference to tv
-       #:with (~or (~and (tv:id ...)
+  ;; added: '#:var-stx lst' specifies the variable transformers used to bind
+  ;;   ctx in the expansion of the expressions.
+  ;; TODO: delete #:tev and #:kev?
+  (define (infer es
+                 #:tvctx [tvctx '()]
+                 #:ctx [ctx '()]
+                 #:tag [tag (current-tag)]
+                 #:expa [expa expand/df]
+                 #:tev [tev #'(current-type-eval)]
+                 #:kev [kev #'(current-type-eval)]
+                 #:var-stx [var-stxs (var-transformers-for-context ctx tag tev kev)])
+    (syntax-parse es
+      [(e ...)
+       #:with (var-stx ...) var-stxs
+       #:with (x ...) (stx-map (lambda (ctx-elem)
+                                 (if (identifier? ctx-elem)
+                                     ctx-elem
+                                     (stx-car ctx-elem)))
+                               ctx)
+       ; TODO: turnstile syntax no longer uses tvctx.
+       ; is it obsolete? should we just prepend tvctx to ctx?
+       #:with (~or ([tv:id (~seq tvsep:id tvk) ...] ...)
+                   (~and (tv:id ...)
                          (~parse ([(tvsep ...) (tvk ...)] ...)
-                                 (stx-map (λ _ #'[(::) (#%type)]) #'(tv ...))))
-                   ([tv (~seq tvsep:id tvk) ...] ...))
-                   tvctx
-       #:with (e ...) es
+                                 (stx-map (λ _ #'[(::) (#%type)]) #'(tv ...)))))
+              tvctx
        #:with ((~literal #%plain-lambda) tvs+
                (~let*-syntax
                 ((~literal #%expression)
                  ((~literal #%plain-lambda) xs+
                   (~let*-syntax
                    ((~literal #%expression) e+) ... (~literal void))))))
-        (expa
+       (expa
         #`(λ (tv ...)
-            (let*-syntax ([tv (make-rename-transformer
+            (let*-syntax ([tv (make-rename-transformer ; TODO: make this an argument too?
                                (mk-tyvar
                                 (attachs #'tv '(tvsep ...) #'(tvk ...)
                                          #:ev #,kev)))] ...)
-              (λ (X ... x ...)
-                (let*-syntax ([X (make-variable-like-transformer
-                                 (mk-tyvar (attach #'X ':: (#,kev #'#%type))))] ...
-                              [x (make-variable-like-transformer
-                                  (attachs #'x '(sep ...) #'(τ ...)
-                                           #:ev #,tev))] ...)
+              (λ (x ...)
+                (let*-syntax ([x var-stx] ...)
                   (#%expression e) ... void)))))
-       (list #'tvs+ #'xs+ 
-             #'(e+ ...) 
-             (stx-map (λ (e) (detach e tag)) #'(e+ ...)))]
-      [([x τ] ...) (infer es #:ctx #`([x #,tag τ] ...) #:tvctx tvctx #:tag tag)]))
+       (list #'tvs+
+             #'xs+
+             #'(e+ ...)
+             (stx-map (λ (e) (detach e tag)) #'(e+ ...)))]))
+
+  (define (var-transformers-for-context ctx tag tev kev)
+    (stx-map (syntax-parser
+               ; missing seperator
+               [[x:id τ] #'(VAR x : τ)]
+               ; seperators given
+               [[x:id . props] #'(VAR x . props)]
+               ; just variable; interpreted as type variable
+               [X:id #'(TYVAR X)])
+             ctx))
+
+  ; variable syntax for regular typed variables
+  (define-syntax VAR
+    (syntax-parser
+      [(_ x (~seq tag prop) ...)
+       #`(make-variable-like-transformer
+          (attachs #'x '(tag ...) #'(prop ...)
+                   #:ev (current-type-eval)))]))
+
+  ; variable syntax for regular kinded type variables
+  (define-syntax TYVAR
+    (syntax-parser
+      [(_ X)
+       #`(make-variable-like-transformer
+          (mk-tyvar (attach #'X ':: ((current-type-eval) #'#%type))))]))
+
+  
 
   ;; fns derived from infer ---------------------------------------------------
   ;; some are syntactic shortcuts, some are for backwards compat
