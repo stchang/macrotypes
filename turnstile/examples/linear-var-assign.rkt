@@ -80,7 +80,7 @@
               '#,(type->str #'τ))]])
 
 
-(define-typed-syntax LIN
+(define-typed-variable-syntax #%lin
   #:datum-literals [:]
   [(_ x- : σ) ≫
    #:when (unrestricted-type? #'σ)
@@ -90,14 +90,6 @@
    #:do [(use-lin-var #'x-)]
    --------
    [⊢ x- ⇒ σ]])
-
-(begin-for-syntax
-  (define (stx-append-map f . lsts)
-    (append* (apply stx-map f lsts)))
-  
-  (current-var-assign
-   (lambda (x seps types)
-     #`(LIN #,x #,@(stx-append-map list seps types)))))
 
 
 (define-typed-syntax #%datum

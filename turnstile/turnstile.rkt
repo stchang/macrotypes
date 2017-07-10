@@ -2,7 +2,9 @@
 
 (provide (except-out (all-from-out macrotypes/typecheck) 
                      -define-typed-syntax -define-syntax-category)
-         define-typed-syntax define-syntax-category
+         define-typed-syntax
+         define-typed-variable-syntax
+         define-syntax-category
          (rename-out [define-typed-syntax define-typerule]
                      [define-typed-syntax define-syntax/typecheck])
          (for-syntax syntax-parse/typecheck
@@ -441,6 +443,24 @@
                         [current-ev (current-type-eval)]
                         [current-tag (type-key1)])
            (syntax-parse/typecheck stx kw-stuff ... rule ...)))]))
+
+(define-syntax define-typed-variable-syntax
+  (syntax-parser
+    [(_ (rulename:id . pats) . rst)
+     #'(define-typed-variable-syntax rulename [(_ . pats) . rst])]
+
+    [(_ rulename:id
+        stuff+rules ...)
+     #'(begin
+         (begin-for-syntax
+           [current-var-assign
+            (λ (var seps props)
+              (with-syntax ([X var]
+                            [sep+props (append* (stx-map list seps props))])
+                #'(rulename X . sep+props)))])
+
+         (define-typed-syntax rulename
+           stuff+rules ...))]))
 
 (define-syntax define-syntax-category
   (syntax-parser
