@@ -99,21 +99,13 @@
   )
 
 
-(define-typed-syntax #%linear
-  #:datum-literals (:)
+(define-typed-variable-syntax
+  #:datum-literals [:]
   [(_ x- : σ) ≫
    #:do [(unless (unrestricted-type? #'σ)
            (use-linear-var! #'x-))]
    --------
    [⊢ x- ⇒ σ]])
-
-(begin-for-syntax
-  (define (stx-append-map f . lsts)
-    (append* (apply stx-map f lsts)))
-
-  (current-var-assign
-   (lambda (x seps types)
-     #`(#%linear #,x #,@(stx-append-map list seps types)))))
 
 
 (define-typed-syntax begin
@@ -122,14 +114,12 @@
    --------
    [⊢ (begin- e- ... e0-) ⇒ σ]])
 
-
 (define-typed-syntax tup
   [(_ e1 e2) ≫
    [⊢ e1 ≫ e1- ⇒ σ1]
    [⊢ e2 ≫ e2- ⇒ σ2]
    --------
    [⊢ (#%app- list- e1- e2-) ⇒ (⊗ σ1 σ2)]])
-
 
 (define-typed-syntax let
   [(let ([x rhs] ...) e) ≫
