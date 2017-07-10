@@ -2,7 +2,9 @@
 
 (provide (except-out (all-from-out macrotypes/typecheck) 
                      -define-typed-syntax -define-syntax-category)
-         define-typed-syntax define-syntax-category
+         define-typed-syntax
+         define-typed-variable-syntax
+         define-syntax-category
          (rename-out [define-typed-syntax define-typerule]
                      [define-typed-syntax define-syntax/typecheck])
          (for-syntax syntax-parse/typecheck
@@ -467,6 +469,16 @@
                         [current-ev (current-type-eval)]
                         [current-tag (type-key1)])
            (syntax-parse/typecheck stx kw-stuff ... rule ...)))]))
+
+(define-syntax define-typed-variable-syntax
+  (syntax-parser
+    [(_ (~optional (~seq #:name name:id) #:defaults ([name (generate-temporary '#%var)]))
+        (~and (~seq kw-stuff ...) :stxparse-kws)
+        rule:rule ...+)
+     #'(begin
+         (define-typed-syntax name kw-stuff ... rule ...)
+         (begin-for-syntax
+           (current-var-assign (macro-var-assign #'name))))]))
 
 (define-syntax define-syntax-category
   (syntax-parser
