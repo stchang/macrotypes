@@ -788,6 +788,18 @@
   (define (var-assign x seps τs)
     (attachs x seps τs #:ev (current-type-eval)))
 
+  ;; macro-var-assign : Id -> (Id (Listof Sym) (StxListof TypeStx) -> Stx)
+  ;; generate a function for current-var-assign that expands
+  ;; to an invocation of the macro by the given identifier
+  ;; e.g.
+  ;;   > (current-var-assign (macro-var-assign #'foo))
+  ;;   > ((current-var-assign) #'x '(:) #'(τ))
+  ;;   #'(foo x : τ)
+  (define ((macro-var-assign mac-id) x seps τs)
+    (with-syntax ([sep+τs (append* (stx-map list seps τs))])
+      (quasisyntax/loc x
+        (#,mac-id #,x . sep+τs))))
+
   ;; current-var-assign :
   ;; (Parameterof [Id (Listof Sym) (StxListof TypeStx) -> Stx])
   (define current-var-assign

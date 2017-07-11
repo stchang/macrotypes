@@ -449,16 +449,10 @@
     [(_ (rulename:id . pats) . rst)
      #'(define-typed-variable-syntax rulename [(_ . pats) . rst])]
 
-    [(_ rulename:id
-        stuff+rules ...)
+    [(_ rulename:id stuff+rules ...)
      #'(begin
          (begin-for-syntax
-           [current-var-assign
-            (λ (var seps props)
-              (with-syntax ([X var]
-                            [sep+props (append* (stx-map list seps props))])
-                #'(rulename X . sep+props)))])
-
+           (current-var-assign (macro-var-assign #'rulename)))
          (define-typed-syntax rulename
            stuff+rules ...))]))
 
