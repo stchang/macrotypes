@@ -197,13 +197,14 @@
              #`(~post
                 #,(with-depth #'tc.e-pat #'[ooo ...]))])
   (define-syntax-class tc*
-    #:attributes (depth es-stx es-stx-orig es-pat)
+    #:attributes (depth es-stx es-stx-orig es-pat wrap-computation)
     [pattern tc:tc-elem
              #:with depth 0
              #:with es-stx #'tc.e-stx
              #:with es-stx-orig #'tc.e-stx-orig
-             #:with es-pat #'tc.e-pat]
-    [pattern (tc:tc ...)
+             #:with es-pat #'tc.e-pat
+             #:attr wrap-computation (λ (stx) stx)]
+    [pattern (tc:tc ... opts:tc-post-options ...)
              #:do [(define ds (stx-map syntax-e #'[tc.depth ...]))
                    (define max-d (apply max 0 ds))]
              #:with depth (add1 max-d)
@@ -218,7 +219,19 @@
                 (add-lists tc-es-pat (- max-d d))))
              #:with es-stx #'[es-stx* ...]
              #:with es-stx-orig #'[es-stx-orig* ...]
-             #:with es-pat #'[es-pat* ...]])
+             #:with es-pat #'[es-pat* ...]
+             #:attr wrap-computation
+             (λ (stx)
+               (foldr (λ (fun stx) (fun stx))
+                      stx
+                      (attribute opts.wrap)))])
+  (define-splicing-syntax-class tc-post-options
+    #:attributes (wrap)
+    [pattern (~seq #:mode x:id v:expr)
+             #:attr wrap (λ (stx) #`(parameterize ([x v]) #,stx))]
+    [pattern (~seq #:modes ([x:id v:expr] ...))
+             #:attr wrap (λ (stx) #`(parameterize ([x v] ...) #,stx))]
+    )
   (define-splicing-syntax-class tc-clause
     #:attributes (pat)
     #:datum-literals (⊢)
@@ -238,13 +251,12 @@
              (with-depth
               #`[(tvctx.ctx ...) (ctx.ctx ...) tc.es-stx tc.es-stx-orig]
               #'[ooo ...])
-             #:with pat
-             #`(~post
-                (~post
-                 (~parse
-                  tcs-pat
-                  (infers/depths 'clause-depth 'tc.depth #`tvctxs/ctxs/ess/origs
-                                 #:tag (current-tag)))))]
+             #:with inf #'(infers/depths 'clause-depth
+                                         'tc.depth
+                                         #`tvctxs/ctxs/ess/origs
+                                         #:tag (current-tag))
+             #:with inf+ ((attribute tc.wrap-computation) #'inf)
+             #:with pat #`(~post (~post (~parse tcs-pat inf+)))]
     )
   (define-splicing-syntax-class clause
     #:attributes (pat)
