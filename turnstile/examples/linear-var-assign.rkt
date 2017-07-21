@@ -1,18 +1,29 @@
 #lang turnstile
+(extends "ext-stlc.rkt"
+         #:except
+         define-type-alias
+         define if begin let let* letrec λ #%app
+         ⊔ zero? = add1 sub1 not void +)
 
-(provide (type-out Unit Int Str Bool -o ⊗ !!)
+(provide (for-syntax current-linear?
+                     linear-scope
+                     linear-var-in-scope?
+                     use-linear-var!)
+
+         (type-out Unit Int String Bool -o ⊗ !!)
          #%top-interaction #%module-begin require only-in
-         #%datum begin tup let λ #%app if
-         (rename-out [λ lambda]))
+         begin tup let λ #%app if
+         (rename-out [λ lambda])
 
-(provide (typed-out [+ : (!! (-o Int Int Int))]
+         (typed-out [+ : (!! (-o Int Int Int))]
                     [< : (!! (-o Int Int Bool))]
-                    [displayln : (!! (-o Str Unit))]))
+                    [displayln : (!! (-o String Unit))]))
 
-(define-base-types Unit Int Str Bool)
+
 (define-type-constructor -o #:arity >= 1)
 (define-type-constructor ⊗ #:arity = 2)
 (define-type-constructor !! #:arity = 1)
+
 
 (begin-for-syntax
   (require syntax/id-set)
@@ -25,94 +36,84 @@
           (set-add s0 x))))
 
 
-  (define unrestricted-type?
-    (or/c Int? Str? !!?))
+  (define (fail/multiple-use x)
+    (raise-syntax-error #f "linear variable used more than once" x))
+  (define (fail/unused x)
+    (raise-syntax-error #f "linear variable unused" x))
+  (define (fail/unbalanced-branches x)
+    (raise-syntax-error #f "linear variable may be unused in certain branches" x))
+  (define (fail/unrestricted-fn x)
+    (raise-syntax-error #f "linear variable may not be used by unrestricted function" x))
 
 
-  (define used-vars (immutable-free-id-set))
+  ; current-linear : (Parameter (TypeStx -> Bool))
+  (define current-linear?
+    (make-parameter (or/c -o? ⊗?)))
 
-  (define (lin-var-in-scope? x)
-    (not (set-member? used-vars x)))
+  ; linear-type? : TypeStx -> Bool
+  (define (linear-type? t)
+    ((current-linear?) t))
 
-  (define (use-lin-var x)
-    (unless (lin-var-in-scope? x)
-      (raise-syntax-error #f "linear variable used more than once" x))
-    (set! used-vars (set-add used-vars x)))
-
-  (define (pop-vars xs ts)
-    (set! used-vars
-          (for/fold ([uv used-vars])
-                    ([x (in-syntax xs)]
-                     [t (in-syntax ts)])
-            (unless (unrestricted-type? t)
-              (when (lin-var-in-scope? x)
-                (raise-syntax-error #f "linear variable unused" x)))
-            (set-remove uv x))))
+  ; unrestricted-type? : TypeStx -> Bool
+  (define (unrestricted-type? t)
+    (not (linear-type? t)))
 
 
+  ; linear-scope : FreeIdSet
+  ;   holds a list of all linear variables that have been used.
+  (define linear-scope
+    (immutable-free-id-set))
 
-  (define scope-stack '())
+  ; linear-var-in-scope? : Id -> Bool
+  (define (linear-var-in-scope? x)
+    (not (set-member? linear-scope x)))
 
-  (define (save-scope)
-    (set! scope-stack (cons used-vars scope-stack)))
+  ; use-linear-var! : Id -> Void
+  (define (use-linear-var! x #:fail [fail fail/multiple-use])
+    (unless (linear-var-in-scope? x)
+      (fail x))
+    (set! linear-scope (set-add linear-scope x)))
 
-  (define (merge-scope #:fail-msg fail-msg
-                       #:fail-src [fail-src #f])
-    (for ([x (in-set (sym-diff used-vars (car scope-stack)))])
-      (raise-syntax-error #f fail-msg fail-src x))
-    (set! scope-stack (cdr scope-stack)))
+  ; pop-linear-scope! : StxList -> Void
+  ;   drops from scope the linear variables in the given context
+  ;   ignores unrestricted types in the context, but checks that
+  ;   variables with linear types must be used already.
+  ;   the context is a syntax list of the form #'([x τ] ...)
+  (define (pop-linear-scope! ctx #:fail [fail fail/unused])
+    (syntax-parse ctx
+      [([X T] ...)
+       (for ([x (in-syntax #'[X ...])]
+             [t (in-syntax #'[T ...])])
+         (when (and (linear-type? t)
+                    (linear-var-in-scope? x))
+           (fail x)))]))
 
-  (define (swap-scope)
-    (set! used-vars
-          (begin0 (car scope-stack)
-            (set! scope-stack
-                  (cons used-vars (cdr scope-stack))))))
+  ; merge-linear-scope! : FreeIdSet -> Void
+  ;  ensure that the current scope and the given scope are compatible,
+  ;  e.g. when unifying the branches in a conditional
+  (define (merge-linear-scope! merge-scope #:fail [fail fail/unbalanced-branches])
+    (for ([x (in-set (sym-diff linear-scope
+                               merge-scope))])
+      (fail x)))
 
   )
 
 
-(define-typed-syntax #%top-interaction
-  [(_ . e) ≫
-   [⊢ e ≫ e- ⇒ τ]
-   --------
-   [≻ (#%app- printf- '"~a : ~a\n"
-              e-
-              '#,(type->str #'τ))]])
-
-
-(define-typed-syntax LIN
-  #:datum-literals [:]
+(define-typed-syntax #%linear
+  #:datum-literals (:)
   [(_ x- : σ) ≫
-   #:when (unrestricted-type? #'σ)
-   --------
-   [⊢ x- ⇒ σ]]
-  [(_ x- : σ) ≫
-   #:do [(use-lin-var #'x-)]
+   #:do [(unless (unrestricted-type? #'σ)
+           (use-linear-var! #'x-))]
    --------
    [⊢ x- ⇒ σ]])
 
 (begin-for-syntax
   (define (stx-append-map f . lsts)
     (append* (apply stx-map f lsts)))
-  
+
   (current-var-assign
    (lambda (x seps types)
-     #`(LIN #,x #,@(stx-append-map list seps types)))))
-
-
-(define-typed-syntax #%datum
-  [(_ . n:exact-integer) ≫
-   --------
-   [⊢ (#%datum- . n) ⇒ Int]]
-  [(_ . b:boolean) ≫
-   --------
-   [⊢ (#%datum- . b) ⇒ Bool]]
-  [(_ . s:str) ≫
-   --------
-   [⊢ (#%datum- . s) ⇒ Str]]
-  [(_ . x) ≫
-   --------
-   [#:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])
+     #`(#%linear #,x #,@(stx-append-map list seps types)))))
 
 
 (define-typed-syntax begin
@@ -123,28 +124,18 @@
 
 
 (define-typed-syntax tup
-  #:datum-literals (!)
   [(_ e1 e2) ≫
    [⊢ e1 ≫ e1- ⇒ σ1]
    [⊢ e2 ≫ e2- ⇒ σ2]
    --------
-   [⊢ (#%app- list- e1- e2-) ⇒ (⊗ σ1 σ2)]]
-
-  [(_ ! e1 e2) ≫
-   #:do [(save-scope)]
-   [⊢ e1 ≫ e1- ⇒ σ1]
-   [⊢ e2 ≫ e2- ⇒ σ2]
-   #:do [(merge-scope #:fail-msg "linear variable may not be used by unrestricted tuple"
-                      #:fail-src this-syntax)]
-   --------
-   [⊢ (#%app- list- e1- e2-) ⇒ (!! (⊗ σ1 σ2))]])
+   [⊢ (#%app- list- e1- e2-) ⇒ (⊗ σ1 σ2)]])
 
 
 (define-typed-syntax let
   [(let ([x rhs] ...) e) ≫
    [⊢ [rhs ≫ rhs- ⇒ σ] ...]
    [[x ≫ x- : σ] ... ⊢ e ≫ e- ⇒ σ_out]
-   #:do [(pop-vars #'(x- ...) #'(σ ...))]
+   #:do [(pop-linear-scope! #'([x- σ] ...))]
    --------
    [⊢ (let- ([x- rhs-] ...) e-) ⇒ σ_out]])
 
@@ -152,21 +143,21 @@
 (define-typed-syntax λ
   #:datum-literals (: !)
   ; linear function
-  [(λ ([x:id : ty:type] ...) e) ≫
-   #:with (σ ...) #'(ty.norm ...)
+  [(λ ([x:id : T:type] ...) e) ≫
+   #:with (σ ...) #'(T.norm ...)
    [[x ≫ x- : σ] ... ⊢ e ≫ e- ⇒ σ_out]
-   #:do [(pop-vars #'(x- ...) #'(σ ...))]
+   #:do [(pop-linear-scope! #'([x- σ] ...))]
    --------
    [⊢ (λ- (x- ...) e-) ⇒ (-o σ ... σ_out)]]
 
   ; unrestricted function
-  [(λ ! ([x:id : ty:type] ...) e) ≫
-   #:do [(save-scope)]
-   #:with (σ ...) #'(ty.norm ...)
+  [(λ ! ([x:id : T:type] ...) e) ≫
+   #:with (σ ...) #'(T.norm ...)
+   #:do [(define scope-prev linear-scope)]
    [[x ≫ x- : σ] ... ⊢ e ≫ e- ⇒ σ_out]
-   #:do [(pop-vars #'(x- ...) #'(σ ...))
-         (merge-scope #:fail-msg "linear variable may not be used by unrestricted function"
-                      #:fail-src this-syntax)]
+   #:do [(pop-linear-scope! #'([x- σ] ...))
+         (merge-linear-scope! scope-prev
+                              #:fail fail/unrestricted-fn)]
    --------
    [⊢ (λ- (x- ...) e-) ⇒ (!! (-o σ ... σ_out))]])
 
@@ -180,7 +171,7 @@
    [⊢ fun ≫ fun- ⇒ σ_fun]
    #:with (~or (~-o σ_in ... σ_out)
                (~!! (~-o σ_in ... σ_out))
-               (~post (~fail "expected function type")))
+               (~post (~fail "expected linear function type")))
    #'σ_fun
    [⊢ [arg ≫ arg- ⇐ σ_in] ...]
    --------
@@ -190,11 +181,12 @@
 (define-typed-syntax if
   [(if c e1 e2) ≫
    [⊢ c ≫ c- ⇐ Bool]
-   #:do [(save-scope)]
+   #:do [(define scope-pre-branch linear-scope)]
    [⊢ e1 ≫ e1- ⇒ σ]
-   #:do [(swap-scope)]
+   #:do [(define scope-then linear-scope)
+         (set! linear-scope scope-pre-branch)]
    [⊢ e2 ≫ e2- ⇐ σ]
-   #:do [(merge-scope #:fail-msg "linear variable may be unused in certain branches"
-                      #:fail-src this-syntax)]
+   #:do [(merge-linear-scope! scope-then
+                              #:fail fail/unbalanced-branches)]
    --------
    [⊢ (if- c- e1- e2-) ⇒ σ]])
