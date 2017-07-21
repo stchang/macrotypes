@@ -227,9 +227,9 @@
                       (attribute opts.wrap)))])
   (define-splicing-syntax-class tc-post-options
     #:attributes (wrap)
-    [pattern (~seq #:with-param x:id v:expr)
+    [pattern (~seq #:mode x:id v:expr)
              #:attr wrap (λ (stx) #`(parameterize ([x v]) #,stx))]
-    [pattern (~seq #:with-params ([x:id v:expr] ...))
+    [pattern (~seq #:modes ([x:id v:expr] ...))
              #:attr wrap (λ (stx) #`(parameterize ([x v] ...) #,stx))]
     )
   (define-splicing-syntax-class tc-clause
