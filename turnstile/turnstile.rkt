@@ -317,6 +317,20 @@
     [pattern (~seq #:fail-unless condition:expr message:expr)
              #:with pat
              #'(~post (~fail #:unless condition message))]
+    [pattern (~seq #:mode param:id value:expr (sub-clause:clause ...))
+             #:with tmp (generate-temporary #'param)
+             #:with pat
+             #'(~and (~do (define tmp [param])
+                          [param value])
+                     sub-clause.pat ...
+                     (~do [param tmp]))]
+    [pattern (~seq #:modes ([param:id value:expr] ...) (sub-clause:clause ...))
+             #:with (tmp ...) (generate-temporary #'[param ...])
+             #:with pat
+             #'(~and (~do (define tmp [param]) ...
+                          [param value] ...)
+                     sub-clause.pat ...
+                     (~do [param tmp] ...))]
     )
   (define-syntax-class last-clause
     #:datum-literals (⊢ ≫ ≻ ⇒ ⇐)
