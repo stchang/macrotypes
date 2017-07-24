@@ -325,7 +325,7 @@
                      sub-clause.pat ...
                      (~do [param tmp]))]
     [pattern (~seq #:modes ([param:id value:expr] ...) (sub-clause:clause ...))
-             #:with (tmp ...) (generate-temporary #'[param ...])
+             #:with (tmp ...) (generate-temporaries #'[param ...])
              #:with pat
              #'(~and (~do (define tmp [param]) ...
                           [param value] ...)
