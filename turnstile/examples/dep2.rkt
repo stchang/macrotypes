@@ -1,38 +1,68 @@
 #lang turnstile/lang
 
-; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐)
+; second attempt at a basic dependently-typed calculus
+; initially copied from dep.rkt
+
+; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑
 
 (provide (rename-out [#%type *])
-         Π → ∀ = eq-refl eq-elim
-         Nat Z S nat-ind
-         λ #%app ann
-         define define-type-alias)
+         Π → ∀
+;;       = eq-refl eq-elim
+;;          Nat Z S nat-ind
+         λ
+         #%app ann
+         define define-type-alias
+)
 
-#;(begin-for-syntax
-  (define old-ty= (current-type=?))
-  (current-type=?
-   (λ (t1 t2)
-     (displayln (stx->datum t1))
-     (displayln (stx->datum t2))
-     (old-ty= t1 t2)))
-  (current-typecheck-relation (current-type=?)))
+;; #;(begin-for-syntax
+;;   (define old-ty= (current-type=?))
+;;   (current-type=?
+;;    (λ (t1 t2)
+;;      (displayln (stx->datum t1))
+;;      (displayln (stx->datum t2))
+;;      (old-ty= t1 t2)))
+;;   (current-typecheck-relation (current-type=?)))
 
-;(define-syntax-category : kind)
-(define-base-type Nat)
-(define-internal-type-constructor →)
-(define-internal-binding-type ∀)
-;; TODO: how to do Type : Type
+;(define-syntax-category : kind) ; defines #%kind for #%type
+;; (define-base-type Nat)
+
+;; set Type : Type
+;; alternatively, could define new base type Type,
+;; and make #%type typecheck with Type
+(begin-for-syntax
+  ;; TODO: fix `type` stx class
+  ;; (define old-type? (current-type?))
+  ;; (current-type?
+  ;;  (lambda (t) (or (#%type? t) (old-type? t))))
+  (define old-relation (current-typecheck-relation))
+  (current-typecheck-relation
+   (lambda (t1 t2)
+     ;; assumed #f can only come from (typeof #%type)
+     ;; (so this wont work when interacting with untyped code)
+     (or (and (false? (syntax-e t1)) (#%type? t2)) ; set Type : Type
+         (old-relation t1 t2)))))
+(define-for-syntax Type ((current-type-eval) #'#%type))
+
+(define-internal-type-constructor →) ; equiv to Π with no uses on rhs
+(define-internal-binding-type ∀)     ; equiv to Π with #%type for all params
+
+;; Π expands into combination of internal →- and ∀-
+;; uses "let*" syntax where X_i is in scope for τ_i+1 ...
+;; TODO: add tests to check this
 (define-typed-syntax (Π ([X:id : τ_in] ...) τ_out) ≫
-  [[X ≫ X- : τ_in] ... ⊢ [τ_out ≫ τ_out- ⇒ _][τ_in ≫ τ_in- ⇒ _] ...]
+  ;; TODO: check that τ_in and τ_out have #%type?
+  [[X ≫ X- : τ_in] ... ⊢ [τ_out ≫ τ_out- ⇒ _] [τ_in ≫ τ_in- ⇒ _] ...]
   -------
-  [⊢ (∀- (X- ...) (→- τ_in- ... τ_out-)) ⇒ #,(expand/df #'#%type)])
+  [⊢ (∀- (X- ...) (→- τ_in- ... τ_out-)) ⇒ #,Type #;#%type])
+
 ;; abbrevs for Π
 (define-simple-macro (→ τ_in ... τ_out)
   #:with (X ...) (generate-temporaries #'(τ_in ...))
   (Π ([X : τ_in] ...) τ_out))
 (define-simple-macro (∀ (X ...)  τ)
   (Π ([X : #%type] ...) τ))
-;; ~Π pattern expander
+
+;; pattern expanders
 (begin-for-syntax
   (define-syntax ~Π
     (pattern-expander
@@ -42,68 +72,92 @@
        [(_ ([x:id : τ_in] ...)  τ_out)
         #'(~∀ (x ...) (~→ τ_in ... τ_out))]))))
 
-;; equality -------------------------------------------------------------------
-(define-internal-type-constructor =)
-(define-typed-syntax (= t1 t2) ≫
-  [⊢ t1 ≫ t1- ⇒ _] [⊢ t2 ≫ t2- ⇒ _]
-  ;; #:do [(printf "t1: ~a\n" (stx->datum #'t1-))
-  ;;       (printf "t2: ~a\n" (stx->datum #'t2-))]
-;  [t1- τ= t2-]
-  ---------------------
-  [⊢ (=- t1- t2-) ⇒ #,(expand/df #'#%type)])
+;; ;; equality -------------------------------------------------------------------
+;; (define-internal-type-constructor =)
+;; (define-typed-syntax (= t1 t2) ≫
+;;   [⊢ t1 ≫ t1- ⇒ _] [⊢ t2 ≫ t2- ⇒ _]
+;;   ;; #:do [(printf "t1: ~a\n" (stx->datum #'t1-))
+;;   ;;       (printf "t2: ~a\n" (stx->datum #'t2-))]
+;; ;  [t1- τ= t2-]
+;;   ---------------------
+;;   [⊢ (=- t1- t2-) ⇒ #,(expand/df #'#%type)])
 
-(define-typed-syntax (eq-refl e) ≫
-  [⊢ e ≫ e- ⇒ _]
-  ----------
-  [⊢ (#%app- void-) ⇒ (= e- e-)])
+;; (define-typed-syntax (eq-refl e) ≫
+;;   [⊢ e ≫ e- ⇒ _]
+;;   ----------
+;;   [⊢ (#%app- void-) ⇒ (= e- e-)])
 
-(define-typed-syntax (eq-elim t P pt w peq) ≫
-  [⊢ t ≫ t- ⇒ ty]
-; [⊢ P ≫ P- ⇒ _] 
-; [⊢ pt ≫ pt- ⇒ _]
-; [⊢ w ≫ w- ⇒ _]
-; [⊢ peq ≫ peq- ⇒ _]
-  [⊢ P ≫ P- ⇐ (→ ty #%type)]
-  [⊢ pt ≫ pt- ⇐ (P- t-)]
-  [⊢ w ≫ w- ⇐ ty]
-  [⊢ peq ≫ peq- ⇐ (= t- w-)]
-  --------------
-  [⊢ (#%app- void-) ⇒ (P- w-)])
+;; (define-typed-syntax (eq-elim t P pt w peq) ≫
+;;   [⊢ t ≫ t- ⇒ ty]
+;; ; [⊢ P ≫ P- ⇒ _] 
+;; ; [⊢ pt ≫ pt- ⇒ _]
+;; ; [⊢ w ≫ w- ⇒ _]
+;; ; [⊢ peq ≫ peq- ⇒ _]
+;;   [⊢ P ≫ P- ⇐ (→ ty #%type)]
+;;   [⊢ pt ≫ pt- ⇐ (P- t-)]
+;;   [⊢ w ≫ w- ⇐ ty]
+;;   [⊢ peq ≫ peq- ⇐ (= t- w-)]
+;;   --------------
+;;   [⊢ (#%app- void-) ⇒ (P- w-)])
 
 ;; lambda and #%app -----------------------------------------------------------
 
-;; TODO: add case with expected type + annotations
-;; - check that annotations match expected types
+;; TODO: fix `type` stx class
 (define-typed-syntax λ
-  [(_ ([x:id : τ_in] ...) e) ≫
-   [[x ≫ x- : τ_in] ... ⊢ [e ≫ e- ⇒ τ_out][τ_in ≫ τ_in- ⇒ _] ...]
-   -------
-   [⊢ (λ- (x- ...) e-) ⇒ (Π ([x- : τ_in-] ...) τ_out)]]
-  [(_ (y:id ...) e) ⇐ (~Π ([x:id : τ_in] ...) τ_out) ≫
+  ;; expected ty only
+  [(_ (y:id ...) e) ⇐ (~Π ([x:id : τ_in] ... ) τ_out) ≫
    [[x ≫ x- : τ_in] ... ⊢ #,(substs #'(x ...) #'(y ...) #'e) ≫ e- ⇐ τ_out]
    ---------
-   [⊢ (λ- (x- ...) e-)]])
+   [⊢ (λ- (x- ...) e-)]]
+  ;; both expected ty and annotations
+  [(_ ([y:id : τ_in*] ...) e) ⇐ (~Π ([x:id : τ_in] ...) τ_out) ≫
+;  [(_ ([y:id : τy_in:type] ...) e) ⇐ (~Π ([x:id : τ_in] ...) τ_out) ≫
+   #:fail-unless (stx-length=? #'(y ...) #'(x ...))
+                 "function's arity does not match expected type"
+   [⊢ τ_in* ≫ τ_in** ⇐ #%type] ...
+;   #:when (typechecks? (stx-map (current-type-eval) #'(τ_in* ...))
+   #:when (typechecks? #'(τ_in** ...) #'(τ_in ...))
+;   #:when (typechecks? #'(τy_in.norm ...) #'(τ_in ...))
+;   [τy_in τ= τ_in] ...
+   [[x ≫ x- : τ_in] ... ⊢ #,(substs #'(x ...) #'(y ...) #'e) ≫ e- ⇐ τ_out]
+   -------
+   [⊢ (λ- (x- ...) e-)]]
+  ;; annotations only
+  [(_ ([x:id : τ_in] ...) e) ≫
+   [[x ≫ x- : τ_in] ... ⊢ [e ≫ e- ⇒ τ_out] [τ_in ≫ τ_in- ⇒ _] ...]
+   -------
+   [⊢ (λ- (x- ...) e-) ⇒ (Π ([x- : τ_in-] ...) τ_out)]])
 
-;; classes for matching number literals
-(begin-for-syntax
-  (define-syntax-class nat
-    (pattern (~or n:exact-nonnegative-integer (_ n:exact-nonnegative-integer))
-             #:attr val
-             #'n))
-  (define-syntax-class nats
-    (pattern (n:nat ...) #:attr vals #'(n.val ...)))
-  ; extract list of quoted numbers
-  (define stx->nat (syntax-parser [n:nat (stx-e #'n.val)]))
-  (define (stx->nats stx) (stx-map stx->nat stx))
-  (define (stx+ ns) (apply + (stx->nats ns)))
-  (define (delta op-stx args)
-    (syntax-parse op-stx
-      [(~literal +-) (stx+ args)]
-      [(~literal zero?-) (apply zero? (stx->nats args))])))
+;; ;; classes for matching number literals
+;; (begin-for-syntax
+;;   (define-syntax-class nat
+;;     (pattern (~or n:exact-nonnegative-integer (_ n:exact-nonnegative-integer))
+;;              #:attr val
+;;              #'n))
+;;   (define-syntax-class nats
+;;     (pattern (n:nat ...) #:attr vals #'(n.val ...)))
+;;   ; extract list of quoted numbers
+;;   (define stx->nat (syntax-parser [n:nat (stx-e #'n.val)]))
+;;   (define (stx->nats stx) (stx-map stx->nat stx))
+;;   (define (stx+ ns) (apply + (stx->nats ns)))
+;;   (define (delta op-stx args)
+;;     (syntax-parse op-stx
+;;       [(~literal +-) (stx+ args)]
+;;       [(~literal zero?-) (apply zero? (stx->nats args))])))
 
 (define-typed-syntax #%app
+  [(_ e_fn e_arg ...) ≫
+;   [⊢ e_fn ≫ (~and e_fn- (_ (x:id ...) e ~!)) ⇒ (~Π ([X : τ_inX] ...) τ_outX)]
+   [⊢ e_fn ≫ e_fn- ⇒ (~Π ([X : τ_in] ...) τ_out)]
+   #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
+                 (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
+   [⊢ e_arg ≫ e_arg- ⇐ τ_in] ... ; typechecking args
+   -----------------------------
+   [⊢ (#%app- e_fn- e_arg- ...) ⇒ τ_out]])
+   
+#;(define-typed-syntax #%app
   [(_ e_fn e_arg ...) ≫ ; apply lambda
-;   #:do[(printf "applying (1) ~a\n" (stx->datum #'e_fn))]
+   #:do[(printf "applying (1) ~a\n" (stx->datum #'e_fn))]
    [⊢ e_fn ≫ (~and e_fn- (_ (x:id ...) e ~!)) ⇒ (~Π ([X : τ_inX] ...) τ_outX)]
    #:do[(printf "e_fn-: ~a\n" (stx->datum #'e_fn-))
         (printf "args: ~a\n" (stx->datum #'(e_arg ...)))]
@@ -236,13 +290,13 @@
   --------
   [⊢ e- ⇒ τ])
 
-(define-typed-syntax (if e1 e2 e3) ≫
-  [⊢ e1 ≫ e1- ⇒ _]
-  [⊢ e2 ≫ e2- ⇒ ty]
-  [⊢ e3 ≫ e3- ⇒ _]
-  #:do[(displayln #'(e1 e2 e3))]
-  --------------
-  [⊢ (#%app- void-) ⇒ ty])
+;; (define-typed-syntax (if e1 e2 e3) ≫
+;;   [⊢ e1 ≫ e1- ⇒ _]
+;;   [⊢ e2 ≫ e2- ⇒ ty]
+;;   [⊢ e3 ≫ e3- ⇒ _]
+;;   #:do[(displayln #'(e1 e2 e3))]
+;;   --------------
+;;   [⊢ (#%app- void-) ⇒ ty])
 
 ;; top-level ------------------------------------------------------------------
 (define-syntax define-type-alias
@@ -258,13 +312,14 @@
             #'τ.norm]))]))
 
 (define-typed-syntax define
-  #;[(_ x:id (~datum :) τ:type e:expr) ≫
-   ;[⊢ e ≫ e- ⇐ τ.norm]
+  [(_ x:id (~datum :) τ e:expr) ≫
+   [⊢ e ≫ e- ⇐ τ]
    #:with y (generate-temporary #'x)
+   #:with y+props (transfer-props #'e- #'y #:except '(origin))
    --------
    [≻ (begin-
-        (define-syntax x (make-rename-transformer (⊢ y : τ.norm)))
-        (define- y (ann e : τ.norm)))]]
+        (define-syntax x (make-rename-transformer #'y+props))
+        (define- y e-))]]
   [(_ x:id e) ≫
    ;This won't work with mutually recursive definitions
    [⊢ e ≫ e- ⇒ _]
@@ -285,50 +340,50 @@
             (stlc+lit:ann (begin e ...) : ty_out))))]])
 
 
-;; peano nums -----------------------------------------------------------------
-(define-typed-syntax Z
-  [_:id ≫ --- [⊢ 0 ⇒ Nat]])
+;; ;; peano nums -----------------------------------------------------------------
+;; (define-typed-syntax Z
+;;   [_:id ≫ --- [⊢ 0 ⇒ Nat]])
 
-(define-typed-syntax (S n) ≫
-  [⊢ n ≫ n- ⇐ Nat]
-  -----------
-  [⊢ (#%app- +- n- 1) ⇒ Nat])
-#;(define-typed-syntax (sub1 n) ≫
-  [⊢ n ≫ n- ⇐ Nat]
-  #:do[(displayln #'n-)]
-  -----------
-  [⊢ (#%app- -- n- 1) ⇒ Nat])
+;; (define-typed-syntax (S n) ≫
+;;   [⊢ n ≫ n- ⇐ Nat]
+;;   -----------
+;;   [⊢ (#%app- +- n- 1) ⇒ Nat])
+;; #;(define-typed-syntax (sub1 n) ≫
+;;   [⊢ n ≫ n- ⇐ Nat]
+;;   #:do[(displayln #'n-)]
+;;   -----------
+;;   [⊢ (#%app- -- n- 1) ⇒ Nat])
 
-;; generalized recursor over natural nums
-;; (cases dispatched in #%app)
-(define- (nat-ind- P z s n) (#%app- void))
-(define-syntax nat-ind
-  (make-variable-like-transformer
-   (assign-type 
-    #'nat-ind-
-    #'(Π ([P : (→ Nat #%type)]
-          [z : (P Z)]
-          [s : (Π ([k : Nat]) (→ (P k) (P (S k))))]
-          [n : Nat])
-         (P n)))))
+;; ;; generalized recursor over natural nums
+;; ;; (cases dispatched in #%app)
+;; (define- (nat-ind- P z s n) (#%app- void))
+;; (define-syntax nat-ind
+;;   (make-variable-like-transformer
+;;    (assign-type 
+;;     #'nat-ind-
+;;     #'(Π ([P : (→ Nat #%type)]
+;;           [z : (P Z)]
+;;           [s : (Π ([k : Nat]) (→ (P k) (P (S k))))]
+;;           [n : Nat])
+;;          (P n)))))
 
-#;(define-type-alias nat-ind
-  (λ ([P : (→ Nat #%type)]
-      [z : (P Z)]
-      [s : (Π ([k : Nat]) (→ (P k) (P (S k))))]
-      [n : Nat])
-    #'(#%app- nat-ind- P z s n)))
-#;(define-typed-syntax (nat-ind P z s n) ≫
-  [⊢ P ≫ P- ⇐ (→ Nat #%type)]
-;  [⊢ b ≫ b- ⇒ _] ; zero 
-;  [⊢ c ≫ c- ⇒ _] ; succ
-;  [⊢ d ≫ d- ⇒ _]
-  [⊢ z ≫ z- ⇐ (P- Z)] ; zero 
-  [⊢ s ≫ s- ⇐ (Π ([k : Nat]) (→ (P- k) (P- (S k))))] ; succ
-  [⊢ n ≫ n- ⇐ Nat]
-  #:with res (if (typecheck? #'n- (expand/df #'Z))
-                 #'z-
-                 #'(s- (nat-ind P- z- s- (sub1 n-))))
-  ----------------
-  [⊢ res ⇒ (P- n-)])
-;  [≻ (P- d-)])
+;; #;(define-type-alias nat-ind
+;;   (λ ([P : (→ Nat #%type)]
+;;       [z : (P Z)]
+;;       [s : (Π ([k : Nat]) (→ (P k) (P (S k))))]
+;;       [n : Nat])
+;;     #'(#%app- nat-ind- P z s n)))
+;; #;(define-typed-syntax (nat-ind P z s n) ≫
+;;   [⊢ P ≫ P- ⇐ (→ Nat #%type)]
+;; ;  [⊢ b ≫ b- ⇒ _] ; zero 
+;; ;  [⊢ c ≫ c- ⇒ _] ; succ
+;; ;  [⊢ d ≫ d- ⇒ _]
+;;   [⊢ z ≫ z- ⇐ (P- Z)] ; zero 
+;;   [⊢ s ≫ s- ⇐ (Π ([k : Nat]) (→ (P- k) (P- (S k))))] ; succ
+;;   [⊢ n ≫ n- ⇐ Nat]
+;;   #:with res (if (typecheck? #'n- (expand/df #'Z))
+;;                  #'z-
+;;                  #'(s- (nat-ind P- z- s- (sub1 n-))))
+;;   ----------------
+;;   [⊢ res ⇒ (P- n-)])
+;; ;  [≻ (P- d-)])
