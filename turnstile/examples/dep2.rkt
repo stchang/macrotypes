@@ -7,7 +7,8 @@
 
 (provide (rename-out [#%type *])
          Π → ∀
-;;       = eq-refl eq-elim
+       = eq-refl
+       ;;eq-elim
 ;;          Nat Z S nat-ind
          λ
          #%app ann
@@ -37,6 +38,8 @@
   (define old-relation (current-typecheck-relation))
   (current-typecheck-relation
    (lambda (t1 t2)
+     ;; (pretty-print (stx->datum t1))
+     ;; (pretty-print (stx->datum t2))
      ;; assumed #f can only come from (typeof #%type)
      ;; (so this wont work when interacting with untyped code)
      (or (and (false? (syntax-e t1)) (#%type? t2)) ; set Type : Type
@@ -53,7 +56,7 @@
   ;; TODO: check that τ_in and τ_out have #%type?
   [[X ≫ X- : τ_in] ... ⊢ [τ_out ≫ τ_out- ⇒ _] [τ_in ≫ τ_in- ⇒ _] ...]
   -------
-  [⊢ (∀- (X- ...) (→- τ_in- ... τ_out-)) ⇒ #,Type #;#%type])
+  [⊢ (∀- (X- ...) (→- τ_in- ... τ_out-)) ⇒ #%type])
 
 ;; abbrevs for Π
 (define-simple-macro (→ τ_in ... τ_out)
@@ -72,20 +75,20 @@
        [(_ ([x:id : τ_in] ...)  τ_out)
         #'(~∀ (x ...) (~→ τ_in ... τ_out))]))))
 
-;; ;; equality -------------------------------------------------------------------
-;; (define-internal-type-constructor =)
-;; (define-typed-syntax (= t1 t2) ≫
-;;   [⊢ t1 ≫ t1- ⇒ _] [⊢ t2 ≫ t2- ⇒ _]
-;;   ;; #:do [(printf "t1: ~a\n" (stx->datum #'t1-))
-;;   ;;       (printf "t2: ~a\n" (stx->datum #'t2-))]
-;; ;  [t1- τ= t2-]
-;;   ---------------------
-;;   [⊢ (=- t1- t2-) ⇒ #,(expand/df #'#%type)])
+;; equality -------------------------------------------------------------------
+(define-internal-type-constructor =)
+(define-typed-syntax (= t1 t2) ≫
+  [⊢ t1 ≫ t1- ⇒ _] [⊢ t2 ≫ t2- ⇒ _]
+  ;; #:do [(printf "t1: ~a\n" (stx->datum #'t1-))
+  ;;       (printf "t2: ~a\n" (stx->datum #'t2-))]
+;  [t1- τ= t2-]
+  ---------------------
+  [⊢ (=- t1- t2-) ⇒ #%type])
 
-;; (define-typed-syntax (eq-refl e) ≫
-;;   [⊢ e ≫ e- ⇒ _]
-;;   ----------
-;;   [⊢ (#%app- void-) ⇒ (= e- e-)])
+(define-typed-syntax (eq-refl e) ≫
+  [⊢ e ≫ e- ⇒ _]
+  ----------
+  [⊢ (#%app- void-) ⇒ (= e- e-)])
 
 ;; (define-typed-syntax (eq-elim t P pt w peq) ≫
 ;;   [⊢ t ≫ t- ⇒ ty]
@@ -145,15 +148,29 @@
 ;;       [(~literal +-) (stx+ args)]
 ;;       [(~literal zero?-) (apply zero? (stx->nats args))])))
 
+;; TODO: fix orig after subst
+(define-syntax app/eval
+  (syntax-parser
+    ;; TODO: apply to only lambda args or all args?
+    [(_ (~and f ((~literal #%plain-lambda) (x ...) e)) e_arg ...)
+     ;; TODO: need to replace all #%app- in this result with app/eval again
+     ;; and then re-expand
+     (substs #'(e_arg ...) #'(x ...) #'e)]
+    [(_ f . args)
+     #'(#%app- f . args)]))
+     
+;; TODO: fix orig after subst
 (define-typed-syntax #%app
   [(_ e_fn e_arg ...) ≫
+;   #:do[(printf "applying (1) ~a\n" (stx->datum #'e_fn))]
 ;   [⊢ e_fn ≫ (~and e_fn- (_ (x:id ...) e ~!)) ⇒ (~Π ([X : τ_inX] ...) τ_outX)]
    [⊢ e_fn ≫ e_fn- ⇒ (~Π ([X : τ_in] ...) τ_out)]
+;   #:do[(printf "applying (1) ~a\n" (stx->datum #'e_fn-))]
    #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
                  (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
    [⊢ e_arg ≫ e_arg- ⇐ τ_in] ... ; typechecking args
    -----------------------------
-   [⊢ (#%app- e_fn- e_arg- ...) ⇒ τ_out]])
+   [⊢ (app/eval e_fn- e_arg- ...) ⇒ #,(substs #'(e_arg- ...) #'(X ...) #'τ_out)]])
    
 #;(define-typed-syntax #%app
   [(_ e_fn e_arg ...) ≫ ; apply lambda
@@ -299,6 +316,7 @@
 ;;   [⊢ (#%app- void-) ⇒ ty])
 
 ;; top-level ------------------------------------------------------------------
+;; TODO: shouldnt need define-type-alias, should be same as define
 (define-syntax define-type-alias
   (syntax-parser
     [(_ alias:id τ);τ:any-type)

@@ -116,7 +116,9 @@
 ;; booleans -------------------------------------------------------------------
 
 ;; Bool base type
+;; TODO: use define instead of define-type-alias
 (define-type-alias Bool (∀ (A) (→ A A A)))
+(check-type Bool : *)
 
 ;; Bool terms
 (define T (λ ([A : *]) (λ ([x : A][y : A]) x)))
@@ -124,98 +126,120 @@
 (check-type T : Bool)
 (check-type F : Bool)
 ;; check infer case
-(define T2 (λ ([bool : *]) (λ ([x : bool][y : bool]) x)))
-(define F2 (λ ([bool : *]) (λ ([x : bool][y : bool]) y)))
+(define T2 (λ ([abool : *]) (λ ([x : abool][y : abool]) x)))
+(define F2 (λ ([abool : *]) (λ ([x : abool][y : abool]) y)))
 (check-type T2 : Bool)
 (check-type F2 : Bool)
-(define T3 : Bool (λ (bool) (λ (x y) x)))
-(define F3 : Bool (λ (bool) (λ (x y) y)))
+(define T3 : Bool (λ (abool) (λ (x y) x)))
+(define F3 : Bool (λ (abool) (λ (x y) y)))
 (check-type T3 : Bool)
 (check-type F3 : Bool)
 
 ;; defining `and` requires instantiating polymorphic types
-; (define and (λ ([x : Bool][y : Bool]) ((x Bool) y F)))
-;(check-type and : (→ Bool Bool Bool))
+(define and (λ ([x : Bool][y : Bool]) ((x Bool) y F)))
+(check-type and : (→ Bool Bool Bool))
+(define or (λ ([x : Bool][y : Bool]) ((x Bool) T y)))
+(check-type or : (→ Bool Bool Bool))
+(define not (λ ([x : Bool]) ((x Bool) F T)))
+(check-type not : (→ Bool Bool))
 
-;; ;; And type constructor, ie type-level fn
-;; (define-type-alias And
-;;   (λ ([A : *][B : *])
-;;     (∀ (C) (→ (→ A B C) C))))
-;; (check-type And : (→ * * *))
+;; `And` type constructor, ie type-level fn
+(define-type-alias And
+  (λ ([P : *][Q : *])
+    (∀ (C) (→ (→ P Q C) C))))
+(check-type And : (→ * * *))
 
-;; ;; And type intro
-;; (define ∧
-;;   (λ ([A : *][B : *])
-;;     (λ ([x : A][y : B])
-;;       (λ ([C : *])
-;;         (λ ([f : (→ A B C)])
-;;           (f x y))))))
-;; (check-type ∧ : (∀ (A B) (→ A B (And A B))))
+;; And type intro (logical conj)
+(define ∧
+  (λ ([P : *][Q : *])
+    (λ ([p : P][q : Q])
+      (λ ([C : *])
+        (λ ([f : (→ P Q C)])
+          (f p q))))))
+(check-type ∧ : (∀ (P Q) (→ P Q (And P Q))))
 
-;; ;; And type elim
-;; (define proj1
-;;   (λ ([A : *][B : *])
-;;     (λ ([e∧ : (And A B)])
-;;       ((e∧ A) (λ ([x : A][y : B]) x)))))
-;; (define proj2
-;;   (λ ([A : *][B : *])
-;;     (λ ([e∧ : (And A B)])
-;;       ((e∧ B) (λ ([x : A][y : B]) y)))))
-;; ;; bad proj2: (e∧ A) should be (e∧ B)
-;; (typecheck-fail
-;;  (λ ([A : *][B : *])
-;;    (λ ([e∧ : (And A B)])
-;;      ((e∧ A) (λ ([x : A][y : B]) y))))
-;;  #:verb-msg
-;;  "expected (→ A B C), given (Π ((x : A) (y : B)) B)")
-;; (check-type proj1 : (∀ (A B) (→ (And A B) A)))
-;; (check-type proj2 : (∀ (A B) (→ (And A B) B)))
+;; `And` type elim
+(define proj1
+  (λ ([P : *][Q : *])
+    (λ ([e : (And P Q)])
+      ((e P) (λ ([x : P][y : Q]) x)))))
+(define proj2
+  (λ ([P : *][Q : *])
+    (λ ([e : (And P Q)])
+      ((e Q) (λ ([x : P][y : Q]) y)))))
+;; bad proj2: (e A) should be (e B)
+(typecheck-fail
+ (λ ([P : *][Q : *])
+   (λ ([e : (And P Q)])
+     ((e P) (λ ([x : P][y : Q]) y))))
+ #:verb-msg
+ "expected (→ P Q C), given (Π ((x : P) (y : Q)) Q)")
+(check-type proj1 : (∀ (P Q) (→ (And P Q) P)))
+(check-type proj2 : (∀ (P Q) (→ (And P Q) Q)))
 
-;; ;((((conj q) p) (((proj2 p) q) a)) (((proj1 p) q) a)))))
-;; (define and-commutes
-;;   (λ ([A : *][B : *])
-;;     (λ ([e∧ : (And A B)])
-;;       ((∧ B A) ((proj2 A B) e∧) ((proj1 A B) e∧)))))
-;; ;; bad and-commutes, dont flip A and B: (→ (And A B) (And A B))
-;; (typecheck-fail
-;;  (λ ([A : *][B : *])
-;;    (λ ([e∧ : (And A B)])
-;;      ((∧ A B) ((proj2 A B) e∧) ((proj1 A B) e∧))))
-;;  #:verb-msg
-;;  "#%app: type mismatch: expected A, given C") ; TODO: err msg should be B not C?
-;; (check-type and-commutes : (∀ (A B) (→ (And A B) (And B A))))
+;; proj1, no annotations
+(check-type (λ (P Q) (λ (e) ((e P) (λ (x y) x))))
+            : (∀ (P Q) (→ (And P Q) P)))
+;; proj2, no annotations
+(check-type (λ (P Q) (λ (e) ((e Q) (λ (x y) y))))
+            : (∀ (P Q) (→ (And P Q) Q)))
+(typecheck-fail (ann (λ (P Q) (λ (e) ((e Q) (λ (x y) x))))
+                     : (∀ (P Q) (→ (And P Q) Q)))
+ #:with-msg "expected C, given P") ; TODO: err msg, fix orig
+(typecheck-fail (ann (λ (P Q) (λ (e) ((e P) (λ (x y) y))))
+                     : (∀ (P Q) (→ (And P Q) Q)))
+ #:with-msg "expected C, given Q") ; TODO: err msg
 
-;; ;; nats -----------------------------------------------------------------------
-;; (define-type-alias nat (∀ (A) (→ A (→ A A) A)))
+;((((conj q) p) (((proj2 p) q) a)) (((proj1 p) q) a)))))
+(define and-commutes
+  (λ ([A : *][B : *])
+    (λ ([e : (And A B)])
+      ((∧ B A) ((proj2 A B) e) ((proj1 A B) e)))))
+;; bad and-commutes, dont flip A and B: (→ (And A B) (And A B))
+(typecheck-fail
+ (λ ([A : *][B : *])
+   (λ ([e : (And A B)])
+     ((∧ A B) ((proj2 A B) e) ((proj1 A B) e))))
+ #:verb-msg
+ "#%app: type mismatch: expected P, given C") ; TODO: err msg
+(check-type and-commutes : (∀ (A B) (→ (And A B) (And B A))))
 
-;; (define-type-alias z (λ ([Ty : *]) (λ ([zero : Ty][succ : (→ Ty Ty)]) zero)))
-;; (define-type-alias s (λ ([n : nat])
-;;                        (λ ([Ty : *])
-;;                          (λ ([zero : Ty][succ : (→ Ty Ty)])
-;;                            (succ ((n Ty) zero succ))))))
-;; (check-type z : nat)
-;; (check-type s : (→ nat nat))
+;; nats -----------------------------------------------------------------------
+(define-type-alias nat (∀ (A) (→ A (→ A A) A)))
+(check-type nat : *)
 
-;; (define-type-alias one (s z))
-;; (define-type-alias two (s (s z)))
-;; (check-type one : nat)
-;; (check-type two : nat)
+(define-type-alias z (λ ([Ty : *]) (λ ([zero : Ty][succ : (→ Ty Ty)]) zero)))
+(define-type-alias s (λ ([n : nat])
+                       (λ ([Ty : *])
+                         (λ ([zero : Ty][succ : (→ Ty Ty)])
+                           (succ ((n Ty) zero succ))))))
+(check-type z : nat)
+(check-type s : (→ nat nat))
 
-;; (define-type-alias plus
-;;   (λ ([x : nat][y : nat])
-;;     ((x nat) y s)))
-;; (check-type plus : (→ nat nat nat))
+(define-type-alias one (s z))
+(define-type-alias two (s (s z)))
+(check-type one : nat)
+(check-type two : nat)
 
-;; ;; equality -------------------------------------------------------------------
+(define-type-alias plus
+  (λ ([x : nat][y : nat])
+    ((x nat) y s)))
+(check-type plus : (→ nat nat nat))
+(check-type (λ (x y) ((x nat) y s)) : (→ nat nat nat))
 
-;; (check-type (eq-refl one) : (= one one))
-;; (check-type (eq-refl one) : (= (s z) one))
-;; (check-type (eq-refl two) : (= (s (s z)) two))
-;; (check-type (eq-refl two) : (= (s one) two))
-;; (check-type (eq-refl two) : (= two (s one)))
-;; (check-type (eq-refl two) : (= (s (s z)) (s one)))
-;; (check-type (eq-refl two) : (= (plus one one) two))
-;; (check-not-type (eq-refl two) : (= (plus one one) one))
+;; equality -------------------------------------------------------------------
+
+(check-type (eq-refl one) : (= one one))
+(typecheck-fail (ann (eq-refl one) : (= two one))
+ #:verb-msg "expected (= two one), given (= one one)")
+(check-type (eq-refl one) : (= (s z) one))
+(check-type (eq-refl two) : (= (s (s z)) two))
+(check-type (eq-refl two) : (= (s one) two))
+(check-type (eq-refl two) : (= two (s one)))
+(check-type (eq-refl two) : (= (s (s z)) (s one)))
+;; the following example requires recursive expansion after eval/app
+;(check-type (eq-refl two) : (= (plus one one) two))
+;(check-not-type (eq-refl two) : (= (plus one one) one))
 
 ;; ;; symmetry of =
 ;; (check-type 
