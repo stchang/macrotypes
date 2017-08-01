@@ -228,7 +228,6 @@
 (check-type (λ (x y) ((x nat) y s)) : (→ nat nat nat))
 
 ;; equality -------------------------------------------------------------------
-
 (check-type (eq-refl one) : (= one one))
 (typecheck-fail (ann (eq-refl one) : (= two one))
  #:verb-msg "expected (= two one), given (= one one)")
@@ -238,8 +237,8 @@
 (check-type (eq-refl two) : (= two (s one)))
 (check-type (eq-refl two) : (= (s (s z)) (s one)))
 ;; the following example requires recursive expansion after eval/app
-;(check-type (eq-refl two) : (= (plus one one) two))
-;(check-not-type (eq-refl two) : (= (plus one one) one))
+(check-type (eq-refl two) : (= (plus one one) two))
+(check-not-type (eq-refl two) : (= (plus one one) one))
 
 ;; ;; symmetry of =
 ;; (check-type 
@@ -259,3 +258,14 @@
 ;;    (λ ([e1 : (= X Y)][e2 : (= Y Z)])
 ;;      (eq-elim Y (λ ([W : *]) (= X W)) e1 Z e2)))
 ;;  : (∀ (A B C) (→ (= A B) (= B C) (= A C))))
+
+;; tests recursive app/eval
+(check-type ((λ ([f : (→ * *)][x : *]) (f x))
+             (λ ([x : *]) x)
+             *)
+            : *)
+
+(check-type (((λ ([f : (→ (→ * *) * *)]) f) (λ ([g : (→ * *)][x : *]) (g x)))
+             (λ ([y : *]) *)
+             *)
+            : *)

@@ -11,7 +11,7 @@
        ;;eq-elim
 ;;          Nat Z S nat-ind
          λ
-         #%app ann
+         (rename-out [app #%app]) ann
          define define-type-alias
 )
 
@@ -148,20 +148,62 @@
 ;;       [(~literal +-) (stx+ args)]
 ;;       [(~literal zero?-) (apply zero? (stx->nats args))])))
 
+(define-for-syntax debug? #f)
+
 ;; TODO: fix orig after subst
 (define-syntax app/eval
   (syntax-parser
     ;; TODO: apply to only lambda args or all args?
     [(_ (~and f ((~literal #%plain-lambda) (x ...) e)) e_arg ...)
+     #:do[(when debug?
+            (printf "apping: ~a\n" (stx->datum #'f))
+            (printf "args\n")
+            (pretty-print (stx->datum #'(e_arg ...))))]
      ;; TODO: need to replace all #%app- in this result with app/eval again
      ;; and then re-expand
-     (substs #'(e_arg ...) #'(x ...) #'e)]
+;     #:with ((~literal #%plain-app) newf . newargs) #'e
+ ;    #:do[(displayln #'newf)(displayln #'newargs)(displayln (stx-car #'e+))]
+     #:with app (datum->syntax (if (identifier? #'e) #'e (stx-car #'e)) '#%app)
+     #:with e+ (substs #'(app/eval e_arg ...) #'(app x ...) #'e free-identifier=?)
+     #:do[(when debug?
+            (displayln "res:--------------------")
+            (pretty-print (stx->datum #'e+))
+            ;; (displayln "res expanded:------------------------")
+            ;; (pretty-print
+            ;;  (stx->datum (local-expand (substs #'(e_arg ...) #'(x ...) #'e) 'expression null)))
+            (displayln "res app/eval recur expanded-----------------------"))]
+     #:with ((~literal let-values) () ((~literal let-values) () e++))
+            (local-expand
+             #'(let-syntax (#;[app (make-rename-transformer #'app/eval)]
+                            #;[x (make-variable-like-transformer #'e_arg)]) e+)
+                 'expression null)
+     #:do[(when debug?
+            (pretty-print (stx->datum #'e++))
+            #;(local-expand
+             #'(let-syntax ([app (make-rename-transformer #'app/eval)]
+                            #;[x (make-variable-like-transformer #'e_arg)]) e+)
+             'expression null))]
+     #'e++ #;(substs #'(e_arg ...) #'(x ...) #'e)]
     [(_ f . args)
-     #'(#%app- f . args)]))
+    #:do[(when debug?
+           (printf "not apping\n")
+           (pretty-print (stx->datum #'f))
+           (displayln "args")
+           (pretty-print (stx->datum #'args)))]
+     #:with f+ (expand/df #'f)
+     #:with args+ (stx-map expand/df #'args)
+     (syntax-parse #'f+
+       [((~literal #%plain-lambda) . _)
+        #'(app/eval f+ . args+)]
+       [_
+        #'(#%app- f+ . args+)])]))
      
 ;; TODO: fix orig after subst
-(define-typed-syntax #%app
+(define-typed-syntax app
   [(_ e_fn e_arg ...) ≫
+   #:do[(when debug?
+          (displayln "TYPECHECKING")
+          (pretty-print (stx->datum this-syntax)))]
 ;   #:do[(printf "applying (1) ~a\n" (stx->datum #'e_fn))]
 ;   [⊢ e_fn ≫ (~and e_fn- (_ (x:id ...) e ~!)) ⇒ (~Π ([X : τ_inX] ...) τ_outX)]
    [⊢ e_fn ≫ e_fn- ⇒ (~Π ([X : τ_in] ...) τ_out)]
