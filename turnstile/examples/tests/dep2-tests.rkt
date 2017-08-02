@@ -231,6 +231,7 @@
 (check-type (eq-refl one) : (= one one))
 (typecheck-fail (ann (eq-refl one) : (= two one))
  #:verb-msg "expected (= two one), given (= one one)")
+(check-type (ann (eq-refl one) : (= one one)) : (= one one))
 (check-type (eq-refl one) : (= (s z) one))
 (check-type (eq-refl two) : (= (s (s z)) two))
 (check-type (eq-refl two) : (= (s one) two))
@@ -240,26 +241,39 @@
 (check-type (eq-refl two) : (= (plus one one) two))
 (check-not-type (eq-refl two) : (= (plus one one) one))
 
-;; ;; symmetry of =
-;; (check-type 
-;;  (λ ([A : *][B : *])
-;;    (λ ([e : (= A B)])
-;;      (eq-elim A (λ ([W : *]) (= W A)) (eq-refl A) B e)))
-;;  : (∀ (A B) (→ (= A B) (= B A))))
-;; (check-not-type
-;;  (λ ([A : *][B : *])
-;;    (λ ([e : (= A B)])
-;;      (eq-elim A (λ ([W : *]) (= W A)) (eq-refl A) B e)))
-;;  : (∀ (A B) (→ (= A B) (= A B))))
+;; symmetry of =
+(check-type (∀ (A B) (→ (= A B) (= B A))) : *)
+(check-type
+ (λ ([A : *][B : *])
+   (λ ([e : (= A B)])
+     (eq-elim A (λ ([W : *]) (= W A)) (eq-refl A) B e)))
+ : (∀ (A B) (→ (= A B) (= B A))))
 
-;; ;; transitivity of =
-;; (check-type
-;;  (λ ([X : *][Y : *][Z : *])
-;;    (λ ([e1 : (= X Y)][e2 : (= Y Z)])
-;;      (eq-elim Y (λ ([W : *]) (= X W)) e1 Z e2)))
-;;  : (∀ (A B C) (→ (= A B) (= B C) (= A C))))
+(check-type
+  (λ (A B)
+    (λ (e)
+      (eq-elim A (λ (W) (= W A)) (eq-refl A) B e)))
+ : (∀ (A B) (→ (= A B) (= B A))))
 
-;; tests recursive app/eval
+(check-not-type
+ (λ ([A : *][B : *])
+   (λ ([e : (= A B)])
+     (eq-elim A (λ ([W : *]) (= W A)) (eq-refl A) B e)))
+ : (∀ (A B) (→ (= A B) (= A B))))
+
+;; transitivity of =
+(check-type
+ (λ ([X : *][Y : *][Z : *])
+   (λ ([e1 : (= X Y)][e2 : (= Y Z)])
+     (eq-elim Y (λ ([W : *]) (= X W)) e1 Z e2)))
+ : (∀ (A B C) (→ (= A B) (= B C) (= A C))))
+(check-type
+ (λ (X Y Z)
+   (λ (e1 e2)
+     (eq-elim Y (λ (W) (= X W)) e1 Z e2)))
+ : (∀ (A B C) (→ (= A B) (= B C) (= A C))))
+
+;; general tests that app/eval is properly applied recursively
 (check-type ((λ ([f : (→ * *)][x : *]) (f x))
              (λ ([x : *]) x)
              *)

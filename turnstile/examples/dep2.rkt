@@ -7,8 +7,7 @@
 
 (provide (rename-out [#%type *])
          Π → ∀
-       = eq-refl
-       ;;eq-elim
+       = eq-refl eq-elim
 ;;          Nat Z S nat-ind
          λ
          (rename-out [app #%app]) ann
@@ -54,7 +53,7 @@
 ;; TODO: add tests to check this
 (define-typed-syntax (Π ([X:id : τ_in] ...) τ_out) ≫
   ;; TODO: check that τ_in and τ_out have #%type?
-  [[X ≫ X- : τ_in] ... ⊢ [τ_out ≫ τ_out- ⇒ _] [τ_in ≫ τ_in- ⇒ _] ...]
+  [[X ≫ X- : τ_in] ... ⊢ [τ_out ≫ τ_out- ⇐ #%type] [τ_in ≫ τ_in- ⇐ #%type] ...]
   -------
   [⊢ (∀- (X- ...) (→- τ_in- ... τ_out-)) ⇒ #%type])
 
@@ -78,30 +77,34 @@
 ;; equality -------------------------------------------------------------------
 (define-internal-type-constructor =)
 (define-typed-syntax (= t1 t2) ≫
-  [⊢ t1 ≫ t1- ⇒ _] [⊢ t2 ≫ t2- ⇒ _]
+  [⊢ t1 ≫ t1- ⇒ ty]
+  [⊢ t2 ≫ t2- ⇐ ty]
   ;; #:do [(printf "t1: ~a\n" (stx->datum #'t1-))
   ;;       (printf "t2: ~a\n" (stx->datum #'t2-))]
 ;  [t1- τ= t2-]
   ---------------------
   [⊢ (=- t1- t2-) ⇒ #%type])
 
+;; Q: what is the operational meaning of eq-refl?
 (define-typed-syntax (eq-refl e) ≫
   [⊢ e ≫ e- ⇒ _]
   ----------
   [⊢ (#%app- void-) ⇒ (= e- e-)])
 
-;; (define-typed-syntax (eq-elim t P pt w peq) ≫
-;;   [⊢ t ≫ t- ⇒ ty]
-;; ; [⊢ P ≫ P- ⇒ _] 
-;; ; [⊢ pt ≫ pt- ⇒ _]
-;; ; [⊢ w ≫ w- ⇒ _]
-;; ; [⊢ peq ≫ peq- ⇒ _]
-;;   [⊢ P ≫ P- ⇐ (→ ty #%type)]
-;;   [⊢ pt ≫ pt- ⇐ (P- t-)]
-;;   [⊢ w ≫ w- ⇐ ty]
-;;   [⊢ peq ≫ peq- ⇐ (= t- w-)]
-;;   --------------
-;;   [⊢ (#%app- void-) ⇒ (P- w-)])
+;; eq-elim: t : T
+;;          P : (T -> Type)
+;;          pt : (P t)
+;;          w : T
+;;          peq : (= t w)
+;;       -> (P w)
+(define-typed-syntax (eq-elim t P pt w peq) ≫
+  [⊢ t ≫ t- ⇒ ty]
+  [⊢ P ≫ P- ⇐ (→ ty #%type)]
+  [⊢ pt ≫ pt- ⇐ (app P- t-)]
+  [⊢ w ≫ w- ⇐ ty]
+  [⊢ peq ≫ peq- ⇐ (= t- w-)]
+  --------------
+  [⊢ pt- ⇒ (app P- w-)])
 
 ;; lambda and #%app -----------------------------------------------------------
 
