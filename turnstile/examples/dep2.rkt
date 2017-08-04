@@ -7,12 +7,20 @@
 
 (provide (rename-out [#%type *])
          Π → ∀
-       = eq-refl eq-elim
-;;          Nat Z S nat-ind
-         λ
-         (rename-out [app #%app]) ann
+         = eq-refl eq-elim
+         Nat (rename-out [Zero Z][Succ S]) nat-ind #;nat-rec
+         λ (rename-out [app #%app]) ann
          define define-type-alias
 )
+
+;; TODO:
+;; - map #%datum to S and Z
+;; - rename define-type-alias to define
+;; - add "assistant" part
+;; - provide match and match/lambda so nat-ind can be fn
+;;   - eg see https://gist.github.com/AndrasKovacs/6769513
+;; - add dependent existential
+;; - remove debugging code?
 
 ;; #;(begin-for-syntax
 ;;   (define old-ty= (current-type=?))
@@ -24,12 +32,15 @@
 ;;   (current-typecheck-relation (current-type=?)))
 
 ;(define-syntax-category : kind) ; defines #%kind for #%type
-;; (define-base-type Nat)
 
 ;; set Type : Type
 ;; alternatively, could define new base type Type,
 ;; and make #%type typecheck with Type
 (begin-for-syntax
+  (define debug? #f)
+  (define type-eq-debug? #f)
+  (define debug-match? #f)
+
   ;; TODO: fix `type` stx class
   ;; (define old-type? (current-type?))
   ;; (current-type?
@@ -37,11 +48,12 @@
   (define old-relation (current-typecheck-relation))
   (current-typecheck-relation
    (lambda (t1 t2)
-     ;; (pretty-print (stx->datum t1))
-     ;; (pretty-print (stx->datum t2))
+     (when type-eq-debug?
+       (pretty-print (stx->datum t1))
+       (pretty-print (stx->datum t2)))
      ;; assumed #f can only come from (typeof #%type)
      ;; (so this wont work when interacting with untyped code)
-     (or (and (false? (syntax-e t1)) (#%type? t2)) ; set Type : Type
+     (or (and (false? (syntax-e t1)) (#%type? t2)) ; assign Type : Type
          (old-relation t1 t2)))))
 (define-for-syntax Type ((current-type-eval) #'#%type))
 
@@ -58,9 +70,11 @@
   [⊢ (∀- (X- ...) (→- τ_in- ... τ_out-)) ⇒ #%type])
 
 ;; abbrevs for Π
+;; (→ τ_in τ_out) == (Π (unused : τ_in) τ_out)
 (define-simple-macro (→ τ_in ... τ_out)
   #:with (X ...) (generate-temporaries #'(τ_in ...))
   (Π ([X : τ_in] ...) τ_out))
+;; (∀ (X) τ) == (∀ ([X : #%type]) τ)
 (define-simple-macro (∀ (X ...)  τ)
   (Π ([X : #%type] ...) τ))
 
@@ -151,30 +165,50 @@
 ;;       [(~literal +-) (stx+ args)]
 ;;       [(~literal zero?-) (apply zero? (stx->nats args))])))
 
-(define-for-syntax debug? #f)
-
-;; TODO: fix orig after subst
+;; TODO: fix orig after subst, for err msgs
+;; app/eval should not try to ty check anymore
 (define-syntax app/eval
   (syntax-parser
+    #;[(_ f . args) #:do[(printf "app/evaling ")
+                       (printf "f: ~a\n" (stx->datum #'f))
+                       (printf "args: ~a\n" (stx->datum #'args))]
+     #:when #f #'void]
+    [(_ f:id n P zc sc)
+     #:with (_ m/d . _) (local-expand #'(#%app match/delayed 'do 'nt 'ca 're) 'expression null)
+     #:when (free-identifier=? #'m/d #'f)
+     ;; TODO: need to attach type?
+     #'(match/nat n P zc sc)]
     ;; TODO: apply to only lambda args or all args?
     [(_ (~and f ((~literal #%plain-lambda) (x ...) e)) e_arg ...)
      #:do[(when debug?
             (printf "apping: ~a\n" (stx->datum #'f))
             (printf "args\n")
-            (pretty-print (stx->datum #'(e_arg ...))))]
+            (pretty-print (stx->datum #'(e_arg ...)))
+            (printf "expected type\n")
+            (pretty-print (stx->datum (typeof this-syntax))))]
+;     #:with (~Π ([X : _] ...) τ_out) (typeof #'f) ; must re-subst in type
      ;; TODO: need to replace all #%app- in this result with app/eval again
      ;; and then re-expand
 ;     #:with ((~literal #%plain-app) newf . newargs) #'e
  ;    #:do[(displayln #'newf)(displayln #'newargs)(displayln (stx-car #'e+))]
-     #:with app (datum->syntax (if (identifier? #'e) #'e (stx-car #'e)) '#%app)
-     #:with e+ (substs #'(app/eval e_arg ...) #'(app x ...) #'e free-identifier=?)
+     #:with r-app (datum->syntax (if (identifier? #'e) #'e (stx-car #'e)) '#%app)
+     ;; TODO: is this assign-type needed only for tests?
+     ;; eg, see id tests in dep2-peano.rkt
+     #:with ty (typeof this-syntax)
+     #:with e-inst (substs #'(app/eval e_arg ...) #'(r-app x ...) #'e free-identifier=?)
+     ;; some apps may not have type (eg in internal reps)
+     #:with e+ (if (syntax-e #'ty) (assign-type #'e-inst #'ty) #'e-inst)
      #:do[(when debug?
             (displayln "res:--------------------")
             (pretty-print (stx->datum #'e+))
+            ;; (displayln "actual type:")
+            ;; (pretty-print (stx->datum (typeof #'e+)))
+            ;; (displayln "new type:")
+            ;; (pretty-print (stx->datum (substs #'(e_arg ...) #'(X ...) (typeof #'e+))))
             ;; (displayln "res expanded:------------------------")
             ;; (pretty-print
             ;;  (stx->datum (local-expand (substs #'(e_arg ...) #'(x ...) #'e) 'expression null)))
-            (displayln "res app/eval recur expanded-----------------------"))]
+            (displayln "res app/eval re-expanding-----------------------"))]
      #:with ((~literal let-values) () ((~literal let-values) () e++))
             (local-expand
              #'(let-syntax (#;[app (make-rename-transformer #'app/eval)]
@@ -182,6 +216,7 @@
                  'expression null)
      #:do[(when debug?
             (pretty-print (stx->datum #'e++))
+;            (pretty-print (stx->datum (typeof #'e++)))
             #;(local-expand
              #'(let-syntax ([app (make-rename-transformer #'app/eval)]
                             #;[x (make-variable-like-transformer #'e_arg)]) e+)
@@ -195,6 +230,8 @@
            (pretty-print (stx->datum #'args)))]
      #:with f+ (expand/df #'f)
      #:with args+ (stx-map expand/df #'args)
+     ;; TODO: need to attach type?
+;     #:with ty (typeof this-syntax)
      (syntax-parse #'f+
        [((~literal #%plain-lambda) . _)
         #'(app/eval f+ . args+)]
@@ -203,6 +240,12 @@
      
 ;; TODO: fix orig after subst
 (define-typed-syntax app
+  ;; matching, ; TODO: where to put this?
+  #;[(_ f:id . args) ≫
+   #:with (_ m/d . _) (local-expand #'(match/delayed 1 2 3 4) 'expression null)
+   #:when (free-identifier=? #'m/d #'f)
+   ------------
+   [≻ (match/nat . args)]]
   [(_ e_fn e_arg ...) ≫
    #:do[(when debug?
           (displayln "TYPECHECKING")
@@ -403,50 +446,128 @@
             (stlc+lit:ann (begin e ...) : ty_out))))]])
 
 
-;; ;; peano nums -----------------------------------------------------------------
-;; (define-typed-syntax Z
-;;   [_:id ≫ --- [⊢ 0 ⇒ Nat]])
+;; peano nums -----------------------------------------------------------------
+(define-base-type Nat)
 
-;; (define-typed-syntax (S n) ≫
-;;   [⊢ n ≫ n- ⇐ Nat]
-;;   -----------
-;;   [⊢ (#%app- +- n- 1) ⇒ Nat])
-;; #;(define-typed-syntax (sub1 n) ≫
-;;   [⊢ n ≫ n- ⇐ Nat]
-;;   #:do[(displayln #'n-)]
-;;   -----------
-;;   [⊢ (#%app- -- n- 1) ⇒ Nat])
+(struct Z () #:transparent)
+(struct S (n) #:transparent)
 
-;; ;; generalized recursor over natural nums
-;; ;; (cases dispatched in #%app)
+(define-typed-syntax Zero
+  [_:id ≫ --- [⊢ (Z) ⇒ Nat]])
+
+(define-typed-syntax (Succ n) ≫
+  [⊢ n ≫ n- ⇐ Nat]
+  -----------
+  [⊢ (S n-) ⇒ Nat])
+#;(define-typed-syntax (sub1 n) ≫
+  [⊢ n ≫ n- ⇐ Nat]
+  #:do[(displayln #'n-)]
+  -----------
+  [⊢ (#%app- -- n- 1) ⇒ Nat])
+
+;; generalized recursor over natural nums
+;; (cases dispatched in #%app)
 ;; (define- (nat-ind- P z s n) (#%app- void))
 ;; (define-syntax nat-ind
 ;;   (make-variable-like-transformer
 ;;    (assign-type 
 ;;     #'nat-ind-
 ;;     #'(Π ([P : (→ Nat #%type)]
-;;           [z : (P Z)]
-;;           [s : (Π ([k : Nat]) (→ (P k) (P (S k))))]
+;;           [z : (app P Zero)]
+;;           [s : (Π ([k : Nat]) (→ (app P k) (app P (Succ k))))]
 ;;           [n : Nat])
-;;          (P n)))))
+;;          (app P n)))))
 
-;; #;(define-type-alias nat-ind
-;;   (λ ([P : (→ Nat #%type)]
-;;       [z : (P Z)]
-;;       [s : (Π ([k : Nat]) (→ (P k) (P (S k))))]
-;;       [n : Nat])
-;;     #'(#%app- nat-ind- P z s n)))
-;; #;(define-typed-syntax (nat-ind P z s n) ≫
-;;   [⊢ P ≫ P- ⇐ (→ Nat #%type)]
-;; ;  [⊢ b ≫ b- ⇒ _] ; zero 
-;; ;  [⊢ c ≫ c- ⇒ _] ; succ
-;; ;  [⊢ d ≫ d- ⇒ _]
-;;   [⊢ z ≫ z- ⇐ (P- Z)] ; zero 
-;;   [⊢ s ≫ s- ⇐ (Π ([k : Nat]) (→ (P- k) (P- (S k))))] ; succ
-;;   [⊢ n ≫ n- ⇐ Nat]
-;;   #:with res (if (typecheck? #'n- (expand/df #'Z))
-;;                  #'z-
-;;                  #'(s- (nat-ind P- z- s- (sub1 n-))))
-;;   ----------------
-;;   [⊢ res ⇒ (P- n-)])
-;; ;  [≻ (P- d-)])
+#;(define-type-alias nat-ind
+  (λ ([P : (→ Nat #%type)]
+      [z : (P Z)]
+      [s : (Π ([k : Nat]) (→ (P k) (P (S k))))]
+      [n : Nat])
+    #'(#%app- nat-ind- P z s n)))
+(struct match/delayed (n P zc sc))
+#;(define-syntax match/eval
+  (syntax-parser
+    [(_ n zc sc) #:do[(printf "matching: ~a\n" (stx->datum #'n))] #:when #f #'(void)]
+    [(_ ((~literal #%plain-app) z0:id) zc sc) 
+     #:with (_ z1) (local-expand #'(Z) 'expression null)
+     #:when (free-identifier=? #'z0 #'z1)
+     #'zc]
+    [(_ ((~literal #%plain-app) s0:id m) zc sc)
+     #:with (_ s1 . _) (local-expand #'(S 'dont-care) 'expression null)
+     #:when (free-identifier=? #'s0 #'s1)
+     #:when (displayln 2)
+     #`(app sc (nat-rec #,(typeof #'zc) zc sc m))]
+    [(_ n zc sc) #'(match/delayed n zc sc)]))
+
+;; this is an "eval" form; should not do any more type checking
+;; otherwise, will get type errs some some subexprs may still have uninst tys
+;; eg, zc and sc were typechecked with paramaterized P instead of inst'ed P
+(define-syntax match/nat
+  (syntax-parser
+    [(_ n P zc sc)
+     #:do[(when debug-match?
+            (printf "match/nating: ~a\n" (stx->datum #'(n P zc sc)))
+            #;(printf "zc ty: ~a\n" (stx->datum (typeof #'zc)))
+            #;(printf "sc ty: ~a\n" (stx->datum (typeof #'sc))))]
+     #:when #f #'(void)]
+    [(_ (~and n ((~literal #%plain-app) z0:id)) P zc sc)
+     #:with (_ z1) (local-expand #'(#%app Z) 'expression null)
+     #:when (free-identifier=? #'z0 #'z1)
+     #:do [(when debug-match? (displayln 'zc))]
+     ;; #:when (printf "match eval res zero ety: ~a\n" (stx->datum (typeof this-syntax)))
+     ;; #:when (printf "match eval res zero ty: ~a\n" (stx->datum (typeof #'zc)))
+     (assign-type #'zc #'(app/eval P n))]
+    [(_ (~and n ((~literal #%plain-app) s0:id m)) P zc sc)
+     #:with (_ s1 . _) (local-expand #'(#%app S 'dont-care) 'expression null)
+     #:when (free-identifier=? #'s0 #'s1)
+     #:with (~Π ([_ : _] ...) τ_out) (typeof #'sc)
+     #:do[(when debug-match? (displayln 'sc))]
+     ;; #:when (printf "match eval res succ ety: ~a\n" (stx->datum (typeof this-syntax)))
+     ;; #:when (printf "match eval res succ ty: ~a\n" (stx->datum (typeof #'sc)))
+     ;; #:when (printf "match eval res succ ty: ~a\n" (stx->datum (typeof #'(app/eval (app/eval sc m) (match/nat m P zc sc)))))
+;     #`(app sc m (nat-rec #,(typeof #'zc) zc sc m))]
+;     #:with ty (typeof this-syntax)
+     (assign-type
+      #`(app/eval #,(assign-type #'(app/eval sc m) #'τ_out) (match/nat m P zc sc))
+      #'(app/eval P n))
+  ;   #'res
+ ;    (if (syntax-e #'ty) (assign-type #'res #'ty) #'res)
+     #;(assign-type #`(app/eval #,(assign-type #'(app/eval sc m) #'τ_out) (match/nat m P zc sc)) (typeof this-syntax))]
+    [(_ n P zc sc)
+     #:do[(when debug-match?  (displayln "delay match"))]
+     (assign-type #'(#%app match/delayed n P zc sc) #'(app/eval P n))]))
+#;(define-typed-syntax (nat-rec ty zc sc n) ≫
+  [⊢ ty ≫ ty- ⇐ #%type]
+  [⊢ zc ≫ zc- ⇐ ty-] ; zero case
+  [⊢ sc ≫ sc- ⇐ (→ ty- ty-)] ; succ case
+  [⊢ n ≫ n- ⇐ Nat]
+  ;; #:with res
+  ;;   (syntax-parse #'n-
+  ;;    [aaa #:do[(printf "matching: ~a\n" (stx->datum #'aaa))] #:when #f #'(void)]
+  ;;    [((~literal #%plain-app) (~literal Z)) #'zc-]
+  ;;    [((~literal #%plain-app) (~literal S) m) #'(app sc- (nat-rec zc- sc- m))])
+  --------------------
+;  [⊢ (match/eval n- zc- sc-) ⇒ ty-])
+  [⊢ (match/nat n-
+                zc-
+                (λ ([n-1 : Nat][rec : ty-])
+                  (sc- rec)))
+     ⇒ ty-])
+  
+(define-typed-syntax (nat-ind P z s n) ≫
+  [⊢ P ≫ P- ⇐ (→ Nat #%type)]
+  [⊢ z ≫ z- ⇐ (app P- Zero)] ; zero 
+  [⊢ s ≫ s- ⇐ (Π ([k : Nat]) (→ (app P- k) (app P- (Succ k))))] ; succ
+  [⊢ n ≫ n- ⇐ Nat]
+  ;; #:with res (if (typecheck? #'n- (expand/df #'Z))
+  ;;                #'z-
+  ;;                #'(s- (nat-ind P- z- s- (sub1 n-))))
+  ----------------
+  [⊢ (match/nat n-
+                P-
+                z-
+                s-
+                #;(λ ([n-1 : Nat][rec : (app P- n-)])
+                  (app s- n-1 rec #;(nat-ind P- z- s- n-1))))
+     ⇒ (app P- n-)])
+;  [≻ (P- d-)])
