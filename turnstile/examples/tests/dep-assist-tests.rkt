@@ -1,4 +1,4 @@
-#lang s-exp "../dep2-assist.rkt"
+#lang s-exp "../dep-assist.rkt"
 (require "rackunit-typechecking.rkt")
 
 ; Π → λ ∀ ≻ ⊢ ≫ ⇒
