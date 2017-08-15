@@ -338,6 +338,26 @@
                           [param value] ...)
                      sub-clause.pat ...
                      (~do [param tmp] ...))]
+    [pattern (~seq #:context C (sub-clause:clause ...))
+             #:with (c tmp) (generate-temporaries #'(C tmp))
+             #:with pat
+             #'(~and (~do (define c C)
+                          ((context-setup-fn c))
+                          (define tmp (current-context))
+                          (current-context c))
+                     sub-clause.pat ...
+                     (~do (current-context tmp)
+                          ((context-teardown-fn c))))]
+    [pattern (~seq #:sub-context f (sub-clause:clause ...))
+             #:with (c tmp) (generate-temporaries #'(c tmp))
+             #:with pat
+             #'(~and (~do (define c (f (current-context)))
+                          ((context-setup-fn c))
+                          (define tmp (current-context))
+                          (current-context c))
+                     sub-clause.pat ...
+                     (~do (current-context tmp)
+                          ((context-teardown-fn c))))]
     )
   (define-syntax-class last-clause
     #:datum-literals (⊢ ≫ ≻ ⇒ ⇐)
