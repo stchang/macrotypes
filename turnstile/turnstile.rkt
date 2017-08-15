@@ -1,6 +1,6 @@
 #lang racket/base
 
-(provide (except-out (all-from-out macrotypes/typecheck) 
+(provide (except-out (all-from-out macrotypes/typecheck)
                      -define-typed-syntax -define-syntax-category)
          define-typed-syntax
          define-typed-variable-syntax
@@ -66,8 +66,9 @@
 (module syntax-classes racket/base
   (provide (all-defined-out))
   (require (for-meta 0 (submod ".." typecheck+))
-           (for-meta -1 (submod ".." typecheck+) 
-                     (except-in macrotypes/typecheck #%module-begin mk-~ mk-?))
+           (for-meta -1 (submod ".." typecheck+)
+                     (except-in macrotypes/typecheck #%module-begin mk-~ mk-?)
+                     "context.rkt")
            (for-meta -2 (except-in macrotypes/typecheck #%module-begin)))
   (define-syntax-class ---
     [pattern dashes:id
@@ -91,7 +92,7 @@
   (define (add-lists stx n)
     (cond [(zero? n) stx]
           [else (add-lists (list stx) (sub1 n))]))
-  
+
   (define-splicing-syntax-class props
     [pattern (~and (~seq stuff ...) (~seq (~seq k:id v) ...))])
   (define-splicing-syntax-class ⇒-prop
@@ -233,6 +234,10 @@
              #:attr wrap (λ (stx) #`(parameterize ([x v]) #,stx))]
     [pattern (~seq #:modes ([x:id v:expr] ...))
              #:attr wrap (λ (stx) #`(parameterize ([x v] ...) #,stx))]
+    [pattern (~seq #:ctx C)
+             #:attr wrap (λ (stx) #`(with-context C #,stx))]
+    [pattern (~seq #:sub-ctx f)
+             #:attr wrap (λ (stx) #`(with-context (f (current-context)) #,stx))]
     )
   (define-splicing-syntax-class tc-clause
     #:attributes (pat)
