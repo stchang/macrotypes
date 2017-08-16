@@ -1,14 +1,14 @@
 #lang turnstile/lang
 
 ; a basic dependently-typed calculus
-; extends dep.rkt
+; - with inductive datatypes
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑
 
 (provide (rename-out [#%type *])
          Π → ∀
          = eq-refl eq-elim
-         Nat (rename-out [Zero Z][Succ S]) nat-ind #;nat-rec
+;         Nat (rename-out [Zero Z][Succ S]) nat-ind #;nat-rec
          λ (rename-out [app #%app]) ann
          define define-type-alias
 )
@@ -126,8 +126,7 @@
 (define-typed-syntax λ
   ;; expected ty only
   [(_ (y:id ...) e) ⇐ (~Π ([x:id : τ_in] ... ) τ_out) ≫
-   ;; must use free-identifier=? to work with prove/define and `?`
-   [[x ≫ x- : τ_in] ... ⊢ #,(substs #'(x ...) #'(y ...) #'e free-identifier=?) ≫ e- ⇐ τ_out]
+   [[x ≫ x- : τ_in] ... ⊢ #,(substs #'(x ...) #'(y ...) #'e) ≫ e- ⇐ τ_out]
    ---------
    [⊢ (λ- (x- ...) e-)]]
   ;; both expected ty and annotations
@@ -174,11 +173,11 @@
                        (printf "f: ~a\n" (stx->datum #'f))
                        (printf "args: ~a\n" (stx->datum #'args))]
      #:when #f #'void]
-    [(_ f:id n P zc sc)
-     #:with (_ m/d . _) (local-expand #'(#%app match/delayed 'do 'nt 'ca 're) 'expression null)
+    [(_ f:id (_ matcher) (_ _ . args))
+     #:with (_ m/d . _) (local-expand #'(#%app match/delayed 'dont 'care) 'expression null)
      #:when (free-identifier=? #'m/d #'f)
      ;; TODO: need to attach type?
-     #'(match/nat n P zc sc)]
+     #'(matcher . args)]
     ;; TODO: apply to only lambda args or all args?
     [(_ (~and f ((~literal #%plain-lambda) (x ...) e)) e_arg ...)
      #:do[(when debug?
@@ -448,182 +447,249 @@
 
 
 ;; peano nums -----------------------------------------------------------------
-(define-base-type Nat)
-
-(struct Z () #:transparent)
-(struct S (n) #:transparent)
-
-(define-typed-syntax Zero
-  [_:id ≫ --- [⊢ (Z) ⇒ Nat]])
-
-(define-typed-syntax (Succ n) ≫
-  [⊢ n ≫ n- ⇐ Nat]
-  -----------
-  [⊢ (S n-) ⇒ Nat])
-#;(define-typed-syntax (sub1 n) ≫
-  [⊢ n ≫ n- ⇐ Nat]
-  #:do[(displayln #'n-)]
-  -----------
-  [⊢ (#%app- -- n- 1) ⇒ Nat])
-
-;; generalized recursor over natural nums
-;; (cases dispatched in #%app)
-;; (define- (nat-ind- P z s n) (#%app- void))
-;; (define-syntax nat-ind
-;;   (make-variable-like-transformer
-;;    (assign-type 
-;;     #'nat-ind-
-;;     #'(Π ([P : (→ Nat #%type)]
-;;           [z : (app P Zero)]
-;;           [s : (Π ([k : Nat]) (→ (app P k) (app P (Succ k))))]
-;;           [n : Nat])
-;;          (app P n)))))
-
-#;(define-type-alias nat-ind
-  (λ ([P : (→ Nat #%type)]
-      [z : (P Z)]
-      [s : (Π ([k : Nat]) (→ (P k) (P (S k))))]
-      [n : Nat])
-    #'(#%app- nat-ind- P z s n)))
-(struct match/delayed (n P zc sc))
-#;(define-syntax match/eval
-  (syntax-parser
-    [(_ n zc sc) #:do[(printf "matching: ~a\n" (stx->datum #'n))] #:when #f #'(void)]
-    [(_ ((~literal #%plain-app) z0:id) zc sc) 
-     #:with (_ z1) (local-expand #'(Z) 'expression null)
-     #:when (free-identifier=? #'z0 #'z1)
-     #'zc]
-    [(_ ((~literal #%plain-app) s0:id m) zc sc)
-     #:with (_ s1 . _) (local-expand #'(S 'dont-care) 'expression null)
-     #:when (free-identifier=? #'s0 #'s1)
-     #:when (displayln 2)
-     #`(app sc (nat-rec #,(typeof #'zc) zc sc m))]
-    [(_ n zc sc) #'(match/delayed n zc sc)]))
-
-;; this is an "eval" form; should not do any more type checking
-;; otherwise, will get type errs some some subexprs may still have uninst tys
-;; eg, zc and sc were typechecked with paramaterized P instead of inst'ed P
-(define-syntax match/nat
-  (syntax-parser
-    [(_ n P zc sc)
-     #:do[(when debug-match?
-            (printf "match/nating: ~a\n" (stx->datum #'(n P zc sc)))
-            #;(printf "zc ty: ~a\n" (stx->datum (typeof #'zc)))
-            #;(printf "sc ty: ~a\n" (stx->datum (typeof #'sc))))]
-     #:when #f #'(void)]
-    [(_ (~and n ((~literal #%plain-app) z0:id)) P zc sc)
-     #:with (_ z1) (local-expand #'(#%app Z) 'expression null)
-     #:when (free-identifier=? #'z0 #'z1)
-     #:do [(when debug-match? (displayln 'zc))]
-     ;; #:when (printf "match eval res zero ety: ~a\n" (stx->datum (typeof this-syntax)))
-     ;; #:when (printf "match eval res zero ty: ~a\n" (stx->datum (typeof #'zc)))
-     (assign-type #'zc #'(app/eval P n))]
-    [(_ (~and n ((~literal #%plain-app) s0:id m)) P zc sc)
-     #:with (_ s1 . _) (local-expand #'(#%app S 'dont-care) 'expression null)
-     #:when (free-identifier=? #'s0 #'s1)
-     #:with (~Π ([_ : _] ...) τ_out) (typeof #'sc)
-     #:do[(when debug-match? (displayln 'sc))]
-     ;; #:when (printf "match eval res succ ety: ~a\n" (stx->datum (typeof this-syntax)))
-     ;; #:when (printf "match eval res succ ty: ~a\n" (stx->datum (typeof #'sc)))
-     ;; #:when (printf "match eval res succ ty: ~a\n" (stx->datum (typeof #'(app/eval (app/eval sc m) (match/nat m P zc sc)))))
-;     #`(app sc m (nat-rec #,(typeof #'zc) zc sc m))]
-;     #:with ty (typeof this-syntax)
-     (assign-type
-      #`(app/eval #,(assign-type #'(app/eval sc m) #'τ_out) (match/nat m P zc sc))
-      #'(app/eval P n))
-  ;   #'res
- ;    (if (syntax-e #'ty) (assign-type #'res #'ty) #'res)
-     #;(assign-type #`(app/eval #,(assign-type #'(app/eval sc m) #'τ_out) (match/nat m P zc sc)) (typeof this-syntax))]
-    [(_ n P zc sc)
-     #:do[(when debug-match?  (displayln "delay match"))]
-     (assign-type #'(#%app match/delayed n P zc sc) #'(app/eval P n))]))
-#;(define-typed-syntax (nat-rec ty zc sc n) ≫
-  [⊢ ty ≫ ty- ⇐ #%type]
-  [⊢ zc ≫ zc- ⇐ ty-] ; zero case
-  [⊢ sc ≫ sc- ⇐ (→ ty- ty-)] ; succ case
-  [⊢ n ≫ n- ⇐ Nat]
-  ;; #:with res
-  ;;   (syntax-parse #'n-
-  ;;    [aaa #:do[(printf "matching: ~a\n" (stx->datum #'aaa))] #:when #f #'(void)]
-  ;;    [((~literal #%plain-app) (~literal Z)) #'zc-]
-  ;;    [((~literal #%plain-app) (~literal S) m) #'(app sc- (nat-rec zc- sc- m))])
-  --------------------
-;  [⊢ (match/eval n- zc- sc-) ⇒ ty-])
-  [⊢ (match/nat n-
-                zc-
-                (λ ([n-1 : Nat][rec : ty-])
-                  (sc- rec)))
-     ⇒ ty-])
-  
-(define-typed-syntax (nat-ind P z s n) ≫
-  [⊢ P ≫ P- ⇐ (→ Nat #%type)]
-  [⊢ z ≫ z- ⇐ (app P- Zero)] ; zero 
-  [⊢ s ≫ s- ⇐ (Π ([k : Nat]) (→ (app P- k) (app P- (Succ k))))] ; succ
-  [⊢ n ≫ n- ⇐ Nat]
-  ;; #:with res (if (typecheck? #'n- (expand/df #'Z))
-  ;;                #'z-
-  ;;                #'(s- (nat-ind P- z- s- (sub1 n-))))
-  ----------------
-  [⊢ (match/nat n-
-                P-
-                z-
-                s-
-                #;(λ ([n-1 : Nat][rec : (app P- n-)])
-                  (app s- n-1 rec #;(nat-ind P- z- s- n-1))))
-     ⇒ (app P- n-)])
+(provide define-datatype)
+(struct TmpTy ())
+(struct TmpTy2 ())
+(define-typed-syntax define-datatype
+  [(_ Name (~datum :) kind [C:id (~datum :) TY #;(~and TY (ar tyin ... tyout))] ...) ≫
+   ; need to expand `TY` but `Name` is still unbound so use tmp id
+   #:with (TY* ...) (subst #'TmpTy #'Name #'(TY ...))
+   [⊢ TY* ≫ TY- ⇐ #%type] ...
+   #:with (_ TmpTy+) (local-expand #'(TmpTy) 'expression null)
+   ;; TODO: ignoring X ... for now
+   ;; TODO: replace TmpTy in origs of τ_in ... τ_out
+   #:with ((~Π ([X : τ_in] ...) τ_out) ...)
+          (subst #'Name #'TmpTy+ #'(TY- ...) free-id=?)
+   #:with (C* ...) (generate-temporaries #'(C ...))
+   #:with (C** ...) (generate-temporaries #'(C ...))
+   #:with (Ccase ...) (generate-temporaries #'(C ...))
+   #:with (C- ...) (generate-temporaries #'(C ...))
+   ;; Can I just use X instead of fld?
+   #:with ((fld ...) ...) (stx-map generate-temporaries #'((τ_in ...) ...))
+   #:with ((fld- ...) ...) (stx-map generate-temporaries #'((τ_in ...) ...))
+   #:with elim-Name (format-id #'Name "elim-~a" #'Name)
+   #:with match-Name (format-id #'Name "match-~a" #'Name)
+   #:with match-Name/delayed (format-id #'Name "match-~a/delayed" #'Name)
+   --------
+   [≻ (begin-
+        (define-base-type Name)
+        (struct C* (fld ...) #:transparent) ...
+        (define-typed-syntax C
+          [:id ≫ --- [⊢ C* ⇒ TY]]
+          [(_ fld ...) ≫
+           [⊢ fld ≫ fld- ⇐ τ_in] ...
+           --------
+           [⊢ (C* fld- ...) ⇒ τ_out]]) ...
+        (define-typed-syntax (elim-Name x P C* ...) ≫
+          [⊢ x ≫ x- ⇐ Name]
+          [⊢ P ≫ P- ⇐ (→ Name #%type)] ; prop / motive
+;             [⊢ z ≫ z- ⇐ (app P- Zero)] ; zero 
+;             [⊢ C ≫ C- ⇐ (Π ([k : Nat]) (→ (app P- k) (app P- (Succ k))))] ; succ
+          ;; TODO: the (app P- fld) ... is wrong, should only include recur args
+          ;; for now, each case consumes the number of args for each C,
+          ;; and then an IH for each arg
+          [⊢ C* ≫ C- ⇐ (Π ([fld : τ_in] ...) (→ (app P- fld) ... (app P- (C fld ...))))] ...
+          -----------
+          [⊢ (match-Name x- P- C- ...) ⇒ (app P- x-)])
+        (struct match-Name/delayed (m))
+        (define-syntax match-Name
+          (syntax-parser
+            #;[(_ . args)
+             #:do[(printf "trying to match:\n~a\n" (stx->datum #'args))]
+             #:when #f #'(void)]
+            [(_ n P Ccase ...)
+             (syntax-parse #'n
+               [((~literal #%plain-app) C-:id fld ...)
+                ;; TODO: check C- matches actual C
+                ;; for now, it's just an arity match
+                #'(app/eval (app/eval Ccase fld ...) (match-Name fld P Ccase ...) ...)] ...
+               [_ #'(#%app match/delayed 'match-Name (void n P Ccase ...))])]))
+        )]])
+;;   ;; #:with res (if (typecheck? #'n- (expand/df #'Z))
+;;   ;;                #'z-
+;;   ;;                #'(s- (nat-ind P- z- s- (sub1 n-))))
+;;   ----------------
+;;   [⊢ (match/nat n-
+;;                 P-
+;;                 z-
+;;                 s-
+;;                 #;(λ ([n-1 : Nat][rec : (app P- n-)])
+;;                   (app s- n-1 rec #;(nat-ind P- z- s- n-1))))
+;;      ⇒ (app P- n-)])
 ;  [≻ (P- d-)])
+;; (define-syntax match/nat
+;;   (syntax-parser
+;;     [(_ n P zc sc)
+;;      #:do[(when debug-match?
+;;             (printf "match/nating: ~a\n" (stx->datum #'(n P zc sc)))
+;;             #;(printf "zc ty: ~a\n" (stx->datum (typeof #'zc)))
+;;             #;(printf "sc ty: ~a\n" (stx->datum (typeof #'sc))))]
+;;      #:when #f #'(void)]
+;;     [(_ (~and n ((~literal #%plain-app) z0:id)) P zc sc)
+;;      #:with (_ z1) (local-expand #'(#%app Z) 'expression null)
+;;      #:when (free-identifier=? #'z0 #'z1)
+;;      #:do [(when debug-match? (displayln 'zc))]
+;;      ;; #:when (printf "match eval res zero ety: ~a\n" (stx->datum (typeof this-syntax)))
+;;      ;; #:when (printf "match eval res zero ty: ~a\n" (stx->datum (typeof #'zc)))
+;;      (assign-type #'zc #'(app/eval P n))]
+;;     [(_ (~and n ((~literal #%plain-app) s0:id m)) P zc sc)
+;;      #:with (_ s1 . _) (local-expand #'(#%app S 'dont-care) 'expression null)
+;;      #:when (free-identifier=? #'s0 #'s1)
+;;      #:with (~Π ([_ : _] ...) τ_out) (typeof #'sc)
+;;      #:do[(when debug-match? (displayln 'sc))]
+;;      ;; #:when (printf "match eval res succ ety: ~a\n" (stx->datum (typeof this-syntax)))
+;;      ;; #:when (printf "match eval res succ ty: ~a\n" (stx->datum (typeof #'sc)))
+;;      ;; #:when (printf "match eval res succ ty: ~a\n" (stx->datum (typeof #'(app/eval (app/eval sc m) (match/nat m P zc sc)))))
+;; ;     #`(app sc m (nat-rec #,(typeof #'zc) zc sc m))]
+;; ;     #:with ty (typeof this-syntax)
+;;      (assign-type
+;;       #`(app/eval #,(assign-type #'(app/eval sc m) #'τ_out) (match/nat m P zc sc))
+;;       #'(app/eval P n))
+;;   ;   #'res
+;;  ;    (if (syntax-e #'ty) (assign-type #'res #'ty) #'res)
+;;      #;(assign-type #`(app/eval #,(assign-type #'(app/eval sc m) #'τ_out) (match/nat m P zc sc)) (typeof this-syntax))]
+;;     [(_ n P zc sc)
+;;      #:do[(when debug-match?  (displayln "delay match"))]
+;;      (assign-type #'(#%app match/delayed n P zc sc) #'(app/eval P n))]))
+;; #;(define-typed-syntax (nat-rec ty zc sc n) ≫
+;;   [⊢ ty ≫ ty- ⇐ #%type]
+;;   [⊢ zc ≫ zc- ⇐ ty-] ; zero case
+;;   [⊢ sc ≫ sc- ⇐ (→ ty- ty-)] ; succ case
+;;   [⊢ n ≫ n- ⇐ Nat]
+;;   ;; #:with res
+;;   ;;   (syntax-parse #'n-
+;;   ;;    [aaa #:do[(printf "matching: ~a\n" (stx->datum #'aaa))] #:when #f #'(void)]
+;;   ;;    [((~literal #%plain-app) (~literal Z)) #'zc-]
+;;   ;;    [((~literal #%plain-app) (~literal S) m) #'(app sc- (nat-rec zc- sc- m))])
+;;   --------------------
+;; ;  [⊢ (match/eval n- zc- sc-) ⇒ ty-])
+;;   [⊢ (match/nat n-
+;;                 zc-
+;;                 (λ ([n-1 : Nat][rec : ty-])
+;;                   (sc- rec)))
+;;      ⇒ ty-])
+;           )]])
+;; (define-base-type Nat)
 
-;; proof assistant
+;; (struct Z () #:transparent)
+;; (struct S (n) #:transparent)
 
-(provide prove ? refine)
+;; (define-typed-syntax Zero
+;;   [_:id ≫ --- [⊢ (Z) ⇒ Nat]])
 
-(struct ?? ())
-(define-for-syntax ?+ (stx-cadr (local-expand #'(??) 'expression null)))
+;; (define-typed-syntax (Succ n) ≫
+;;   [⊢ n ≫ n- ⇐ Nat]
+;;   -----------
+;;   [⊢ (S n-) ⇒ Nat])
+;; #;(define-typed-syntax (sub1 n) ≫
+;;   [⊢ n ≫ n- ⇐ Nat]
+;;   #:do[(displayln #'n-)]
+;;   -----------
+;;   [⊢ (#%app- -- n- 1) ⇒ Nat])
 
-(define-typed-syntax ?
-  [(_ ty) ≫
-   #:with x (generate-temporary)
-   #:do[(current-hole #'x)]
-   -----
-   [⊢ #,?+ ⇒ ty]]
-  [_:id ⇐ ty ≫
-   #:with x (generate-temporary)
-   #:do[(current-hole #'x)]
-   -----
-   [⊢ #,?+]])
+;; ;; generalized recursor over natural nums
+;; ;; (cases dispatched in #%app)
+;; ;; (define- (nat-ind- P z s n) (#%app- void))
+;; ;; (define-syntax nat-ind
+;; ;;   (make-variable-like-transformer
+;; ;;    (assign-type 
+;; ;;     #'nat-ind-
+;; ;;     #'(Π ([P : (→ Nat #%type)]
+;; ;;           [z : (app P Zero)]
+;; ;;           [s : (Π ([k : Nat]) (→ (app P k) (app P (Succ k))))]
+;; ;;           [n : Nat])
+;; ;;          (app P n)))))
 
-(begin-for-syntax
-  (define current-ty (make-parameter #f))
-  (define current-hole (make-parameter #f))
-  (define current-expr (make-parameter #f))
-  (define (update-expr e)
-    (set-expr (subst e ?+ (current-expr) free-identifier=?)))
-  (define (set-expr e)
-    (current-expr e)
-    (printf "current proof: ~a\n" (stx->datum (current-expr))))
-  (define (mk-hole)
-    (current-hole (generate-temporary))
-    (current-hole)))
+;; #;(define-type-alias nat-ind
+;;   (λ ([P : (→ Nat #%type)]
+;;       [z : (P Z)]
+;;       [s : (Π ([k : Nat]) (→ (P k) (P (S k))))]
+;;       [n : Nat])
+;;     #'(#%app- nat-ind- P z s n)))
+(struct match/delayed (name args))
+;; #;(define-syntax match/eval
+;;   (syntax-parser
+;;     [(_ n zc sc) #:do[(printf "matching: ~a\n" (stx->datum #'n))] #:when #f #'(void)]
+;;     [(_ ((~literal #%plain-app) z0:id) zc sc) 
+;;      #:with (_ z1) (local-expand #'(Z) 'expression null)
+;;      #:when (free-identifier=? #'z0 #'z1)
+;;      #'zc]
+;;     [(_ ((~literal #%plain-app) s0:id m) zc sc)
+;;      #:with (_ s1 . _) (local-expand #'(S 'dont-care) 'expression null)
+;;      #:when (free-identifier=? #'s0 #'s1)
+;;      #:when (displayln 2)
+;;      #`(app sc (nat-rec #,(typeof #'zc) zc sc m))]
+;;     [(_ n zc sc) #'(match/delayed n zc sc)]))
 
-
-(define-syntax prove
-  (syntax-parser
-    [(_ ty)
-     #:do[(current-ty ((current-type-eval) #'ty))]
-     #:when (local-expand #'(? ty) 'expression null)
-     #:do[(set-expr #'?)] 
-     #'(void)]))
-
-(define-typed-syntax refine
-  [(_ e) ≫
-   #:do[(printf "refining with: ~a\n" (stx->datum #'e))]
-   #:with ty (current-ty)
-   #:with e0 (subst #'e #'? (current-expr) free-identifier=?)
-   [⊢ e0 ≫ e0- ⇐ ty]
-   #:do [(displayln "ok.")
-         (set-expr #'e0)
-         (let ([x (generate-temporary)])
-           (when ((current-type=?) #'e0 (subst #'x #'? #'e0 free-identifier=?))
-               (displayln "qed.")))]
-   -------
-   [⊢ (void) ⇒ ty]])
+;; ;; this is an "eval" form; should not do any more type checking
+;; ;; otherwise, will get type errs some some subexprs may still have uninst tys
+;; ;; eg, zc and sc were typechecked with paramaterized P instead of inst'ed P
+;; (define-syntax match/nat
+;;   (syntax-parser
+;;     [(_ n P zc sc)
+;;      #:do[(when debug-match?
+;;             (printf "match/nating: ~a\n" (stx->datum #'(n P zc sc)))
+;;             #;(printf "zc ty: ~a\n" (stx->datum (typeof #'zc)))
+;;             #;(printf "sc ty: ~a\n" (stx->datum (typeof #'sc))))]
+;;      #:when #f #'(void)]
+;;     [(_ (~and n ((~literal #%plain-app) z0:id)) P zc sc)
+;;      #:with (_ z1) (local-expand #'(#%app Z) 'expression null)
+;;      #:when (free-identifier=? #'z0 #'z1)
+;;      #:do [(when debug-match? (displayln 'zc))]
+;;      ;; #:when (printf "match eval res zero ety: ~a\n" (stx->datum (typeof this-syntax)))
+;;      ;; #:when (printf "match eval res zero ty: ~a\n" (stx->datum (typeof #'zc)))
+;;      (assign-type #'zc #'(app/eval P n))]
+;;     [(_ (~and n ((~literal #%plain-app) s0:id m)) P zc sc)
+;;      #:with (_ s1 . _) (local-expand #'(#%app S 'dont-care) 'expression null)
+;;      #:when (free-identifier=? #'s0 #'s1)
+;;      #:with (~Π ([_ : _] ...) τ_out) (typeof #'sc)
+;;      #:do[(when debug-match? (displayln 'sc))]
+;;      ;; #:when (printf "match eval res succ ety: ~a\n" (stx->datum (typeof this-syntax)))
+;;      ;; #:when (printf "match eval res succ ty: ~a\n" (stx->datum (typeof #'sc)))
+;;      ;; #:when (printf "match eval res succ ty: ~a\n" (stx->datum (typeof #'(app/eval (app/eval sc m) (match/nat m P zc sc)))))
+;; ;     #`(app sc m (nat-rec #,(typeof #'zc) zc sc m))]
+;; ;     #:with ty (typeof this-syntax)
+;;      (assign-type
+;;       #`(app/eval #,(assign-type #'(app/eval sc m) #'τ_out) (match/nat m P zc sc))
+;;       #'(app/eval P n))
+;;   ;   #'res
+;;  ;    (if (syntax-e #'ty) (assign-type #'res #'ty) #'res)
+;;      #;(assign-type #`(app/eval #,(assign-type #'(app/eval sc m) #'τ_out) (match/nat m P zc sc)) (typeof this-syntax))]
+;;     [(_ n P zc sc)
+;;      #:do[(when debug-match?  (displayln "delay match"))]
+;;      (assign-type #'(#%app match/delayed n P zc sc) #'(app/eval P n))]))
+;; #;(define-typed-syntax (nat-rec ty zc sc n) ≫
+;;   [⊢ ty ≫ ty- ⇐ #%type]
+;;   [⊢ zc ≫ zc- ⇐ ty-] ; zero case
+;;   [⊢ sc ≫ sc- ⇐ (→ ty- ty-)] ; succ case
+;;   [⊢ n ≫ n- ⇐ Nat]
+;;   ;; #:with res
+;;   ;;   (syntax-parse #'n-
+;;   ;;    [aaa #:do[(printf "matching: ~a\n" (stx->datum #'aaa))] #:when #f #'(void)]
+;;   ;;    [((~literal #%plain-app) (~literal Z)) #'zc-]
+;;   ;;    [((~literal #%plain-app) (~literal S) m) #'(app sc- (nat-rec zc- sc- m))])
+;;   --------------------
+;; ;  [⊢ (match/eval n- zc- sc-) ⇒ ty-])
+;;   [⊢ (match/nat n-
+;;                 zc-
+;;                 (λ ([n-1 : Nat][rec : ty-])
+;;                   (sc- rec)))
+;;      ⇒ ty-])
+  
+;; (define-typed-syntax (nat-ind P z s n) ≫
+;;   [⊢ P ≫ P- ⇐ (→ Nat #%type)]
+;;   [⊢ z ≫ z- ⇐ (app P- Zero)] ; zero 
+;;   [⊢ s ≫ s- ⇐ (Π ([k : Nat]) (→ (app P- k) (app P- (Succ k))))] ; succ
+;;   [⊢ n ≫ n- ⇐ Nat]
+;;   ;; #:with res (if (typecheck? #'n- (expand/df #'Z))
+;;   ;;                #'z-
+;;   ;;                #'(s- (nat-ind P- z- s- (sub1 n-))))
+;;   ----------------
+;;   [⊢ (match/nat n-
+;;                 P-
+;;                 z-
+;;                 s-
+;;                 #;(λ ([n-1 : Nat][rec : (app P- n-)])
+;;                   (app s- n-1 rec #;(nat-ind P- z- s- n-1))))
+;;      ⇒ (app P- n-)])
+;; ;  [≻ (P- d-)])
