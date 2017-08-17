@@ -20,54 +20,54 @@
 
 ;; length 0
 (check-type
- (elim-List Nat
-            ((null Nat))
-            (λ ([l : (List Nat)]) Nat)
-            (λ () (λ () (Z)))
-            (λ ([x : Nat][xs : (List Nat)])
-              (λ ([IH : Nat])
-                (S IH))))
+ (elim-List ((null Nat))
+            (λ ([A : *]) (λ ([l : (List A)]) Nat))
+            (λ ([A : *]) (λ () (λ () (Z))))
+            (λ ([A : *])
+              (λ ([x : A][xs : (List A)])
+                (λ ([IH : Nat])
+                  (S IH)))))
  : Nat
  -> (Z))
 
 ;; length 1
 (check-type
- (elim-List Nat
-            ((cons Nat) (Z) ((null Nat)))
-            (λ ([l : (List Nat)]) Nat)
-            (λ () (λ () (Z)))
-            (λ ([x : Nat][xs : (List Nat)])
-              (λ ([IH : Nat])
-                (S IH))))
+ (elim-List ((cons Nat) (Z) ((null Nat)))
+            (λ ([A : *]) (λ ([l : (List A)]) Nat))
+            (λ ([A : *]) (λ () (λ () (Z))))
+            (λ ([A : *])
+              (λ ([x : A][xs : (List A)])
+                (λ ([IH : Nat])
+                  (S IH)))))
  : Nat
  -> (S (Z)))
 
 ;; length 2
 (check-type
- (elim-List Nat
-            ((cons Nat) (S (Z)) ((cons Nat) (Z) ((null Nat))))
-            (λ ([l : (List Nat)]) Nat)
-            (λ () (λ () (Z)))
-            (λ ([x : Nat][xs : (List Nat)])
-              (λ ([IH : Nat])
-                (S IH))))
+ (elim-List ((cons Nat) (S (Z)) ((cons Nat) (Z) ((null Nat))))
+            (λ ([A : *]) (λ ([l : (List A)]) Nat))
+            (λ ([A : *]) (λ () (λ () (Z))))
+            (λ ([A : *]) 
+              (λ ([x : A][xs : (List A)])
+                (λ ([IH : Nat])
+                  (S IH)))))
  : Nat
  -> (S (S (Z))))
 
 (define-type-alias len
   (λ ([lst : (List Nat)])
-    (elim-List Nat
-               lst
-               (λ ([l : (List Nat)]) Nat)
-               (λ () (λ () (Z)))
-               (λ ([x : Nat][xs : (List Nat)])
-                 (λ ([IH : Nat])
-                   (S IH))))))
+    (elim-List lst
+               (λ ([A : *]) (λ ([l : (List A)]) Nat))
+               (λ ([A : *]) (λ () (λ () (Z))))
+               (λ ([A : *])
+                 (λ ([x : A][xs : (List A)])
+                   (λ ([IH : Nat])
+                     (S IH)))))))
 
 (check-type (len ((null Nat))) : Nat -> (Z))
 (check-type (len ((cons Nat) (Z) ((null Nat)))) : Nat -> (S (Z)))
 
-;; ;; lists parameterized over length
+;; ;; "lists" parameterized over length
 ;; (define-datatype Vect : (→ * Nat *)
 ;;   [nil : (Π ([A : *][k : Nat]) (→ (Vect A (Z))))]
 ;;   [cns : (Π ([A : *][k : Nat]) (→ A (Vect A k) (Vect A (S k))))])
