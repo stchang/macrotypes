@@ -68,7 +68,7 @@
   (require (for-meta 0 (submod ".." typecheck+))
            (for-meta -1 (submod ".." typecheck+)
                      (except-in macrotypes/typecheck #%module-begin mk-~ mk-?)
-                     "context.rkt")
+                     "mode.rkt")
            (for-meta -2 (except-in macrotypes/typecheck #%module-begin)))
   (define-syntax-class ---
     [pattern dashes:id
@@ -230,13 +230,9 @@
                       (attribute opts.wrap)))])
   (define-splicing-syntax-class tc-post-options
     #:attributes (wrap)
-    [pattern (~seq #:mode x:id v:expr)
-             #:attr wrap (λ (stx) #`(parameterize ([x v]) #,stx))]
-    [pattern (~seq #:modes ([x:id v:expr] ...))
-             #:attr wrap (λ (stx) #`(parameterize ([x v] ...) #,stx))]
-    [pattern (~seq #:ctx C)
+    [pattern (~seq #:mode C)
              #:attr wrap (λ (stx) #`(with-context C #,stx))]
-    [pattern (~seq #:sub-ctx f)
+    [pattern (~seq #:submode f)
              #:attr wrap (λ (stx) #`(with-context (f (current-context)) #,stx))]
     )
   (define-splicing-syntax-class tc-clause
@@ -324,40 +320,26 @@
     [pattern (~seq #:fail-unless condition:expr message:expr)
              #:with pat
              #'(~post (~fail #:unless condition message))]
-    [pattern (~seq #:mode param:id value:expr (sub-clause:clause ...))
-             #:with tmp (generate-temporary #'param)
-             #:with pat
-             #'(~and (~do (define tmp [param])
-                          [param value])
-                     sub-clause.pat ...
-                     (~do [param tmp]))]
-    [pattern (~seq #:modes ([param:id value:expr] ...) (sub-clause:clause ...))
-             #:with (tmp ...) (generate-temporaries #'[param ...])
-             #:with pat
-             #'(~and (~do (define tmp [param]) ...
-                          [param value] ...)
-                     sub-clause.pat ...
-                     (~do [param tmp] ...))]
-    [pattern (~seq #:context C (sub-clause:clause ...))
+    [pattern (~seq #:mode C (sub-clause:clause ...))
              #:with (c tmp) (generate-temporaries #'(C tmp))
              #:with pat
              #'(~and (~do (define c C)
-                          ((context-setup-fn c))
-                          (define tmp (current-context))
-                          (current-context c))
+                          ((mode-setup-fn c))
+                          (define tmp (current-mode))
+                          (current-mode c))
                      sub-clause.pat ...
-                     (~do (current-context tmp)
-                          ((context-teardown-fn c))))]
-    [pattern (~seq #:sub-context f (sub-clause:clause ...))
+                     (~do (current-mode tmp)
+                          ((mode-teardown-fn c))))]
+    [pattern (~seq #:submode f (sub-clause:clause ...))
              #:with (c tmp) (generate-temporaries #'(c tmp))
              #:with pat
-             #'(~and (~do (define c (f (current-context)))
-                          ((context-setup-fn c))
-                          (define tmp (current-context))
-                          (current-context c))
+             #'(~and (~do (define c (f (current-mode)))
+                          ((mode-setup-fn c))
+                          (define tmp (current-mode))
+                          (current-mode c))
                      sub-clause.pat ...
-                     (~do (current-context tmp)
-                          ((context-teardown-fn c))))]
+                     (~do (current-mode tmp)
+                          ((mode-teardown-fn c))))]
     )
   (define-syntax-class last-clause
     #:datum-literals (⊢ ≫ ≻ ⇒ ⇐)
