@@ -1,0 +1,85 @@
+#lang s-exp "../dep-ind.rkt"
+(require "rackunit-typechecking.rkt")
+
+; Π → λ ∀ ≻ ⊢ ≫ ⇒
+
+(define-datatype Nat : *
+  [Z : (→ Nat)]
+  [S : (→ Nat Nat)])
+
+(define-datatype List : (→ * *)
+  [null : (∀ (A) (→ (List A)))]
+  [cons : (∀ (A) (→ A (List A) (List A)))])
+
+(check-type null : (∀ (A) (→ (List A))))
+(check-type cons : (∀ (A) (→ A (List A) (List A))))
+(check-type (null Nat) : (→ (List Nat)))
+(check-type (cons Nat) : (→ Nat (List Nat) (List Nat)))
+(check-type ((null Nat)) : (List Nat))
+(check-type ((cons Nat) (Z) ((null Nat))) : (List Nat))
+
+;; length 0
+(check-type
+ (elim-List Nat
+            ((null Nat))
+            (λ ([l : (List Nat)]) Nat)
+            (λ () (λ () (Z)))
+            (λ ([x : Nat][xs : (List Nat)])
+              (λ ([IH : Nat])
+                (S IH))))
+ : Nat
+ -> (Z))
+
+;; length 1
+(check-type
+ (elim-List Nat
+            ((cons Nat) (Z) ((null Nat)))
+            (λ ([l : (List Nat)]) Nat)
+            (λ () (λ () (Z)))
+            (λ ([x : Nat][xs : (List Nat)])
+              (λ ([IH : Nat])
+                (S IH))))
+ : Nat
+ -> (S (Z)))
+
+;; length 2
+(check-type
+ (elim-List Nat
+            ((cons Nat) (S (Z)) ((cons Nat) (Z) ((null Nat))))
+            (λ ([l : (List Nat)]) Nat)
+            (λ () (λ () (Z)))
+            (λ ([x : Nat][xs : (List Nat)])
+              (λ ([IH : Nat])
+                (S IH))))
+ : Nat
+ -> (S (S (Z))))
+
+(define-type-alias len
+  (λ ([lst : (List Nat)])
+    (elim-List Nat
+               lst
+               (λ ([l : (List Nat)]) Nat)
+               (λ () (λ () (Z)))
+               (λ ([x : Nat][xs : (List Nat)])
+                 (λ ([IH : Nat])
+                   (S IH))))))
+
+(check-type (len ((null Nat))) : Nat -> (Z))
+(check-type (len ((cons Nat) (Z) ((null Nat)))) : Nat -> (S (Z)))
+
+;; ;; lists parameterized over length
+;; (define-datatype Vect : (→ * Nat *)
+;;   [nil : (Π ([A : *][k : Nat]) (→ (Vect A (Z))))]
+;;   [cns : (Π ([A : *][k : Nat]) (→ A (Vect A k) (Vect A (S k))))])
+
+;; (check-type nil : (Π ([A : *][k : Nat]) (→ (Vect A (Z)))))
+;; (check-type cns : (Π ([A : *][k : Nat]) (→ A (Vect A k) (Vect A (S k)))))
+
+;; (check-type (nil Nat (Z)) : (→ (Vect Nat (Z))))
+;; (check-type (cns Nat (Z)) : (→ Nat (Vect Nat (Z)) (Vect Nat (S (Z)))))
+
+;; (check-type ((nil Nat (Z))) : (Vect Nat (Z)))
+;; (check-type ((cns Nat (Z)) (Z) ((nil Nat (Z)))) : (Vect Nat (S (Z))))
+
+;; (define-type-alias mtNatVec ((nil Nat (Z))))
+;; (check-type mtNatVec : (Vect Nat (Z)))
