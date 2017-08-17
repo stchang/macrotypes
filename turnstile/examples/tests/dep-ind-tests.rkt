@@ -126,8 +126,8 @@
                         (eq-refl (S ((plus k) (Z))))
                         k
                         p)))))
- : (Π ([n : Nat]) (= ((plus n) (Z)) n)))
-
+ : (Π ([n : Nat]) (= ((plus n) (Z)) n))
+)
 ;; nat-ind as a function ; TODO: need matching form or matching lambda
 #;(define-typed-alias nat-ind2
   (λ ([P : (→ Nat *)]
