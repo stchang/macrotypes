@@ -2,6 +2,7 @@
 
 @(require scribble/example racket/sandbox
           (for-label racket/base
+                     turnstile/mode
                      (except-in turnstile/turnstile ⊢ stx mk-~ mk-?))
           "doc-utils.rkt" "common.rkt")
 
@@ -59,15 +60,17 @@ and then press Control-@litchar{\}.
    [expr-template (code:line @#,racket[quasisyntax] @#,tech:template)]
    [type-template (code:line @#,racket[quasisyntax] @#,tech:template)]
    [key identifier?]
-   [premise (code:line [⊢ tc ...] ooo ...)
-            (code:line [ctx ⊢ tc ...] ooo ...)
-            (code:line [ctx-elem ... ⊢ tc ...] ooo ...)
-            (code:line [ctx ctx ⊢ tc ...] ooo ...)
+   [premise (code:line [⊢ tc ... prem-options] ooo ...)
+            (code:line [ctx-elem ... ⊢ tc ... prem-options] ooo ...)
+            (code:line [ctx ⊢ tc ... prem-options] ooo ...)
+            (code:line [ctx ctx ⊢ tc ... prem-options] ooo ...)
             (code:line [⊢ . tc-elem] ooo ...)
-            (code:line [ctx ⊢ . tc-elem] ooo ...)
             (code:line [ctx-elem ... ⊢ . tc-elem] ooo ...)
+            (code:line [ctx ⊢ . tc-elem] ooo ...)
             (code:line [ctx ctx ⊢ . tc-elem] ooo ...)
             type-relation
+            (code:line #:mode mode-expr (premise ...))
+            (code:line #:submode fn-expr (premise ...))
             (code:line @#,racket[syntax-parse] @#,tech:pat-directive)]
    [ctx (ctx-elem ...)]
    [ctx-elem (code:line [id ≫ id key template ... ...] ooo ...)
@@ -83,6 +86,9 @@ and then press Control-@litchar{\}.
                   (code:line [type-template τ= type-template #:for expr-template] ooo ...)
                   (code:line [type-template τ⊑ type-template] ooo ...)
                   (code:line [type-template τ⊑ type-template #:for expr-template] ooo ...)]
+   [prem-options (code:line)
+                 (code:line #:mode mode-expr)
+                 (code:line #:submode fn-expr)]
    [conclusion [⊢ expr-template ⇒ type-template]
                [⊢ expr-template ⇒ key template]
                [⊢ expr-template (⇒ key template) ooo ...]
@@ -141,6 +147,26 @@ pattern @racket[x ... y ...] will not work as expected.
 
 For convenience, lone identifiers written to the left of the turnstile are
 automatically treated as type variables.
+
+@italic{Modes}
+
+The keyword @racket[#:mode], when appearing at end of a typechecking rule,
+sets the parameter @racket[current-mode] to the @racket[mode] object supplied
+by @racket[_mode-expr], for the extent of that rule. @racket[#:mode], when
+appearing as its own premise, sets the @racket[current-mode] parameter for the
+extent of all the grouped sub-premises.
+
+The keyword @racket[#:submode] is similar to @racket[#:mode], but it calls
+@racket[(_fn-expr (current-mode))] to obtain the new mode object. Thus,
+@racket[#:mode (_fn-expr (current-mode))] is identical to @racket[#:submode
+_fn-expr].
+
+See @secref{Modes} for more details.
+
+WARNING: @racket[#:mode] is unaware of the backtracking behavior of
+@racket[syntax-parse]. If pattern backtracking escapes a @racket[#:mode] group, it may
+leave @racket[current-mode] in an undesirable state.
+
 
 @; ----------------------------------------------------------------------------
 @bold{Conclusion}
@@ -692,7 +718,70 @@ The possible variances are:
 
 @defproc[(variance? [v any/c]) boolean/c]{
  Predicate that recognizes the variance values.}
-                                      
+
+
+@section{Modes}
+
+@defmodule[turnstile/mode #:use-sources (turnstile/mode)]
+@(define mode-ev
+   (let ([ev (make-base-eval)])
+     (ev '(require turnstile/mode))
+     ev))
+
+Modes are typically used by the @racket[#:mode] and @racket[#:submode]
+keywords in @racket[define-typed-syntax] (and related forms). When judgements
+are parameterized by a @racket[mode] value, the parameter
+@racket[current-mode] is set to that value for the extend of the
+sub-premises. Additionally, the function @racket[mode-setup-fn] is called
+before setting @racket[current-mode], and the function
+@racket[mode-teardown-fn] is called after @racket[current-mode] is restored to
+its previous value.
+
+@defstruct*[mode ([setup-fn (-> any)] [teardown-fn (-> any)])]{
+  Structure type for modes. Modes can be used to parameterize type judgements
+  or groups of type judgements, to give additional context and to help enable
+  flow-sensitive languages.
+
+  User defined modes should be defined as structs that inherit from @racket[mode].
+}
+
+@defproc[(make-mode [#:setup setup-fn (-> any) void]
+                    [#:teardown teardown-fn (-> any) void]) mode?]{
+  Constructs a new @racket[mode] object with the given setup and teardown functions.
+}
+
+@defparam[current-mode mode mode? #:value (make-mode)]{
+  A parameter that holds the current mode. Typically parameterized using the keywords
+  @racket[#:mode] and @racket[#:submode] from @racket[define-typed-syntax] forms.
+}
+
+@defform[(with-mode mode-expr body ...+)
+         #:contracts ([mode-expr mode?])]{
+  The result of @racket[with-mode] is the result of the last @racket[_body].
+  The parameter @racket[current-mode] is assigned to the result of
+  @racket[_mode-expr] for the extent of the @racket[_body] expressions. The
+  function @racket[mode-setup-fn] is called on the result of
+  @racket[_mode-value] before @racket[current-mode] is set, and the function
+  @racket[mode-teardown-fn] is called after @racket[current-mode] is restored
+  to its previous value.
+
+  @examples[#:eval mode-ev
+    (define-struct (my-mode mode) ())
+    (define M (make-my-mode (λ () (displayln "M setup"))
+                            (λ () (displayln "M teardown"))))
+    (with-mode M
+      (displayln (current-mode)))]}
+
+@defproc[(make-param-mode [param parameter?] [value any/c]) mode?]{
+  Creates a @racket[mode] that assigns the given parameter to the given
+  value for the extent of the mode.
+
+  @examples[#:eval mode-ev
+    (define current-scope (make-parameter 'outer))
+    (with-mode (make-param-mode current-scope 'inner)
+      (displayln (current-scope)))]}
+
+
 @section{Miscellaneous Syntax Object Functions}
 
 These are all phase 1 functions.

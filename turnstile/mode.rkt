@@ -1,5 +1,6 @@
 #lang racket/base
 (provide (struct-out mode)
+         make-mode
          current-mode
          with-mode
          make-param-mode)
@@ -8,6 +9,10 @@
 ;; mode object. contains setup routine and teardown routine
 ;; as fields.
 (struct mode (setup-fn teardown-fn))
+
+(define (make-mode #:setup [setup-fn void]
+                   #:teardown [teardown-fn void])
+  (mode setup-fn teardown-fn))
 
 
 ;; apply the given mode for the successive expressions.
@@ -19,11 +24,11 @@
 ;;   before middle after
 ;;
 ;; (with-mode <mode> <body> ...)
-(define-syntax-rule (with-mode C body ...)
-  (let* ([c C]
-         [_1 ((mode-setup-fn c))]
-         [res (begin body ...)]
-         [_2 ((mode-teardown-fn c))])
+(define-syntax-rule (with-mode mode-expr body ...)
+  (let* ([m mode-expr]
+         [_1 ((mode-setup-fn m))]
+         [res (parameterize ([current-mode m]) body ...)]
+         [_2 ((mode-teardown-fn m))])
     res))
 
 
