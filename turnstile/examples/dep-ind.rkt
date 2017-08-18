@@ -253,9 +253,13 @@
 ;   #:do[(printf "applying (1) ~a\n" (stx->datum #'e_fn))]
 ;   [⊢ e_fn ≫ (~and e_fn- (_ (x:id ...) e ~!)) ⇒ (~Π ([X : τ_inX] ...) τ_outX)]
    [⊢ e_fn ≫ e_fn- ⇒ (~Π ([X : τ_in] ...) τ_out)]
-;   #:do[(printf "applying (1) ~a\n" (stx->datum #'e_fn-))]
    #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
                  (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
+   ;; #:do[(displayln "expecting")
+   ;;      (pretty-print (stx->datum #'(τ_in ...)))]
+   ;; [⊢ e_arg ≫ _ ⇒ ty2] ... ; typechecking args
+   ;; #:do[(displayln "got")
+   ;;      (pretty-print (stx->datum (stx-map typeof #'(ty2 ...))))]
    [⊢ e_arg ≫ e_arg- ⇐ τ_in] ... ; typechecking args
    -----------------------------
    [⊢ (app/eval e_fn- e_arg- ...) ⇒ #,(substs #'(e_arg- ...) #'(X ...) #'τ_out)]])
@@ -464,7 +468,6 @@
    #:with ((~Π ([X : τ_in] ...) τ_out) ...)
           (subst #'Name #'TmpTy+ #'(TY- ...) free-id=?)
    #:with (C* ...) (generate-temporaries #'(C ...))
-   #:with (C** ...) (generate-temporaries #'(C ...))
    #:with (Ccase ...) (generate-temporaries #'(C ...))
    #:with (C- ...) (generate-temporaries #'(C ...))
    ;; Can I just use X instead of fld?
@@ -533,6 +536,7 @@
    #:with (B ...) (generate-temporaries #'(A ...))
    ;; need to multiply A patvars to use in def of C ...
    #:with ((CA ...) ...) (stx-map (lambda _ (generate-temporaries #'(A ...))) #'(C ...))
+   #:with ((CB ...) ...) (stx-map (lambda _ (generate-temporaries #'(A ...))) #'(C ...))
    #:with ((Ck ...) ...) (stx-map (lambda _ (generate-temporaries #'(A ...))) #'(C ...))
    ; need to expand `TY` but `Name` is still unbound so use tmp id
    #:with (TY* ...) (subst #'mTmpTy #'Name #'(TY ...))
@@ -594,8 +598,8 @@
           [⊢ (Name- A- ...) ⇒ k_out])
         (struct C* (fld ...) #:transparent) ...
         (define C (unsafe-assign-type (lambda (A ...) C*) : TY)) ...
-        (define-typed-syntax (elim-Name x P C* ...) ≫
-          #:with ((~Π ([CA : Ck] ...) (~Π ([_ : τ_in] ...) _)) ...)
+        (define-typed-syntax (elim-Name x P C** ...) ≫
+          #:with ((~Π ([CA : Ck] ...) (~Π ([_ : τ_in] ...) (Name-patexpand CB ...))) ...)
                  (stx-map (current-type-eval) #'(TY ...))
           ;; #:with ((τ_in ...) ...)
           ;;        (stx-map (lambda (tins cas) (substs #'(A- ...) cas tins))
@@ -615,24 +619,29 @@
           ;; 3) IH for each recursive arg
           
           ;; manually construct Cty, bc `syntax` isnt smart enough to figure out ellipses
+          ;; #:do[(printf "elim \n")
+          ;;      (pretty-print (stx->datum this-syntax))]
           #:with (Cty ...)
                  (stx-map
-                  (lambda (CA-Cks CAs Cks fld-tins flds tins rflds c)
+                  (lambda (CA-Cks CAs CBs #;Cks fld-tins flds #;tins rflds c)
                     #`(Π #,CA-Cks
                         (Π #,fld-tins 
                           (→ #,@(stx-map
                                  (lambda (rf) #`(app (app P- #,@CAs) #,rf))
                                  rflds)
-                             (app (app P- #,@CAs) (app (app #,c #,@CAs) #,@flds))))))
+                             (app (app P- #,@CBs) (app (app #,c #,@CAs) #,@flds))))))
                   #'(([CA : Ck] ...) ...)
                   #'((CA ...) ...)
-                  #'((Ck ...) ...)
+                  #'((CB ...) ...)
+;                  #'((Ck ...) ...)
                   #'(([fld : τ_in] ...) ...)
                   #'((fld ...) ...)
-                  #'((τ_in ...) ...)
+;                  #'((τ_in ...) ...)
                   #'((recur-fld ...) ...)
                   #'(C ...))
-          [⊢ C* ≫ C- ⇐ Cty] ...
+                 ;; #:do[(stx-map (lambda (t) (pretty-print (stx->datum t))((current-type-eval) t)) #'(Cty ...))]
+                 ;; #:do[(pretty-print (stx->datum #'(Cty ...)))]
+          [⊢ C** ≫ C- ⇐ Cty] ...
           ;; [⊢ C* ≫ C- ⇐ (Π ([CA : Ck] ...)
           ;;                (Π ([fld : τ_in] ...)
           ;;                  (→ (app (app P- CA ...) recur-fld) ... ; IHs
