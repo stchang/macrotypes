@@ -231,9 +231,9 @@
   (define-splicing-syntax-class tc-post-options
     #:attributes (wrap)
     [pattern (~seq #:mode C)
-             #:attr wrap (λ (stx) #`(with-context C #,stx))]
+             #:attr wrap (λ (stx) #`(with-mode C #,stx))]
     [pattern (~seq #:submode f)
-             #:attr wrap (λ (stx) #`(with-context (f (current-context)) #,stx))]
+             #:attr wrap (λ (stx) #`(with-mode (f (current-mode)) #,stx))]
     )
   (define-splicing-syntax-class tc-clause
     #:attributes (pat)
