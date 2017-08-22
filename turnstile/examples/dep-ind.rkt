@@ -48,13 +48,17 @@
   (define old-relation (current-typecheck-relation))
   (current-typecheck-relation
    (lambda (t1 t2)
-     (when type-eq-debug?
-       (pretty-print (stx->datum t1))
-       (pretty-print (stx->datum t2)))
      ;; assumed #f can only come from (typeof #%type)
      ;; (so this wont work when interacting with untyped code)
-     (or (and (false? (syntax-e t1)) (#%type? t2)) ; assign Type : Type
-         (old-relation t1 t2)))))
+     (define res
+       (or (and (false? (syntax-e t1)) (#%type? t2)) ; assign Type : Type
+           ;         (and (#%type? t1) (false? (syntax-e t2)))
+           (old-relation t1 t2)))
+     (when type-eq-debug?
+       (pretty-print (stx->datum t1))
+       (pretty-print (stx->datum t2))
+       (printf "res: ~a\n" res))
+     res)))
 (define-for-syntax Type ((current-type-eval) #'#%type))
 
 (define-internal-type-constructor →) ; equiv to Π with no uses on rhs
@@ -174,8 +178,13 @@
                        (printf "args: ~a\n" (stx->datum #'args))]
      #:when #f #'void]
     [(_ f:id (_ matcher) (_ _ . args))
+     #:do[(when debug-match?
+            (printf "potential delayed match ~a ~a\n"
+                  (stx->datum #'matcher)
+                  (stx->datum #'args)))]
      #:with (_ m/d . _) (local-expand #'(#%app match/delayed 'dont 'care) 'expression null)
      #:when (free-identifier=? #'m/d #'f)
+     #:do[(when debug-match? (printf "matching\n"))]
      ;; TODO: need to attach type?
      #'(matcher . args)]
     ;; TODO: apply to only lambda args or all args?
@@ -183,9 +192,7 @@
      #:do[(when debug?
             (printf "apping: ~a\n" (stx->datum #'f))
             (printf "args\n")
-            (pretty-print (stx->datum #'(e_arg ...)))
-            (printf "expected type\n")
-            (pretty-print (stx->datum (typeof this-syntax))))]
+            (pretty-print (stx->datum #'(e_arg ...))))]
 ;     #:with (~Π ([X : _] ...) τ_out) (typeof #'f) ; must re-subst in type
      ;; TODO: need to replace all #%app- in this result with app/eval again
      ;; and then re-expand
@@ -195,16 +202,37 @@
      ;; TODO: is this assign-type needed only for tests?
      ;; eg, see id tests in dep2-peano.rkt
      #:with ty (typeof this-syntax)
+     #:do[(when debug?
+            (define ttt (typeof this-syntax))
+            (define ttt2 (and ttt
+                              (substs #'(app/eval e_arg ...) #'(r-app x ...) ttt free-identifier=?)))
+            (define ttt3 (and ttt2
+                              (local-expand ttt2 'expression null)))
+            (printf "expected type\n")
+            (pretty-print (stx->datum ttt))
+            (pretty-print (stx->datum ttt2))
+            (pretty-print (stx->datum ttt3)))]
      #:with e-inst (substs #'(app/eval e_arg ...) #'(r-app x ...) #'e free-identifier=?)
      ;; some apps may not have type (eg in internal reps)
-     #:with e+ (if (syntax-e #'ty) (assign-type #'e-inst #'ty) #'e-inst)
+     #:with e+ (if (syntax-e #'ty)
+                   (assign-type
+                    #'e-inst
+                    (local-expand
+;                     (substs #'(app/eval e_arg ...) #'(r-app x ...) #'ty free-identifier=?)
+                     ;; TODO: this is needed, which means there are some uneval'ed matches
+                     ;; but is this the right place?
+                     ;; eg, it wasnt waiting on any arg
+                     ;; so that mean it could have been evaled but wasnt at some point
+                     (substs #'(app/eval) #'(r-app) #'ty free-identifier=?)
+                     'expression null))
+                   #'e-inst)
      #:do[(when debug?
             (displayln "res:--------------------")
             (pretty-print (stx->datum #'e+))
             ;; (displayln "actual type:")
             ;; (pretty-print (stx->datum (typeof #'e+)))
-            ;; (displayln "new type:")
-            ;; (pretty-print (stx->datum (substs #'(e_arg ...) #'(X ...) (typeof #'e+))))
+            (displayln "new type:")
+            (pretty-print (stx->datum (typeof #'e+)))
             ;; (displayln "res expanded:------------------------")
             ;; (pretty-print
             ;;  (stx->datum (local-expand (substs #'(e_arg ...) #'(x ...) #'e) 'expression null)))
@@ -457,112 +485,118 @@
 (struct TmpTy2 ())
 (define-syntax mTmpTy (syntax-parser [(_ . args) #'(#%app TmpTy . args)]))
 (define-typed-syntax define-datatype
-  ;; kind is an id --------------------
-  [(_ Name (~datum :) kind:id [C:id (~datum :) TY #;(~and TY (ar tyin ... tyout))] ...) ≫
-   ; need to expand `TY` but `Name` is still unbound so use tmp id
-   #:with (TY* ...) (subst #'TmpTy #'Name #'(TY ...))
-   [⊢ TY* ≫ TY- ⇐ #%type] ...
+  ;; kind is an id ------------------------------------------------------------
+  ;; - ie, no params or indices
+  [(_ Name (~datum :) kind:id [C:id (~datum :) CTY] ...) ≫
+   ; need to expand `CTY` to find recur args,
+   ; but `Name` is still unbound so swap in a tmp id `TmpTy`
+   #:with (CTY/tmp ...) (subst #'TmpTy #'Name #'(CTY ...))
+   [⊢ CTY/tmp ≫ CTY/tmp- ⇐ #%type] ...
    #:with (_ TmpTy+) (local-expand #'(TmpTy) 'expression null)
-   ;; TODO: ignoring X ... for now
+   ;; un-subst TmpTy for Name in expanded CTY
    ;; TODO: replace TmpTy in origs of τ_in ... τ_out
-   #:with ((~Π ([X : τ_in] ...) τ_out) ...)
-          (subst #'Name #'TmpTy+ #'(TY- ...) free-id=?)
-   #:with (C* ...) (generate-temporaries #'(C ...))
+   #:with ((~Π ([x : τ_in] ...) τ_out) ...)
+          (subst #'Name #'TmpTy+ #'(CTY/tmp- ...) free-id=?)
+   #:with (C/internal ...) (generate-temporaries #'(C ...))
    #:with (Ccase ...) (generate-temporaries #'(C ...))
-   #:with (C- ...) (generate-temporaries #'(C ...))
-   ;; Can I just use X instead of fld?
-   #:with ((fld ...) ...) (stx-map generate-temporaries #'((τ_in ...) ...))
-   #:with ((recur-fld ...) ...) (stx-map
-                                  (lambda (fs ts)
-                                    (filter
-                                     (lambda (x) x) ; filter out #f
-                                     (stx-map
-                                      (lambda (f t) (and (free-id=? t #'Name) f)) ; returns f or #f
-                                      fs ts)))
-                                  #'((fld ...) ...)
-                                  #'((τ_in ...) ...))
-   #:with ((fld- ...) ...) (stx-map generate-temporaries #'((τ_in ...) ...))
+   #:with (Ccase- ...) (generate-temporaries #'(C ...))
+   #:with ((recur-x ...) ...) (stx-map
+                               (lambda (xs ts)
+                                 (filter
+                                  (lambda (x) x) ; filter out #f
+                                  (stx-map
+                                   (lambda (x t) (and (free-id=? t #'Name) x)) ; returns x or #f
+                                   xs ts)))
+                               #'((x ...) ...)
+                               #'((τ_in ...) ...))
    #:with elim-Name (format-id #'Name "elim-~a" #'Name)
    #:with match-Name (format-id #'Name "match-~a" #'Name)
-;   #:with match-Name/delayed (format-id #'Name "match-~a/delayed" #'Name)
+   #:with Name/internal (generate-temporary #'Name)
    --------
    [≻ (begin-
-        (define-base-type Name)
-        (struct C* (fld ...) #:transparent) ...
-        (define C (unsafe-assign-type C* : TY)) ...
-        #;(define-typed-syntax C
-          [:id ≫ --- [⊢ C* ⇒ TY]]
-          [(_ fld ...) ≫
-           [⊢ fld ≫ fld- ⇐ τ_in] ...
-           --------
-           [⊢ (C* fld- ...) ⇒ τ_out]])
-        (define-typed-syntax (elim-Name x P C* ...) ≫
-          [⊢ x ≫ x- ⇐ Name]
+        (struct Name/internal ())
+        (define-typed-syntax Name
+          [_:id ≫ --- [⊢ (Name/internal) ⇒ #%type]])
+        ;(define-base-type Name) ; cant use this bc it tries to attach type with '::
+        (struct C/internal (x ...) #:transparent) ...
+        (define C (unsafe-assign-type C/internal : CTY)) ...
+        (define-typed-syntax (elim-Name v P Ccase ...) ≫
+          [⊢ v ≫ v- ⇐ Name]
           [⊢ P ≫ P- ⇐ (→ Name #%type)] ; prop / motive
-;             [⊢ z ≫ z- ⇐ (app P- Zero)] ; zero 
-;             [⊢ C ≫ C- ⇐ (Π ([k : Nat]) (→ (app P- k) (app P- (Succ k))))] ; succ
-          ;; TODO: the (app P- fld) ... is wrong, should only include recur args
-          ;; for now, each case consumes the number of args for each C,
-          ;; and then an IH for each arg
-          ;; each C consumes 3 sets of args
-          ;; 1) args of the tycon
-          ;; 2) args of the con
-          ;; 3) IH for each recursive arg
-          ;; TODO: get rid of this use of τ_in
-          ;; - then I wont have to un-subst above
-          [⊢ C* ≫ C- ⇐ (Π ([fld : τ_in] ...) (→ (app P- recur-fld) ... (app P- (app C fld ...))))] ...
+          [⊢ Ccase ≫ Ccase- ⇐ (Π ([x : τ_in] ...)
+                                 (→ (app P- recur-x) ...
+                                    (app P- (app C x ...))))] ...
           -----------
-          [⊢ (match-Name x- P- C- ...) ⇒ (app P- x-)])
- ;       (struct match-Name/delayed (m))
+          [⊢ (match-Name v- P- Ccase- ...) ⇒ (app P- v-)])
         (define-syntax match-Name
           (syntax-parser
             #;[(_ . args)
              #:do[(printf "trying to match:\n~a\n" (stx->datum #'args))]
              #:when #f #'(void)]
-            [(_ n P Ccase ...)
-             (syntax-parse #'n
-               [((~literal #%plain-app) C-:id fld ...)
-                ;; TODO: check C- matches actual C
-                ;; for now, it's just an arity match
-                #'(app/eval (app/eval Ccase fld ...) (match-Name fld P Ccase ...) ...)] ...
-               [_ #'(#%app match/delayed 'match-Name (void n P Ccase ...))])]))
+            [(_ v P Ccase ...)
+             ; must local expand since v might be reflected
+             (syntax-parse (local-expand #'v 'expression null)
+               ; do eval
+               [((~literal #%plain-app) C-:id x ...)
+                #:with (_ C+ . _) (local-expand #'(C 'x ...) 'expression null)
+                #:when (free-identifier=? #'C- #'C+)
+                #'(app/eval (app/eval Ccase x ...) (match-Name x P Ccase ...) ...)]
+               ...
+               ; else generated a delayed term
+               [_ #'(#%app match/delayed 'match-Name (void v P Ccase ...))])]))
         )]]
   ;; --------------------------------------------------------------------------
   ;; kind is a fn; all cases in elim-Name must consume tycon args -------------
   ;; --------------------------------------------------------------------------
-  [(_ Name (~datum :) k [C:id (~datum :) TY #;(~and TY (ar tyin ... tyout))] ...) ≫
-   [⊢ k ≫ (~Π ([A : k_in] ...) k_out) ⇐ #%type]
+  [(_ Name (~datum :) k [C:id (~datum :) CTY] ...) ≫
+   ;; params and indices are separate here, to distinguish them,
+   ;; but are combined in other places like CTY
+   [⊢ k ≫ (~Π ([A : kA] ...) ; params
+              (~Π ([i : ki] ...) ; indices
+                  k_out)) ⇐ #%type]
    #:with (A- ...) (generate-temporaries #'(A ...))
+   #:with (i- ...) (generate-temporaries #'(i ...))
+   #:with (j ...) (generate-temporaries #'(i ...))
    #:with (B ...) (generate-temporaries #'(A ...))
    ;; need to multiply A patvars to use in def of C ...
    #:with ((CA ...) ...) (stx-map (lambda _ (generate-temporaries #'(A ...))) #'(C ...))
+   #:with ((CAtmp ...) ...) (stx-map (lambda _ (generate-temporaries #'(A ...))) #'(C ...))
+   ; actually dup (A ...) C times
+   #:with ((A* ...) ...) (stx-map (lambda _ #'(A ...)) #'(C ...))
+   #:with ((Ci ...) ...) (stx-map (lambda _ (generate-temporaries #'(i ...))) #'(C ...))
+   #:with ((Cj ...) ...) (stx-map (lambda _ (generate-temporaries #'(i ...))) #'(C ...))
+   ; CB is just reference to CA
    #:with ((CB ...) ...) (stx-map (lambda _ (generate-temporaries #'(A ...))) #'(C ...))
-   #:with ((Ck ...) ...) (stx-map (lambda _ (generate-temporaries #'(A ...))) #'(C ...))
-   ; need to expand `TY` but `Name` is still unbound so use tmp id
-   #:with (TY* ...) (subst #'mTmpTy #'Name #'(TY ...))
-   [⊢ TY* ≫ TY- ⇐ #%type] ...
-   #:with (_ TmpTy+) (local-expand #'(TmpTy) 'expression null)
-   ;; ;; TODO: ignoring X ... for now
+   #:with ((CkA ...) ...) (stx-map (lambda _ (generate-temporaries #'(A ...))) #'(C ...))
+   #:with ((Cki ...) ...) (stx-map (lambda _ (generate-temporaries #'(ki ...))) #'(C ...))
+   ; need to expand `CTY` but `Name` is still unbound so use tmp id
+   #:with (CTY/tmp ...) (subst #'mTmpTy #'Name #'(CTY ...))
+   [⊢ CTY/tmp ≫ CTY/tmp- ⇐ #%type] ...
+   #:with (_ TmpTy+) (local-expand #'(mTmpTy) 'expression null)
    ;; ;; TODO: replace TmpTy in origs of τ_in ... τ_out
-   ;; #:with ((~Π ([X : τ_in] ...) τ_out) ...)
-   ;;        (subst #'Name #'TmpTy+ #'(TY- ...) free-id=?)
    ;; TODO: how to un-subst TmpTy (which is now a constructor)?
-   ;; for now, dont use these τ_in/τ_out; just use for arity
-   ;; instead, re-expand in generated macro
-   ;; - first Π is tycon args
+   ;; - for now, dont use these τ_in/τ_out; just use for arity
+   ;; - instead, re-expand in generated macro
+   
+   ;; - 1st Π is tycon params and indices
+   ;; - 2nd Π is constructor args
    #:with ((~Π ([_ : _] ...) (~Π ([X : τ_in/tmp] ...) τ_out/tmp)) ...)
-          #'(TY- ...)
-   #:with (C* ...) (generate-temporaries #'(C ...))
+          #'(CTY/tmp- ...)
+   #:with (C/internal ...) (generate-temporaries #'(C ...))
    #:with (Cty ...) (generate-temporaries #'(C ...))
-   #:with (C** ...) (generate-temporaries #'(C ...))
+   #:with (Cty2 ...) (generate-temporaries #'(C ...))
    #:with (Ccase ...) (generate-temporaries #'(C ...))
+   #:with (Ccase- ...) (generate-temporaries #'(C ...))
    #:with (C- ...) (generate-temporaries #'(C ...))
    ;; TODO: Can I just use X instead of fld?
    ;; - but I need τ_in to find recurs
    #:with ((fld ...) ...) (stx-map generate-temporaries #'((X ...) ...))
    #:with ((τ_in ...) ...) (stx-map generate-temporaries #'((τ_in/tmp ...) ...))
+   #:with ((τ_in/CA ...) ...) (stx-map generate-temporaries #'((τ_in/tmp ...) ...))
    #:with ((τ_in/X ...) ...) (stx-map generate-temporaries #'((τ_in/tmp ...) ...))
    #:with (τ_out ...) (generate-temporaries #'(τ_out/tmp ...))
+   ;; each (recur-fld ...) is subset of (fld ...) that are recur args
+   ;; - ie, they are not fresh ids
    #:with ((recur-fld ...) ...) (stx-map
                                   (lambda (fs ts)
                                     (filter
@@ -574,15 +608,21 @@
                                            [((~literal #%plain-app) tmp . _)
                                             (free-id=? #'tmp #'TmpTy+)]
                                            [_ #f])
-                                         f)
-                                        #;(and (free-id=? t #'Name) f)) ; returns f or #f
+                                         f)) ; returns f or #f
                                       fs ts)))
                                   #'((fld ...) ...)
                                   #'((τ_in/tmp ...) ...))
-   #:with ((CArecur ...) ...) (stx-map
-                               (lambda (cas recurs) cas)
-                               #'((CA ...) ...)
-                               #'((recur-fld ...) ...))
+   #:with (((CAr ...) ...) ...) (stx-map
+                                 (lambda (cas recurs)
+                                   (stx-map (lambda (r) cas) recurs))
+                                 #'((CA ...) ...)
+                                 #'((recur-fld ...) ...))
+   ; dup Ci for each recur
+   #:with (((Cir ...) ...) ...) (stx-map
+                                 (lambda (cis recurs)
+                                   (stx-map (lambda (r) cis) recurs))
+                                 #'((Ci ...) ...)
+                                 #'((recur-fld ...) ...))
    #:with ((fld- ...) ...) (stx-map generate-temporaries #'((X ...) ...))
    #:with Name- (mk-- #'Name)
    #:with Name-patexpand (mk-~ #'Name)
@@ -592,24 +632,25 @@
    --------
    [≻ (begin-
         (define-internal-type-constructor Name)
-        (define-typed-syntax (Name A ...) ≫
-          [⊢ A ≫ A- ⇐ k_in] ...
+        (define-typed-syntax (Name A ... i ...) ≫
+          [⊢ A ≫ A- ⇐ kA] ...
+          [⊢ i ≫ i- ⇐ ki] ...
           ----------
-          [⊢ (Name- A- ...) ⇒ k_out])
-        (struct C* (fld ...) #:transparent) ...
-        (define C (unsafe-assign-type (lambda (A ...) C*) : TY)) ...
-        (define-typed-syntax (elim-Name x P C** ...) ≫
-          #:with ((~Π ([CA : Ck] ...) (~Π ([_ : τ_in] ...) (Name-patexpand CB ...))) ...)
-                 (stx-map (current-type-eval) #'(TY ...))
-          ;; #:with ((τ_in ...) ...)
-          ;;        (stx-map (lambda (tins cas) (substs #'(A- ...) cas tins))
-          ;;                 #'((τ_in/X ...) ...)
-          ;;                 #'((CA ...) ...))
-          [⊢ x ≫ x- ⇒ (Name-patexpand B ...)]
-;          [⊢ x ≫ x- ⇐ (Name A ...)]
-          [⊢ P ≫ P- ⇐ (Π ([A : k_in] ...) (→ (Name A ...) #%type))] ; prop / motive
-;             [⊢ z ≫ z- ⇐ (app P- Zero)] ; zero 
-;             [⊢ C ≫ C- ⇐ (Π ([k : Nat]) (→ (app P- k) (app P- (Succ k))))] ; succ
+          [⊢ (Name- A- ... i- ...) ⇒ k_out])
+        (struct C/internal (fld ...) #:transparent) ...
+        (define C (unsafe-assign-type (lambda (A ... i ...) C/internal) : CTY)) ...
+        (define-typed-syntax (elim-Name v P Ccase ...) ≫
+          #:with ((~Π ([CA : _] ... ; dont care about params, since we will immediately inst with A
+                       [Ci : Cki] ...)
+                      (~Π ([_ : τ_in/CA] ...)
+                          (Name-patexpand CB ... Cj ...)))
+                  ...)
+                 (stx-map (current-type-eval) #'(CTY ...))
+          [⊢ v ≫ v- ⇒ (Name-patexpand A ... i ...)]
+          #:with ((τ_in ...) ...) (stx-map (lambda (tins cas) (substs #'(A ...) cas tins))
+                                           #'((τ_in/CA ...) ...)
+                                           #'((CA ...) ...))
+          [⊢ P ≫ P- ⇐ (Π ([j : ki] ...) (→ (Name A ... j ...) #%type))] ; prop / motive
           ;; TODO: the (app P- fld) ... is wrong, should only include recur args
           ;; for now, each case consumes the number of args for each C,
           ;; and then an IH for each arg
@@ -617,50 +658,44 @@
           ;; 1) args of the tycon
           ;; 2) args of the con
           ;; 3) IH for each recursive arg
-          
           ;; manually construct Cty, bc `syntax` isnt smart enough to figure out ellipses
-          ;; #:do[(printf "elim \n")
-          ;;      (pretty-print (stx->datum this-syntax))]
-          #:with (Cty ...)
-                 (stx-map
-                  (lambda (CA-Cks CAs CBs #;Cks fld-tins flds #;tins rflds c)
-                    #`(Π #,CA-Cks
-                        (Π #,fld-tins 
-                          (→ #,@(stx-map
-                                 (lambda (rf) #`(app (app P- #,@CAs) #,rf))
-                                 rflds)
-                             (app (app P- #,@CBs) (app (app #,c #,@CAs) #,@flds))))))
-                  #'(([CA : Ck] ...) ...)
-                  #'((CA ...) ...)
-                  #'((CB ...) ...)
-;                  #'((Ck ...) ...)
-                  #'(([fld : τ_in] ...) ...)
-                  #'((fld ...) ...)
-;                  #'((τ_in ...) ...)
-                  #'((recur-fld ...) ...)
-                  #'(C ...))
-                 ;; #:do[(stx-map (lambda (t) (pretty-print (stx->datum t))((current-type-eval) t)) #'(Cty ...))]
-                 ;; #:do[(pretty-print (stx->datum #'(Cty ...)))]
-          [⊢ C** ≫ C- ⇐ Cty] ...
-          ;; [⊢ C* ≫ C- ⇐ (Π ([CA : Ck] ...)
-          ;;                (Π ([fld : τ_in] ...)
-          ;;                  (→ (app (app P- CA ...) recur-fld) ... ; IHs
-          ;;                     (app (app P- CA ...) (app (app C CA ...) fld ...)))))] ...
+;;           #:with (Cty ...)
+;;                  (stx-map
+;;                   (lambda (CA-Cks CAs CBs #;Cks fld-tins flds #;tins rflds c)
+;;                     #`(Π #,CA-Cks
+;;                         (Π #,fld-tins 
+;;                           (→ #,@(stx-map
+;;                                  (lambda (rf) #`(app (app P- #,@CAs) #,rf))
+;;                                  rflds)
+;;                              (app (app P- #,@CBs) (app (app #,c #,@CAs) #,@flds))))))
+;;                   #'(([CA : Ck] ...) ...)
+;;                   #'((CA ...) ...)
+;;                   #'((CB ...) ...)
+;; ;                  #'((Ck ...) ...)
+;;                   #'(([fld : τ_in] ...) ...)
+;;                   #'((fld ...) ...)
+;; ;                  #'((τ_in ...) ...)
+;;                   #'((recur-fld ...) ...)
+;;                   #'(C ...))
+          [⊢ Ccase ≫ Ccase- ⇐ (Π ([Ci : Cki] ...)
+                                 (Π ([fld : τ_in] ...)
+                                    (→ (app (app P- Cir ...) recur-fld) ... ; IHs
+                                       (app (app P- Cj ...)
+                                            (app (app C A* ... Ci ...) fld ...)))))] ...
           -----------
-          [⊢ (match-Name x- P- C- ...) ⇒ (app (app P- B ...) x-)])
-;        (struct match-Name/delayed (m))
+          [⊢ (match-Name v- P- Ccase- ...) ⇒ (app (app P- i ...) v-)])
         (define-syntax match-Name
           (syntax-parser
             #;[(_ . args)
              #:do[(printf "trying to match:\n~a\n" (stx->datum #'args))]
              #:when #f #'(void)]
             [(_ n P Ccase ...)
-             (syntax-parse #'n
-               [((~literal #%plain-app) ((~literal #%plain-app) C-:id CA ...) fld ...)
+             (syntax-parse (local-expand #'n 'expression null)
+               [((~literal #%plain-app) ((~literal #%plain-app) CC:id CA ... Ci ...) fld ...)
+                #:with (_ CC- . _) (local-expand #'(C 'CA ...) 'expression null)
+                #:when (free-identifier=? #'CC #'CC-)
               ;    #:do[(printf "matched ~a\n" #'C-)]
-                ;; TODO: check C- matches actual C
-                ;; for now, it's just an arity match
-                #'(app/eval (app/eval (app/eval Ccase CA ...) fld ...) (match-Name recur-fld P Ccase ...) ...)] ...
+                #'(app/eval (app/eval (app/eval Ccase Ci ...) fld ...) (match-Name recur-fld P Ccase ...) ...)] ...
                [_ #'(#%app match/delayed 'match-Name (void n P Ccase ...))])]))
         )]])
 ;;   ;; #:with res (if (typecheck? #'n- (expand/df #'Z))
@@ -764,7 +799,7 @@
 ;;       [s : (Π ([k : Nat]) (→ (P k) (P (S k))))]
 ;;       [n : Nat])
 ;;     #'(#%app- nat-ind- P z s n)))
-(struct match/delayed (name args))
+(struct match/delayed (name args) #:transparent)
 ;; #;(define-syntax match/eval
 ;;   (syntax-parser
 ;;     [(_ n zc sc) #:do[(printf "matching: ~a\n" (stx->datum #'n))] #:when #f #'(void)]
