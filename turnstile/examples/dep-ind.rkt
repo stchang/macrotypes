@@ -58,7 +58,13 @@
        (pretty-print (stx->datum t1))
        (pretty-print (stx->datum t2))
        (printf "res: ~a\n" res))
-     res)))
+     res))
+  ;; used to attach type after app/eval
+  ;; but not all apps will have types, eg
+  ;; - internal type representation
+  ;; - intermediate elim terms
+  (define (maybe-assign-type e t)
+    (if (syntax-e t) (assign-type e t) e)))
 (define-for-syntax Type ((current-type-eval) #'#%type))
 
 (define-internal-type-constructor →) ; equiv to Π with no uses on rhs
@@ -71,7 +77,11 @@
   ;; TODO: check that τ_in and τ_out have #%type?
   [[X ≫ X- : τ_in] ... ⊢ [τ_out ≫ τ_out- ⇐ #%type] [τ_in ≫ τ_in- ⇐ #%type] ...]
   -------
-  [⊢ (∀- (X- ...) (→- τ_in- ... τ_out-)) ⇒ #%type])
+  [⊢ (∀- (X- ...) (→- τ_in- ... τ_out-)) ⇒ #%type]
+  #;[⊢ #,#`(∀- (X- ...)
+             #,(assign-type
+                #'(→- τ_in- ... τ_out-)
+                #'#%type)) ⇒ #%type])
 
 ;; abbrevs for Π
 ;; (→ τ_in τ_out) == (Π (unused : τ_in) τ_out)
@@ -169,6 +179,11 @@
 ;;       [(~literal +-) (stx+ args)]
 ;;       [(~literal zero?-) (apply zero? (stx->nats args))])))
 
+;; helps debug which terms (app/evals) do not have types, eg
+;; - → in internal type representation
+;; - intermediate elim terms
+(define-for-syntax false-tys 0)
+
 ;; TODO: fix orig after subst, for err msgs
 ;; app/eval should not try to ty check anymore
 (define-syntax app/eval
@@ -182,11 +197,19 @@
             (printf "potential delayed match ~a ~a\n"
                   (stx->datum #'matcher)
                   (stx->datum #'args)))]
+     #:with ty (typeof this-syntax)
+     ;; TODO: use pat expander instead
      #:with (_ m/d . _) (local-expand #'(#%app match/delayed 'dont 'care) 'expression null)
      #:when (free-identifier=? #'m/d #'f)
      #:do[(when debug-match? (printf "matching\n"))]
      ;; TODO: need to attach type?
-     #'(matcher . args)]
+     #;[
+          (unless (syntax-e #'ty)
+            (displayln 3)
+            (displayln #'ty)
+            (set! false-tys (add1 false-tys))
+            (displayln false-tys))]
+     (maybe-assign-type #'(matcher . args) (typeof this-syntax))]
     ;; TODO: apply to only lambda args or all args?
     [(_ (~and f ((~literal #%plain-lambda) (x ...) e)) e_arg ...)
      #:do[(when debug?
@@ -249,6 +272,12 @@
              #'(let-syntax ([app (make-rename-transformer #'app/eval)]
                             #;[x (make-variable-like-transformer #'e_arg)]) e+)
              'expression null))]
+     #;[(when (not (syntax-e #'ty))
+            (displayln 1)
+            (displayln (stx->datum this-syntax))
+            (displayln #'ty)
+            (set! false-tys (add1 false-tys))
+            (displayln false-tys))]
      #'e++ #;(substs #'(e_arg ...) #'(x ...) #'e)]
     [(_ f . args)
     #:do[(when debug?
@@ -259,12 +288,22 @@
      #:with f+ (expand/df #'f)
      #:with args+ (stx-map expand/df #'args)
      ;; TODO: need to attach type?
-;     #:with ty (typeof this-syntax)
+     #:with ty (typeof this-syntax)
+     #;[(unless (syntax-e #'ty)
+            (displayln 2)
+            (displayln (stx->datum this-syntax))
+            (displayln #'ty)
+            (displayln (syntax-property this-syntax '::))
+            (set! false-tys (add1 false-tys))
+            (displayln false-tys))]
      (syntax-parse #'f+
        [((~literal #%plain-lambda) . _)
-        #'(app/eval f+ . args+)]
+        (maybe-assign-type #'(app/eval f+ . args+) #'ty)]
        [_
-        #'(#%app- f+ . args+)])]))
+        ;(maybe-assign-type
+         #'(#%app- f+ . args+)
+         ;#'ty)
+        ])]))
      
 ;; TODO: fix orig after subst
 (define-typed-syntax app
@@ -534,16 +573,29 @@
              #:do[(printf "trying to match:\n~a\n" (stx->datum #'args))]
              #:when #f #'(void)]
             [(_ v P Ccase ...)
+             #:with ty (typeof this-syntax)
              ; must local expand since v might be reflected
              (syntax-parse (local-expand #'v 'expression null)
                ; do eval
                [((~literal #%plain-app) C-:id x ...)
                 #:with (_ C+ . _) (local-expand #'(C 'x ...) 'expression null)
                 #:when (free-identifier=? #'C- #'C+)
-                #'(app/eval (app/eval Ccase x ...) (match-Name x P Ccase ...) ...)]
+                (maybe-assign-type
+                 #`(app/eval (app Ccase x ...)
+;                             (match-Name x P Ccase ...) ...)
+                             #,@(stx-map (lambda (y)
+                                           (maybe-assign-type
+                                            #`(match-Name #,y P Ccase ...)
+                                           #'ty))
+                                         #'(x ...)))
+                 #'ty)]
                ...
-               ; else generated a delayed term
-               [_ #'(#%app match/delayed 'match-Name (void v P Ccase ...))])]))
+               ; else generate a delayed term
+               ;; must be #%app-, not #%plain-app, ow match will not dispatch properly
+               [_ ;(maybe-assign-type
+                   #'(#%app- match/delayed 'match-Name (void v P Ccase ...))
+                   ;#'ty)
+                  ])]))
         )]]
   ;; --------------------------------------------------------------------------
   ;; kind is a fn; all cases in elim-Name must consume tycon args -------------
@@ -638,6 +690,7 @@
           ----------
           [⊢ (Name- A- ... i- ...) ⇒ k_out])
         (struct C/internal (fld ...) #:transparent) ...
+        ;; TODO: this define should be a macro instead?
         (define C (unsafe-assign-type (lambda (A ... i ...) C/internal) : CTY)) ...
         (define-typed-syntax (elim-Name v P Ccase ...) ≫
           #:with ((~Π ([CA : _] ... ; dont care about params, since we will immediately inst with A
@@ -690,13 +743,29 @@
              #:do[(printf "trying to match:\n~a\n" (stx->datum #'args))]
              #:when #f #'(void)]
             [(_ n P Ccase ...)
+             #:with ty (typeof this-syntax)
              (syntax-parse (local-expand #'n 'expression null)
                [((~literal #%plain-app) ((~literal #%plain-app) CC:id CA ... Ci ...) fld ...)
                 #:with (_ CC- . _) (local-expand #'(C 'CA ...) 'expression null)
                 #:when (free-identifier=? #'CC #'CC-)
               ;    #:do[(printf "matched ~a\n" #'C-)]
-                #'(app/eval (app/eval (app/eval Ccase Ci ...) fld ...) (match-Name recur-fld P Ccase ...) ...)] ...
-               [_ #'(#%app match/delayed 'match-Name (void n P Ccase ...))])]))
+                (maybe-assign-type
+                 #`(app/eval ;#,(assign-type
+                                (app/eval (app Ccase Ci ...) fld ...)
+                                ;; TODO: is this right?
+                              ;       #'(app P Ci ...))
+;                             (match-Name recur-fld P Ccase ...) ...)
+                             #,@(stx-map (lambda (r)
+                                           (maybe-assign-type
+                                            #`(match-Name #,r P Ccase ...)
+                                            #'ty))
+                                         #'(recur-fld ...)))
+                 #'ty)] ...
+               [_ ;(maybe-assign-type
+                   ;; must be #%app-, not #%plain-app, ow match will not dispatch properly
+                   #'(#%app- match/delayed 'match-Name (void n P Ccase ...))
+                   ;#'ty)
+                  ])]))
         )]])
 ;;   ;; #:with res (if (typecheck? #'n- (expand/df #'Z))
 ;;   ;;                #'z-
