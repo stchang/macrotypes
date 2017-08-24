@@ -5,6 +5,7 @@
                      linear-type?
                      unrestricted-type?
 
+                     linear-mode?
                      linear-scope
                      linear-in-scope?
                      linear-use-var!
