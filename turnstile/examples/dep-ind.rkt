@@ -5,7 +5,7 @@
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑
 
-(provide (rename-out [#%type *])
+(provide Type (rename-out [Type *])
          Π → ∀
          = eq-refl eq-elim
          λ (rename-out [app #%app]) ann
@@ -21,26 +21,61 @@
 ;; - add dependent existential
 ;; - remove debugging code?
 
-;; set Type : Type
-;; alternatively, could define new base type Type,
-;; and make #%type typecheck with Type
+;; set (Type n) : (Type n+1)
+;; Type = (Type 0)
+(define-internal-type-constructor Type)
+(define-typed-syntax Type
+  [:id ≫ --- [≻ (Type 0)]]
+  [(_ n:exact-nonnegative-integer) ≫
+   #:with n+1 (+ (syntax-e #'n) 1)
+  -------------
+  [≻ #,(syntax-property
+        (syntax-property 
+         #'(Type- 'n) ':
+         (syntax-property
+          #'(Type- 'n+1)
+          'orig
+          (list #'(Type n+1))))
+        'orig
+        (list #'(Type n)))]])
+
 (begin-for-syntax
   (define debug? #f)
   (define type-eq-debug? #f)
   (define debug-match? #f)
 
   ;; TODO: fix `type` stx class
+  ;; current-type and type stx class not working
+  ;; for case where var has type that is previous var
+  ;; that is not yet in tyenv
+  ;; eg in (Π ([A : *][a : A]) ...)
+  ;; expansion of 2nd type A will fail with unbound id err
+  ;;
+  ;; attempt 2
+  ;; (define old-type? (current-type?))
+  ;; (current-type?
+  ;;  (lambda (t)
+  ;;    (printf "t = ~a\n" (stx->datum t))
+  ;;    (printf "ty = ~a\n" (stx->datum (typeof t)))
+  ;;    (or (Type? (typeof t))
+  ;;        (syntax-parse (typeof t)
+  ;;          [((~literal Type-) n:exact-nonnegative-integer) #t]
+  ;;          [_ #f]))))
+  ;; attempt 1
   ;; (define old-type? (current-type?))
   ;; (current-type?
   ;;  (lambda (t) (or (#%type? t) (old-type? t))))
+
+
   (define old-relation (current-typecheck-relation))
   (current-typecheck-relation
    (lambda (t1 t2)
-     ;; assumed #f can only come from (typeof #%type)
-     ;; (so this wont work when interacting with untyped code)
      (define res
-       (or (and (false? (syntax-e t1)) (#%type? t2)) ; assign Type : Type
-           ;         (and (#%type? t1) (false? (syntax-e t2)))
+       ;; expand (Type n) if unexpanded
+       (or (syntax-parse t1
+             [((~literal Type-) n)
+              (typecheck? ((current-type-eval) t1) t2)]
+             [_ #f])
            (old-relation t1 t2)))
      (when type-eq-debug?
        (pretty-print (stx->datum t1))
@@ -53,19 +88,21 @@
   ;; - intermediate elim terms
   (define (maybe-assign-type e t)
     (if (syntax-e t) (assign-type e t) e)))
-(define-for-syntax Type ((current-type-eval) #'#%type))
 
 (define-internal-type-constructor →) ; equiv to Π with no uses on rhs
-(define-internal-binding-type ∀)     ; equiv to Π with #%type for all params
+(define-internal-binding-type ∀)     ; equiv to Π with Type for all params
 
 ;; Π expands into combination of internal →- and ∀-
 ;; uses "let*" syntax where X_i is in scope for τ_i+1 ...
 ;; TODO: add tests to check this
 (define-typed-syntax (Π ([X:id : τ_in] ...) τ_out) ≫
-  ;; TODO: check that τ_in and τ_out have #%type?
-  [[X ≫ X- : τ_in] ... ⊢ [τ_out ≫ τ_out- ⇐ #%type] [τ_in ≫ τ_in- ⇐ #%type] ...]
+  [[X ≫ X- : τ_in] ... ⊢ [τ_out ≫ τ_out- ⇒ tyoutty]
+                         [τ_in  ≫ τ_in-  ⇒ tyinty] ...]
+  ;; check that types have type (Type _)
+  ;; must re-expand since (Type n) will have type unexpanded (Type n+1)
+  #:with ((~Type _) ...) (stx-map (current-type-eval) #'(tyoutty tyinty ...))
   -------
-  [⊢ (∀- (X- ...) (→- τ_in- ... τ_out-)) ⇒ #%type]
+  [⊢ (∀- (X- ...) (→- τ_in- ... τ_out-)) ⇒ Type]
   #;[⊢ #,#`(∀- (X- ...)
              #,(assign-type
                 #'(→- τ_in- ... τ_out-)
@@ -76,9 +113,9 @@
 (define-simple-macro (→ τ_in ... τ_out)
   #:with (X ...) (generate-temporaries #'(τ_in ...))
   (Π ([X : τ_in] ...) τ_out))
-;; (∀ (X) τ) == (∀ ([X : #%type]) τ)
+;; (∀ (X) τ) == (∀ ([X : Type]) τ)
 (define-simple-macro (∀ (X ...)  τ)
-  (Π ([X : #%type] ...) τ))
+  (Π ([X : Type] ...) τ))
 
 ;; pattern expanders
 (begin-for-syntax
@@ -99,7 +136,7 @@
   ;;       (printf "t2: ~a\n" (stx->datum #'t2-))]
 ;  [t1- τ= t2-]
   ---------------------
-  [⊢ (=- t1- t2-) ⇒ #%type])
+  [⊢ (=- t1- t2-) ⇒ Type])
 
 ;; Q: what is the operational meaning of eq-refl?
 (define-typed-syntax (eq-refl e) ≫
@@ -115,7 +152,7 @@
 ;;       -> (P w)
 (define-typed-syntax (eq-elim t P pt w peq) ≫
   [⊢ t ≫ t- ⇒ ty]
-  [⊢ P ≫ P- ⇐ (→ ty #%type)]
+  [⊢ P ≫ P- ⇐ (→ ty Type)]
   [⊢ pt ≫ pt- ⇐ (app P- t-)]
   [⊢ w ≫ w- ⇐ ty]
   [⊢ peq ≫ peq- ⇐ (= t- w-)]
@@ -136,7 +173,7 @@
 ;  [(_ ([y:id : τy_in:type] ...) e) ⇐ (~Π ([x:id : τ_in] ...) τ_out) ≫
    #:fail-unless (stx-length=? #'(y ...) #'(x ...))
                  "function's arity does not match expected type"
-   [⊢ τ_in* ≫ τ_in** ⇐ #%type] ...
+   [⊢ τ_in* ≫ τ_in** ⇐ Type] ...
 ;   #:when (typechecks? (stx-map (current-type-eval) #'(τ_in* ...))
    #:when (typechecks? #'(τ_in** ...) #'(τ_in ...))
 ;   #:when (typechecks? #'(τy_in.norm ...) #'(τ_in ...))
@@ -347,8 +384,11 @@
 
 (define-typed-syntax (unsafe-assign-type e (~datum :) τ) ≫ --- [⊢ e ⇒ τ])
 
-(struct TmpTy ())
-(define-syntax mTmpTy (syntax-parser [(_ . args) #'(#%app TmpTy . args)]))
+(struct TmpTy- ())
+(define-syntax TmpTy
+  (syntax-parser
+    [:id (assign-type #'TmpTy- #'Type)]
+    [(_ . args) (assign-type #'(#%app TmpTy- . args) #'Type)]))
 
 (struct match/delayed (name args) #:transparent)
 
@@ -360,8 +400,8 @@
    ; need to expand `CTY` to find recur args,
    ; but `Name` is still unbound so swap in a tmp id `TmpTy`
    #:with (CTY/tmp ...) (subst #'TmpTy #'Name #'(CTY ...))
-   [⊢ CTY/tmp ≫ CTY/tmp- ⇐ #%type] ...
-   #:with (_ TmpTy+) (local-expand #'(TmpTy) 'expression null)
+   [⊢ CTY/tmp ≫ CTY/tmp- ⇐ Type] ...
+   #:with TmpTy+ (local-expand #'TmpTy 'expression null)
    ;; un-subst TmpTy for Name in expanded CTY
    ;; TODO: replace TmpTy in origs of CTY_in ... CTY_out
    ;; TODO: check CTY_out == `Name`?
@@ -394,7 +434,7 @@
         ;; elimination form
         (define-typed-syntax (elim-Name v P Ccase ...) ≫
           [⊢ v ≫ v- ⇐ Name]
-          [⊢ P ≫ P- ⇐ (→ Name #%type)] ; prop / motive
+          [⊢ P ≫ P- ⇐ (→ Name Type)] ; prop / motive
           ;; each `Ccase` require 2 sets of args (even if set is empty):
           ;; 1) args of the constructor `x` ... 
           ;; 2) IHs for each `x` that has type `Name`
@@ -449,14 +489,14 @@
    ;; eg (Name A ... i ...) or (CTY A ... i ...)
    [⊢ TY ≫ (~Π ([A : TYA] ...) ; params
                (~Π ([i : TYi] ...) ; indices
-                   TY_out)) ⇐ #%type]
+                   TY_out)) ⇐ Type]
 
    ; need to expand `CTY` but `Name` is still unbound so use tmp id
    ; - extract arity of each `C` ...
    ; - find recur args   
-   #:with (CTY/tmp ...) (subst #'mTmpTy #'Name #'(CTY ...))
-   [⊢ CTY/tmp ≫ CTY/tmp- ⇐ #%type] ...
-   #:with (_ TmpTy+) (local-expand #'(mTmpTy) 'expression null)
+   #:with (CTY/tmp ...) (subst #'TmpTy #'Name #'(CTY ...))
+   [⊢ CTY/tmp ≫ CTY/tmp- ⇐ Type] ...
+   #:with (_ TmpTy+) (local-expand #'(TmpTy) 'expression null)
    ;; ;; TODO: replace TmpTy in origs of τ_in ... τ_out
    ;; TODO: how to un-subst TmpTy (which is now a constructor)?
    ;; - for now, dont use these τ_in/τ_out; just use for arity
@@ -558,7 +598,7 @@
           #:with ((Name-patexpand CTY_out_A ... CTY_out_i ...) ...) #'(CTY_out ...)
 
           ;; prop / motive
-          [⊢ P ≫ P- ⇐ (Π ([j : TYi] ...) (→ (Name A ... j ...) #%type))]
+          [⊢ P ≫ P- ⇐ (Π ([j : TYi] ...) (→ (Name A ... j ...) Type))]
 
           ;; each Ccase consumes 3 nested sets of (possibly empty) args:
           ;; 1) Ci  - indices of the tycon
