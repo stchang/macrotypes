@@ -12,6 +12,18 @@
 ;; the examples in this file are mostly identical to dep-peano-tests.rkt,
 ;; except Z is replaced with (Z)
 
+;; check (Type n) : (Type n+1)
+(check-type Type : (Type 1))
+(check-type (Type 0) : (Type 1))
+(check-not-type (Type 0) : (Type 0))
+(check-type (Type 1) : (Type 2))
+(check-type (Type 3) : (Type 4))
+
+(typecheck-fail ((λ ([x : Type]) x) Type)
+ #:with-msg "expected Type, given \\(Type 1\\)")
+(check-type ((λ ([x : (Type 1)]) x) Type) : (Type 1))
+(check-type ((λ ([x : (Type 2)]) x) (Type 1)) : (Type 2))
+
 ;; Peano nums -----------------------------------------------------------------
 
 (define-datatype Nat : *
