@@ -483,10 +483,6 @@ that you can still use other Turnstile conveniences like pattern expanders.}}
                     (code:line #:arg-variances expr)
                     (code:line #:extra-info stx)])]{
   Analogous to @racket[define-internal-type-constructor], but for binding types.}}
-@item{
-@defform[(type-out ty-id ...)]{
-A @racket[provide]-spec that, for each given @racket[ty-id], provides @racket[ty-id],
-and provides @racket[for-syntax] a predicate @racket[ty-id?] and a @tech:pat-expander @racket[~ty-id].}}
 
 @item{@defparam[current-type-eval type-eval (-> syntax? syntax?)]{
  A phase 1 parameter for controlling "type evaluation". A @racket[type-eval]
@@ -602,6 +598,10 @@ Phase 1 function returning type of @racket[e], at @tt{key1}.}}
 }
 
 @section{@racket[require] and @racket[provide]-related Forms}
+
+@defform[(type-out ty-id ...)]{
+A @racket[provide]-spec that, for each given @racket[ty-id], provides @racket[ty-id],
+and provides @racket[for-syntax] a predicate @racket[ty-id?] and a @tech:pat-expander @racket[~ty-id].}
 
 @defform[(typed-out x+ty+maybe-rename ...)
          #:grammar
