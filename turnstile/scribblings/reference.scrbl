@@ -488,7 +488,7 @@ that you can still use other Turnstile conveniences like pattern expanders.}}
 A @racket[provide]-spec that, for each given @racket[ty-id], provides @racket[ty-id],
 and provides @racket[for-syntax] a predicate @racket[ty-id?] and a @tech:pat-expander @racket[~ty-id].}}
 
-@item{@defparam[current-type-eval type-eval type-eval]{
+@item{@defparam[current-type-eval type-eval (-> syntax? syntax?)]{
  A phase 1 parameter for controlling "type evaluation". A @racket[type-eval]
 function consumes and produces syntax. It is typically used to convert a type
 into a canonical representation. The @racket[(current-type-eval)] is called
@@ -501,10 +501,10 @@ One should extend @racket[current-type-eval] if canonicalization of types
 depends on combinations of different types, e.g., type lambdas and type application in F-omega. }}
 
 @; current-typecheck-relation -------------------------------------------------
-@item{@defparam[current-typecheck-relation type-pred type-pred]{
+@item{@defparam[current-typecheck-relation type-cmp (-> type? type? boolean?)]{
 
 A phase 1 parameter for controlling type checking, used by
-@racket[define-typed-syntax]. A @racket[type-pred] function consumes two
+@racket[define-typed-syntax]. A @racket[type-cmp] function consumes two
 types---the first is the given type and the second is the expected type---and
 returns true if they "type check". It defaults to @racket[type=?] though it
 does not have to be a symmetric relation.  Useful for reusing rules that differ
@@ -514,8 +514,8 @@ only in the type check operation, e.g., equality vs subtyping.}}
 A phase 1 function that calls @racket[current-typecheck-relation]. The first
 argument is the given type and the second is the expected type.}}
 
-@item{@defproc[(typechecks? [τs1 (or/c (list/c type?) (stx-list/c type?))]
-                      [τs2 (or/c (list/c type?) (stx-list/c type?))]) boolean?]{
+@item{@defproc[(typechecks? [τs1 (or/c (listof type?) (stx-listof type?))]
+                      [τs2 (or/c (listof type?) (stx-listof type?))]) boolean?]{
 Phase 1 function mapping @racket[typecheck?] over lists of types,
 pairwise. @racket[τs1] and @racket[τs2] must have the same length. The first
 list contains the given types and the second list contains the expected
@@ -552,19 +552,19 @@ equality, but includes alpha-equivalence.
       @racket[τs1] and @racket[τs2] must have the same length.}}
  @item{@defproc[(same-types? [τs (listof type?)]) boolean?]{
     A phase 1 predicate for checking if a list of types are all the same.}}
- @item{@defparam[current-type=? binary-type-pred binary-type-pred]{
+ @item{@defparam[current-type=? type-cmp (-> type? type? boolean?)]{
     A phase 1 parameter for computing type equality. Is initialized to @racket[type=?].}}
  @item{@defidform[#%type]{The default "kind" used to validate types.}}
- @item{@defproc[(#%type? [x Any]) boolean?]{Phase 1 predicate recognizing @racket[#%type].}}
- @item{@defproc[(type? [x Any]) boolean?]{A phase 1 predicate recognizing well-formed types.
+ @item{@defproc[(#%type? [x any/c]) boolean?]{Phase 1 predicate recognizing @racket[#%type].}}
+ @item{@defproc[(type? [x syntax?]) boolean?]{A phase 1 predicate recognizing well-formed types.
     Checks that @racket[x] is a syntax object and has syntax propety @racket[#%type].}}
- @item{@defparam[current-type? type-pred type-pred]{A phase 1 parameter, initialized to @racket[type?],
+ @item{@defparam[current-type? type-pred (-> syntax? boolean?)]{A phase 1 parameter, initialized to @racket[type?],
     used to recognize well-formed types.
     Useful when reusing type rules in different languages. For example,
     System F-omega may define this to recognize types with "star" kinds.}}
- @item{@defproc[(any-type? [x Any]) boolean?]{A phase 1 predicate recognizing valid types.
+ @item{@defproc[(any-type? [x syntax?]) boolean?]{A phase 1 predicate recognizing valid types.
     Defaults to @racket[type?].}}
- @item{@defparam[current-any-type? type-pred type-pred]{A phase 1 parameter,
+ @item{@defparam[current-any-type? type-pred (-> syntax? boolean?)]{A phase 1 parameter,
     initialized to @racket[any-type?],
     used to validate (not necessarily well-formed) types.
     Useful when reusing type rules in different languages. For example,
@@ -574,21 +574,21 @@ equality, but includes alpha-equivalence.
     Phase 1 function that marks a syntax object as a type by attaching @racket[#%type].
   Useful for defining your own type with arbitrary syntax that does not fit with
     @racket[define-base-type] or @racket[define-type-constructor].}}
- @item{@defthing[type stx-class]{A syntax class that calls @racket[current-type?]
+ @item{@defidform[#:kind "syntax class" type]{A syntax class that calls @racket[current-type?]
     to validate well-formed types.
   Binds a @racket[norm] attribute to the type's expanded representation.}}
- @item{@defthing[any-type stx-class]{A syntax class that calls @racket[current-any-type?]
+ @item{@defidform[#:kind "syntax class" any-type]{A syntax class that calls @racket[current-any-type?]
     to validate types.
   Binds a @racket[norm] attribute to the type's expanded representation.}}
- @item{@defthing[type-bind stx-class]{A syntax class recognizing
+ @item{@defidform[#:kind "syntax class" type-bind]{A syntax class recognizing
      syntax objects with shape @racket[[x:id (~datum :) τ:type]].
   Binds a @racket[x] attribute to the binding identifier, and a @racket[type] attribute
   to the type's expanded representation.}}
- @item{@defthing[type-ctx stx-class]{A syntax class recognizing
+ @item{@defidform[#:kind "syntax class" type-ctx]{A syntax class recognizing
       syntax objects with shape @racket[(b:type-bind ...)].
   Binds a @racket[x] attribute to the binding identifiers, and a @racket[type] attribute
   to the expanded representation of the types.}}
- @item{@defthing[type-ann stx-class]{A syntax class recognizing
+ @item{@defidform[#:kind "syntax class" type-ann]{A syntax class recognizing
        syntax objects with shape @racket[{τ:type}] where the braces are required.
   Binds a @racket[norm] attribute to the type's expanded representation.}}
 
@@ -662,8 +662,8 @@ forms already do so, but some type systems may require extending some
 functionality.
 
 @defproc[(infer [es (listof expr-stx)]
-                [#:ctx ctx (listof bindings) null]
-                [#:tvctx tvctx (listof tyvar-bindings) null]
+                [#:ctx ctx (listof binding-stx) null]
+                [#:tvctx tvctx (listof tyvar-binding-stx) null]
                 [#:tag tag symbol? ':])
                 (list tvs xs es τs)]{
 
@@ -671,11 +671,11 @@ Phase 1 function expanding a list of expressions, in the given contexts and
 computes their types. Returns the expanded expressions, their types, and
 expanded identifiers from the contexts, e.g.
 
-@racket[(infer (list #'(+ x 1)) #:ctx ([x : Int]))]
+@racket[(infer (list #'(+ x 1)) #:ctx #'([x : Int]))]
 
 might return
 
-@racket[(list #'() #'(x-) #'((#%plain-app x- 1)) #'(Int))].
+@racket[(list #'() #'(x-) #'((#%plain-app + x- 1)) #'(Int))].
 
 The context elements have the same shape as in @racket[define-typed-syntax].
 The contexts use @racket[let*] semantics, where each binding is in scope for
@@ -686,16 +686,16 @@ returned "type". The default key is @litchar{:}. For example, a programmer may
 want to specify a @litchar{::} key when using @racket[infer] to compute the
 kinds on types.}
 
-@defproc[(subst [τ type-stx]
+@defproc[(subst [τ syntax?]
                 [x identifier?]
-                [e expr-stx]
+                [e syntax?]
                 [cmp (-> identifier? identifier? boolean?) bound-identifier=?]) expr-stx]{
 Phase 1 function that replaces occurrences of @racket[x], as determined by @racket[cmp], with
  @racket[τ] in @racket[e].}
 
-@defproc[(substs [τs (listof type-stx)]
+@defproc[(substs [τs (listof syntax?)]
                  [xs (listof identifier?)]
-                 [e expr-stx]
+                 [e syntax?]
                  [cmp (-> identifier? identifier? boolean?) bound-identifier=?]) expr-stx]{
 Phase 1 function folding @racket[subst] over the given @racket[τs] and @racket[xs].}
 
@@ -710,14 +710,16 @@ Types defined with @racket[define-type-constructor] and
 @racket[define-binding-type] may specify variance information and subtyping
 languages may use this information to help compute the subtype relation.
 
-The possible variances are:
-@defthing[covariant variance?]
-@defthing[contravariant variance?]
-@defthing[invariant variance?]
-@defthing[irrelevant variance?]
-
-@defproc[(variance? [v any/c]) boolean/c]{
+@defproc[(variance? [v any/c]) boolean?]{
  Predicate that recognizes the variance values.}
+
+@deftogether[(
+  @defthing[covariant variance?]
+  @defthing[contravariant variance?]
+  @defthing[invariant variance?]
+  @defthing[irrelevant variance?])]{
+The different possible variances.
+}
 
 
 @section{Modes}
@@ -731,7 +733,7 @@ The possible variances are:
 Modes are typically used by the @racket[#:mode] and @racket[#:submode]
 keywords in @racket[define-typed-syntax] (and related forms). When judgements
 are parameterized by a @racket[mode] value, the parameter
-@racket[current-mode] is set to that value for the extend of the
+@racket[current-mode] is set to that value for the extent of the
 sub-premises. Additionally, the function @racket[mode-setup-fn] is called
 before setting @racket[current-mode], and the function
 @racket[mode-teardown-fn] is called after @racket[current-mode] is restored to
