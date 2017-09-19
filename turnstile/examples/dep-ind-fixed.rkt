@@ -3,6 +3,16 @@
 ; a basic dependently-typed calculus
 ; - with inductive datatypes
 
+; created this new file to avoid breaking anything using dep-ind.rkt
+
+; this file is mostly same as dep-ind.rkt but define-datatype has some fixes:
+; 1) params and indices must be applied separately
+;   - for constructor (but not type constructor)
+; 2) allows indices to depend on param
+; 3) indices were not being inst with params
+; 4) arg refs were using x instead of Cx from new expansion
+; TODO: re-compute recur-x, ie recur-Cx
+
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑
 
 (provide Type (rename-out [Type *])
@@ -502,9 +512,12 @@
    ;; - for now, dont use these τ_in/τ_out; just use for arity
    ;; - instead, re-expand in generated `elim` macro below
    ;;
-   ;; - 1st Π is tycon params and indices, dont care for now
-   ;; - 2nd Π is constructor args
-   #:with ((~Π ([_ : _] ...) (~Π ([x : CTY_in/tmp] ...) CTY_out/tmp)) ...)
+   ;; - 1st Π is tycon params, dont care for now
+   ;; - 2nd Π is tycon indices, dont care for now
+   ;; - 3rd Π is constructor args
+   #:with ((~Π ([_ : _] ...)
+             (~Π ([_ : _] ...)
+               (~Π ([x : CTY_in/tmp] ...) CTY_out/tmp))) ...)
           #'(CTY/tmp- ...)
    ;; each (recur-x ...) is subset of (x ...) that are recur args,
    ;; ie, they are not fresh ids
@@ -523,6 +536,7 @@
                                    xs ts)))
                                #'((x ...) ...)
                                #'((CTY_in/tmp ...) ...))
+   #:with ((recur-Cx ...) ...) (stx-map generate-temporaries #'((recur-x ...) ...))
 
    ;; pre-generate other patvars; makes nested macros below easier to read
    #:with (A- ...) (generate-temporaries #'(A ...))
@@ -532,7 +546,9 @@
    #:with ((CA ...) ...) (stx-map (lambda _ (generate-temporaries #'(A ...))) #'(C ...))
    #:with ((CTYA ...) ...) (stx-map (lambda _ (generate-temporaries #'(A ...))) #'(C ...))
    #:with ((Ci ...) ...) (stx-map (lambda _ (generate-temporaries #'(i ...))) #'(C ...))
+   #:with ((CTYi/CA ...) ...) (stx-map (lambda _ (generate-temporaries #'(TYi ...))) #'(C ...))
    #:with ((CTYi ...) ...) (stx-map (lambda _ (generate-temporaries #'(TYi ...))) #'(C ...))
+   #:with ((Cx ...) ...) (stx-map (lambda (xs) (generate-temporaries xs)) #'((x ...) ...))
    ; Ci*recur dups Ci for each recur, to get the ellipses to work out below
    #:with (((Ci*recur ...) ...) ...) (stx-map
                                       (lambda (cis recurs)
@@ -561,10 +577,14 @@
    #:with Name-patexpand (mk-~ #'Name)
    #:with elim-Name (format-id #'Name "elim-~a" #'Name)
    #:with match-Name (format-id #'Name "match-~a" #'Name)
-   --------
-   [≻ (begin-
+   #:with (ccasety ...) (generate-temporaries #'(Ccase ...))
+   ;; these are all the generated definitions that implement the define-datatype
+   #:with OUTPUT-DEFS
+    #'(begin-
         ;; define the type
         (define-internal-type-constructor Name)
+        ;; TODO? This works when TYi depends on (e.g., is) A
+        ;; but is this always the case?
         (define-typed-syntax (Name A ... i ...) ≫
           [⊢ A ≫ A- ⇐ TYA] ...
           [⊢ i ≫ i- ⇐ TYi] ...
@@ -574,25 +594,62 @@
         ;; define structs for constructors
         (struct C/internal (x ...) #:transparent) ...
         ;; TODO: this define should be a macro instead?
-        (define C (unsafe-assign-type (lambda (A ... i ...) C/internal) : CTY)) ...
+        (define C (unsafe-assign-type
+                   (lambda (A ...) (lambda (i ...) C/internal))
+                   : CTY)) ...
 
         ;; define eliminator-form
         (define-typed-syntax (elim-Name v P Ccase ...) ≫
           ;; re-extract CTY_in and CTY_out, since we didnt un-subst above
-          #:with ((~Π ([CA : CTYA] ... ; ignore params, instead infer `A` ... from `v`
-                       [Ci : CTYi] ...)
-                      (~Π ([_ : CTY_in/CA] ...)
-                          CTY_out/CA))
+          ;; TODO: must re-compute recur-x, ie recur-Cx
+          #:with ((~Π ([CA : CTYA] ...) ; ignore params, instead infer `A` ... from `v`
+                    (~Π ([Ci : CTYi/CA] ...)
+                      (~Π ([Cx : CTY_in/CA] ...)
+                          CTY_out/CA)))
                   ...)
                  (stx-map (current-type-eval) #'(CTY ...))
+
+          ;; compute recur-Cx by finding analogous x/recur-x pairs
+          ;; each (recur-Cx ...) is subset of (Cx ...) that are recur args,
+          ;; ie, they are not fresh ids
+          #:with ((recur-Cx ...) ...)
+                 (stx-map
+                  (lambda (xs rxs cxs)
+                    (filter
+                     (lambda (z) z) ; filter out #f
+                     (stx-map
+                      (lambda (y cy)
+                        (if (stx-member y rxs) cy #f))
+                      xs cxs)))
+                  #'((x ...) ...)
+                  #'((recur-x ...) ...)
+                  #'((Cx ...) ...))
+          #;(stx-map
+                                      (lambda (xs ts)
+                                        (filter
+                                         (lambda (y) y) ; filter out #f
+                                         (stx-map
+                                          (lambda (x t)
+                                            (and
+                                             (syntax-parse t
+                                               [(Name-patexpand . _) #t]
+                                               [_ #f])
+                                             x)) ; returns x or #f
+                                          xs ts)))
+                                      #'((Cx ...) ...)
+                                      #'((CTY_in/CA ...) ...))
 
           ;; target, infers A ...
           [⊢ v ≫ v- ⇒ (Name-patexpand A ... i ...)]
 
           ;; inst CTY_in/CA and CTY_out/CA with inferred A ...
-          #:with ((CTY_in ... CTY_out) ...) (stx-map (lambda (ts cas) (substs #'(A ...) cas ts))
-                                                     #'((CTY_in/CA ... CTY_out/CA) ...)
-                                                     #'((CA ...) ...))
+          #:with (((CTYi ...)
+                   (CTY_in ... CTY_out))
+                  ...)
+                 (stx-map (lambda (ts tyis cas) (substs #'(A ...) cas #`(#,tyis #,ts)))
+                          #'((CTY_in/CA ... CTY_out/CA) ...)
+                          #'((CTYi/CA ...) ...)
+                          #'((CA ...) ...))
           ;; get the params and indices in CTY_out
           ;; - dont actually need CTY_out_A
           #:with ((Name-patexpand CTY_out_A ... CTY_out_i ...) ...) #'(CTY_out ...)
@@ -602,17 +659,18 @@
 
           ;; each Ccase consumes 3 nested sets of (possibly empty) args:
           ;; 1) Ci  - indices of the tycon
-          ;; 2) x   - args of each constructor `C`
-          ;; 3) IHs - for each recur-x ... (which are a subset of x ...)
+          ;; 2) Cx   - args of each constructor `C`
+          ;; 3) IHs - for each recur-Cx ... (which are a subset of Cx ...)
           ;;
           ;; somewhat of a hack:
           ;; by reusing Ci and CTY_out_i both to match CTY/CTY_out above, and here,
           ;; we automatically unify Ci with the indices in CTY_out
+          [⊢ Ccase ≫ _ ⇒ ccasety] ...
           [⊢ Ccase ≫ Ccase- ⇐ (Π ([Ci : CTYi] ...) ; indices
-                                 (Π ([x : CTY_in] ...) ; constructor args
-                                    (→ (app (app P- Ci*recur ...) recur-x) ... ; IHs
+                                 (Π ([Cx : CTY_in] ...) ; constructor args
+                                    (→ (app (app P- Ci*recur ...) recur-Cx) ... ; IHs
                                        (app (app P- CTY_out_i ...)
-                                            (app (app C A*C ... Ci ...) x ...)))))] ...
+                                            (app (app (app C A*C ...) Ci ...) Cx ...)))))] ...
           -----------
           [⊢ (match-Name v- P- Ccase- ...) ⇒ (app (app P- i ...) v-)])
 
@@ -620,13 +678,18 @@
         (define-syntax match-Name
           (syntax-parser
             #;[(_ . args)
-             #:do[(printf "trying to match:\n~a\n" (stx->datum #'args))]
+             #:do[(displayln "trying to match:")
+                  (pretty-print (stx->datum #'args))]
              #:when #f #'(void)]
             [(_ v P Ccase ...)
              #:with ty (typeof this-syntax)
              ;; must local expand because `v` may be unexpanded due to reflection
              (syntax-parse (local-expand #'v 'expression null)
-               [((~literal #%plain-app) ((~literal #%plain-app) C-:id CA ... Ci ...) x ...)
+               [((~literal #%plain-app)
+                 ((~literal #%plain-app)
+                  ((~literal #%plain-app) C-:id CA ...)
+                  Ci ...)
+                 x ...)
                 #:with (_ C+ . _) (local-expand #'(C 'CA ...) 'expression null)
                 #:when (free-identifier=? #'C+ #'C-)
                 ;; can use app instead of app/eval to properly propagate types
@@ -647,5 +710,8 @@
                    ;; must be #%app-, not #%plain-app, ow match will not dispatch properly
                    #'(#%app- match/delayed 'match-Name (void v P Ccase ...))
                    ;#'ty)
-                  ])]))
-        )]])
+                  ])])))
+   ;; DEBUG: of generated defs
+;   #:do[(pretty-print (stx->datum #'OUTPUT-DEFS))]
+   --------
+   [≻ OUTPUT-DEFS]])
