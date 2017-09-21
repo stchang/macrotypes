@@ -764,6 +764,28 @@ Phase 1 function folding @racket[subst] over the given @racket[τs] and @racket[
 @defform[(type-error #:src srx-stx #:msg msg args ...)]{
 Phase 1 form that throws a type error using the specified information. @racket[msg] is a format string that references @racket[args].}
 
+@defproc[(type->str [τ type?]) string?]{
+Phase 1 function that produces a string representation of the given type @racket[τ]. Creates a string by
+traversing the syntax property @racket['orig], which can be manipulated with @racket[add-orig].
+@racket[type->str] is used in typechecking error messages.
+
+@(let ([ev (make-base-eval)])
+   (ev '(require turnstile/turnstile))
+   (ev '(define-base-type Int))
+   (ev '(define-type-constructor → #:arity = 2))
+   @examples[#:eval ev
+     (begin-for-syntax
+       (define t ((current-type-eval) #'(→ Int Int)))
+       (displayln (type->str t)))])
+}
+
+@deftogether[(@defproc[(add-orig [e syntax?] [orig syntax?]) syntax?]
+              @defproc[(get-orig [e syntax?]) syntax?])]{
+Phase 1 functions for manipulation the @racket['orig] property. @racket[add-orig] returns
+the syntax @racket[_e] with @racket[_orig] added. @racket[get-orig] returns the last added
+@racket['orig] on @racket[_e], or returns itself if none were added.
+}
+
 @section{Subtyping}
 
 WARNING: very experimental
