@@ -534,7 +534,7 @@
          #:when (andmap (lambda (u) (equal? u 'unquote)) (syntax->datum #'(unq ...)))
          (unify-pat+ty #'(ps ty))]
         [{p ...} 
-         (unify-pat+ty #'((p ...) ty))])] ; pair
+         (unify-pat+ty (list (syntax/loc #'pat (p ...)) #'ty))])] ; pair
       [((~datum _) ty) #'()]
       [((~or (~literal stlc+cons:nil)) ty) #'()]
       [(A:id ty) ; disambiguate 0-arity constructors (that don't need parens)
@@ -560,15 +560,25 @@
       [(((~literal stlc+cons:cons) p ps) ty) ; arb length list
        #:with (~List t) #'ty
        (unifys #'([p t] [ps ty]))]
-      [((Name p ...) ty)
+      [((Name:id p ...) ty)
+       #:do[(define extra-info (get-extra-info #'ty))]
+       #:when extra-info
        #:with (_ (_ Cons) _ _ [_ _ τ] ...)
               (stx-findf
                 (syntax-parser
                  [(_ 'C . rst) 
                   (equal? (syntax->datum #'Name) (syntax->datum #'C))])
-                (stx-cdr (get-extra-info #'ty)))
+                (stx-cdr extra-info))
        (unifys #'([p τ] ...))]
-      [p+t #:fail-when #t (format "could not unify ~a" (syntax->datum #'p+t))
+     [((p) t)
+       #:when (type-error #:src #'p
+                #:msg "Pattern ~a does not match type of scrutinee ~a. Try dropping outer parens?"
+                          #'(p) #'t)
+       #'()]
+     [(p t)
+       #:when (type-error #:src #'p
+               #:msg "Pattern ~a does not match type of scrutinee ~a."
+                          #'p #'t)
        #'()]))
   (define (unifys p+tys) (stx-appendmap unify-pat+ty p+tys))
   
@@ -619,7 +629,7 @@
       #:with p- (compile-pat #'p #'t)
       #:with ps- (compile-pat #'ps ty)
       #'(cons p- ps-)]
-     [(Name . pats)
+     [(Name:id . pats)
       #:with (_ (_ Cons) (_ StructName) _ [_ _ τ] ...)
              (stx-findf
                (syntax-parser

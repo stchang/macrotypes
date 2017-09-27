@@ -296,3 +296,10 @@
     (match2 (tup (BB 1) (BB 2)) with
      [((BB x),(BB y)) -> (+ x y)]
      [_ -> -1]) : Int -> 3)
+
+;; example from jsmaniac
+(typecheck-fail
+ (match2 (tup (list 1) (list 2)) with
+  [(tup (hd₁ :: tl₁) (hd₂ :: tl₂)) -> (list hd₁ hd₂)]
+  [(tup _ _) -> (ann (list) : (List Int))])
+ #:with-msg (add-escs "Pattern ((tup (hd₁ :: tl₁) (hd₂ :: tl₂))) does not match type of scrutinee (× (List Int) (List Int)). Try dropping outer parens?"))
