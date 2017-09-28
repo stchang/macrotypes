@@ -260,7 +260,7 @@
 (check-type (Leaf 10) : (Tree Int))
 (check-type (Node (Leaf 10) (Leaf 11)) : (Tree Int))
 
-(typecheck-fail Nil #:with-msg "Nil: no expected type, add annotations")
+(check-type (λ () Nil) : (→/test {X} (List X)))
 (typecheck-fail (Cons 1 (Nil {Bool}))
  #:with-msg 
  "expected: \\(List Int\\)\n *given: \\(List Bool\\)")
@@ -272,11 +272,11 @@
 (typecheck-fail (Cons {Bool} 1 Nil)
  #:with-msg
  (string-append
-  "Cons: type mismatch\n *expected: +Bool, \\(List Bool\\)\n *given: +Int, \\(List Bool\\)\n"
+  "Cons: type mismatch\n *expected: +Bool, \\(List Bool\\)\n *given: +Int, \\(\\?∀ \\(\\) \\(List X\\)\\)\n"
   " *expressions: 1, Nil"))
 
 (typecheck-fail (match Nil with [Cons x xs -> 2] [Nil -> 1])
-                #:with-msg "Nil: no expected type, add annotations")
+                #:with-msg "match: add annotations")
 (check-type
  (match (Nil {Int}) with
    [Cons x xs -> 2]
@@ -385,13 +385,12 @@
 (check-type 
   ((λ ([x : X]) (λ ([y : Y]) (λ ([z : Z]) z))) 1)
   : (→/test String (→ Int Int)))
-
 (check-type (inst Cons (→/test X X))
   : (→ (→/test X X) (List (→/test X X)) (List (→/test X X))))
 (check-type map : (→/test (→ X Y) (List X) (List Y)))
 
-(check-type (Cons (λ ([x : X]) x) Nil)
-  : (List (→/test {X} X X)))
+#;(check-type (Cons (λ ([x : X]) x) Nil)
+    : (List (→/test {X} X X)))
 
 (define (nn [x : X] -> (→ (× X (→ Y Y))))
   (λ () (tup x (λ ([x : Y]) x))))
@@ -758,7 +757,7 @@
 (typecheck-fail
  (if #t 1 "2")
  #:with-msg 
- "branches have incompatible types: Int and String")
+ "couldn't unify Int and String")
 
 ;; tests from stlc+lit-tests.rkt --------------------------
 ; most should pass, some failing may now pass due to added types/forms
@@ -788,7 +787,7 @@
 
 (typecheck-fail
  (+ 1 (λ ([x : Int]) x))
- #:with-msg "expected: Int\n *given: \\(→ Int Int\\)")
+ #:with-msg "couldn't unify Int and \\(\\?∀ \\(\\) \\(→ Int Int\\)\\)")
 (typecheck-fail
  (λ ([x : (→ Int Int)]) (+ x x))
   #:with-msg "expected: Int\n *given: \\(→ Int Int\\)")
@@ -797,4 +796,3 @@
  #:with-msg "wrong number of arguments: expected 2, given 1\n *expected: +Int, Int\n *arguments: 1")
 
 (check-type ((λ ([x : Int]) (+ x x)) 10) : Int ⇒ 20)
-
