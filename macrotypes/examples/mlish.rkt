@@ -945,7 +945,7 @@
    #:with τ_out* (syntax-parse #'τ_out
                    [(~?∀ (X ...) (~?∀ (Y ...) τ_out))
                     (for ([X (in-list (syntax->list #'(X ...)))]
-                          #:when (stx-contains-id? #'Xs* X))
+                          #:when (stx-contains-id? #'Xs X)) ;; To cause an error, the X must be part of the original signature (I think?)
                       (unless (covariant-X? X #'τ_out)
                         (raise-app-poly-infer-error stx #'(τ_in ...) #'(τ_arg ...) #'e_fn)))
                     #'(?∀ (X ... Y ...) τ_out)])
