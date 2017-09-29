@@ -388,9 +388,8 @@
 (check-type (inst Cons (→/test X X))
   : (→ (→/test X X) (List (→/test X X)) (List (→/test X X))))
 (check-type map : (→/test (→ X Y) (List X) (List Y)))
-
 (check-type (Cons (λ ([x : X]) x) Nil)
-  : (List (→/test {X} X X)))
+  : (?∀ {X} (List (→ X X))))
 
 (define (nn [x : X] -> (→ (× X (→ Y Y))))
   (λ () (tup x (λ ([x : Y]) x))))
