@@ -105,29 +105,30 @@
 
 (define res1 (go 100 (list Blue Red Yellow)))
 
-(define (check-res1 [r : Result] -> Bool)
-  (match r with
-   [met same -> (or (= met 66) (= met 67))]))
+(define (check-total [r : (List Result)] [remaining : Int] -> Bool)
+  (match2 r with
+   [(tup met same) :: tl -> (check-total tl (- remaining met))]
+   [nil -> (= remaining 0)]))
 
 (check-type (length res1) : Int -> 3)
 
-(check-type (check-res1 (list-ref res1 0)) : Bool -> #t)
-(check-type (check-res1 (list-ref res1 1)) : Bool -> #t)
-(check-type (check-res1 (list-ref res1 2)) : Bool -> #t)
-  ;; -> (list (list 67 0)
-  ;;          (list 66 0)
-  ;;          (list 67 0)))
+(check-type (check-total res1 200) : Bool -> #t)
 
 (define res2 
   (map (λ ([x : Result]) (proj x 0))
        (go 1000 (list Blue Red Yellow Red Yellow Blue))))
 (check-type res2 : (List Int))
-(define (=333/4 [x : Int] -> Bool) (or (= x 333) (= x 334)))
+(define (≤1000 [x : Int] -> Bool) (<= x 1000))
 (define (andmap [p? : (→ X Bool)] [xs : (List X)] → Bool)
   (match2 xs with
    [nil -> #t]
    [x :: rst -> (and (p? x) (andmap p? rst))]))         
-(check-type (andmap =333/4 res2) : Bool -> #t)
+(check-type (andmap ≤1000 res2) : Bool -> #t)
+(define (sum [l : (List Int)] -> Int)
+  (match l with
+   [hd :: tl -> (+ hd (sum tl))]
+   [[] -> 0]))
+(check-type (sum res2) : Int -> 2000)
   ;; -> (list (list 333 0)
   ;;          (list 333 0)
   ;;          (list 333 0)
