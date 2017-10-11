@@ -434,7 +434,8 @@
         ;; define `Name`, eg "Nat", as a valid type
 ;        (define-base-type Name) ; dont use bc uses '::, and runtime errs
         (struct Name/internal ())
-        (define-typed-syntax Name [_:id ≫ --- [⊢ (Name/internal) ⇒ TY]])
+        (define-typed-syntax Name
+          [_:id ≫ --- [⊢ (Name/internal) (⇒ : TY) (⇒ elim-name elim-Name)]])
         ;; define structs for `C` constructors
         (struct C/internal (x ...) #:transparent) ...
         (define C (unsafe-assign-type C/internal : CTY)) ...
@@ -576,7 +577,7 @@
           [⊢ A ≫ A- ⇐ TYA] ...
           [⊢ i ≫ i- ⇐ TYi] ...
           ----------
-          [⊢ (Name- A- ... i- ...) ⇒ TY_out])
+          [⊢ (Name- A- ... i- ...) (⇒ : TY_out) (⇒ elim-name elim-Name)])
 
         ;; define structs for constructors
         (struct C/internal (x ...) #:transparent) ...
