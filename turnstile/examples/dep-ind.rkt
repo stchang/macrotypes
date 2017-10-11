@@ -23,7 +23,7 @@
 
 ;; set (Type n) : (Type n+1)
 ;; Type = (Type 0)
-(define-internal-type-constructor Type)
+(define-internal-type-constructor Type #:runtime)
 (define-typed-syntax Type
   [:id ≫ --- [≻ (Type 0)]]
   [(_ n:exact-nonnegative-integer) ≫
@@ -32,10 +32,11 @@
   [≻ #,(syntax-property
         (syntax-property 
          #'(Type- 'n) ':
-         (syntax-property
-          #'(Type- 'n+1)
-          'orig
-          (list #'(Type n+1))))
+;         (syntax-property
+          #'(Type n+1)
+ ;         'orig
+  ;        (list #'(Type n+1))))
+          )
         'orig
         (list #'(Type n)))]])
 
@@ -73,7 +74,7 @@
      (define res
        ;; expand (Type n) if unexpanded
        (or (syntax-parse t1
-             [((~literal Type-) n)
+             [((~literal Type) n)
               (typecheck? ((current-type-eval) t1) t2)]
              [_ #f])
            (old-relation t1 t2)))
@@ -82,6 +83,12 @@
        (pretty-print (stx->datum t2))
        (printf "res: ~a\n" res))
      res))
+
+  (define old-eval (current-type-eval))
+  (current-type-eval
+   (lambda (t)
+;     (displayln t)
+     (old-eval t)))
   ;; used to attach type after app/eval
   ;; but not all apps will have types, eg
   ;; - internal type representation
