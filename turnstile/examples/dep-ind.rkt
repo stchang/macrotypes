@@ -435,7 +435,11 @@
 ;        (define-base-type Name) ; dont use bc uses '::, and runtime errs
         (struct Name/internal ())
         (define-typed-syntax Name
-          [_:id ≫ --- [⊢ (Name/internal) (⇒ : TY) (⇒ elim-name elim-Name)]])
+          [_:id ≫
+           #:with out- (syntax-property #'(Name/internal)
+                                        'elim-name #'elim-Name)
+           -------------
+           [⊢ out- ⇒ TY]])
         ;; define structs for `C` constructors
         (struct C/internal (x ...) #:transparent) ...
         (define C (unsafe-assign-type C/internal : CTY)) ...
@@ -576,8 +580,10 @@
         (define-typed-syntax (Name A ... i ...) ≫
           [⊢ A ≫ A- ⇐ TYA] ...
           [⊢ i ≫ i- ⇐ TYi] ...
+          #:with out- (syntax-property #'(Name- A- ... i- ...)
+                                       'elim-name #'elim-Name)
           ----------
-          [⊢ (Name- A- ... i- ...) (⇒ : TY_out) (⇒ elim-name elim-Name)])
+          [⊢ out- ⇒ TY_out])
 
         ;; define structs for constructors
         (struct C/internal (x ...) #:transparent) ...
