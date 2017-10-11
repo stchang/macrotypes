@@ -86,7 +86,7 @@
   ;; is the given variable available for use?
   ;; linear-in-scope? : Id -> Bool
   (define (linear-in-scope? x)
-    (not (set-member? (linear-scope) x)))
+    (not (set-member? (linear-scope) (syntax-local-introduce x))))
 
   ;; set the variable to be used in this scope, or raise
   ;; an error if it's already used.
@@ -94,9 +94,9 @@
   ;; linear-use-var! : Id Type -> void
   (define (linear-use-var! x T #:fail [fail fail/multiple-use])
     (when (linear-type? T)
-      (when (set-member? (linear-scope) x)
+      (when (set-member? (linear-scope) (syntax-local-introduce x))
         (fail x))
-      (set-add! (linear-scope) x)))
+      (set-add! (linear-scope) (syntax-local-introduce x))))
 
 
   ;; call this with the ([x : t] ...) context after introducing variables,
@@ -111,7 +111,7 @@
              [T (in-syntax #'[σ ...])] #:when (linear-type? T))
          (if (linear-in-scope? var)
              (fail var)
-             (set-remove! (linear-scope) var)))]))
+             (set-remove! (linear-scope) (syntax-local-introduce var))))]))
 
   ;; linear-merge-scopes! : (or '∪ '∩) FreeIdSet ... -> void
   (define (linear-merge-scopes! op #:fail [fail fail/unbalanced-branches] . ss)

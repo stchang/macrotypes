@@ -66,11 +66,11 @@
    ;;
 
   [⊢ e_packed ≫ e_packed- ⇒ (~∃ (Y) τ_body)]
-  [X [x ≫ x- : #,(subst #'X #'Y #'τ_body)] ⊢ e ≫ e- ⇒ τ_e]
+  [[X ≫ X- :: #%type] [x ≫ x- : #,(subst #'X #'Y #'τ_body)] ⊢ e ≫ e- ⇒ τ_e]
   #:with τ_e_checked
   (let ([ctx (syntax-local-make-definition-context)])
     (syntax-local-bind-syntaxes
-      (list #'X)
+      (list #'X-)
       #'(lambda (stx)
           (type-error #:src #'stx #:msg "existential type ~a is not in scope" #'X-))
       ctx)
