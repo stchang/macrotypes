@@ -349,25 +349,31 @@ and functions, e.g., @racket[define-kinded-syntax], @racket[define-base-kind], @
 @; Forms for Defining Types --------------------------------------
 @section/from-stx-cat{Forms for Defining Types}
 
-@defform*[((define-base-type base-type-name-id)
-           (define-base-type base-type-name-id key tag))]{
-  Defines a base type. @racket[(define-base-type τ)] in turn defines:
+@defform*[((define-base-type base-type-name-id option ...)
+           (define-base-type base-type-name-id key tag option ...))
+           #:grammar
+           ([option (code:line #:runtime)])]{
+   Defines a base type. @racket[(define-base-type τ)] in turn defines:
   @itemlist[@item{@racket[τ], an identifier macro representing type @racket[τ].}
             @item{@racket[τ?], a phase 1 predicate recognizing type @racket[τ].}
             @item{@racket[~τ], a phase 1 @tech:pat-expander recognizing type @racket[τ].}]}
 
   Types defined with @racket[define-base-type] are automatically tagged with a
 @racket[key2]-keyed (as specified in the @racket[define-syntax-category]
-declaration) @racket[#%type] syntax property, unless second form above is used,
-in which case the specified @tt{tag} is attached to the type using the
-specified @tt{key}.
+declaration) @racket[#%type] syntax property (essentially, a default kind),
+unless the second form above is used, in which case the specified @tt{tag} is
+attached to the type using the specified @tt{key}.
+
+The @racket[#:runtime] argument dictates that, rather than throwing an error,
+type evaluates to a value at runtime.
 
 @defform[(define-base-types base-type-name-id ...)]{
-  Defines multiple base types, each using the default key.}
+  Defines multiple base types, each using the default key and options.}
 
 @defform[(define-type-constructor name-id option ...)
           #:grammar
          ([option (code:line #:arity op n)
+                  (code:line #:runtime)
                   (code:line #:arg-variances expr)
                   (code:line #:extra-info stx)])]{
   Defines a type constructor (that does not bind type variables).
@@ -392,6 +398,9 @@ specified @tt{key}.
     @racket[(define-type-constructor → #:arity >= 1)] defines an arrow type and
     @racket[(define-type-constructor Pair #:arity = 2)] defines a pair type.
     The default arity is @racket[= 1].
+
+    The @racket[#:runtime] argument dictates that, rather than throwing an error,
+    type evaluates to a value at runtime.
 
     The @racket[#:arg-variances] argument is a transformer converting a syntax
     object of the type to a list of variances for the arguments to the type

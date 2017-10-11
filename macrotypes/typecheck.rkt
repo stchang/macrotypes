@@ -435,8 +435,11 @@
          ;; base types --------------------------------------------------------
          (define-syntax define-base-type
            (syntax-parser  ; default = 'key2 + #%tag
-            [(_ (~var τ id)) #'(define-base-type τ key2 #%tag)]
-            [(_ (~var τ id) new-key2 new-#%tag)
+            [(_ (~var τ id) (~optional (~seq k:keyword (... ...)) #:defaults ([(k 1) null])))
+             #'(define-base-type τ key2 #%tag k (... ...))]
+            [(_ (~var τ id) new-key2 new-#%tag
+                (~optional ; allow type at runtime
+                 (~and #:runtime (~parse runtime? #'#t))))
              #:with τ? (mk-? #'τ)
              #:with τ-expander (mk-~ #'τ)
              #:with τ-internal (generate-temporary #'τ)
@@ -456,10 +459,13 @@
                      ; e.g., in stlc+sub (~Nat τ)
                      [(_ . rst)
                       #'(((~literal #%plain-app) (~literal τ-internal)) . rst)]))))
-                (define τ-internal
-                  (λ () (raise (exn:fail:type:runtime
-                                (format "~a: Cannot use ~a at run time" 'τ 'tag)
-                                (current-continuation-marks)))))
+                (define (τ-internal)
+                  #,(if (attribute runtime?)
+                        #''τ
+                        #'(raise
+                           (exn:fail:type:runtime
+                            (format "~a: Cannot use ~a at run time" 'τ 'tag)
+                            (current-continuation-marks)))))
                 (define-syntax τ
                   (syntax-parser
                     [(~var _ id)
@@ -487,6 +493,9 @@
            (syntax-parser
             [(_ (~var τ id)
                 (~or
+                 (~optional ; allow type at runtime
+                  (~and #:runtime (~parse runtime? #'#t))
+                  #:name "#:runtime keyword")
                  (~optional ; variances
                   (~seq #:arg-variances arg-variances-stx:expr)
                   #:name "#:arg-variances keyword"
@@ -522,10 +531,13 @@
                                    #'expanded-τ)
                                  . pat))])))
                   (define arg-vars arg-variances-stx))
-                (define τ-internal
-                  (λ _ (raise (exn:fail:type:runtime
-                               (format "~a: Cannot use ~a at run time" 'τ 'name)
-                               (current-continuation-marks)))))
+                (define (τ-internal args)
+                  #,(if (attribute runtime?)
+                        #'(list 'τ (args))
+                        #'(raise
+                           (exn:fail:type:runtime
+                            (format "~a: Cannot use ~a at run time" 'τ 'name)
+                            (current-continuation-marks)))))
                 ; τ- is an internal constructor:
                 ; It does not validate inputs and does not attach a kind,
                 ; ie, it won't be recognized as a valid type, the programmer
