@@ -64,7 +64,16 @@
    ;; ------------------------------
    ;; Γ ⊢ (open [x <= e_packed with X_2] e) : τ_e
    ;;
+
   [⊢ e_packed ≫ e_packed- ⇒ (~∃ (Y) τ_body)]
   [X [x ≫ x- : #,(subst #'X #'Y #'τ_body)] ⊢ e ≫ e- ⇒ τ_e]
+  #:with τ_e_checked
+  (let ([ctx (syntax-local-make-definition-context)])
+    (syntax-local-bind-syntaxes
+      (list #'X)
+      #'(lambda (stx)
+          (type-error #:src #'stx #:msg "existential type ~a is not in scope" #'X-))
+      ctx)
+    (local-expand #'τ_e 'expression '() ctx))
   --------
-  [⊢ (let- ([x- e_packed-]) e-) ⇒ τ_e])
+  [⊢ (let- ([x- e_packed-]) e-) ⇒ τ_e_checked])

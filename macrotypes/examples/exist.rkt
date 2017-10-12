@@ -67,5 +67,14 @@
      ;;
    #:with [e_packed- (~∃ (Y) τ_body)] (infer+erase #'e_packed)
    #:with τ_x (subst #'X #'Y #'τ_body)
-   #:with [(_ x-) e- τ_e] (infer/ctx+erase #'(X [x : τ_x]) #'e)
-   (⊢ (let- ([x- e_packed-]) e-) : τ_e)])
+   #:with [(X- x-) e- τ_e] (infer/ctx+erase #'(X [x : τ_x]) #'e)
+   #:with τ_e_checked
+   (let ([ctx (syntax-local-make-definition-context)])
+     (syntax-local-bind-syntaxes
+       (list #'X-)
+       #'(lambda (stx)
+           (type-error #:src #'stx #:msg "existential type ~a is not in scope" #'X-))
+       ctx)
+     (local-expand #'τ_e 'expression '() ctx))
+
+   (⊢ (let- ([x- e_packed-]) e-) : τ_e_checked)])

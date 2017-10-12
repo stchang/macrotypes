@@ -45,9 +45,10 @@
         as (∃ (X) (× [a : X] [f : (→ X Int)]))))
 (check-type p4 : (∃ (X) (× [a : X] [f : (→ X Int)])))
 
-(check-not-type (open [x <= p4 with X] (proj x a)) : Int) ; type is X, not Int
-; type is (→ X X), not (→ Int Int)
-(check-not-type (open [x <= p4 with X] (proj x f)) : (→ Int Int))
+; X shouldn't escape open.
+(typecheck-fail (open [x <= p4 with X] (proj x a)))
+(typecheck-fail (open [x <= p4 with X] (proj x f)))
+
 (typecheck-fail (open [x <= p4 with X] (+ 1 (proj x a))))
 (check-type (open [x <= p4 with X] ((proj x f) (proj x a))) : Int ⇒ 6)
 (check-type (open [x <= p4 with X] ((λ ([y : X]) ((proj x f) y)) (proj x a))) : Int ⇒ 6)
