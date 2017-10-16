@@ -16,9 +16,9 @@
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑
 
 (provide Type (rename-out [Type *])
-         Π → ∀
+         Π → ∀ Π/c
          = eq-refl eq-elim
-         λ (rename-out [app #%app]) ann
+         λ (rename-out [app #%app]) ann λ/c app/c
          define-datatype define define-type-alias
 )
 
@@ -33,7 +33,7 @@
 
 ;; set (Type n) : (Type n+1)
 ;; Type = (Type 0)
-(define-internal-type-constructor Type)
+(define-internal-type-constructor Type #:runtime)
 (define-typed-syntax Type
   [:id ≫ --- [≻ (Type 0)]]
   [(_ n:exact-nonnegative-integer) ≫
@@ -43,7 +43,7 @@
         (syntax-property 
          #'(Type- 'n) ':
          (syntax-property
-          #'(Type- 'n+1)
+          #'(Type n+1)
           'orig
           (list #'(Type n+1))))
         'orig
@@ -83,7 +83,7 @@
      (define res
        ;; expand (Type n) if unexpanded
        (or (syntax-parse t1
-             [((~literal Type-) n)
+             [((~literal Type) n)
               (typecheck? ((current-type-eval) t1) t2)]
              [_ #f])
            (old-relation t1 t2)))
@@ -342,11 +342,52 @@
    [⊢ e_arg ≫ e_arg- ⇐ τ_in] ... ; typechecking args
    -----------------------------
    [⊢ (app/eval e_fn- e_arg- ...) ⇒ #,(substs #'(e_arg- ...) #'(X ...) #'τ_out)]])
-   
+
 (define-typed-syntax (ann e (~datum :) τ) ≫
   [⊢ e ≫ e- ⇐ τ]
   --------
   [⊢ e- ⇒ τ])
+
+;; ----------------------------------------------------------------------------
+;; auto-currying λ and #%app and Π
+;; - requires annotations for now
+;; TODO: add other cases?
+(define-syntax (λ/c stx)
+  (syntax-parse stx
+    [(_ () e) #'e]
+    [(_ ((~and xty [x:id (~datum :) τ]) . rst) e) #'(λ (xty) (λ/c rst e))]))
+
+(define-syntax (app/c stx)
+  (syntax-parse stx
+    [(_ e) #'e]
+    [(_ f e . rst) #'(app/c (app f e) . rst)]))
+
+(define-syntax (Π/c stx)
+  (syntax-parse stx
+    [(_ () t) #'t]
+    [(_ ((~and xty [x:id (~datum :) τ]) . rst) t) #'(Π (xty) (Π/c rst t))]))
+
+;; pattern expanders
+(begin-for-syntax
+  (define-syntax ~plain-app/c
+    (pattern-expander
+     (syntax-parser
+       [(_ f) #'f]
+       [(_ f e . rst)
+        #'(~plain-app/c ((~literal #%plain-app) f e) . rst)])))
+  #;(define-syntax ~Π/c
+    (pattern-expander
+     (syntax-parser
+       [(_ ([x:id : τ_in] ... (~and (~literal ...) ooo)) τ_out)
+        #'(~∀ (x ... ooo) (~→ τ_in ... ooo τ_out))]
+       [(_ ([x:id : τ_in] ...)  τ_out)
+        #'(~∀ (x ...) (~→ τ_in ... τ_out))]))))
+
+;; untyped
+(define-syntax (λ/c- stx)
+  (syntax-parse stx
+    [(_ () e) #'e]
+    [(_ (x . rst) e) #'(λ- (x) (λ/c- rst e))]))
 
 ;; top-level ------------------------------------------------------------------
 ;; TODO: shouldnt need define-type-alias, should be same as define
@@ -402,6 +443,31 @@
 
 (struct match/delayed (name args) #:transparent)
 
+(begin-for-syntax
+  (define (prune t n)
+    (if (zero? n)
+        t
+        (syntax-parse t
+          [(~Π ([_ : _]) t1)
+           (prune #'t1 (sub1 n))])))
+  (define (uncur t n)
+    (cond
+      [(= 0 n) #`(Π () #,t)]
+      [(= 1 n) t]
+      [else
+       (syntax-parse t
+         [(~Π ([x1 (~datum :) t1] ...)
+              (~Π ([x2 (~datum :) t2])
+                  t3))
+          (uncur #'(Π ([x1 : t1] ... [x2 : t2]) t3) (sub1 n))])]))
+  (define (uncurs t . ns)
+    (if (null? ns)
+        t
+        (syntax-parse ((current-type-eval) (uncur t (car ns)))
+          [(~Π ([x : τ] ...) t1)
+           #`(Π ([x : τ] ...)
+                #,(apply uncurs #'t1 (cdr ns)))]))))
+
 (define-typed-syntax define-datatype
   ;; datatype type `TY` is an id ----------------------------------------------
   ;; - ie, no params or indices
@@ -437,7 +503,13 @@
         ;; define `Name`, eg "Nat", as a valid type
 ;        (define-base-type Name) ; dont use bc uses '::, and runtime errs
         (struct Name/internal ())
-        (define-typed-syntax Name [_:id ≫ --- [⊢ (Name/internal) ⇒ TY]])
+        (define-typed-syntax Name
+          [_:id ≫
+           #:with out- (syntax-property #'(Name/internal)
+                                        'elim-name #'elim-Name)
+           -------------
+           [⊢ out- ⇒ TY]])
+
         ;; define structs for `C` constructors
         (struct C/internal (x ...) #:transparent) ...
         (define C (unsafe-assign-type C/internal : CTY)) ...
@@ -491,13 +563,17 @@
   ;; - and constructors also flatten to A ... i ...
   ;; - all cases in elim-Name must consume i ... (but A ... is inferred)
   ;; --------------------------------------------------------------------------
-  [(_ Name (~datum :) TY
+  [(_ Name [A (~datum :) TYA] ... ; params
+           (~datum :)
+           [i (~datum :) TYi] ... ; indices
+           (~datum ->)
+           TY_out
       [C:id (~datum :) CTY] ...) ≫
 
    ;; params and indices specified with separate fn types, to distinguish them,
    ;; but are combined in other places,
    ;; eg (Name A ... i ...) or (CTY A ... i ...)
-   [⊢ TY ≫ (~Π ([A : TYA] ...) ; params
+   #;[⊢ TY ≫ (~Π ([A : TYA] ...) ; params
                (~Π ([i : TYi] ...) ; indices
                    TY_out)) ⇐ Type]
 
@@ -515,10 +591,18 @@
    ;; - 1st Π is tycon params, dont care for now
    ;; - 2nd Π is tycon indices, dont care for now
    ;; - 3rd Π is constructor args
-   #:with ((~Π ([_ : _] ...)
-             (~Π ([_ : _] ...)
-               (~Π ([x : CTY_in/tmp] ...) CTY_out/tmp))) ...)
-          #'(CTY/tmp- ...)
+   ;; NOTE: above is obsolete now bc everything is curried
+   ;; TODO: can't use pattern here
+   ;;       bc wont know how many args until macro is used;
+   ;;       pruning the A and i needs to happen on rhs
+   ;; #:with ((~Π ([_ : _] ...)
+   ;;           (~Π ([_ : _] ...)
+   ;;             (~Π ([x : CTY_in/tmp] ...) CTY_out/tmp))) ...)
+   #:with ((~Π ([x : CTY_in/tmp] ...) CTY_out/tmp) ...)
+          (stx-map
+           (lambda (cty)
+             (prune cty (stx-length #'(A ... i ...)))) 
+           #'(CTY/tmp- ...))
    ;; each (recur-x ...) is subset of (x ...) that are recur args,
    ;; ie, they are not fresh ids
    #:with ((recur-x ...) ...) (stx-map
@@ -556,6 +640,7 @@
                                       #'((Ci ...) ...)
                                       #'((recur-x ...) ...))
    ;; not inst'ed CTY_in
+   #:with ((CTYA/CA ...) ...) (stx-map generate-temporaries #'((CA ...) ...))
    #:with ((CTY_in/CA ...) ...) (stx-map generate-temporaries #'((CTY_in/tmp ...) ...))
    ;; inst'ed CTY_in (with A ...)
    #:with ((CTY_in ...) ...) (stx-map generate-temporaries #'((CTY_in/tmp ...) ...))
@@ -578,6 +663,7 @@
    #:with elim-Name (format-id #'Name "elim-~a" #'Name)
    #:with match-Name (format-id #'Name "match-~a" #'Name)
    #:with (ccasety ...) (generate-temporaries #'(Ccase ...))
+   #:with (expected-Ccase-ty ...) (generate-temporaries #'(Ccase ...))
    ;; these are all the generated definitions that implement the define-datatype
    #:with OUTPUT-DEFS
     #'(begin-
@@ -588,27 +674,50 @@
         (define-typed-syntax (Name A ... i ...) ≫
           [⊢ A ≫ A- ⇐ TYA] ...
           [⊢ i ≫ i- ⇐ TYi] ...
+          #:with out- (syntax-property #'(Name- A- ... i- ...)
+                                       'elim-name #'elim-Name)
           ----------
-          [⊢ (Name- A- ... i- ...) ⇒ TY_out])
+          [⊢ out- ⇒ TY_out])
 
         ;; define structs for constructors
         (struct C/internal (x ...) #:transparent) ...
         ;; TODO: this define should be a macro instead?
         (define C (unsafe-assign-type
-                   (lambda (A ...) (lambda (i ...) C/internal))
+                   (λ/c- (A ... i ...) C/internal)
                    : CTY)) ...
-
         ;; define eliminator-form
+        ;; v = target
+        ;; - infer A ... from v
+        ;; P = motive
+        ;; - is a fn that consumes:
+        ;;   - indices i ... (curried)
+        ;;   - and Name A ... i ... 
+        ;;     - where A ... is inst with A ... inferred from v
+        ;; - output is a type
+        ;; Ccase = branches
+        ;; - each is a fn that consumes:
+        ;;   - indices i ...
+        ;;   - constructor args
+        ;;     - inst with A ... inferred from v
+        ;;   - IH for recursive args
         (define-typed-syntax (elim-Name v P Ccase ...) ≫
           ;; re-extract CTY_in and CTY_out, since we didnt un-subst above
           ;; TODO: must re-compute recur-x, ie recur-Cx
-          #:with ((~Π ([CA : CTYA] ...) ; ignore params, instead infer `A` ... from `v`
+          #:with ((~Π ([CA : CTYA/CA] ...) ; ignore params, instead infer `A` ... from `v`
                     (~Π ([Ci : CTYi/CA] ...)
                       (~Π ([Cx : CTY_in/CA] ...)
                           CTY_out/CA)))
                   ...)
-                 (stx-map (current-type-eval) #'(CTY ...))
-
+                 (stx-map
+                  (λ (cty cas cis)
+                    ((current-type-eval)
+                     (uncurs
+                      ((current-type-eval) cty)
+                      (stx-length cas)
+                      (stx-length cis))))
+                  #'(CTY ...)
+                  #'((CA ...) ...)
+                  #'((Ci ...) ...))
           ;; compute recur-Cx by finding analogous x/recur-x pairs
           ;; each (recur-Cx ...) is subset of (Cx ...) that are recur args,
           ;; ie, they are not fresh ids
@@ -643,10 +752,12 @@
           [⊢ v ≫ v- ⇒ (Name-patexpand A ... i ...)]
 
           ;; inst CTY_in/CA and CTY_out/CA with inferred A ...
-          #:with (((CTYi ...)
+          #:with (((CTYA ...)
+                   (CTYi ...)
                    (CTY_in ... CTY_out))
                   ...)
-                 (stx-map (lambda (ts tyis cas) (substs #'(A ...) cas #`(#,tyis #,ts)))
+                 (stx-map (lambda (tyas ts tyis cas) (substs #'(A ...) cas #`(#,tyas #,tyis #,ts)))
+                          #'((CTYA/CA ...) ...)
                           #'((CTY_in/CA ... CTY_out/CA) ...)
                           #'((CTYi/CA ...) ...)
                           #'((CA ...) ...))
@@ -665,12 +776,27 @@
           ;; somewhat of a hack:
           ;; by reusing Ci and CTY_out_i both to match CTY/CTY_out above, and here,
           ;; we automatically unify Ci with the indices in CTY_out
+          ; TODO: Ci*recur still wrong
           [⊢ Ccase ≫ _ ⇒ ccasety] ...
-          [⊢ Ccase ≫ Ccase- ⇐ (Π ([Ci : CTYi] ...) ; indices
+          #:with (expected-Ccase-ty ...)
+                 #'((Π ([Ci : CTYi] ...) ; indices
+                       (Π ([Cx : CTY_in] ...) ; constructor args
+                          (→ (app (app P- Ci*recur ...) recur-Cx) ... ; IHs
+                             (app (app P- CTY_out_i ...)
+                                  (app (app/c C A*C ... Ci ...) Cx ...))))) ...)
+          ;; #:do[(displayln "actual")
+          ;;      (pretty-print (stx->datum #'(ccasety ...)))
+          ;;      (displayln "expected")
+          ;;      (pretty-print (stx->datum #'(expected-Ccase-ty ...)))
+          ;;      (pretty-print (stx->datum (stx-map (current-type-eval) #'(expected-Ccase-ty ...))))]
+
+          [⊢ Ccase ≫ Ccase- ⇐ expected-Ccase-ty] ...
+
+          #;[⊢ Ccase ≫ Ccase- ⇐ (Π ([Ci : CTYi] ...) ; indices
                                  (Π ([Cx : CTY_in] ...) ; constructor args
                                     (→ (app (app P- Ci*recur ...) recur-Cx) ... ; IHs
                                        (app (app P- CTY_out_i ...)
-                                            (app (app (app C A*C ...) Ci ...) Cx ...)))))] ...
+                                            (app (app (app C A*C ...) Ci ...) Cx ...)))))] ;...
           -----------
           [⊢ (match-Name v- P- Ccase- ...) ⇒ (app (app P- i ...) v-)])
 
@@ -686,9 +812,7 @@
              ;; must local expand because `v` may be unexpanded due to reflection
              (syntax-parse (local-expand #'v 'expression null)
                [((~literal #%plain-app)
-                 ((~literal #%plain-app)
-                  ((~literal #%plain-app) C-:id CA ...)
-                  Ci ...)
+                 (~plain-app/c C-:id CA ... Ci ...)
                  x ...)
                 #:with (_ C+ . _) (local-expand #'(C 'CA ...) 'expression null)
                 #:when (free-identifier=? #'C+ #'C-)
@@ -715,3 +839,4 @@
 ;   #:do[(pretty-print (stx->datum #'OUTPUT-DEFS))]
    --------
    [≻ OUTPUT-DEFS]])
+

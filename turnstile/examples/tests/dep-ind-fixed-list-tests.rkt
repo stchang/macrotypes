@@ -21,21 +21,21 @@
 ;; 3) constructor args, split into
 ;;    - non-recursive
 ;;    - recursive
-(define-datatype List : (→ * (→ *))
-  [null : (∀ (A) (→ (→ (List A))))]
-  [cons : (∀ (A) (→ (→ A (List A) (List A))))])
+(define-datatype List [A : (Type 0)] : -> (Type 0)
+  [null : (∀ (A) (→ (List A)))]
+  [cons : (∀ (A) (→ A (List A) (List A)))])
 
-(check-type null : (∀ (A) (→ (→ (List A)))))
-(check-type cons : (∀ (A) (→ (→ A (List A) (List A)))))
-(check-type (null Nat) : (→ (→ (List Nat))))
-(check-type (cons Nat) : (→ (→ Nat (List Nat) (List Nat))))
-(check-type ((null Nat)) : (→ (List Nat)))
-(check-type (((null Nat))) : (List Nat))
-(check-type (((cons Nat)) (Z) (((null Nat)))) : (List Nat))
+(check-type null : (∀ (A) (→ (List A))))
+(check-type cons : (∀ (A) (→ A (List A) (List A))))
+(check-type (null Nat) : (→ (List Nat)))
+(check-type (cons Nat) : (→ Nat (List Nat) (List Nat)))
+(check-type (null Nat) : (→ (List Nat)))
+(check-type ((null Nat)) : (List Nat))
+(check-type ((cons Nat) (Z) ((null Nat))) : (List Nat))
 
 ;; length 0
 (check-type
- (elim-List (((null Nat)))
+ (elim-List ((null Nat))
             (λ () (λ ([l : (List Nat)]) Nat))
             (λ () (λ () (λ () (Z))))
             (λ ()
@@ -47,7 +47,7 @@
 
 ;; length 1
 (check-type
- (elim-List (((cons Nat)) (Z) (((null Nat))))
+ (elim-List ((cons Nat) (Z) ((null Nat)))
             (λ () (λ ([l : (List Nat)]) Nat))
             (λ () (λ () (λ () (Z))))
             (λ ()
@@ -59,7 +59,7 @@
 
 ;; length 2
 (check-type
- (elim-List (((cons Nat)) (S (Z)) (((cons Nat)) (Z) (((null Nat)))))
+ (elim-List ((cons Nat) (S (Z)) ((cons Nat) (Z) ((null Nat))))
             (λ () (λ ([l : (List Nat)]) Nat))
             (λ () (λ () (λ () (Z))))
             (λ () 
@@ -79,8 +79,8 @@
                    (λ ([IH : Nat])
                      (S IH)))))))
 
-(check-type (len/Nat (((null Nat)))) : Nat -> (Z))
-(check-type (len/Nat (((cons Nat)) (Z) (((null Nat))))) : Nat -> (S (Z)))
+(check-type (len/Nat ((null Nat))) : Nat -> (Z))
+(check-type (len/Nat ((cons Nat) (Z) ((null Nat)))) : Nat -> (S (Z)))
 
 (define-type-alias len
   (λ ([A : *])
@@ -93,8 +93,8 @@
                      (λ ([IH : Nat])
                        (S IH))))))))
 (check-type (len Nat) : (→ (List Nat) Nat))
-(check-type ((len Nat) (((null Nat)))) : Nat -> (Z))
-(check-type ((len Nat) (((cons Nat)) (Z) (((null Nat))))) : Nat -> (S (Z)))
+(check-type ((len Nat) ((null Nat))) : Nat -> (Z))
+(check-type ((len Nat) ((cons Nat) (Z) ((null Nat)))) : Nat -> (S (Z)))
 
 ;; test that elim matches on constructor name, and not arity
 (define-datatype Test : *
@@ -117,7 +117,7 @@
  : Nat -> (S (Z)))
 
 ;; Vect: indexed "lists" parameterized over length --------------------
-(define-datatype Vect : (→ * (→ Nat *))
+(define-datatype Vect [A : (Type 0)] : [i : Nat] -> (Type 0)
   [nil : (Π ([A : *]) (Π ([k : Nat]) (→ (Vect A (Z)))))]
   [cns : (Π ([A : *]) (Π ([k : Nat]) (→ A (Vect A k) (Vect A (S k)))))])
 

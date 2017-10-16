@@ -3,6 +3,10 @@
 
 ; Π → λ ∀ ≻ ⊢ ≫ ⇒
 
+;; won't work with dep-ind.rkt
+;; - bc it doesnt curry properly
+;; - eg so 2nd param cant depend on 1st one
+
 ;; testing user-defined equality
 
 (define-datatype my= : (Π ([A : (Type 0)]) (Π ([a : A] [b : A]) (Type 0)))
@@ -37,6 +41,25 @@
  (((my-refl Nat) (Z) (Z)) (S (S (Z))))
  : (my= Nat (plus (S (Z)) (S (Z))) (plus (S (Z)) (plus (S (Z)) (Z))))) ; 1+1=1+1+0
 
+; = id
+(check-type
+ (λ ([A : (Type 0)])
+   (λ ([x : A] [y : A])
+      (λ ([e1 : (my= A x y)])
+         (elim-my=
+          e1
+          (λ ([a : A] [b : A]) ; a = x, b = z
+             (λ ([e : (my= A a b)])
+               (my= A a b)))
+          (λ ([a : A] [b : A])
+            (λ ([c : A])
+              (λ ()
+                (((my-refl A) c c) c))))))))
+ : (Π ([A : (Type 0)])
+      (Π ([x : A] [y : A])
+         (→ (my= A x y)
+            (my= A x y)))))
+
 ;; = symmetric
 (check-type
  (λ ([B : (Type 0)])
@@ -55,30 +78,95 @@
       (Π ([x : A] [y : A])
          (→ (my= A x y) (my= A y x)))))
 
-;; = transitive
-; TODO
-#;(check-type
+
+;; = transitive (partial 1)
+(check-type
  (λ ([A : (Type 0)])
    (λ ([x : A] [y : A] [z : A])
       (λ ([e1 : (my= A x y)] [e2 : (my= A y z)])
          (elim-my=
           e1
-          (λ ([a : A] [b : A])
+          (λ ([a : A] [b : A]) ; a = x, b = z
              (λ ([e : (my= A a b)])
-               (my= A a z)))
+               (Π ([c : A]) (→ (my= A b c) (my= A a c)))))
           (λ ([a : A] [b : A])
             (λ ([c : A])
               (λ ()
-                (elim-my=
-                 e2
-                 (λ ([a : A] [b : A])
-                    (λ ([e : (my= A a b)])
-                      (my= A c c)))
-                 (λ ([a : A] [b : A])
-                   (λ ([c : A])
-                     (λ ()
-                       (((my-refl A) c c) c))))))))))))
+                  (λ ([d : A])
+                    (λ ([e : (my= A c d)]) e)))))))))
  : (Π ([A : (Type 0)])
       (Π ([x : A] [y : A] [z : A])
-         (→ (my= A x y) (my= A y z) (my= A x z)))))
-   
+         (→ (my= A x y)
+            (my= A y z)
+            (Π ([c : A]) (→ (my= A y c) (my= A x c)))))))
+
+;; = transitive (partial 2)
+(check-type
+ (λ ([A : (Type 0)])
+   (λ ([x : A] [y : A] [z : A])
+      (λ ([e1 : (my= A x y)] [e2 : (my= A y z)])
+         ((elim-my=
+           e1
+           (λ ([a : A] [b : A]) ; a = x, b = z
+             (λ ([e : (my= A a b)])
+               (Π ([c : A]) (→ (my= A b c) (my= A a c)))))
+           (λ ([a : A] [b : A])
+             (λ ([c : A])
+               (λ ()
+                 (λ ([d : A])
+                   (λ ([e : (my= A c d)]) e))))))
+          z))))
+ : (Π ([A : (Type 0)])
+      (Π ([x : A] [y : A] [z : A])
+         (→ (my= A x y)
+            (my= A y z)
+            (→ (my= A y z) (my= A x z))))))
+
+;; = transitive
+(check-type
+ (λ ([A : (Type 0)])
+   (λ ([x : A] [y : A] [z : A])
+      (λ ([e1 : (my= A x y)] [e2 : (my= A y z)])
+        (((elim-my=
+           e1
+           (λ ([a : A] [b : A]) ; a = x, b = z
+             (λ ([e : (my= A a b)])
+               (Π ([c : A]) (→ (my= A b c) (my= A a c)))))
+           (λ ([a : A] [b : A])
+             (λ ([c : A])
+               (λ ()
+                 (λ ([d : A])
+                   (λ ([e : (my= A c d)]) e))))))
+          z) e2))))
+ : (Π ([A : (Type 0)])
+      (Π ([x : A] [y : A] [z : A])
+         (→ (my= A x y)
+            (my= A y z)
+            (my= A x z)))))
+
+
+;; Paulin-Mohring (ie, coq-like) equality (1 index)
+
+#;(define-datatype pm= : (Π ([A : (Type 0)] [a : A]) (Π ([b : A]) (Type 0)))
+  (pm-refl : (Π ([A : (Type 0)][a : A])
+                (Π ([b : A])
+                   (Π ([c : A]) (pm= A c c))))))
+
+; pm= id
+#;(check-type
+ (λ ([A : (Type 0)])
+   (λ ([x : A] [y : A])
+      (λ ([e1 : (pm= A x y)])
+         (elim-pm=
+          e1
+          (λ ([b : A]) ; a = x, b = z
+             (λ ([e : (pm= A x b)])
+               (pm= A x b)))
+          (λ ([b : A])
+            (λ ([c : A])
+              (λ ()
+                (((pm-refl A c) c) c))))))))
+ : (Π ([A : (Type 0)])
+      (Π ([x : A] [y : A])
+         (→ (pm= A x y)
+            (pm= A x y)))))
