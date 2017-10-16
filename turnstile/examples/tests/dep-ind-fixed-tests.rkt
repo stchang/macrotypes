@@ -1,5 +1,6 @@
 #lang s-exp "../dep-ind-fixed.rkt"
 (require "rackunit-typechecking.rkt")
+(require (only-in racket quote))
 
 ; Π → λ ∀ ≻ ⊢ ≫ ⇒
 
@@ -17,16 +18,20 @@
 ;; except Z is replaced with (Z)
 
 ;; check (Type n) : (Type n+1)
-(check-type Type : (Type 1))
-(check-type (Type 0) : (Type 1))
+(check-type Type : (Type 1) -> '(Type 0))
+(check-type (Type 0) : (Type 1) -> '(Type 0))
 (check-not-type (Type 0) : (Type 0))
-(check-type (Type 1) : (Type 2))
-(check-type (Type 3) : (Type 4))
+(check-type (Type 1) : (Type 2) -> '(Type 1))
+(check-type (Type 3) : (Type 4) -> '(Type 3))
 
 (typecheck-fail ((λ ([x : Type]) x) Type)
  #:with-msg "expected Type, given \\(Type 1\\)")
 (check-type ((λ ([x : (Type 1)]) x) Type) : (Type 1))
 (check-type ((λ ([x : (Type 2)]) x) (Type 1)) : (Type 2))
+
+(check-type (λ ([y : (Type 0)]) y) : (→ (Type 0) (Type 0)))
+(check-type (λ ([y : (Type 0)]) (Type 0)) : (→ (Type 0) (Type 1)))
+(check-type (λ ([y : (Type 0)]) (Type 1)) : (→ (Type 0) (Type 2)))
 
 ;; Peano nums -----------------------------------------------------------------
 
@@ -151,3 +156,34 @@
       [Scase : (Π ([k : Nat]) (→ (P k) (P (S k))))]
       [n : Nat])
     (match/nat n ZCase (SCase n (nat-ind2 P ZCase SCase n-1)))))
+
+;; test currying
+(check-type
+ (λ ([A : Type]) (λ ([x : A]) x))
+ : (Π ([B : Type]) (Π ([y : B]) B)))
+(check-type
+ (λ ([A : Type]) (λ ([x : A]) x))
+ : (Π/c ([B : Type][y : B]) B))
+(check-type
+ (λ/c ([A : Type][x : A]) x)
+ : (Π ([B : Type]) (Π ([y : B]) B)))
+(check-type
+ (λ/c ([A : Type][x : A]) x)
+ : (Π/c ([B : Type][y : B]) B))
+(typecheck-fail ((λ ([A : Type][x : A]) x) Nat (Z))
+                #:with-msg "expected A, given Nat")
+
+(check-type
+ (((λ/c ([A : Type][x : A]) x) Nat) (Z))
+ : Nat -> (Z))
+
+(check-type 
+ (app/c (λ/c ([A : Type][x : A]) x) Nat (Z))
+ : Nat -> (Z))
+
+(check-type
+ (app/c 
+  plus
+  (app/c (λ/c ([A : Type][x : A]) x) Nat (Z))
+  (app/c (λ/c ([A : Type][x : A]) x) Nat (Z)))
+ : Nat -> (Z))
