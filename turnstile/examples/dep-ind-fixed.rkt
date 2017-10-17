@@ -53,6 +53,7 @@
   (define debug? #f)
   (define type-eq-debug? #f)
   (define debug-match? #f)
+  (define debug-elim? #f)
 
   ;; TODO: fix `type` stx class
   ;; current-type and type stx class not working
@@ -329,15 +330,17 @@
    #:do[(when debug?
           (displayln "TYPECHECKING")
           (pretty-print (stx->datum this-syntax)))]
+   
 ;   #:do[(printf "applying (1) ~a\n" (stx->datum #'e_fn))]
 ;   [⊢ e_fn ≫ (~and e_fn- (_ (x:id ...) e ~!)) ⇒ (~Π ([X : τ_inX] ...) τ_outX)]
    [⊢ e_fn ≫ e_fn- ⇒ (~Π ([X : τ_in] ...) τ_out)]
    #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
                  (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
-   ;; #:do[(displayln "expecting")
+   ;; #:do[(displayln "expecting app args")
    ;;      (pretty-print (stx->datum #'(τ_in ...)))]
    ;; [⊢ e_arg ≫ _ ⇒ ty2] ... ; typechecking args
    ;; #:do[(displayln "got")
+   ;;      (pretty-print (stx->datum #'(ty2 ...)))
    ;;      (pretty-print (stx->datum (stx-map typeof #'(ty2 ...))))]
    [⊢ e_arg ≫ e_arg- ⇐ τ_in] ... ; typechecking args
    -----------------------------
@@ -718,6 +721,25 @@
                   #'(CTY ...)
                   #'((CA ...) ...)
                   #'((Ci ...) ...))
+
+          #:do[(when debug-elim?
+                 (displayln "CTY:")
+                 (displayln (stx->datum #'(CTY ...)))
+                 (displayln "CA:")
+                 (displayln (stx->datum #'((CA ...) ...)))
+                 (displayln "CTYA/CA:")
+                 (displayln (stx->datum #'((CTYA/CA ...) ...)))
+                 (displayln "Ci:")
+                 (displayln (stx->datum #'((Ci ...) ...)))
+                 (displayln "CTYi/CA:")
+                 (displayln (stx->datum #'((CTYi/CA ...) ...)))
+                 (displayln "Cx:")
+                 (displayln (stx->datum #'((Cx ...) ...)))
+                 (displayln "CTY_in/CA:")
+                 (displayln (stx->datum #'((CTY_in/CA ...) ...)))
+                 (displayln "CTY_out/CA:")
+                 (displayln (stx->datum #'(CTY_out/CA ...))))]
+
           ;; compute recur-Cx by finding analogous x/recur-x pairs
           ;; each (recur-Cx ...) is subset of (Cx ...) that are recur args,
           ;; ie, they are not fresh ids
@@ -751,21 +773,62 @@
           ;; target, infers A ...
           [⊢ v ≫ v- ⇒ (Name-patexpand A ... i ...)]
 
+          #:do[(when debug-elim?
+                 (displayln "inferred A:")
+                 (displayln (stx->datum #'(A ...)))
+                 (displayln "inferred i:")
+                 (displayln (stx->datum #'(i ...)))
+                 (displayln "A ..., one for each C:")
+                 (displayln (stx->datum #'((A*C ...) ...))))]
+
           ;; inst CTY_in/CA and CTY_out/CA with inferred A ...
           #:with (((CTYA ...)
                    (CTYi ...)
                    (CTY_in ... CTY_out))
                   ...)
-                 (stx-map (lambda (tyas ts tyis cas) (substs #'(A ...) cas #`(#,tyas #,tyis #,ts)))
-                          #'((CTYA/CA ...) ...)
-                          #'((CTY_in/CA ... CTY_out/CA) ...)
-                          #'((CTYi/CA ...) ...)
-                          #'((CA ...) ...))
-          ;; get the params and indices in CTY_out
+                 (stx-map
+                  (lambda (tyas ts tyis cas)
+                    (substs #'(A ...) cas #`(#,tyas #,tyis #,ts)))
+                  #'((CTYA/CA ...) ...)
+                  #'((CTY_in/CA ... CTY_out/CA) ...)
+                  #'((CTYi/CA ...) ...)
+                  #'((CA ...) ...))
+
+          #:do[(when debug-elim?
+                 (displayln "CTYA:")
+                 (displayln (stx->datum #'((CTYA ...) ...)))
+                 (displayln "CTYi:")
+                 (displayln (stx->datum #'((CTYi ...) ...)))
+                 (displayln "CTY_in:")
+                 (displayln (stx->datum #'((CTY_in ...) ...)))
+                 (displayln "CTY_out:")
+                 (displayln (stx->datum #'(CTY_out ...))))]
+
+          ;; get the params and indices in CTY_out          
           ;; - dont actually need CTY_out_A
-          #:with ((Name-patexpand CTY_out_A ... CTY_out_i ...) ...) #'(CTY_out ...)
+          ;; - CTY_out_i dictates what what "index" args P should be applied to
+          ;;   in each ccase output type
+          ;;     ie, it is the (app P- CTY_out_i ...) below
+          ;;   It is the index, "unified" with its use in CTY_out
+          ;;   Eg, for empty indexed list, for index n, CTY_out_i = 0
+          ;;       for non-empt indx list, for index n, CTY_out_i = (Succ 0)
+          ;;   TODO: is this right?
+          #:with ((Name-patexpand CTY_out_A ... CTY_out_i ...) ...)
+                 #'(CTY_out ...)
+
+          #:do[(when debug-elim?
+                 (displayln "inferred CTY_out_A:")
+                 (displayln (stx->datum #'((CTY_out_A ...) ...)))
+                 (displayln "inferred CTY_out_i:")
+                 (displayln (stx->datum #'((CTY_out_i ...) ...))))]
 
           ;; prop / motive
+          #:do[(when debug-elim?
+                 (displayln "type of motive:")
+                 (displayln
+                  (stx->datum
+                   #'(Π ([j : TYi] ...) (→ (Name A ... j ...) Type)))))]
+
           [⊢ P ≫ P- ⇐ (Π ([j : TYi] ...) (→ (Name A ... j ...) Type))]
 
           ;; each Ccase consumes 3 nested sets of (possibly empty) args:
@@ -776,7 +839,7 @@
           ;; somewhat of a hack:
           ;; by reusing Ci and CTY_out_i both to match CTY/CTY_out above, and here,
           ;; we automatically unify Ci with the indices in CTY_out
-          ; TODO: Ci*recur still wrong
+          ; TODO: Ci*recur still wrong?
           [⊢ Ccase ≫ _ ⇒ ccasety] ...
           #:with (expected-Ccase-ty ...)
                  #'((Π ([Ci : CTYi] ...) ; indices
@@ -784,14 +847,19 @@
                           (→ (app (app P- Ci*recur ...) recur-Cx) ... ; IHs
                              (app (app P- CTY_out_i ...)
                                   (app (app/c C A*C ... Ci ...) Cx ...))))) ...)
-          ;; #:do[(displayln "actual")
-          ;;      (pretty-print (stx->datum #'(ccasety ...)))
-          ;;      (displayln "expected")
-          ;;      (pretty-print (stx->datum #'(expected-Ccase-ty ...)))
-          ;;      (pretty-print (stx->datum (stx-map (current-type-eval) #'(expected-Ccase-ty ...))))]
+
+          #:do[(when debug-elim?
+                 (displayln "Ccase-ty:")
+                 (displayln "actual ccase types:")
+                 (pretty-print (stx->datum #'(ccasety ...)))
+                 (displayln "expected ccase types:")
+                 (pretty-print (stx->datum #'(expected-Ccase-ty ...)))
+                 (stx-map 
+                  (λ(c)
+                    (pretty-print (stx->datum ((current-type-eval) c))))
+                  #'(expected-Ccase-ty ...)))]
 
           [⊢ Ccase ≫ Ccase- ⇐ expected-Ccase-ty] ...
-
           #;[⊢ Ccase ≫ Ccase- ⇐ (Π ([Ci : CTYi] ...) ; indices
                                  (Π ([Cx : CTY_in] ...) ; constructor args
                                     (→ (app (app P- Ci*recur ...) recur-Cx) ... ; IHs
