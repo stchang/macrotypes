@@ -22,7 +22,7 @@
  (all-defined-out)
  (for-syntax (all-defined-out))
  (for-meta 2 (all-defined-out))
- (except-out (all-from-out racket/base) #%module-begin)
+ (except-out (all-from-out racket/base) #%module-begin #%top)
  (all-from-out syntax/parse/define)
  (for-syntax
   (all-from-out racket syntax/parse racket/syntax syntax/stx
@@ -56,9 +56,18 @@
      (syntax/loc this-syntax
        (#%module-begin
         ; auto-provide some useful racket forms
-        (provide #%module-begin #%top-interaction #%top
+        (provide #%module-begin #%top-interaction (rename-out [tc-top #%top])
          require only-in prefix-in rename-in)
         . stuff))]))
+
+; Implement #%top so that local-expand with a stop-list still
+; causes unbound identifier errors.
+(define-syntax (tc-top stx)
+  (syntax-case stx ()
+    [(_ . arg)
+     (raise (exn:fail:syntax:unbound (format "~a: unbound identifier in module" (syntax-e #'arg))
+                                     (current-continuation-marks)
+                                     (list #'arg)))]))
 
 (struct exn:fail:type:runtime exn:fail:user ())
 
@@ -580,7 +589,7 @@
                                    (format
                                     "wrong number of arguments, expected ~a ~a"
                                     'op 'n)
-                     #:with ([arg- _] (... (... ...))) (infers+erase #'args #:tag 'key2)
+                     #:with ([arg- _] (... (... ...))) (infers+erase #'args #:tag 'key2 #:stop-list? #f)
                      ;; args are validated on the next line rather than above
                      ;; to ensure enough stx-parse progress for proper err msg,
                      ;; ie, "invalid type" instead of "improper tycon usage"
@@ -727,7 +736,7 @@
                      #:with bvs+ks (if #,(attribute has-annotations?)
                                        #'bvs+ann
                                        #'([bv key2 #%tag] (... (... ...))))
-                     #:with (bvs- τs- _) (infers/ctx+erase #'bvs+ks #'args #:tag 'key2)
+                     #:with (bvs- τs- _) (infers/ctx+erase #'bvs+ks #'args #:tag 'key2 #:stop-list? #f)
                      ;; args are validated on the next line rather than above
                      ;; to ensure enough stx-parse progress for proper err msg,
                      ;; ie, "invalid type" instead of "improper tycon usage"
@@ -891,7 +900,7 @@
                                     (string->symbol
                                      (cadr matched-ty))))
                                   (list #'e t-in-msg))])
-               (infer+erase #'e))
+               (infer+erase #'e #:stop-list? #f))
            #:context #'e
            [(e- τ_e_)
             #:with τ_e ((current-promote) #'τ_e_)
@@ -912,7 +921,7 @@
        #:with τ? (mk-? #'tycon)
        #:with τ-get (format-id #'tycon "~a-get" #'tycon)
        #:with τ-expander (mk-~ #'tycon)
-       #'(syntax-parse (stx-map infer+erase #'es) #:context #'es
+       #'(syntax-parse (stx-map (lambda (e) (infer+erase e #:stop-list? #f)) #'es) #:context #'es
            [((e- τ_e_) (... ...))
             #:with (τ_e (... ...)) (stx-map (current-promote) #'(τ_e_ (... ...)))
             #:when (stx-andmap
@@ -955,12 +964,12 @@
 
   ;; basic infer function with no context:
   ;; infers the type and erases types in an expression
-  (define (infer+erase e #:tag [tag (current-tag)])
-    (define e+ (expand/df e))
-    (list e+ (detach e+ tag)))
+  (define (infer+erase e #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
+    (syntax-parse (infer (list e) #:tag tag #:stop-list? stop-list?)
+      [(_ _ (e+) (τ)) (list #'e+ #'τ)]))
   ;; infers the types and erases types in multiple expressions
-  (define (infers+erase es #:tag [tag (current-tag)])
-    (stx-map (λ (e) (infer+erase e #:tag tag)) es))
+  (define (infers+erase es #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
+    (stx-map (λ (e) (infer+erase e #:tag tag #:stop-list? stop-list?)) es))
 
   ;; This is the main "infer" function. Most others are defined in terms of this.
   ;; It should be named infer+erase but leaving it for now for backward compat.
@@ -975,7 +984,8 @@
 
   (define (infer es #:ctx [ctx null] #:tvctx [tvctx null]
                     #:tag [tag (current-tag)] ; the "type" to return from es
-                    #:key [kev #'(current-type-eval)]) ; kind-eval (tvk in tvctx)
+                    #:key [kev #'(current-type-eval)] ; kind-eval (tvk in tvctx)
+                    #:stop-list? [stop-list? #t])
      (syntax-parse ctx
        [((~or X:id [x:id (~seq sep:id τ) ...]) ...) ; dont expand; τ may reference to tv
        #:with (~or (~and (tv:id ...)
@@ -1025,10 +1035,15 @@
                                    ...))])
          (syntax-local-bind-syntaxes (list x) rhs ctx))
 
+       (define stop-list
+         (if stop-list?
+           (list #'someiddoesntmatterwhat)
+           null))
+
        (define/syntax-parse
          (e+ ...)
          (for/list ([e (syntax->list #'(e ...))])
-                   (local-expand e 'expression null ctx)))
+                   (local-expand e 'expression stop-list ctx)))
 
        (define (typeof e)
          (detach e tag))
@@ -1037,7 +1052,7 @@
              #'(e+ ...)
              (stx-map typeof #'(e+ ...)))]
 
-      [([x τ] ...) (infer es #:ctx #`([x #,tag τ] ...) #:tvctx tvctx #:tag tag)]))
+      [([x τ] ...) (infer es #:ctx #`([x #,tag τ] ...) #:tvctx tvctx #:tag tag #:stop-list? stop-list?)]))
 
   ;; fns derived from infer ---------------------------------------------------
   ;; some are syntactic shortcuts, some are for backwards compat
@@ -1045,17 +1060,17 @@
   ;; shorter names
   ; ctx = type env for bound vars in term e, etc
   ; can also use for bound tyvars in type e
-  (define (infer/ctx+erase ctx e #:tag [tag (current-tag)])
-    (syntax-parse (infer (list e) #:ctx ctx #:tag tag)
+  (define (infer/ctx+erase ctx e #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
+    (syntax-parse (infer (list e) #:ctx ctx #:tag tag #:stop-list? stop-list?)
       [(_ xs (e+) (τ)) (list #'xs #'e+ #'τ)]))
-  (define (infers/ctx+erase ctx es #:tag [tag (current-tag)])
-    (stx-cdr (infer es #:ctx ctx #:tag tag)))
+  (define (infers/ctx+erase ctx es #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
+    (stx-cdr (infer es #:ctx ctx #:tag tag #:stop-list? stop-list?)))
   ; tyctx = kind env for bound type vars in term e
-  (define (infer/tyctx+erase ctx e #:tag [tag (current-tag)])
-    (syntax-parse (infer (list e) #:tvctx ctx #:tag tag)
+  (define (infer/tyctx+erase ctx e #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
+    (syntax-parse (infer (list e) #:tvctx ctx #:tag tag #:stop-list? stop-list?)
       [(tvs _ (e+) (τ)) (list #'tvs #'e+ #'τ)]))
-  (define (infers/tyctx+erase ctx es #:tag [tag (current-tag)])
-    (syntax-parse (infer es #:tvctx ctx #:tag tag)
+  (define (infers/tyctx+erase ctx es #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
+    (syntax-parse (infer es #:tvctx ctx #:tag tag #:stop-list? stop-list?)
       [(tvs+ _ es+ tys) (list #'tvs+ #'es+ #'tys)]))
   (define infer/tyctx infer/tyctx+erase)
   (define infer/ctx infer/ctx+erase)

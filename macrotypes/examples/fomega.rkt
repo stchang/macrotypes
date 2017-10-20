@@ -79,7 +79,7 @@
    #:with [e- τ_e] (infer+erase #'e)
    #:with (~∀ (tv ...) τ_body) #'τ_e
    #:with (~∀★ k ...) (kindof #'τ_e)
-;   #:with ([τ- k_τ] ...) (infers+erase #'(τ ...) #:tag '::)
+;   #:with ([τ- k_τ] ...) (infers+erase #'(τ ...) #:tag ':: #:stop-list? #f)
    #:with (k_τ ...) (stx-map kindof #'(τ.norm ...))
    #:fail-unless (kindchecks? #'(k_τ ...) #'(k ...))
                  (typecheck-fail-msg/multi 
@@ -91,7 +91,7 @@
 ;; - see fomega2.rkt
 (define-typed-syntax tyλ
   [(_ bvs:kind-ctx τ_body)
-   #:with (tvs- τ_body- k_body) (infer/ctx+erase #'bvs #'τ_body #:tag '::)
+   #:with (tvs- τ_body- k_body) (infer/ctx+erase #'bvs #'τ_body #:tag ':: #:stop-list? #f)
    #:fail-unless ((current-kind?) #'k_body)
                  (format "not a valid type: ~a\n" (type->str #'τ_body))
    (assign-kind #'(λ- tvs- τ_body-) #'(⇒ bvs.kind ... k_body))])
@@ -99,8 +99,8 @@
 (define-typed-syntax tyapp
   [(_ τ_fn τ_arg ...)
 ;   #:with [τ_fn- (k_in ... k_out)] (⇑ τ_fn as ⇒)
-   #:with [τ_fn- (~⇒ k_in ... k_out)] (infer+erase #'τ_fn #:tag '::)
-   #:with ([τ_arg- k_arg] ...) (infers+erase #'(τ_arg ...) #:tag '::)
+   #:with [τ_fn- (~⇒ k_in ... k_out)] (infer+erase #'τ_fn #:tag ':: #:stop-list? #f)
+   #:with ([τ_arg- k_arg] ...) (infers+erase #'(τ_arg ...) #:tag ':: #:stop-list? #f)
    #:fail-unless (kindchecks? #'(k_arg ...) #'(k_in ...))
                  (string-append
                   (format 

@@ -108,7 +108,7 @@
 ;; extend λ to also work as a type
 (define-typed-syntax λ
   [(_ bvs:kind-ctx τ)           ; type
-   #:with (Xs- τ- k_res) (infer/ctx+erase #'bvs #'τ #:tag '::)
+   #:with (Xs- τ- k_res) (infer/ctx+erase #'bvs #'τ #:tag ':: #:stop-list? #f)
    (assign-kind #'(λ- Xs- τ-) #'(→ bvs.kind ... k_res))]
   [(_ . rst) #'(sysf:λ . rst)]) ; term
 
@@ -116,10 +116,10 @@
 (define-typed-syntax #%app
   [(_ τ_fn τ_arg ...) ; type
 ;   #:with [τ_fn- (k_in ... k_out)] (⇑ τ_fn as ⇒)
-   #:with [τ_fn- k_fn] (infer+erase #'τ_fn #:tag '::)
+   #:with [τ_fn- k_fn] (infer+erase #'τ_fn #:tag ':: #:stop-list? #f)
    #:when (syntax-e #'k_fn) ; non-false
    #:with (~→ k_in ... k_out ~!) #'k_fn
-   #:with ([τ_arg- k_arg] ...) (infers+erase #'(τ_arg ...) #:tag '::)
+   #:with ([τ_arg- k_arg] ...) (infers+erase #'(τ_arg ...) #:tag ':: #:stop-list? #f)
    #:fail-unless (kindchecks? #'(k_arg ...) #'(k_in ...))
                  (string-append
                   (format 
