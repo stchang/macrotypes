@@ -72,7 +72,7 @@
 
  (define (syntax->ℜ id)
    ;; Don't care about the type
-   (define stx+τ (infer+erase id))
+   (define stx+τ (infer+erase id #:stop-list? #f))
    ;; Boy, I wish I had a monad
    (define (fail)
      (error 'resolve (format "Identifier '~a' is not overloaded" (syntax->datum id))))
@@ -106,7 +106,7 @@
 
 (define-typed-syntax signature
   [(_ (name:id α:id) τ)
-   #:with ((α+) (~→ τ_α:id τ-cod) _) (infer/tyctx+erase #'([α :: #%type]) #'τ)
+   #:with ((α+) (~→ τ_α:id τ-cod) _) (infer/tyctx+erase #'([α :: #%type]) #'τ #:stop-list? #f)
    (define ℜ (ℜ-init #'name #'τ-cod))
    (⊢ (define-syntax name
         (syntax-parser
