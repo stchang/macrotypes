@@ -802,8 +802,8 @@
 (begin-for-syntax
   ;; var-assign :
   ;; Id (Listof Sym) (StxListof TypeStx) -> Stx
-  (define (var-assign x seps τs)
-    (attachs x seps τs #:ev (current-type-eval)))
+  (define (var-assign x x+ seps τs)
+    (attachs x+ seps τs #:ev (current-type-eval)))
 
   ;; macro-var-assign : Id -> (Id (Listof Sym) (StxListof TypeStx) -> Stx)
   ;; generate a function for current-var-assign that expands
@@ -812,8 +812,8 @@
   ;;   > (current-var-assign (macro-var-assign #'foo))
   ;;   > ((current-var-assign) #'x '(:) #'(τ))
   ;;   #'(foo x : τ)
-  (define ((macro-var-assign mac-id) x seps τs)
-    (datum->syntax x `(,mac-id ,x . ,(stx-appendmap list seps τs))))
+  (define ((macro-var-assign mac-id) x x+ seps τs)
+    (datum->syntax x `(,mac-id ,x+ . ,(stx-appendmap list seps τs))))
 
   ;; current-var-assign :
   ;; (Parameterof [Id (Listof Sym) (StxListof TypeStx) -> Stx])
@@ -1016,7 +1016,7 @@
        (for ([x (syntax->list #'(x ...))]
              [rhs (syntax->list #'((make-variable-like-transformer
                                      ((current-var-assign)
-                                      #'x+ '(sep ...) #'(τ ...)))
+                                      #'x #'x+ '(sep ...) #'(τ ...)))
                                    ...))])
          (syntax-local-bind-syntaxes (list x) rhs ctx))
 
