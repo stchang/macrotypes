@@ -17,6 +17,8 @@
 
 (provide Type (rename-out [Type *])
          Π → ∀ Π/c
+;         Π/c λ/c app/c
+;         (rename-out [Π/c Π] [λ/c λ] [app/c #%app])
          = eq-refl eq-elim
          λ (rename-out [app #%app]) ann λ/c app/c
          define-datatype define define-type-alias
@@ -100,8 +102,8 @@
   (define (maybe-assign-type e t)
     (if (syntax-e t) (assign-type e t) e)))
 
-(define-internal-type-constructor →) ; equiv to Π with no uses on rhs
-(define-internal-binding-type ∀)     ; equiv to Π with Type for all params
+(define-internal-type-constructor → #:runtime) ; equiv to Π with no uses on rhs
+(define-internal-binding-type ∀ #:runtime)     ; equiv to Π with Type for all params
 
 ;; Π expands into combination of internal →- and ∀-
 ;; uses "let*" syntax where X_i is in scope for τ_i+1 ...
@@ -505,7 +507,7 @@
    [≻ (begin-
         ;; define `Name`, eg "Nat", as a valid type
 ;        (define-base-type Name) ; dont use bc uses '::, and runtime errs
-        (struct Name/internal ())
+        (struct Name/internal () #:prefab)
         (define-typed-syntax Name
           [_:id ≫
            #:with out- (syntax-property #'(Name/internal)
