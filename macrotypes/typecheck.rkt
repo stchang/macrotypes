@@ -533,7 +533,7 @@
                   (define arg-vars arg-variances-stx))
                 (define (τ-internal args)
                   #,(if (attribute runtime?)
-                        #'(list 'τ (args))
+                        #'(cons 'τ (args))
                         #'(raise
                            (exn:fail:type:runtime
                             (format "~a: Cannot use ~a at run time" 'τ 'name)
@@ -547,7 +547,7 @@
                     [(_ . args)
                      #:with τ* (add-arg-variances #'τ-internal (arg-vars stx))
                      (syntax/loc stx 
-                       (τ* (λ () (#%expression extra-info) . args)))])))]))
+                       (τ* (λ () (#%expression extra-info) (list . args))))])))]))
          (define-syntax define-type-constructor
            (syntax-parser
             [(_ (~var τ id)
@@ -582,6 +582,9 @@
            (syntax-parser
             [(_ (~var τ id)
                 (~or
+                 (~optional ; allow type at runtime
+                  (~and #:runtime (~parse runtime? #'#t))
+                  #:name "#:runtime keyword")
                  (~optional ; variances
                   (~seq #:arg-variances arg-variances-stx:expr)
                   #:name "#:arg-variances keyword"
@@ -653,10 +656,14 @@
                                               #'expanded-τ)
                                bvs-pat . pat))])))
                  (define arg-vars arg-variances-stx))
-                (define τ-internal
-                  (λ _ (raise (exn:fail:type:runtime
-                               (format "~a: Cannot use ~a at run time" 'τ 'name)
-                               (current-continuation-marks)))))
+                (define (τ-internal args)
+                  #,(if (attribute runtime?)
+                        #'(let ([bvs (build-list (procedure-arity args) (λ _ (gensym)))])
+                            (list* 'τ bvs (apply args bvs)))
+                        #'(raise
+                           (exn:fail:type:runtime
+                            (format "~a: Cannot use ~a at run time" 'τ 'name)
+                            (current-continuation-marks)))))
                 ; τ- is an internal constructor:
                 ; It does not validate inputs and does not attach a kind,
                 ; ie, it won't be recognized as a valid type, the programmer
@@ -666,7 +673,7 @@
                     [(_ bvs . args)
                      #:with τ* (add-arg-variances #'τ-internal (arg-vars stx))
                      (syntax/loc stx
-                       (τ* (λ bvs (#%expression extra-info) . args)))])))]))
+                       (τ* (λ bvs (#%expression extra-info) (list . args))))])))]))
          (define-syntax define-binding-type
            (syntax-parser
              [(_ (~var τ id)
@@ -1165,7 +1172,8 @@
     (syntax-parse t
       [((~literal #%plain-app) internal-id
         ((~literal #%plain-lambda) bvs
-         ((~literal #%expression) ((~literal quote) extra-info-macro)) . tys))
+         ((~literal #%expression) ((~literal quote) extra-info-macro))
+         ((~literal #%plain-app) (~literal list) . tys)))
        (expand/df #'(extra-info-macro . tys))]
       [_ #f]))
 ;; gets the internal id in a type representation
@@ -1177,7 +1185,6 @@
   (define (get-type-tags ts)
     (stx-map get-type-tag ts)))
 
-; substitution
 (begin-for-syntax
   (define-syntax ~Any/bvs ; matches any tycon
     (pattern-expander
@@ -1187,7 +1194,7 @@
                 (~parse
                  ((~literal #%plain-app) tycons
                   ((~literal #%plain-lambda) bvs 
-                   skipped-extra-info . rst))
+                   skipped-extra-info ((~literal #%plain-app) (~literal list) . rst)))
                  ((current-promote) #'ty)))])))
   (define-syntax ~Any
     (pattern-expander

@@ -1583,8 +1583,7 @@
    ;;  tycons or all base types or all tyvars
    ;; tycon --------------------------------------------------
    ;; - recur on ty-args
-   [(((~literal #%plain-app) tycon
-     ((~literal #%plain-lambda) _ _ ty-arg ...)) ...)
+   [((~Any tycon ty-arg ...) ...)
     ;; 1) look up concrete op corresponding to generic op and input tys
     #:with mangled (mangle gen-op #'(tycon ...))
     #:with [conc-op ty-conc-op] (infer+erase #'mangled)
@@ -1724,9 +1723,9 @@
    #:when (TCs-exist? #'(TCsub ...) #:ctx this-syntax)
    ;; simulate as if the declared concrete-op* has TC ... predicates
    ;; TODO: fix this manual deconstruction and assembly
-   #:with ((app fa (lam _ ei ty_fn)) ...) #'(ty-concrete-op-expected ...)
+   #:with ((app fa (lam _ ei (app2 lst ty_fn))) ...) #'(ty-concrete-op-expected ...)
    #:with (ty-concrete-op-expected-withTC ...) 
-          (stx-map (current-type-eval) #'((app fa (lam Xs+ ei (=> TC+ ... ty_fn))) ...))
+          (stx-map (current-type-eval) #'((app fa (lam Xs+ ei (app2 lst (=> TC+ ... ty_fn)))) ...))
    #:fail-unless (set=? (syntax->datum #'(generic-op ...)) 
                         (syntax->datum #'(generic-op-expected ...)))
                  (type-error #:src this-syntax

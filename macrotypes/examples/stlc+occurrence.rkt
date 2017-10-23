@@ -79,7 +79,7 @@
     (syntax-parse τ
      [(_ κ)
       (syntax->datum #'κ)]
-     [(_ κ (_ () _ τ* ...))
+     [(~Any κ τ* ...)
       (define κ-str (symbol->string (syntax->datum #'κ)))
       (define τ-str*
         (map (compose1 symbol->string τ->symbol) (syntax->list #'(τ* ...))))
