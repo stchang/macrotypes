@@ -35,6 +35,24 @@
   [Z : (→ Nat)]
   [S : (→ Nat Nat)])
 
+;; check runtime representations
+(check-type (→ Nat) : Type -> '(∀ () (→ #s(Nat49))))
+;; commented out bc of gensyms
+#;(check-type (∀ (C) (→ (→ C)
+                      (→ C C)
+                      (→ Nat C)))
+            : Type
+            -> '(∀         ; outer ∀
+                 (g142596) ; outer ∀
+                 (→        ; outer ∀
+                  (Type 0) ; outer ∀ is one argument function with input [C : Type]
+                  (∀                 ; inner →
+                   (g142597 g142598) ; inner → has two args, but ignore their names
+                   (→                ; inner →
+                    (∀ () (→ g142596))                ; (→ C) input 
+                    (∀ (g142599) (→ g142596 g142596)) ; (→ C C) input
+                    (∀ (g142600) (→ #s(Nat49) g142596))))))) ; (→ Nat C) output
+
 ; TODO: special case 0-arity constructor using id macro
 (check-type Z : (→ Nat))
 (check-type S : (→ Nat Nat))
