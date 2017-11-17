@@ -197,7 +197,7 @@
     [(_ e stx) (add-expected-ty #'e (get-expected-type #'stx))]))
 (define-for-syntax (add-expected-ty e ty)
   (if (and (syntax? ty) (syntax-e ty))
-      (set-stx-prop/preserved e 'expected-type ((current-type-eval) ty))
+      (set-stx-prop/preserved e 'expected-type (intro-if-stx ((current-type-eval) ty)))
       e))
 
 (begin-for-syntax
@@ -210,8 +210,13 @@
   ;; attach : Stx Tag Val -> Stx
   ;; Adds Tag+Val to Stx as stx prop, returns new Stx.
   ;; e.g., Stx = expression, Tag = ':, Val = Type stx
+  (define (intro-if-stx v)
+    (if (syntax? v)
+      (syntax-local-introduce v)
+      v))
+
   (define (attach stx tag v)
-    (set-stx-prop/preserved stx tag v))
+    (set-stx-prop/preserved stx tag (intro-if-stx v)))
   (define (attachs stx tags vs #:ev [ev (λ (x) x)])
     (for/fold ([stx stx]) ([t (in-list tags)] [v (in-stx-list vs)])
       (attach stx t (ev v))))
@@ -220,7 +225,7 @@
   ;; If Val is a non-empty list, return first element, otherwise return Val.
   ;; e.g., Stx = expression, Tag = ':, Val = Type stx
   (define (detach stx tag)
-    (get-stx-prop/ca*r stx tag)))
+    (intro-if-stx (get-stx-prop/ca*r stx tag))))
 
 ;; ----------------------------------------------------------------------------
 ;; ----------------------------------------------------------------------------
@@ -315,7 +320,7 @@
            (define (typeof stx)    (detach stx 'key1))
            (define (tagoftype stx) (detach stx 'key2)) ; = kindof if kind stx-cat defined
            (define (fast-assign-type e τ) ; TODO: does this actually help?
-             (attach e 'key1 (syntax-local-introduce τ)))
+             (attach e 'key1 τ))
            (define (assign-type e τ)
              (fast-assign-type e ((current-type-eval) τ)))
            ;; helper stx classes ----------------------------------------------
@@ -804,8 +809,8 @@
 (begin-for-syntax
   ;; var-assign :
   ;; Id (Listof Sym) (StxListof TypeStx) -> Stx
-  (define (var-assign x seps τs)
-    (attachs x seps τs #:ev (current-type-eval)))
+  (define (var-assign x x+ seps τs)
+    (attachs x+ seps τs #:ev (current-type-eval)))
 
   ;; macro-var-assign : Id -> (Id (Listof Sym) (StxListof TypeStx) -> Stx)
   ;; generate a function for current-var-assign that expands
@@ -814,8 +819,8 @@
   ;;   > (current-var-assign (macro-var-assign #'foo))
   ;;   > ((current-var-assign) #'x '(:) #'(τ))
   ;;   #'(foo x : τ)
-  (define ((macro-var-assign mac-id) x seps τs)
-    (datum->syntax x `(,mac-id ,x . ,(stx-appendmap list seps τs))))
+  (define ((macro-var-assign mac-id) x x+ seps τs)
+    (datum->syntax x `(,mac-id ,x+ . ,(stx-appendmap list seps τs))))
 
   ;; current-var-assign :
   ;; (Parameterof [Id (Listof Sym) (StxListof TypeStx) -> Stx])
@@ -835,10 +840,10 @@
   ;; functions for manipulating "expected type"
    (define (add-expected-type e τ)
     (if (and (syntax? τ) (syntax-e τ))
-        (set-stx-prop/preserved e 'expected-type τ) ; dont type-eval?, ie expand?
+        (set-stx-prop/preserved e 'expected-type (intro-if-stx τ)) ; dont type-eval?, ie expand?
         e))
   (define (get-expected-type e)
-    (get-stx-prop/cd*r e 'expected-type))
+    (intro-if-stx (get-stx-prop/cd*r e 'expected-type)))
 
   ;; TODO: remove? only used by macrotypes/examples/infer.rkt
   (define (add-env e env) (set-stx-prop/preserved e 'env env))
@@ -941,12 +946,12 @@
 
   ;; basic infer function with no context:
   ;; infers the type and erases types in an expression
-  (define (infer+erase e #:tag [tag (current-tag)] #:expa [expa expand/df])
-    (define e+ (expa e))
+  (define (infer+erase e #:tag [tag (current-tag)])
+    (define e+ (expand/df e))
     (list e+ (detach e+ tag)))
   ;; infers the types and erases types in multiple expressions
-  (define (infers+erase es #:tag [tag (current-tag)] #:expa [expa expand/df])
-    (stx-map (λ (e) (infer+erase e #:tag tag #:expa expa)) es))
+  (define (infers+erase es #:tag [tag (current-tag)])
+    (stx-map (λ (e) (infer+erase e #:tag tag)) es))
 
   ;; This is the main "infer" function. Most others are defined in terms of this.
   ;; It should be named infer+erase but leaving it for now for backward compat.
@@ -958,9 +963,9 @@
   ;;       but I'm not sure it properly generalizes
   ;;       eg, what if I need separate type-eval and kind-eval fns?
   ;; - should infer be moved into define-syntax-category?
+
   (define (infer es #:ctx [ctx null] #:tvctx [tvctx null]
                     #:tag [tag (current-tag)] ; the "type" to return from es
-                    #:expa [expa expand/df] ; used to expand e
                     #:key [kev #'(current-type-eval)]) ; kind-eval (tvk in tvctx)
      (syntax-parse ctx
        [((~or X:id [x:id (~seq sep:id τ) ...]) ...) ; dont expand; τ may reference to tv
@@ -970,30 +975,70 @@
                    ([tv (~seq tvsep:id tvk) ...] ...))
                    tvctx
        #:with (e ...) es
-       #:with ((~literal #%plain-lambda) tvs+
-               (~let*-syntax
-                ((~literal #%expression)
-                 ((~literal #%plain-lambda) xs+
-                  (~let*-syntax
-                   ((~literal #%expression) e+) ... (~literal void))))))
-        (expa
-        #`(λ (tv ...)
-            (let*-syntax ([tv (make-rename-transformer
+
+       (define (stx-deep-map f stx)
+         (define (deep stx)
+           (if (identifier? stx)
+             (f stx)
+             (stx-deep-map f stx)))
+         (datum->syntax #f (stx-map deep stx)))
+
+       (define ctx (syntax-local-make-definition-context))
+       (define (in-ctx s)
+         (internal-definition-context-introduce ctx s))
+
+       ; Not using generate-temporaries because code relies on symbolic name
+       (define (fresh id)
+         ((make-syntax-introducer) (datum->syntax #f (syntax-e id))))
+
+       (define/syntax-parse
+         ((tv+ ...) (X+ ...) (x+ ...))
+         (stx-deep-map
+           (compose in-ctx fresh)
+           #'((tv ...) (X ...) (x ...))))
+
+       (syntax-local-bind-syntaxes
+         (syntax->list #'(tv+ ... X+ ... x+ ...))
+         #f ctx)
+
+       (syntax-local-bind-syntaxes
+         (syntax->list #'(tv ...))
+         #`(values (make-rename-transformer
                                (mk-tyvar
-                                (attachs #'tv '(tvsep ...) #'(tvk ...)
-                                         #:ev #,kev)))] ...)
-              (λ (X ... x ...)
-                (let*-syntax ([X (make-variable-like-transformer
-                                 (mk-tyvar (attach #'X ':: (#,kev #'#%type))))] ...
-                              [x (make-variable-like-transformer
-                                  ((current-var-assign)
-                                   #'x
-                                   '(sep ...)
-                                   #'(τ ...)))] ...)
-                  (#%expression e) ... void)))))
-       (list #'tvs+ #'xs+ 
-             #'(e+ ...) 
-             (stx-map (λ (e) (detach e tag)) #'(e+ ...)))]
+                                 (attachs #'tv+ '(tvsep ...) #'(tvk ...)
+                                          #:ev #,kev)))
+                             ...)
+         ctx)
+
+       (syntax-local-bind-syntaxes
+         (syntax->list #'(X ...))
+         #`(values (make-variable-like-transformer
+                              (mk-tyvar (attach #'X+ ':: (#,kev #'#%type))))
+                            ...)
+         ctx)
+
+       ; Bind these sequentially, so that expansion of (τ ...) for each
+       ; can depend on type variables bound earlier. Really, these should
+       ; also be in nested scopes such that they can only see earlier xs.
+       (for ([x (syntax->list #'(x ...))]
+             [rhs (syntax->list #'((make-variable-like-transformer
+                                     ((current-var-assign)
+                                      #'x #'x+ '(sep ...) #'(τ ...)))
+                                   ...))])
+         (syntax-local-bind-syntaxes (list x) rhs ctx))
+
+       (define/syntax-parse
+         (e+ ...)
+         (for/list ([e (syntax->list #'(e ...))])
+                   (local-expand e 'expression null ctx)))
+
+       (define (typeof e)
+         (detach e tag))
+
+       (list #'(tv+ ...) #'(X+ ... x+ ...)
+             #'(e+ ...)
+             (stx-map typeof #'(e+ ...)))]
+
       [([x τ] ...) (infer es #:ctx #`([x #,tag τ] ...) #:tvctx tvctx #:tag tag)]))
 
   ;; fns derived from infer ---------------------------------------------------

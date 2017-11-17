@@ -161,7 +161,7 @@
      (add-orig X X))
    [([X ≫ X- :: #%type] ...) ([x ≫ x- : X] ...)
     ⊢ [body ≫ body- ⇒ : τ_body*]]
-   #:with (~?Some [V ...] τ_body (~Cs [id_2 τ_2] ...)) (syntax-local-introduce #'τ_body*)
+   #:with (~?Some [V ...] τ_body (~Cs [id_2 τ_2] ...)) #'τ_body*
    #:with τ_fn (some/inst/generalize #'[X- ... V ...]
                                      #'(→ X- ... τ_body)
                                      #'([id_2 τ_2] ...))
@@ -174,11 +174,11 @@
    #:with B (generate-temporary 'result)
    [⊢ [e_fn ≫ e_fn- ⇒ : τ_fn*]]
    #:with (~?Some [V1 ...] (~?∀ (V2 ...) τ_fn) (~Cs [τ_3 τ_4] ...))
-   (syntax-local-introduce #'τ_fn*)
+   #'τ_fn*
    #:with τ_fn-expected (tycons #'→ #'[A ... B])
    [⊢ [e_arg ≫ e_arg- ⇒ : τ_arg*] ...]
    #:with [(~?Some [V3 ...] (~?∀ (V4 ...) τ_arg) (~Cs [τ_5 τ_6] ...)) ...]
-   (syntax-local-introduce #'[τ_arg* ...])
+   #'[τ_arg* ...]
    #:with τ_out (some/inst/generalize #'[A ... B V1 ... V2 ... V3 ... ... V4 ... ...]
                                       #'B
                                       #'([τ_fn-expected τ_fn]
@@ -192,7 +192,7 @@
   [(ann e:expr : τ:type) ≫
    [⊢ [e ≫ e- ⇒ : τ_e]]
    #:with (~?Some [V1 ...] (~?∀ (V2 ...) τ_fn) (~Cs [τ_1 τ_2] ...))
-   (syntax-local-introduce #'τ_e)
+   #'τ_e
    #:with τ_e* (some/inst/generalize #'[V1 ... V2 ...]
                                      #'τ.norm
                                      #'([τ.norm τ_e]
