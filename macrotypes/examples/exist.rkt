@@ -69,6 +69,7 @@
    #:with τ_x (subst #'X #'Y #'τ_body)
    #:with [(X- x-) e- τ_e] (infer/ctx+erase #'(X [x : τ_x]) #'e)
    #:with τ_e_checked
+   ;; err if values with type X escape open's body
    (let ([ctx (syntax-local-make-definition-context)])
      (syntax-local-bind-syntaxes
        (list #'X-)
@@ -76,5 +77,4 @@
            (type-error #:src #'stx #:msg "existential type ~a is not in scope" #'X-))
        ctx)
      (local-expand #'τ_e 'expression '() ctx))
-
    (⊢ (let- ([x- e_packed-]) e-) : τ_e_checked)])

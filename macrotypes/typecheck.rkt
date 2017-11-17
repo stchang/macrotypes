@@ -210,11 +210,6 @@
   ;; attach : Stx Tag Val -> Stx
   ;; Adds Tag+Val to Stx as stx prop, returns new Stx.
   ;; e.g., Stx = expression, Tag = ':, Val = Type stx
-  (define (intro-if-stx v)
-    (if (syntax? v)
-      (syntax-local-introduce v)
-      v))
-
   (define (attach stx tag v)
     (set-stx-prop/preserved stx tag (intro-if-stx v)))
   (define (attachs stx tags vs #:ev [ev (λ (x) x)])
@@ -976,20 +971,9 @@
                    tvctx
        #:with (e ...) es
 
-       (define (stx-deep-map f stx)
-         (define (deep stx)
-           (if (identifier? stx)
-             (f stx)
-             (stx-deep-map f stx)))
-         (datum->syntax #f (stx-map deep stx)))
-
        (define ctx (syntax-local-make-definition-context))
        (define (in-ctx s)
          (internal-definition-context-introduce ctx s))
-
-       ; Not using generate-temporaries because code relies on symbolic name
-       (define (fresh id)
-         ((make-syntax-introducer) (datum->syntax #f (syntax-e id))))
 
        (define/syntax-parse
          ((tv+ ...) (X+ ...) (x+ ...))

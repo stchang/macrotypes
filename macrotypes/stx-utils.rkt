@@ -93,6 +93,17 @@
 (define (stx-drop stx n)
   (drop (stx->list stx) n))
 
+(define (stx-deep-map f stx)
+  (define (deep stx)
+    (if (identifier? stx)
+        (f stx)
+        (stx-deep-map f stx)))
+  (datum->syntax #f (stx-map deep stx)))
+
+; alternate to generate-temporaries, which relies on symbolic name
+(define (fresh id)
+  ((make-syntax-introducer) (datum->syntax #f (syntax-e id))))
+
 (define (id-lower-case? stx)
   (unless (identifier? stx)
     (error 'stx-upcase "Expected identifier, given ~a" stx))
@@ -149,6 +160,11 @@
   (define props (syntax-property-symbol-keys from))
   (define props/filtered (foldr remove props dont-transfer))
   (foldl transfer-from to props/filtered))
+
+(define (intro-if-stx v)
+  (if (syntax? v)
+      (syntax-local-introduce v)
+      v))
 
 ;; set-stx-prop/preserved : Stx Any Any -> Stx
 ;; Returns a new syntax object with the prop property set to val. If preserved
