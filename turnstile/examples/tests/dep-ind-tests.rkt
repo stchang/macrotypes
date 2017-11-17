@@ -95,6 +95,13 @@
 
 (define-type-alias plus
   (λ ([n : Nat])
+    #;(elim-Nat n ; implementation of plus using elim-Nat directly; both ok
+     (λ ([m : Nat]) (→ Nat Nat))
+     (λ () (λ () (λ ([m : Nat]) m)))
+     (λ ([n-1 : Nat])
+       (λ([ih : (→ Nat Nat)])
+        (λ ([m : Nat])
+          (S (ih m))))))
     (((nat-rec (→ Nat Nat))
       (λ () (λ ([m : Nat]) m))
       (λ ([pm : (→ Nat Nat)])
