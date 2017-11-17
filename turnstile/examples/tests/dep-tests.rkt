@@ -283,3 +283,7 @@
              (λ ([y : *]) *)
              *)
             : *)
+
+;; plus zero (left)
+(check-type (λ ([n : nat]) (eq-refl n))
+            : (Π ([n : nat]) (= (plus z n) n)))
