@@ -9,7 +9,3 @@
 (check-type ((λ ([f : (-> Int Int)]) (f 0))
              (λ (x) (+ x 2)))
             : Int)
-           
-(check-type ((λ ([f : (-> Int Int)]) (f 0))
-             (λ (x) (+ x 2)))
-            : Int)
