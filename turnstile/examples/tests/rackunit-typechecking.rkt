@@ -1,7 +1,7 @@
 #lang racket/base
 (require (for-syntax rackunit syntax/srcloc) rackunit macrotypes/typecheck)
 (provide check-type typecheck-fail check-not-type check-props check-runtime-exn
-         check-equal/rand typecheck-fail/toplvl
+         check-equal/rand typecheck-fail/toplvl print-type
          (rename-out [typecheck-fail check-stx-err]))
 
 (begin-for-syntax
@@ -130,3 +130,13 @@
       (with-check-info (['f f] ['inputs ks])
         (check-equal? (apply f (map process ks)) 
                       (apply f* (map process ks)))))))
+
+(define-syntax (print-type stx)
+  (syntax-parse stx
+    [(_ e (~optional (~seq #:tag tag:id) #:defaults ([tag #':]))
+          (~optional (~and #:raw raw?)))
+     #:with τ (detach (expand/df #'e) (stx->datum #'tag))
+     #:do [(if (attribute raw?)
+               (pretty-print (stx->datum #'τ))
+               (displayln (type->str #'τ)))]
+    #'(void)]))
