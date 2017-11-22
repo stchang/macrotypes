@@ -322,16 +322,24 @@
            (define-syntax-class type ;; e.g., well-formed types
              #:attributes (norm)
              (pattern τ
-              #:with norm ((current-type-eval) #'τ)
-              #:fail-unless ((current-type?) #'norm)
+              #:with norm (with-handlers ; convert other exns; keep unbound id
+                            ([(λ (e) (and (exn:fail:syntax? e) 
+                                          (not (exn:fail:syntax:unbound? e))))
+                              (λ (e) #f)])
+                            ((current-type-eval) #'τ))
+              #:fail-unless (and (stx-e #'norm) ((current-type?) #'norm))
               (format "~a (~a:~a) not a well-formed ~a: ~a"
                       (syntax-source #'τ) (syntax-line #'τ) (syntax-column #'τ)
                       'name (type->str #'τ))))
            (define-syntax-class any-type ;; e.g., any valid type
              #:attributes (norm)
              (pattern τ
-              #:with norm ((current-type-eval) #'τ)
-              #:fail-unless ((current-any-type?) #'norm)
+              #:with norm (with-handlers ; convert other exns; keep unbound id
+                            ([(λ (e) (and (exn:fail:syntax? e) 
+                                          (not (exn:fail:syntax:unbound? e))))
+                              (λ (e) #f)])
+                            ((current-type-eval) #'τ))
+              #:fail-unless (and (stx-e #'norm) ((current-any-type?) #'norm))
               (format "~a (~a:~a) not a valid ~a: ~a"
                       (syntax-source #'τ) (syntax-line #'τ) (syntax-column #'τ)
                       'name (type->str #'τ))))

@@ -25,7 +25,7 @@
  #:with-msg "")
 (typecheck-fail
  (λ ([x : (Int ∪)]) x)
- #:with-msg "expected identifier")
+ #:with-msg "not a well-formed type: \\(Int ∪\\)")
 (typecheck-fail
  (λ ([x : (→ ∪ ∪)]) x)
  #:with-msg "Improper usage of type constructor ∪")

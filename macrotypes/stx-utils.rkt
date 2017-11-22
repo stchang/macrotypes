@@ -7,6 +7,7 @@
 (define id? identifier?)
 (define free-id=? free-identifier=?)
 (define fmt format)
+(define stx-e syntax-e)
 
 (define (stx-cadr stx) (stx-car (stx-cdr stx)))
 (define (stx-caddr stx) (stx-cadr (stx-cdr stx)))

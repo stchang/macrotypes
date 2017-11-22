@@ -409,8 +409,10 @@
              #'(~and stx
                      pat*
                      (~parse τ (get-expected-type #'stx))
-                     (~post (~post (~fail #:unless (syntax-e #'τ)
-                                          (no-expected-type-fail-msg))))
+                     (~post
+                      (~post
+                       (~fail #:unless (syntax-e #'τ)
+                              (no-expected-type-fail-msg))))
                      (~parse τ-pat #'τ))
              #:attr transform-body
              (lambda (body)
