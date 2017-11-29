@@ -36,7 +36,7 @@
   [S : (→ Nat Nat)])
 
 ;; check runtime representations
-(check-type (→ Nat) : Type -> '(∀ () (→ #s(Nat49))))
+(check-type (→ Nat) : Type -> '(∀ () (→ #s(Nat30))))
 ;; commented out bc of gensyms
 #;(check-type (∀ (C) (→ (→ C)
                       (→ C C)
