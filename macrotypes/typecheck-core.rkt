@@ -869,6 +869,14 @@
   (define current-tag (make-parameter (type-key1)))
   (define current-tag2 (make-parameter (type-key2)))
 
+  (define-syntax (define-type-eval stx)
+    (syntax-parse stx
+      [(_ ty clause ...)
+       #'(begin (define old-eval (current-type-eval))
+                (define (new-eval ty)
+                  (syntax-parse (old-eval ty) clause ... [ty+ #'ty+]))
+                (current-type-eval new-eval))]))
+  
   ;; --------------------------------------------------------------------------
   ;; var-assign allows customizing "T-Var" rule
 
