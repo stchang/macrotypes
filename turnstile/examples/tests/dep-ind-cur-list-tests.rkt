@@ -26,106 +26,109 @@
 ;; this test wont work if define-datatype uses define-base-type
 (check-type (λ [x : Nat2] Nat2) : (→ Nat2 *))
 
-;; ;; constructors require 3 sets of args:
-;; ;; 1) params
-;; ;; 2) indices
-;; ;; 3) constructor args, split into
-;; ;;    - non-recursive
-;; ;;    - recursive
-;; (define-datatype List [A : (Type 0)] : -> (Type 0)
-;;   [null : (∀ (A) (→ (List A)))]
-;;   [cons : (∀ (A) (→ A (List A) (List A)))])
+;; constructors require 3 sets of args:
+;; 1) params
+;; 2) indices
+;; 3) constructor args, split into
+;;    - non-recursive
+;;    - recursive
+(define-datatype List [A : (Type 0)] : -> (Type 0)
+  [null : (∀ A (List A))]
+  [cons : (∀ A (→ A (List A) (List A)))])
 
-;; (check-type null : (∀ (A) (→ (List A))))
-;; (check-type cons : (∀ (A) (→ A (List A) (List A))))
-;; (check-type (null Nat) : (→ (List Nat)))
-;; (check-type (cons Nat) : (→ Nat (List Nat) (List Nat)))
-;; (check-type (null Nat) : (→ (List Nat)))
-;; (check-type ((null Nat)) : (List Nat))
-;; (check-type ((cons Nat) (Z) ((null Nat))) : (List Nat))
+(check-type null : (∀ A (List A)))
+(check-type null : (∀ A (List A)) -> null)
+(check-type cons : (∀ A (→ A (List A) (List A))))
+(check-type (null Nat) : (List Nat))
+(check-type (null Nat) : (List Nat) -> (null Nat))
+;; TODO: should these next 2 work?
+(check-type (null Nat) : (→ (List Nat)))
+(check-type ((null Nat)) : (List Nat))
+(check-type (cons Nat) : (→ Nat (List Nat) (List Nat)))
+(check-type ((cons Nat) (Z) ((null Nat))) : (List Nat))
+;; less parens
+(check-type (cons Nat Z (null Nat)) : (List Nat))
 
-;; ;; length 0
-;; (check-type
-;;  (elim-List ((null Nat))
-;;             (λ () (λ ([l : (List Nat)]) Nat))
-;;             (λ () (λ () (λ () (Z))))
-;;             (λ ()
-;;               (λ ([x : Nat][xs : (List Nat)])
-;;                 (λ ([IH : Nat])
-;;                   (S IH)))))
-;;  : Nat
-;;  -> (Z))
+;; length 0
+(check-type
+ (elim-List (null Nat)
+            (λ [l : (List Nat)] Nat)
+            Z
+            (λ [x : Nat][xs : (List Nat)]
+               (λ [IH : Nat]
+                 (S IH))))
+ : Nat
+ -> Z)
 
-;; ;; length 1
-;; (check-type
-;;  (elim-List ((cons Nat) (Z) ((null Nat)))
-;;             (λ () (λ ([l : (List Nat)]) Nat))
-;;             (λ () (λ () (λ () (Z))))
-;;             (λ ()
-;;               (λ ([x : Nat][xs : (List Nat)])
-;;                 (λ ([IH : Nat])
-;;                   (S IH)))))
-;;  : Nat
-;;  -> (S (Z)))
+;; length 1
+(check-type
+ (elim-List (cons Nat Z (null Nat))
+            (λ [l : (List Nat)] Nat)
+            Z
+            (λ [x : Nat][xs : (List Nat)]
+                (λ [IH : Nat]
+                  (S IH))))
+ : Nat
+ -> (S Z))
 
-;; ;; length 2
-;; (check-type
-;;  (elim-List ((cons Nat) (S (Z)) ((cons Nat) (Z) ((null Nat))))
-;;             (λ () (λ ([l : (List Nat)]) Nat))
-;;             (λ () (λ () (λ () (Z))))
-;;             (λ () 
-;;               (λ ([x : Nat][xs : (List Nat)])
-;;                 (λ ([IH : Nat])
-;;                   (S IH)))))
-;;  : Nat
-;;  -> (S (S (Z))))
+;; length 2
+(check-type
+ (elim-List ((cons Nat) (S (Z)) ((cons Nat) (Z) ((null Nat))))
+            (λ [l : (List Nat)] Nat)
+            Z
+            (λ [x : Nat][xs : (List Nat)]
+                (λ [IH : Nat]
+                  (S IH))))
+ : Nat
+ -> (S (S (Z))))
 
-;; (define-type-alias len/Nat
-;;   (λ ([lst : (List Nat)])
-;;     (elim-List lst
-;;                (λ () (λ ([l : (List Nat)]) Nat))
-;;                (λ () (λ () (λ () (Z))))
-;;                (λ ()
-;;                  (λ ([x : Nat][xs : (List Nat)])
-;;                    (λ ([IH : Nat])
-;;                      (S IH)))))))
+(define-type-alias len/Nat
+  (λ [lst : (List Nat)]
+    (elim-List lst
+               (λ [l : (List Nat)] Nat)
+               Z
+               (λ [x : Nat][xs : (List Nat)]
+                   (λ [IH : Nat]
+                     (S IH))))))
 
-;; (check-type (len/Nat ((null Nat))) : Nat -> (Z))
-;; (check-type (len/Nat ((cons Nat) (Z) ((null Nat)))) : Nat -> (S (Z)))
+(check-type (len/Nat ((null Nat))) : Nat -> (Z))
+(check-type (len/Nat ((cons Nat) (Z) ((null Nat)))) : Nat -> (S (Z)))
+;; less parens
+(check-type (len/Nat (null Nat)) : Nat -> (Z))
+(check-type (len/Nat (cons Nat Z (null Nat))) : Nat -> (S (Z)))
 
-;; (define-type-alias len
-;;   (λ ([A : *])
-;;     (λ ([lst : (List A)])
-;;       (elim-List lst
-;;                  (λ () (λ ([l : (List A)]) Nat))
-;;                  (λ () (λ () (λ () (Z))))
-;;                  (λ ()
-;;                    (λ ([x : A][xs : (List A)])
-;;                      (λ ([IH : Nat])
-;;                        (S IH))))))))
-;; (check-type (len Nat) : (→ (List Nat) Nat))
-;; (check-type ((len Nat) ((null Nat))) : Nat -> (Z))
-;; (check-type ((len Nat) ((cons Nat) (Z) ((null Nat)))) : Nat -> (S (Z)))
+(define-type-alias len
+  (λ [A : *]
+    (λ [lst : (List A)]
+      (elim-List lst
+                 (λ [l : (List A)] Nat)
+                 Z
+                 (λ [x : A][xs : (List A)]
+                     (λ [IH : Nat]
+                       (S IH)))))))
+(check-type (len Nat) : (→ (List Nat) Nat))
+(check-type ((len Nat) ((null Nat))) : Nat -> (Z))
+(check-type ((len Nat) ((cons Nat) (Z) ((null Nat)))) : Nat -> (S (Z)))
 
-;; ;; test that elim matches on constructor name, and not arity
-;; (define-datatype Test : *
-;;   [A : (→ Test)]
-;;   [B : (→ Test)])
+;; test that elim matches on constructor name, and not arity
+(define-datatype Test : *
+  [A : (→ Test)]
+  [B : (→ Test)])
 
-;; (check-type
-;;  (elim-Test (A)
-;;             (λ ([x : Test]) Nat)
-;;             (λ () (λ () (Z)))
-;;             (λ () (λ () (S (Z)))))
-;;  : Nat -> (Z))
+(check-type
+ (elim-Test (A)
+            (λ [x : Test] Nat)
+            Z
+            (S (Z)))
+ : Nat -> (Z))
 
-;; ;; should match second branch, but just arity-checking would match 1st
-;; (check-type
-;;  (elim-Test (B)
-;;             (λ ([x : Test]) Nat)
-;;             (λ () (λ () (Z)))
-;;             (λ () (λ () (S (Z)))))
-;;  : Nat -> (S (Z)))
+;; should match second branch, but just arity-checking would match 1st
+(check-type
+ (elim-Test (B)
+            (λ [x : Test] Nat)
+            Z
+            (S (Z)))
+ : Nat -> (S (Z)))
 
 ;; ;; Vect: indexed "lists" parameterized over length --------------------
 ;; (define-datatype Vect [A : (Type 0)] : [i : Nat] -> (Type 0)

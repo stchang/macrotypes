@@ -220,6 +220,8 @@
 ;; - intermediate elim terms
 (define-for-syntax false-tys 0)
 
+;; TODO: need app/eval/c
+
 ;; TODO: fix orig after subst, for err msgs
 ;; app/eval should not try to ty check anymore
 (define-syntax app/eval
@@ -382,6 +384,11 @@
     [(_ e) #'e]
     [(_ f e . rst) #'(app/c (app f e) . rst)]))
 
+(define-syntax (app/eval/c stx)
+  (syntax-parse stx
+    [(_ e) #'e]
+    [(_ f e . rst) #'(app/eval/c (app/eval f e) . rst)]))
+
 (define-syntax (Π/c stx)
   (syntax-parse stx
     [(_ t) #'t]
@@ -494,8 +501,7 @@
 (define-typed-syntax define-datatype
   ;; datatype type `TY` is an id ----------------------------------------------
   ;; - ie, no params or indices
-  [(_ Name (~datum :) TY:id
-      [C:id (~datum :) CTY] ...) ≫
+  [(_ Name (~datum :) TY:id [C:id (~datum :) CTY] ...) ≫
    ; need to expand `CTY` to find recur args,
    ; but `Name` is still unbound so swap in a tmp id `TmpTy`
    #:with (CTY/tmp ...) (subst #'TmpTy #'Name #'(CTY ...))
@@ -626,7 +632,7 @@
    ;; #:with ((~Π ([_ : _] ...)
    ;;           (~Π ([_ : _] ...)
    ;;             (~Π ([x : CTY_in/tmp] ...) CTY_out/tmp))) ...)
-   #:with ((~Π ([x : CTY_in/tmp] ...) CTY_out/tmp) ...)
+   #:with ((~Π/c [x : CTY_in/tmp] ... CTY_out/tmp) ...)
           (stx-map
            (lambda (cty)
              (prune cty (stx-length #'(A ... i ...)))) 
@@ -731,12 +737,13 @@
         (define-typed-syntax (elim-Name v P Ccase ...) ≫
           ;; re-extract CTY_in and CTY_out, since we didnt un-subst above
           ;; TODO: must re-compute recur-x, ie recur-Cx
-          #:with ((~Π ([CA : CTYA/CA] ...) ; ignore params, instead infer `A` ... from `v`
-                    (~Π ([Ci : CTYi/CA] ...)
-                      (~Π ([Cx : CTY_in/CA] ...)
+          #:with ((~Π/c [CA : CTYA/CA] ... ; ignore params, instead infer `A` ... from `v`
+                    (~Π/c [Ci : CTYi/CA] ...
+                      (~Π/c [Cx : CTY_in/CA] ...
                           CTY_out/CA)))
                   ...)
-                 (stx-map
+                 (stx-map (current-type-eval) #'(CTY ...))
+                 #;(stx-map
                   (λ (cty cas cis)
                     ((current-type-eval)
                      (uncurs
@@ -854,7 +861,7 @@
                   (stx->datum
                    #'(Π ([j : TYi] ...) (→ (Name A ... j ...) Type)))))]
 
-          [⊢ P ≫ P- ⇐ (Π ([j : TYi] ...) (→ (Name A ... j ...) Type))]
+          [⊢ P ≫ P- ⇐ (Π/c [j : TYi] ... (→ (Name A ... j ...) Type))]
 
           ;; each Ccase consumes 3 nested sets of (possibly empty) args:
           ;; 1) Ci  - indices of the tycon
@@ -867,11 +874,11 @@
           ; TODO: Ci*recur still wrong?
           [⊢ Ccase ≫ _ ⇒ ccasety] ...
           #:with (expected-Ccase-ty ...)
-                 #'((Π ([Ci : CTYi] ...) ; indices
-                       (Π ([Cx : CTY_in] ...) ; constructor args
-                          (→ (app (app P- Ci*recur ...) recur-Cx) ... ; IHs
-                             (app (app P- CTY_out_i ...)
-                                  (app (app/c C A*C ... Ci ...) Cx ...))))) ...)
+                 #'((Π/c [Ci : CTYi] ... ; indices
+                       (Π/c [Cx : CTY_in] ... ; constructor args
+                          (→/c (app/c (app/c P- Ci*recur ...) recur-Cx) ... ; IHs
+                               (app/c (app/c P- CTY_out_i ...)
+                                      (app/c (app/c C A*C ... Ci ...) Cx ...))))) ...)
 
           #:do[(when debug-elim?
                  (displayln "Ccase-ty:")
@@ -891,7 +898,7 @@
                                        (app (app P- CTY_out_i ...)
                                             (app (app (app C A*C ...) Ci ...) Cx ...)))))] ;...
           -----------
-          [⊢ (match-Name v- P- Ccase- ...) ⇒ (app (app P- i ...) v-)])
+          [⊢ (match-Name v- P- Ccase- ...) ⇒ (app/c (app/c P- i ...) v-)])
 
         ;; implements reduction of elimator redexes
         (define-syntax match-Name
@@ -904,7 +911,17 @@
              #:with ty (typeof this-syntax)
              ;; must local expand because `v` may be unexpanded due to reflection
              (syntax-parse (local-expand #'v 'expression null)
-               [((~literal #%plain-app)
+               ;; first set of cases match 0-arg constructors, like null
+               [(~plain-app/c C-:id CA ... Ci ...)
+                #:with (_ C+ . _) (local-expand #'(C 'CA ...) 'expression null)
+                #:when (free-identifier=? #'C+ #'C-)
+                ;; can use app instead of app/eval to properly propagate types
+                ;; but doesnt quite for in all cases?
+                (maybe-assign-type
+                    #'(app/c Ccase Ci ...)
+                 #'ty)] ...
+               ;; second set of cases match constructors with args, like cons
+               [(~plain-app/c
                  (~plain-app/c C-:id CA ... Ci ...)
                  x ...)
                 #:with (_ C+ . _) (local-expand #'(C 'CA ...) 'expression null)
@@ -912,8 +929,8 @@
                 ;; can use app instead of app/eval to properly propagate types
                 ;; but doesnt quite for in all cases?
                 (maybe-assign-type
-                 #`(app/eval ;#,(assign-type
-                                (app/eval (app Ccase Ci ...) x ...)
+                 #`(app/eval/c ;#,(assign-type
+                                (app/eval/c (app/c Ccase Ci ...) x ...)
                                 ;; TODO: is this right?
                               ;       #'(app P Ci ...))
 ;                             (match-Name recur-x P Ccase ...) ...)
