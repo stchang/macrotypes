@@ -17,12 +17,10 @@
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑
 
 (provide Type (rename-out [Type *])
-         Π → ∀ Π/c
-;         Π/c λ/c app/c
-;         (rename-out [Π/c Π] [λ/c λ] [app/c #%app])
+;         Π → ∀ λ (rename-out [app #%app])
+         (rename-out [Π/c Π] [→/c →] [∀/c ∀] [λ/c λ] [app/c #%app])
          = eq-refl eq-elim
-         λ (rename-out [app #%app]) ann λ/c app/c
-         define-datatype define define-type-alias
+         ann define-datatype define define-type-alias
 )
 
 ;; TODO:
@@ -139,7 +137,23 @@
        [(_ ([x:id : τ_in] ... (~and (~literal ...) ooo)) τ_out)
         #'(~∀ (x ... ooo) (~→ τ_in ... ooo τ_out))]
        [(_ ([x:id : τ_in] ...)  τ_out)
-        #'(~∀ (x ...) (~→ τ_in ... τ_out))]))))
+        #'(~∀ (x ...) (~→ τ_in ... τ_out))])))
+  (define-syntax ~Π/c
+    (pattern-expander
+     (syntax-parser
+       ;; [(_ ([x:id : τ_in] ... (~and (~literal ...) ooo)) τ_out)
+       ;;  #'(~∀ (x ... ooo) (~→ τ_in ... ooo τ_out))]
+       [(_ t) #'t]
+       [(_ [x (~datum :) ty] (~and (~literal ...) ooo) t_out)
+        #'(~and TMP
+                (~parse ([x ty] ooo t_out)
+                        (let L ([ty #'TMP][xtys empty])
+                             (syntax-parse ty
+                               ;[debug #:do[(display "debug:")(pretty-print (stx->datum #'debug))]#:when #f #'(void)]
+                               [(~Π ([x : τ_in]) rst) (L #'rst (cons #'[x τ_in] xtys))]
+                               [t_out (reverse (cons #'t_out xtys))]))))]
+       [(_ (~and xty [x:id : τ_in]) . rst)
+        #'(~Π (xty) (~Π/c . rst))]))))
 
 ;; equality -------------------------------------------------------------------
 (define-internal-type-constructor =)
@@ -360,8 +374,8 @@
 ;; TODO: add other cases?
 (define-syntax (λ/c stx)
   (syntax-parse stx
-    [(_ () e) #'e]
-    [(_ ((~and xty [x:id (~datum :) τ]) . rst) e) #'(λ (xty) (λ/c rst e))]))
+    [(_ e) #'e]
+    [(_ x . rst) #'(λ (x) (λ/c . rst))]))
 
 (define-syntax (app/c stx)
   (syntax-parse stx
@@ -370,8 +384,17 @@
 
 (define-syntax (Π/c stx)
   (syntax-parse stx
-    [(_ () t) #'t]
-    [(_ ((~and xty [x:id (~datum :) τ]) . rst) t) #'(Π (xty) (Π/c rst t))]))
+    [(_ t) #'t]
+    [(_ (~and xty [x:id (~datum :) τ]) . rst) #'(Π (xty) (Π/c . rst))]))
+
+;; abbrevs for Π/c
+;; (→ τ_in τ_out) == (Π (unused : τ_in) τ_out)
+(define-simple-macro (→/c τ_in ... τ_out)
+  #:with (X ...) (generate-temporaries #'(τ_in ...))
+  (Π/c [X : τ_in] ... τ_out))
+;; (∀ (X) τ) == (∀ ([X : Type]) τ)
+(define-simple-macro (∀/c X ...  τ)
+  (Π/c [X : Type] ... τ))
 
 ;; pattern expanders
 (begin-for-syntax
@@ -380,14 +403,8 @@
      (syntax-parser
        [(_ f) #'f]
        [(_ f e . rst)
-        #'(~plain-app/c ((~literal #%plain-app) f e) . rst)])))
-  #;(define-syntax ~Π/c
-    (pattern-expander
-     (syntax-parser
-       [(_ ([x:id : τ_in] ... (~and (~literal ...) ooo)) τ_out)
-        #'(~∀ (x ... ooo) (~→ τ_in ... ooo τ_out))]
-       [(_ ([x:id : τ_in] ...)  τ_out)
-        #'(~∀ (x ...) (~→ τ_in ... τ_out))]))))
+        #'(~plain-app/c ((~literal #%plain-app) f e) . rst)]))))
+
 
 ;; untyped
 (define-syntax (λ/c- stx)
@@ -487,7 +504,7 @@
    ;; un-subst TmpTy for Name in expanded CTY
    ;; TODO: replace TmpTy in origs of CTY_in ... CTY_out
    ;; TODO: check CTY_out == `Name`?
-   #:with ((~Π ([x : CTY_in] ...) CTY_out) ...)
+   #:with ((~Π/c [x : CTY_in] ... CTY_out) ...)
           (subst #'Name #'TmpTy+ #'(CTY/tmp- ...) free-id=?)
    #:with (C/internal ...) (generate-temporaries #'(C ...))
    #:with (Ccase ...) (generate-temporaries #'(C ...))
@@ -526,9 +543,9 @@
           ;; each `Ccase` require 2 sets of args (even if set is empty):
           ;; 1) args of the constructor `x` ... 
           ;; 2) IHs for each `x` that has type `Name`
-          [⊢ Ccase ≫ Ccase- ⇐ (Π ([x : CTY_in] ...)
-                                 (→ (app P- recur-x) ...
-                                    (app P- (app C x ...))))] ...
+          [⊢ Ccase ≫ Ccase- ⇐ (Π/c [x : CTY_in] ...
+                                 (→/c (app/c P- recur-x) ...
+                                      (app/c P- (app/c C x ...))))] ...
           -----------
           [⊢ (match-Name v- P- Ccase- ...) ⇒ (app P- v-)])
         ;; eval the elim redexes
@@ -546,7 +563,7 @@
                 #:with (_ C+ . _) (local-expand #'(C 'x ...) 'expression null)
                 #:when (free-identifier=? #'C- #'C+)
                 (maybe-assign-type
-                 #`(app/eval (app Ccase x ...)
+                 #`(app/eval (app/c Ccase x ...)
 ;                             (match-Name x P Ccase ...) ...)
                              #,@(stx-map (lambda (y)
                                            (maybe-assign-type
@@ -554,6 +571,12 @@
                                            #'ty))
                                          #'(x ...)))
                  #'ty)]
+               ...
+               ;; these extra cases catch 0-arg constructors
+               [C-:id
+                #:with C+ (local-expand #'C 'expression null)
+                #:when (free-identifier=? #'C- #'C+)
+                (maybe-assign-type #'Ccase #'ty)]
                ...
                ; else generate a delayed term
                ;; must be #%app-, not #%plain-app, ow match will not dispatch properly
@@ -575,7 +598,6 @@
            (~datum ->)
            TY_out
       [C:id (~datum :) CTY] ...) ≫
-
    ;; params and indices specified with separate fn types, to distinguish them,
    ;; but are combined in other places,
    ;; eg (Name A ... i ...) or (CTY A ... i ...)
