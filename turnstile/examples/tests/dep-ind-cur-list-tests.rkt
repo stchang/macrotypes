@@ -130,156 +130,162 @@
             (S (Z)))
  : Nat -> (S (Z)))
 
-;; ;; Vect: indexed "lists" parameterized over length --------------------
-;; (define-datatype Vect [A : (Type 0)] : [i : Nat] -> (Type 0)
-;;   [nil : (Π ([A : *]) (Π ([k : Nat]) (→ (Vect A (Z)))))]
-;;   [cns : (Π ([A : *]) (Π ([k : Nat]) (→ A (Vect A k) (Vect A (S k)))))])
+;; Vect: indexed "lists" parameterized over length --------------------
+(define-datatype Vect [A : (Type 0)] : [i : Nat] -> (Type 0)
+  [nil : (Π [A : *] (Vect A Z))]
+  [cns : (Π [A : *] [k : Nat] (→ A (Vect A k) (Vect A (S k))))])
 
-;; (check-type nil : (Π ([A : *]) (Π ([k : Nat]) (→ (Vect A (Z))))))
-;; (check-type cns : (Π ([A : *]) (Π ([k : Nat]) (→ A (Vect A k) (Vect A (S k))))))
+(check-type nil : (Π [A : *] (Vect A Z)))
+(check-type cns : (Π [A : *] [k : Nat] (→ A (Vect A k) (Vect A (S k)))))
 
-;; (check-type ((nil Nat) (Z)) : (→ (Vect Nat (Z))))
-;; (check-type ((cns Nat) (Z)) : (→ Nat (Vect Nat (Z)) (Vect Nat (S (Z)))))
+(check-type (nil Nat) : (→ (Vect Nat (Z))))
+(check-type (nil Nat) : (Vect Nat Z))
+(check-type (cns Nat Z) : (→ Nat (Vect Nat Z) (Vect Nat (S Z))))
 
-;; (check-type (((nil Nat) (Z))) : (Vect Nat (Z)))
-;; (check-type (((cns Nat) (Z)) (Z) (((nil Nat) (Z)))) : (Vect Nat (S (Z))))
-;; (check-type (((cns Nat) (S (Z))) (Z)
-;;              (((cns Nat) (Z)) (Z)
-;;               (((nil Nat) (Z)))))
-;;             : (Vect Nat (S (S (Z)))))
+(check-type ((cns Nat Z) Z (nil Nat)) : (Vect Nat (S Z)))
+(check-type (cns Nat Z Z (nil Nat)) : (Vect Nat (S Z)))
+(check-type (cns Nat (S Z) Z (cns Nat Z Z (nil Nat)))
+            : (Vect Nat (S (S Z))))
 
-;; (define-type-alias mtNatVec (((nil Nat) (Z))))
-;; (check-type mtNatVec : (Vect Nat (Z)))
+(define-type-alias mtNatVec (nil Nat))
+(check-type mtNatVec : (Vect Nat Z))
 
-;; ;; nil must be applied again (bc it's a constructor of 0 args)
-;; (check-not-type ((nil Nat) (S (Z))) : (Vect Nat (S (Z))))
+(check-not-type (nil Nat) : (Vect Nat (S Z))) ; not length 1
 
-;; ;; length
-;; (check-type 
-;;  (elim-Vect (((nil Nat) (Z)))
-;;             (λ ([k : Nat]) (λ ([v : (Vect Nat k)]) Nat))
-;;             (λ ([k : Nat]) (λ () (λ () (Z))))
-;;             (λ ([k : Nat])
-;;               (λ ([x : Nat][xs : (Vect Nat k)])
-;;                 (λ ([IH : Nat])
-;;                   (S IH)))))
-;;  : Nat -> (Z))
+;; length
+
+(check-type 
+ (elim-Vect (nil Nat)
+            (λ [k : Nat] [v : (Vect Nat k)] Nat)
+            Z
+            (λ [k : Nat]
+              (λ [x : Nat][xs : (Vect Nat k)]
+                (λ [IH : Nat]
+                  (S IH)))))
+ : Nat -> Z)
+  
+(check-type
+ (elim-Vect (cns Nat Z Z (nil Nat))
+            (λ [k : Nat] [v : (Vect Nat k)] Nat)
+            Z
+            (λ [k : Nat]
+              (λ [x : Nat] [xs : (Vect Nat k)]
+                (λ [IH : Nat]
+                  (S IH)))))
+ : Nat -> (S Z))
            
-;; (check-type
-;;  (elim-Vect (((cns Nat) (Z)) (Z) (((nil Nat) (Z))))
-;;             (λ ([k : Nat]) (λ ([v : (Vect Nat k)]) Nat))
-;;             (λ ([k : Nat]) (λ () (λ () (Z))))
-;;             (λ ([k : Nat])
-;;               (λ ([x : Nat][xs : (Vect Nat k)])
-;;                 (λ ([IH : Nat])
-;;                   (S IH)))))
-;;  : Nat -> (S (Z)))
-           
-;; (check-type
-;;  (elim-Vect (((cns Nat) (S (Z))) (Z) (((cns Nat) (Z)) (Z) (((nil Nat) (Z)))))
-;;             (λ ([k : Nat]) (λ ([v : (Vect Nat k)]) Nat))
-;;             (λ ([k : Nat]) (λ () (λ () (Z))))
-;;             (λ ([k : Nat])
-;;               (λ ([x : Nat][xs : (Vect Nat k)])
-;;                 (λ ([IH : Nat])
-;;                   (S IH)))))
-;;  : Nat -> (S (S (Z))))
+(check-type
+ (elim-Vect (((cns Nat) (S (Z))) (Z) (((cns Nat) (Z)) (Z) (nil Nat)))
+            (λ [k : Nat] [v : (Vect Nat k)] Nat)
+            Z
+            (λ [k : Nat]
+              (λ [x : Nat] [xs : (Vect Nat k)]
+                (λ [IH : Nat]
+                  (S IH)))))
+ : Nat -> (S (S (Z))))
 
-;; (define-type-alias plus
-;;   (λ ([n : Nat][m : Nat])
-;;     (elim-Nat n
-;;               (λ ([k : Nat]) Nat)
-;;               (λ () (λ () m))
-;;               (λ ([k : Nat]) (λ ([IH : Nat]) (S IH))))))
+;; same as above but with less parens in target
+(check-type
+ (elim-Vect (cns Nat (S Z) Z (cns Nat Z Z (nil Nat)))
+            (λ [k : Nat] [v : (Vect Nat k)] Nat)
+            Z
+            (λ [k : Nat]
+              (λ [x : Nat] [xs : (Vect Nat k)]
+                (λ [IH : Nat]
+                  (S IH)))))
+ : Nat -> (S (S (Z))))
 
-;; (check-type plus : (→ Nat Nat Nat))
+(define-type-alias plus
+  (λ [n : Nat] [m : Nat]
+    (elim-Nat n
+              (λ [k : Nat] Nat)
+              m
+              (λ [k : Nat] (λ [IH : Nat] (S IH))))))
 
-;; (check-type (plus (Z) (S (S (Z)))) : Nat -> (S (S (Z))))
-;; (check-type (plus (S (S (Z))) (Z)) : Nat -> (S (S (Z))))
-;; (check-type (plus (S (S (Z))) (S (S (S (Z)))))
-;;             : Nat -> (S (S (S (S (S (Z)))))))
+(check-type plus : (→ Nat Nat Nat))
 
-;; ;; vappend
-;; (check-type
-;;  (elim-Vect
-;;   (((nil Nat) (Z)))
-;;   (λ ([k : Nat])
-;;     (λ ([v : (Vect Nat k)])
-;;       (Vect Nat k)))
-;;   (λ ([k : Nat]) (λ () (λ () (((nil Nat) (Z))))))
-;;   (λ ([k : Nat])
-;;     (λ ([x : Nat][v : (Vect Nat k)])
-;;       (λ ([IH : (Vect Nat k)])
-;;         (((cns Nat) k) x IH)))))
-;;  : (Vect Nat (Z))
-;;  -> (((nil Nat) (Z))))
+(check-type (plus Z (S (S Z))) : Nat -> (S (S Z)))
+(check-type (plus (S (S Z)) Z) : Nat -> (S (S Z)))
+(check-type (plus (S (S Z)) (S (S (S Z))))
+            : Nat -> (S (S (S (S (S Z))))))
 
-;; (define-type-alias vappend
-;;   (λ ([A : *])
-;;     (λ ([n : Nat][m : Nat])
-;;       (λ ([xs : (Vect A n)][ys : (Vect A m)])
-;;         (elim-Vect
-;;          xs
-;;          (λ ([k : Nat])
-;;            (λ ([v : (Vect A k)])
-;;              (Vect A (plus k m))))
-;;          (λ ([k : Nat]) (λ () (λ () ys)))
-;;          (λ ([k : Nat])
-;;            (λ ([x : A][v : (Vect A k)])
-;;              (λ ([IH : (Vect A (plus k m))])
-;;                (((cns A) (plus k m)) x IH)))))))))
+;; vappend
+(check-type
+ (elim-Vect (nil Nat)
+  (λ [k : Nat]
+    (λ [v : (Vect Nat k)]
+      (Vect Nat k)))
+  (nil Nat)
+  (λ [k : Nat]
+    (λ [x : Nat][v : (Vect Nat k)]
+      (λ [IH : (Vect Nat k)]
+        (cns Nat k x IH)))))
+ : (Vect Nat Z)
+ -> (nil Nat))
 
-;; (check-type
-;;  vappend
-;;  : (∀ (B)
-;;       (Π ([n : Nat][m : Nat])
-;;          (→ (Vect B n) (Vect B m) (Vect B (plus n m))))))
+(define-type-alias vappend
+  (λ [A : *]
+    (λ [n : Nat][m : Nat]
+      (λ [xs : (Vect A n)][ys : (Vect A m)]
+        (elim-Vect xs
+         (λ [k : Nat]
+           (λ [v : (Vect A k)]
+             (Vect A (plus k m))))
+         ys
+         (λ [k : Nat]
+           (λ [x : A][v : (Vect A k)]
+             (λ [IH : (Vect A (plus k m))]
+               (cns A (plus k m) x IH)))))))))
 
-;; (check-type
-;;  (vappend Nat)
-;;  : (Π ([n : Nat][m : Nat])
-;;       (→ (Vect Nat n) (Vect Nat m) (Vect Nat (plus n m)))))
+(check-type
+ vappend
+ : (∀ B
+      (Π [n : Nat][m : Nat]
+         (→ (Vect B n) (Vect B m) (Vect B (plus n m))))))
 
-;; (check-type
-;;  ((vappend Nat) (Z) (Z))
-;;  : (→ (Vect Nat (Z)) (Vect Nat (Z)) (Vect Nat (Z))))
+(check-type
+ (vappend Nat)
+ : (Π [n : Nat][m : Nat]
+      (→ (Vect Nat n) (Vect Nat m) (Vect Nat (plus n m)))))
 
-;; ;; append nil + nil
-;; (check-type
-;;  (((vappend Nat) (Z) (Z)) (((nil Nat) (Z))) (((nil Nat) (Z))))
-;;  : (Vect Nat (Z))
-;;  -> (((nil Nat) (Z))))
+(check-type
+ (vappend Nat Z Z)
+ : (→ (Vect Nat Z) (Vect Nat Z) (Vect Nat Z)))
 
-;; ;; append 1 + 0
-;; (check-type
-;;  (((vappend Nat) (S (Z)) (Z)) (((cns Nat) (Z)) (Z) (((nil Nat) (Z)))) (((nil Nat) (Z))))
-;;  : (Vect Nat (S (Z)))
-;;  -> (((cns Nat) (Z)) (Z) (((nil Nat) (Z)))))
+;; append nil + nil
+(check-type
+ (vappend Nat Z Z (nil Nat) (nil Nat))
+ : (Vect Nat Z)
+ -> (nil Nat))
 
-;; ;; m and n flipped
-;; (typecheck-fail
-;;  (((vappend Nat) (S (Z)) (Z)) (((nil Nat) (Z))) (((cns Nat) (Z)) (Z) (((nil Nat) (Z))))))
-;; (typecheck-fail
-;;  (((vappend Nat) (Z) (S (Z))) (((cns Nat) (Z)) (Z) (((nil Nat) (Z)))) (((nil Nat) (Z)))))
+;; append 1 + 0
+(check-type
+ (vappend Nat (S Z) Z (cns Nat Z Z (nil Nat)) (nil Nat))
+ : (Vect Nat (S Z))
+ -> (cns Nat Z Z (nil Nat)))
 
-;; ;; append 1 + 1
-;; (check-type
-;;  (((vappend Nat) (S (Z)) (S (Z))) (((cns Nat) (Z)) (Z) (((nil Nat) (Z)))) (((cns Nat) (Z)) (Z) (((nil Nat) (Z)))))
-;;  : (Vect Nat (S (S (Z))))
-;;  -> (((cns Nat) (S (Z))) (Z) (((cns Nat) (Z)) (Z) (((nil Nat) (Z))))))
+;; m and n flipped
+(typecheck-fail (vappend Nat (S Z) Z (nil Nat) (cns Nat Z Z (nil Nat))))
+(typecheck-fail (vappend Nat Z (S Z) (cns Nat Z Z (nil Nat) (nil Nat))))
+
+;; append 1 + 1
+(check-type
+ (vappend Nat (S Z) (S Z) (cns Nat Z Z (nil Nat)) (cns Nat Z Z (nil Nat)))
+ : (Vect Nat (S (S Z)))
+ -> (cns Nat (S Z) Z (cns Nat Z Z (nil Nat))))
  
-;; ;; append 1 + 2
-;; (check-type
-;;  (((vappend Nat) (S (Z)) (S (S (Z))))
-;;   (((cns Nat) (Z)) (Z) (((nil Nat) (Z)))) 
-;;   (((cns Nat) (S (Z))) (Z) (((cns Nat) (Z)) (Z) (((nil Nat) (Z))))))
-;;  : (Vect Nat (S (S (S (Z)))))
-;; -> (((cns Nat) (S (S (Z)))) (Z) (((cns Nat) (S (Z))) (Z) (((cns Nat) (Z)) (Z) (((nil Nat) (Z)))))))
+;; append 1 + 2
+(check-type
+ (vappend Nat (S Z) (S (S Z))
+  (cns Nat Z Z (nil Nat))
+  (cns Nat (S Z) Z (cns Nat Z Z (nil Nat))))
+ : (Vect Nat (S (S (S Z))))
+-> (cns Nat (S (S Z)) Z (cns Nat (S Z) Z (cns Nat Z Z (nil Nat)))))
  
-;; ;; append 2 + 1
-;; (check-type
-;;  (((vappend Nat) (S (S (Z))) (S (Z)))
-;;   (((cns Nat) (S (Z))) (Z) (((cns Nat) (Z)) (Z) (((nil Nat) (Z))))) 
-;;   (((cns Nat) (Z)) (Z) (((nil Nat) (Z)))))
-;;  : (Vect Nat (S (S (S (Z)))))
-;; -> (((cns Nat) (S (S (Z)))) (Z) (((cns Nat) (S (Z))) (Z) (((cns Nat) (Z)) (Z) (((nil Nat) (Z)))))))
+;; append 2 + 1
+(check-type
+ (vappend Nat (S (S Z)) (S Z)
+  (cns Nat (S Z) Z (cns Nat Z Z (nil Nat)))
+  (cns Nat Z Z (nil Nat)))
+ : (Vect Nat (S (S (S Z))))
+-> (cns Nat (S (S Z)) Z (cns Nat (S Z) Z (cns Nat Z Z (nil Nat)))))

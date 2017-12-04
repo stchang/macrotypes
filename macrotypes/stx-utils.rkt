@@ -91,6 +91,9 @@
 (define (stx-remove v lst [f free-id=?])
   (remove v (stx->list lst) f))
 
+(define (stx-take stx n)
+  (take (stx->list stx) n))
+
 (define (stx-drop stx n)
   (drop (stx->list stx) n))
 

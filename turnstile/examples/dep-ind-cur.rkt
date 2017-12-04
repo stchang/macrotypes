@@ -632,14 +632,14 @@
    ;; #:with ((~Π ([_ : _] ...)
    ;;           (~Π ([_ : _] ...)
    ;;             (~Π ([x : CTY_in/tmp] ...) CTY_out/tmp))) ...)
-   #:with ((~Π/c [x : CTY_in/tmp] ... CTY_out/tmp) ...)
+   #:with ((~Π/c [x : CTY_in/tmp] ... CTY_out/tmp) ...) ;; TODO: rename this to x+i
           (stx-map
            (lambda (cty)
-             (prune cty (stx-length #'(A ... i ...)))) 
+             (prune cty (stx-length #'(A ...))))
            #'(CTY/tmp- ...))
    ;; each (recur-x ...) is subset of (x ...) that are recur args,
    ;; ie, they are not fresh ids
-   #:with ((recur-x ...) ...) (stx-map
+   #:with ((recur-x ...) ...) (stx-map ;; TODO: currently including i here, but assume i cannot be rec
                                (lambda (xs ts)
                                  (filter
                                   (lambda (y) y) ; filter out #f
@@ -668,7 +668,7 @@
    #:with ((CTYi ...) ...) (stx-map (lambda _ (generate-temporaries #'(TYi ...))) #'(C ...))
    #:with ((Cx ...) ...) (stx-map (lambda (xs) (generate-temporaries xs)) #'((x ...) ...))
    ; Ci*recur dups Ci for each recur, to get the ellipses to work out below
-   #:with (((Ci*recur ...) ...) ...) (stx-map
+   #:with (((Ci*recur ...) ...) ...) (stx-map ;; TODO: currently assuming each rec-x needs all i
                                       (lambda (cis recurs)
                                         (stx-map (lambda (r) cis) recurs))
                                       #'((Ci ...) ...)
@@ -714,10 +714,10 @@
           [⊢ out- ⇒ TY_out])
 
         ;; define structs for constructors
-        (struct C/internal (x ...) #:transparent) ...
+        (struct C/internal (xs) #:transparent) ... ;; TODO: currently i's are included in struct fields
         ;; TODO: this define should be a macro instead?
         (define C (unsafe-assign-type
-                   (λ/c- (A ... i ...) C/internal)
+                   (λ/c- (A ... x ...) (C/internal (list x ...)))
                    : CTY)) ...
         ;; define eliminator-form
         ;; v = target
@@ -738,9 +738,9 @@
           ;; re-extract CTY_in and CTY_out, since we didnt un-subst above
           ;; TODO: must re-compute recur-x, ie recur-Cx
           #:with ((~Π/c [CA : CTYA/CA] ... ; ignore params, instead infer `A` ... from `v`
-                    (~Π/c [Ci : CTYi/CA] ...
-                      (~Π/c [Cx : CTY_in/CA] ...
-                          CTY_out/CA)))
+;                    (~Π/c [Ci : CTYi/CA] ...
+                      (~Π/c [Cx : CTY_in/CA] ... ;; TODO: rename Cx to Cx+Ci
+                          CTY_out/CA))
                   ...)
                  (stx-map (current-type-eval) #'(CTY ...))
                  #;(stx-map
@@ -761,10 +761,10 @@
                  (displayln (stx->datum #'((CA ...) ...)))
                  (displayln "CTYA/CA:")
                  (displayln (stx->datum #'((CTYA/CA ...) ...)))
-                 (displayln "Ci:")
-                 (displayln (stx->datum #'((Ci ...) ...)))
-                 (displayln "CTYi/CA:")
-                 (displayln (stx->datum #'((CTYi/CA ...) ...)))
+                 ;; (displayln "Ci:")
+                 ;; (displayln (stx->datum #'((Ci ...) ...)))
+                 ;; (displayln "CTYi/CA:")
+                 ;; (displayln (stx->datum #'((CTYi/CA ...) ...)))
                  (displayln "Cx:")
                  (displayln (stx->datum #'((Cx ...) ...)))
                  (displayln "CTY_in/CA:")
@@ -775,14 +775,18 @@
           ;; compute recur-Cx by finding analogous x/recur-x pairs
           ;; each (recur-Cx ...) is subset of (Cx ...) that are recur args,
           ;; ie, they are not fresh ids
-          #:with ((recur-Cx ...) ...)
+          #:with (((recur-Cx Ci*recur ...) ...) ...)
                  (stx-map
                   (lambda (xs rxs cxs)
                     (filter
                      (lambda (z) z) ; filter out #f
                      (stx-map
                       (lambda (y cy)
-                        (if (stx-member y rxs) cy #f))
+                        (if (stx-member y rxs)
+                            ;; return index args with each recur arg
+                            ;; TODO: currently assume any constructor with recur args must consume indices
+                            (cons cy (stx-take cxs (stx-length #'(i ...))))
+                            #f))
                       xs cxs)))
                   #'((x ...) ...)
                   #'((recur-x ...) ...)
@@ -815,22 +819,22 @@
 
           ;; inst CTY_in/CA and CTY_out/CA with inferred A ...
           #:with (((CTYA ...)
-                   (CTYi ...)
+;                   (CTYi ...)
                    (CTY_in ... CTY_out))
                   ...)
                  (stx-map
-                  (lambda (tyas ts tyis cas)
-                    (substs #'(A ...) cas #`(#,tyas #,tyis #,ts)))
+                  (lambda (tyas ts #;tyis cas)
+                    (substs #'(A ...) cas #`(#,tyas #;#,tyis #,ts)))
                   #'((CTYA/CA ...) ...)
                   #'((CTY_in/CA ... CTY_out/CA) ...)
-                  #'((CTYi/CA ...) ...)
+;                  #'((CTYi/CA ...) ...)
                   #'((CA ...) ...))
 
           #:do[(when debug-elim?
                  (displayln "CTYA:")
                  (displayln (stx->datum #'((CTYA ...) ...)))
-                 (displayln "CTYi:")
-                 (displayln (stx->datum #'((CTYi ...) ...)))
+                 ;; (displayln "CTYi:")
+                 ;; (displayln (stx->datum #'((CTYi ...) ...)))
                  (displayln "CTY_in:")
                  (displayln (stx->datum #'((CTY_in ...) ...)))
                  (displayln "CTY_out:")
@@ -874,11 +878,11 @@
           ; TODO: Ci*recur still wrong?
           [⊢ Ccase ≫ _ ⇒ ccasety] ...
           #:with (expected-Ccase-ty ...)
-                 #'((Π/c [Ci : CTYi] ... ; indices
-                       (Π/c [Cx : CTY_in] ... ; constructor args
+;                 #'((Π/c [Ci : CTYi] ... ; indices
+                       #'((Π/c [Cx : CTY_in] ... ; constructor args ; TODO: Cx includes indices
                           (→/c (app/c (app/c P- Ci*recur ...) recur-Cx) ... ; IHs
                                (app/c (app/c P- CTY_out_i ...)
-                                      (app/c (app/c C A*C ... Ci ...) Cx ...))))) ...)
+                                      (app/c (app/c C A*C ...) Cx ...)))) ...)
 
           #:do[(when debug-elim?
                  (displayln "Ccase-ty:")
@@ -900,7 +904,7 @@
           -----------
           [⊢ (match-Name v- P- Ccase- ...) ⇒ (app/c (app/c P- i ...) v-)])
 
-        ;; implements reduction of elimator redexes
+        ;; implements reduction of eliminator redexes
         (define-syntax match-Name
           (syntax-parser
             #;[(_ . args)
@@ -912,17 +916,17 @@
              ;; must local expand because `v` may be unexpanded due to reflection
              (syntax-parse (local-expand #'v 'expression null)
                ;; first set of cases match 0-arg constructors, like null
-               [(~plain-app/c C-:id CA ... Ci ...)
+               [(~plain-app/c C-:id CA ...)
                 #:with (_ C+ . _) (local-expand #'(C 'CA ...) 'expression null)
                 #:when (free-identifier=? #'C+ #'C-)
                 ;; can use app instead of app/eval to properly propagate types
                 ;; but doesnt quite for in all cases?
                 (maybe-assign-type
-                    #'(app/c Ccase Ci ...)
+                    #'(app/c Ccase)
                  #'ty)] ...
                ;; second set of cases match constructors with args, like cons
                [(~plain-app/c
-                 (~plain-app/c C-:id CA ... Ci ...)
+                 (~plain-app/c C-:id CA ...)
                  x ...)
                 #:with (_ C+ . _) (local-expand #'(C 'CA ...) 'expression null)
                 #:when (free-identifier=? #'C+ #'C-)
@@ -930,7 +934,7 @@
                 ;; but doesnt quite for in all cases?
                 (maybe-assign-type
                  #`(app/eval/c ;#,(assign-type
-                                (app/eval/c (app/c Ccase Ci ...) x ...)
+                                (app/eval/c (app/c Ccase) x ...)
                                 ;; TODO: is this right?
                               ;       #'(app P Ci ...))
 ;                             (match-Name recur-x P Ccase ...) ...)
