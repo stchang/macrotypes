@@ -14,7 +14,7 @@
 ; 4) arg refs were using x instead of Cx from new expansion
 ; TODO: re-compute recur-x, ie recur-Cx
 
-; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑
+; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
 (provide Type (rename-out [Type *])
 ;         Π → ∀ λ (rename-out [app #%app])
@@ -496,101 +496,105 @@
         (syntax-parse ((current-type-eval) (uncur t (car ns)))
           [(~Π ([x : τ] ...) t1)
            #`(Π ([x : τ] ...)
-                #,(apply uncurs #'t1 (cdr ns)))]))))
+                #,(apply uncurs #'t1 (cdr ns)))])))
+  ;; x+τss = (([x τ] ...) ...)
+  ;; returns subset of each (x ...) that is recursive, ie τ = TY
+  (define (find-recur TY x+τss)
+    (stx-map
+     (λ (x+τs)
+       (stx-filtermap
+        (syntax-parser [(x τ) (and (free-id=? #'τ TY) #'x)])
+        x+τs))
+     x+τss))
+  )
 
+;; use this macro to expand e, which contains references to unbound X
+(define-syntax (with-unbound stx)
+  (syntax-parse stx
+    [(_ X:id e)
+     ;swap in a tmp (bound) id `TmpTy` for unbound X
+     #:with e/tmp (subst #'TmpTy #'X #'e)
+     ;; expand with the tmp id
+     (expand/df #'e/tmp)]))
+;; must be used with with-unbound
+(begin-for-syntax
+  (define-syntax ~unbound
+    (pattern-expander
+     (syntax-parser
+       [(_ X:id pat)
+        ;; un-subst tmp id in expanded stx
+        #'(~and TMP
+                (~parse TmpTy+ (expand/df #'TmpTy))
+                (~parse pat (subst #'X #'TmpTy+ #'TMP free-id=?)))])))
+  ;; matches constructor pattern (C x ...) where C matches literally
+  (define-syntax ~Cons
+    (pattern-expander
+     (syntax-parser
+       ;; 0-arg case handled separately, bc underlying Racket is not autocurried
+       [(_ (C))
+        #'(~and TMP
+                (~parse C-:id (expand/df #'TMP))
+                (~parse C+ (expand/df #'C))
+                (~fail #:unless (free-id=? #'C- #'C+)))]
+       ;; non-0-arg constructors
+       [(_ (C x ...))
+        #'(~and TMP
+                (~parse ((~literal #%plain-app) C-:id x ...) (expand/df #'TMP))
+                (~parse (_ C+ . _) (expand/df #'(C)))
+                (~fail #:unless (free-id=? #'C- #'C+)))])))
+)
+     
 (define-typed-syntax define-datatype
-  ;; datatype type `TY` is an id ----------------------------------------------
-  ;; - ie, no params or indices
-  [(_ Name (~datum :) TY:id [C:id (~datum :) CTY] ...) ≫
-   ; need to expand `CTY` to find recur args,
-   ; but `Name` is still unbound so swap in a tmp id `TmpTy`
-   #:with (CTY/tmp ...) (subst #'TmpTy #'Name #'(CTY ...))
-   [⊢ CTY/tmp ≫ CTY/tmp- ⇐ Type] ...
-   #:with TmpTy+ (local-expand #'TmpTy 'expression null)
-   ;; un-subst TmpTy for Name in expanded CTY
-   ;; TODO: replace TmpTy in origs of CTY_in ... CTY_out
-   ;; TODO: check CTY_out == `Name`?
-   #:with ((~Π/c [x : CTY_in] ... CTY_out) ...)
-          (subst #'Name #'TmpTy+ #'(CTY/tmp- ...) free-id=?)
+  ;; simple datatype type case, eg Nat ---------------------------
+  ;; - ie, `TY` is an id with no params or indices
+  [(_ TY:id (~datum :) κ:id [C:id (~datum :) τC] ...) ≫
+   ;; need with-unbound and ~unbound bc `TY` name still undefined here
+   [⊢ (with-unbound TY τC) ≫ (~unbound TY (~Π/c [x : τin] ... _)) ⇐ Type] ...
+   ;; ----- pre-define some pattern variables for cleaner defs below:
+   ;; recursive args of each C; where (xrec ...) ⊆ (x ...)
+   #:with ((xrec ...) ...) (find-recur #'TY #'(([x τin] ...) ...))
+   ;; struct defs
    #:with (C/internal ...) (generate-temporaries #'(C ...))
-   #:with (Ccase ...) (generate-temporaries #'(C ...))
-   #:with (Ccase- ...) (generate-temporaries #'(C ...))
-   #:with ((recur-x ...) ...) (stx-map
-                               (lambda (xs ts)
-                                 (filter
-                                  (lambda (x) x) ; filter out #f
-                                  (stx-map
-                                   (lambda (x t) ; returns x or #f
-                                     (and (free-id=? t #'Name) x))
-                                   xs ts)))
-                               #'((x ...) ...) #'((CTY_in ...) ...))
-   #:with elim-Name (format-id #'Name "elim-~a" #'Name)
-   #:with match-Name (format-id #'Name "match-~a" #'Name)
-   #:with Name/internal (generate-temporary #'Name)
+   ;; elim methods and method types
+   #:with (m ...) (generate-temporaries #'(C ...))
+   #:with (m- ...) (generate-temporaries #'(m ...))
+   #:with (τm ...) (generate-temporaries #'(m ...))
+   #:with elim-TY (format-id #'TY "elim-~a" #'TY)
+   #:with eval-TY (format-id #'TY "eval-~a" #'TY)
+   #:with TY/internal (generate-temporary #'TY)
    --------
    [≻ (begin-
-        ;; define `Name`, eg "Nat", as a valid type
-;        (define-base-type Name) ; dont use bc uses '::, and runtime errs
-        (struct Name/internal () #:prefab)
-        (define-typed-syntax Name
-          [_:id ≫
-           #:with out- (syntax-property #'(Name/internal)
-                                        'elim-name #'elim-Name)
-           -------------
-           [⊢ out- ⇒ TY]])
-
+        ;; define `TY`, eg "Nat", as a valid type
+;        (define-base-type TY : κ) ; dont use bc uses '::, and runtime errs
+        (struct TY/internal () #:prefab)
+        (define-typed-syntax TY
+          [_:id ≫ --- [⊢ #,(syntax-property #'(TY/internal) 'elim-name #'elim-TY) ⇒ κ]])
         ;; define structs for `C` constructors
         (struct C/internal (x ...) #:transparent) ...
-        (define C (unsafe-assign-type C/internal : CTY)) ...
+        (define C (unsafe-assign-type C/internal : τC)) ...
         ;; elimination form
-        (define-typed-syntax (elim-Name v P Ccase ...) ≫
-          [⊢ v ≫ v- ⇐ Name]
-          [⊢ P ≫ P- ⇐ (→ Name Type)] ; prop / motive
-          ;; each `Ccase` require 2 sets of args (even if set is empty):
+        (define-typerule (elim-TY v P m ...) ≫
+          [⊢ v ≫ v- ⇐ TY]
+          [⊢ P ≫ P- ⇐ (→ TY Type)] ; prop / motive
+          ;; each `m` can consume 2 sets of args:
           ;; 1) args of the constructor `x` ... 
-          ;; 2) IHs for each `x` that has type `Name`
-          [⊢ Ccase ≫ Ccase- ⇐ (Π/c [x : CTY_in] ...
-                                 (→/c (app/c P- recur-x) ...
-                                      (app/c P- (app/c C x ...))))] ...
+          ;; 2) IHs for each `x` that has type `TY`
+          #:with (τm ...) #'((Π/c [x : τin] ...
+                              (→/c (app/c P- xrec) ... (app/c P- (app/c C x ...)))) ...)
+          [⊢ m ≫ m- ⇐ τm] ...
           -----------
-          [⊢ (match-Name v- P- Ccase- ...) ⇒ (app P- v-)])
+          [⊢ (eval-TY v- P- m- ...) ⇒ (app/c P- v-)])
         ;; eval the elim redexes
-        (define-syntax match-Name
+        (define-syntax eval-TY
           (syntax-parser
-            #;[(_ . args)
+            #;[(_ . args) ; uncomment for help with debugging
              #:do[(printf "trying to match:\n~a\n" (stx->datum #'args))]
-             #:when #f #'(void)]
-            [(_ v P Ccase ...)
-             #:with ty (typeof this-syntax)
-             ; local expand since v might be unexpanded due to reflection
-             (syntax-parse (local-expand #'v 'expression null)
-               ; do eval if v is an actual `C` instance
-               [((~literal #%plain-app) C-:id x ...)
-                #:with (_ C+ . _) (local-expand #'(C 'x ...) 'expression null)
-                #:when (free-identifier=? #'C- #'C+)
-                (maybe-assign-type
-                 #`(app/eval (app/c Ccase x ...)
-;                             (match-Name x P Ccase ...) ...)
-                             #,@(stx-map (lambda (y)
-                                           (maybe-assign-type
-                                            #`(match-Name #,y P Ccase ...)
-                                           #'ty))
-                                         #'(x ...)))
-                 #'ty)]
-               ...
-               ;; these extra cases catch 0-arg constructors
-               [C-:id
-                #:with C+ (local-expand #'C 'expression null)
-                #:when (free-identifier=? #'C- #'C+)
-                (maybe-assign-type #'Ccase #'ty)]
-               ...
-               ; else generate a delayed term
-               ;; must be #%app-, not #%plain-app, ow match will not dispatch properly
-               [_ ;(maybe-assign-type
-                   #'(#%app- match/delayed 'match-Name (void v P Ccase ...))
-                   ;#'ty)
-                  ])]))
-        )]]
+             #:when #f #'void]
+            [(_ (~Cons (C x ...)) P m ...)
+             #'(app/eval/c m x ... (eval-TY xrec P m ...) ...)] ...
+            ;; else generate a "delayed" term
+            ;; must be #%app-, not #%plain-app, ow match will not dispatch properly
+            [(_ . args) #'(#%app- match/delayed 'eval-TY (void . args))])))]]
   ;; --------------------------------------------------------------------------
   ;; datatype type `TY` is a fn:
   ;; - params A ... and indices i ... must be in separate fn types

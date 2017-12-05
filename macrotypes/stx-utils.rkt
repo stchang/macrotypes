@@ -85,6 +85,8 @@
   (apply append (stx-map stx->list stxs)))
 (define (stx-appendmap f . stxs)
   (stx-flatten (apply stx-map f stxs)))
+(define (stx-filtermap f . stxs)
+  (apply filter-map f (stx-map stx->list stxs)))
 
 (define (stx-remove-dups Xs)
   (remove-duplicates (stx->list Xs) free-identifier=?))
