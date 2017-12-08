@@ -95,9 +95,11 @@
 
 (define (stx-take stx n)
   (take (stx->list stx) n))
-
 (define (stx-drop stx n)
   (drop (stx->list stx) n))
+(define (stx-split-at stx n)
+  (let-values ([(l r) (split-at (stx->list stx) n)])
+    (list l r)))
 
 (define (stx-deep-map f stx)
   (define (deep stx)

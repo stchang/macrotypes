@@ -13,9 +13,7 @@
 ;; testing user-defined equality
 
 (define-datatype my= [A : (Type 0)] : [a : A] [b : A] -> (Type 0)
-  (my-refl : (Π [A : (Type 0)]
-;                (Π/c ([x : A][y : A])
-                   (Π [a : A] (my= A a a)))))
+  (my-refl : (Π [A : (Type 0)] (Π [a : A] (my= A a a)))))
 
 (define-datatype Nat : *
   [Z : Nat]
