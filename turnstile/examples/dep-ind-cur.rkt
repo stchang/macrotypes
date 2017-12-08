@@ -641,9 +641,6 @@
    ;; ---------- pre-generate other patvars; makes nested macros below easier to read
    #:with (A- ...) (generate-temporaries #'(A ...))
    #:with (i- ...) (generate-temporaries #'(i ...))
-   ;; need to multiply A, to match types of `C` ... constructors
-   ;; must be fresh vars to avoid dup patvar errors
-   #:with ((τCA/A ...) ...) (stx-map (lambda _ (generate-temporaries #'(A ...))) #'(C ...))
    ;; inst'ed τin and τout (with A ...)
    #:with ((τin/A ...) ...) (stx-map generate-temporaries #'((τin ...) ...))
    #:with (τout/A ...) (generate-temporaries #'(C ...))
@@ -711,21 +708,19 @@
                  (displayln "inferred i:")
                  (displayln (stx->datum #'(i ...))))]
 
-          ;; inst τin and τout, and τCA, with inferred A ...
+          ;; inst τin and τout with inferred A ...
           ;; - unlike in the TY def, must explicitly instantiate here
           ;; bc these types reference a different binder, ie CA instead of A
           ;; - specifically, replace CA ... with the inferred A ... params
           ;; - don't need to instantiate τi ... bc they already reference A,
           ;;   which we reused as the pattern variable above
-          #:with ((τCA/A ... τin/A ... τout/A) ...)
+          #:with ((τin/A ... τout/A) ...)
                  (stx-map
                   (λ (As τs) (substs #'(A ...) As τs))
                   #'((CA ...) ...)
-                  #'((τCA ... τin ... τout) ...))
+                  #'((τin ... τout) ...))
           
           #:do[(when debug-elim?
-                 (displayln "τCA/A:")
-                 (displayln (stx->datum #'((τCA/A ...) ...)))
                  (displayln "τin/A:")
                  (displayln (stx->datum #'((τin/A ...) ...)))
                  (displayln "τout/A:")
