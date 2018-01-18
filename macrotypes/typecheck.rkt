@@ -325,12 +325,18 @@
               #:with norm (with-handlers ; convert other exns; keep unbound id
                             ([(λ (e) (and (exn:fail:syntax? e) 
                                           (not (exn:fail:syntax:unbound? e))))
-                              (λ (e) #f)])
+                              ;; return exn-msg
+                              (λ (e) (exn-message e))])
                             ((current-type-eval) #'τ))
-              #:fail-unless (and (stx-e #'norm) ((current-type?) #'norm))
-              (format "~a (~a:~a) not a well-formed ~a: ~a"
-                      (syntax-source #'τ) (syntax-line #'τ) (syntax-column #'τ)
-                      'name (type->str #'τ))))
+              #:fail-unless (and (not (string? (stx-e #'norm)))
+                                 ((current-type?) #'norm))
+              ;; append above exn msg, if possible
+              (string-append
+               (format "~a (~a:~a) not a well-formed ~a: ~a"
+                       (syntax-source #'τ) (syntax-line #'τ) (syntax-column #'τ)
+                       'name (type->str #'τ))
+               "\n"
+               (if (string? (stx-e #'norm)) (stx-e #'norm) ""))))
            (define-syntax-class any-type ;; e.g., any valid type
              #:attributes (norm)
              (pattern τ
