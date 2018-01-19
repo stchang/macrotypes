@@ -715,14 +715,20 @@ particularly for commonly used macros like @racket[#%app].
 @; Sec: turnstile/lang ----------------------------------------------
 @section[#:tag "turnstilelang"]{@hash-lang[] @racketmodname[turnstile]/lang}
 
+Deprecated: see @secref{turnstilequicklang}.
+
+@; Sec: turnstile/quicklang ----------------------------------------------
+@section[#:tag "turnstilequicklang"]{@hash-lang[] @racketmodname[turnstile]/quicklang}
+
 Languages implemented using @hash-lang[] @racketmodname[turnstile]
-must manually provide @racket[#%module-begin] and other forms required by
-Racket.
+are responsible for defining and providing certain forms required by Racket,
+e.g., @racket[#%module-begin].
 
 For convenience, Turnstile additionally supplies @hash-lang[]
-@racketmodname[turnstile]@tt{/lang}. Languages implemented using this language
+@racketmodname[turnstile]@tt{/quicklang}. Languages implemented using this language
 will automatically provide Racket's @racket[#%module-begin],
-@racket[#%top-interaction], @racket[#%top], and @racket[require].
+@racket[#%top-interaction], @racket[#%top], @racket[require],
+and some require transformers, e.g., @racket[rename-in].
 
 @; Sec: Lower-level functions -------------------------------------------------
 @section{Lower-level Functions}
