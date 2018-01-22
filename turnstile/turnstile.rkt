@@ -5,6 +5,7 @@
          define-typed-syntax
          define-typed-variable-syntax
          define-syntax-category
+         define-prop
          (rename-out [define-typed-syntax define-typerule]
                      [define-typed-syntax define-syntax/typecheck])
          (for-syntax syntax-parse/typecheck
@@ -13,22 +14,29 @@
                       [syntax-parse/typecheck syntax-parse/typed-syntax])))
 
 (require (except-in (rename-in
-                     macrotypes/typecheck-core
-                     [define-syntax-category -define-syntax-category])
-                    #%module-begin))
+                      macrotypes/typecheck-core
+                      [define-syntax-category -define-syntax-category])
+                    #%module-begin)
+         (for-syntax racket/stxparam
+                     "mode.rkt"
+                     (only-in lens/common lens-view lens-set)
+                     (only-in lens/private/syntax/stx stx-flatten/depth-lens))
+         (for-meta 2
+                   racket/function
+                   racket/base
+                   racket/string
+                   syntax/stx
+                   macrotypes/stx-utils))
 
-(module typecheck+ racket/base
-  (provide (all-defined-out))
-  (require (for-meta -1 (except-in macrotypes/typecheck-core #%module-begin))
-           (only-in lens/common lens-view lens-set)
-           (only-in lens/private/syntax/stx stx-flatten/depth-lens))
+(begin-for-syntax
+
   ;; infer/depth returns a list of three values:
   ;;   tvxs- ; a stx-list of the expanded versions of type variables in the tvctx
   ;;   xs-   ; a stx-list of the expanded versions of variables in the ctx
   ;;   es*-  ; a nested list a depth given by the depth argument, with the same structure
   ;;         ; as es*, containing the expanded es*, with the types attached
   (define (infer/depth #:ctx ctx #:tvctx tvctx depth es* origs*
-                       #:tag [tag (current-tag)])
+                       #:tag tag)
     (define flat (stx-flatten/depth-lens depth))
     (define es (lens-view flat es*))
     (define origs (lens-view flat origs*))
@@ -36,9 +44,9 @@
       (infer #:tvctx tvctx #:ctx ctx (stx-map pass-orig es origs) #:tag tag))
     (define es*- (lens-set flat es* #`es-))
     (list #'tvxs- #'xs- es*-))
-  ;; infers/depths
+
   (define (infers/depths clause-depth tc-depth tvctxs/ctxs/ess/origss*
-                         #:tag [tag (current-tag)])
+                         #:tag tag)
     (define flat (stx-flatten/depth-lens clause-depth))
     (define tvctxs/ctxs/ess/origss
       (lens-view flat tvctxs/ctxs/ess/origss*))
@@ -61,14 +69,10 @@
              (type->str expected-type)
              (type->str existing-type))
      ⇐-stx
-     body)))
-(module syntax-classes racket/base
-  (provide (all-defined-out))
-  (require (for-meta 0 (submod ".." typecheck+))
-           (for-meta -1 (submod ".." typecheck+)
-                     (except-in macrotypes/typecheck-core #%module-begin mk-~ mk-?)
-                     "mode.rkt")
-           (for-meta -2 (except-in macrotypes/typecheck-core #%module-begin)))
+     body))
+  )
+
+(begin-for-syntax (begin-for-syntax
   (define-syntax-class ---
     [pattern dashes:id
              #:do [(define str-dashes (symbol->string (syntax->datum #'dashes)))]
@@ -94,62 +98,63 @@
 
   (define-splicing-syntax-class props
     [pattern (~and (~seq stuff ...) (~seq (~seq k:id v) ...))])
-  (define-splicing-syntax-class ⇒-prop
-    #:datum-literals (⇒)
-    #:attributes (e-pat)
-    [pattern (~or (~seq ⇒ tag-pat ; implicit tag
-                          (~parse tag #',(current-tag))
-                          (tag-prop:⇒-prop) ...)
-                  (~seq ⇒ tag:id tag-pat (tag-prop:⇒-prop) ...)) ; explicit tag
+  (define-syntax-class ⇒-prop
+    #:datum-literals (⇒) #:attributes (e-pat)
+    [pattern (~or (⇒ tag-pat ; implicit tag
+                     (~parse tag (syntax-parameter-value #'current-tag-stx))
+                     tag-prop:⇒-prop ...)
+                  (⇒ tag:id tag-pat tag-prop:⇒-prop ...)) ; explicit tag
              #:with e-tmp (generate-temporary)
-             #:with e-pat
-             #'(~and e-tmp
-                     (~parse
-                      (~and tag-prop.e-pat ... tag-pat)
-                      (detach #'e-tmp `tag)))])
+             #:with e-pat #'(~and e-tmp
+                                  (~parse
+                                   (~and tag-prop.e-pat ... tag-pat)
+                                   (detach #'e-tmp `tag)))])
   (define-splicing-syntax-class ⇒-prop/conclusion
     #:datum-literals (⇒)
     #:attributes (tag tag-expr)
     [pattern (~or (~seq ⇒ tag-stx ; implicit tag
-                          (~parse tag #',(current-tag))
+                          (~parse tag (syntax-parameter-value #'current-tag-stx))
                           (~parse (tag-prop.tag ...) #'())
                           (~parse (tag-prop.tag-expr ...) #'()))
                   (~seq ⇒ tag:id tag-stx (tag-prop:⇒-prop/conclusion) ...))
-             #:with tag-expr
+             #:with tag-expr-body
              (for/fold ([tag-expr #'#`tag-stx])
                        ([k (in-stx-list #'[tag-prop.tag ...])]
                         [v (in-stx-list #'[tag-prop.tag-expr ...])])
                (with-syntax ([tag-expr tag-expr] [k k] [v v])
-                 #'(attach tag-expr `k ((current-ev) v))))])
-  (define-splicing-syntax-class ⇐-prop
-    #:datum-literals (⇐)
-    #:attributes (τ-stx e-pat)
-    [pattern (~or (~seq ⇐ τ-stx (~parse tag #',(current-tag)))
-                  (~seq ⇐ tag:id τ-stx))
+                 #`(attach tag-expr `k 
+                           #,(if (equal? (syntax->datum #'k) (syntax-parameter-value #'current-tag2-stx))
+                                 #'((current-ev) v)
+                                 #'v))))
+             #:with tag-expr
+                    (if (equal? (syntax->datum #'tag) (syntax-parameter-value #'current-tag-stx))
+                        #'((current-ev) tag-expr-body)
+                        #'tag-expr-body)])
+  (define-syntax-class ⇐-prop
+    #:datum-literals (⇐) #:attributes (tag tag-stx e-pat)
+    [pattern (~or (⇐ tag-stx ; implicit tag
+                     (~parse tag (syntax-parameter-value #'current-tag-stx)))
+                  (⇐ tag:id tag-stx)) ; explicit tag
+             ;; must generate temporaries bc this class may get matched multiple times
+             ;; and the results may be combined into one pattern
              #:with e-tmp (generate-temporary)
              #:with τ-tmp (generate-temporary)
              #:with τ-exp (generate-temporary)
              #:with e-pat
-             #`(~and e-tmp
-                     (~parse τ-exp (get-expected-type #'e-tmp))
-                     (~parse τ-tmp (detach #'e-tmp `tag))
-                     (~parse
-                      (~post
-                       (~fail #:when (and (not (check? #'τ-tmp #'τ-exp))
-                                          (get-orig #'e-tmp))
-                              (typecheck-fail-msg/1 #'τ-exp #'τ-tmp #'e-tmp)))
-                      (get-orig #'e-tmp)))])
-  (define-splicing-syntax-class ⇒-props
-    #:attributes (e-pat)
-    [pattern (~seq :⇒-prop)]
-    [pattern (~seq (p:⇒-prop) ...)
-             #:with e-pat #'(~and p.e-pat ...)])
-  (define-splicing-syntax-class ⇐-props
-    #:attributes (τ-stx e-pat)
-    [pattern (~seq :⇐-prop)]
-    [pattern (~seq (p:⇐-prop) (p2:⇒-prop) ...)
-             #:with τ-stx #'p.τ-stx
-             #:with e-pat #'(~and p.e-pat p2.e-pat ...)])
+             (if (equal? (syntax->datum #'tag) (syntax-parameter-value #'current-tag-stx))
+                 #`(~and e-tmp
+                         (~parse τ-exp (get-expected-type #'e-tmp))
+                         (~parse τ-tmp (detach #'e-tmp `tag))
+                         ;; TODO: the `~parse ... get-orig` sets the context
+                         ;; for stx-parse when the failure occurs?
+                         ;; but why does removing it produce "bad syntax" in some cases?
+                         (~parse
+                          (~post
+                           (~fail #:when (and (not (check? #'τ-tmp #'τ-exp))
+                                              #;(get-orig #'e-tmp))
+                                  (typecheck-fail-msg/1 #'τ-exp #'τ-tmp #'e-tmp)))
+                          (get-orig #'e-tmp)))
+                 #'e-tmp)])
   (define-splicing-syntax-class ⇒-props/conclusion
     #:attributes ([tag 1] [tag-expr 1])
     [pattern (~seq p:⇒-prop/conclusion)
@@ -176,19 +181,19 @@
     [pattern (~seq ctx1:id+props+≫ ...)
              #:with [x- ...] #'[ctx1.x- ... ...]
              #:with [ctx ...] #'[ctx1.ctx ... ...]])
-  (define-syntax-class tc-elem
-    #:datum-literals (⊢ ⇒ ⇐ ≫)
-    #:attributes (e-stx e-stx-orig e-pat)
-    [pattern [e-stx ≫ e-pat* props:⇒-props]
-             #:with e-stx-orig #'e-stx
-             #:with e-pat #'(~and props.e-pat e-pat*)]
-    [pattern [e-stx* ≫ e-pat* props:⇐-props]
-             #:with e-tmp (generate-temporary #'e-pat*)
-             #:with τ-tmp (generate-temporary 'τ)
-             #:with τ-exp-tmp (generate-temporary 'τ_expected)
-             #:with e-stx #'(add-expected e-stx* props.τ-stx)
+  (define-syntax-class tc-elem #:datum-literals (≫ ⇒ ⇐) #:attributes (e-stx e-stx-orig e-pat)
+    [pattern [e-stx* ≫ e-pat* (~and (~or ⇐ ⇒) arr) rst ...] ; inline, single arrow
+             ;; attrs implicitly propagated
+             #:with :tc-elem #'[e-stx* ≫ e-pat* (arr rst ...)]] ; defer to noninline clause
+    [pattern [e-stx* ≫ e-pat* (~alt lprop:⇐-prop rprop:⇒-prop) ...]
+             #:with e-stx (for/fold ([e-stx/acc #'e-stx*])
+                                    ([tag (in-stx-list #'(lprop.tag ...))]
+                                     [tag-stx (in-stx-list #'(lprop.tag-stx ...))])
+                            (if (equal? (syntax->datum tag) (syntax-parameter-value #'current-tag-stx))
+                                #`(add-expected #,e-stx/acc #,tag-stx)
+                                #`(attach/m #,e-stx/acc #,tag #,tag-stx)))
              #:with e-stx-orig #'e-stx*
-             #:with e-pat #'(~and props.e-pat e-pat*)])
+             #:with e-pat #'(~and lprop.e-pat ... rprop.e-pat ... e-pat*)])
   (define-splicing-syntax-class tc
     #:attributes (depth es-stx es-stx-orig es-pat)
     [pattern (~seq tc:tc-elem ooo:elipsis ...)
@@ -199,13 +204,14 @@
              #`(~post
                 #,(with-depth #'tc.e-pat #'[ooo ...]))])
   (define-syntax-class tc*
-    #:attributes (depth es-stx es-stx-orig es-pat wrap-computation)
+    #:attributes (depth es-stx es-stx-orig es-pat wrap-computation wrap2)
     [pattern tc:tc-elem
              #:with depth 0
              #:with es-stx #'tc.e-stx
              #:with es-stx-orig #'tc.e-stx-orig
              #:with es-pat #'tc.e-pat
-             #:attr wrap-computation (λ (stx) stx)]
+             #:attr wrap-computation (λ (stx) stx)
+             #:attr wrap2 (λ (x) x)]
     [pattern (tc:tc ... opts:tc-post-options ...)
              #:do [(define ds (stx-map syntax-e #'[tc.depth ...]))
                    (define max-d (apply max 0 ds))]
@@ -226,13 +232,34 @@
              (λ (stx)
                (foldr (λ (fun stx) (fun stx))
                       stx
-                      (attribute opts.wrap)))])
+                      (attribute opts.wrap)))
+             #:attr wrap2
+             (λ (stx)
+               (foldr (λ (fun stx) (fun stx))
+                      stx
+                      (attribute opts.wrap2)))])
   (define-splicing-syntax-class tc-post-options
-    #:attributes (wrap)
+    #:attributes (wrap wrap2)
+    [pattern (~seq #:pre pre-expr)
+             #:attr wrap2 (λ (stx) #`(~and (~do (current-mode (pre-expr (current-mode)))) #,stx))
+             #:attr wrap (λ(x)x)]
+    [pattern (~seq #:pre name pre-expr)
+             #:with param-name (mk-param #'name)
+             #:attr wrap2 (λ (stx) #`(~and (~do (param-name (pre-expr (param-name)))) #,stx))
+             #:attr wrap (λ(x)x)]
+    [pattern (~seq #:post post-expr)
+             #:attr wrap2 (λ (stx) #`(~and #,stx (~do (current-mode (post-expr (current-mode))))))
+             #:attr wrap (λ(x)x)]
+    [pattern (~seq #:post name post-expr)
+             #:with param-name (mk-param #'name)
+             #:attr wrap2 (λ (stx) #`(~and #,stx (~do (param-name (post-expr (param-name))))))
+             #:attr wrap (λ(x)x)]
     [pattern (~seq #:mode mode-expr)
-             #:attr wrap (λ (stx) #`(with-mode mode-expr #,stx))]
+             #:attr wrap (λ (stx) #`(with-mode mode-expr #,stx))
+             #:attr wrap2 (λ(x)x)]
     [pattern (~seq #:submode fn-expr)
-             #:attr wrap (λ (stx) #`(with-mode (fn-expr (current-mode)) #,stx))]
+             #:attr wrap (λ (stx) #`(with-mode (fn-expr (current-mode)) #,stx))
+             #:attr wrap2 (λ(x)x)]
     )
   (define-splicing-syntax-class tc-clause
     #:attributes (pat)
@@ -243,6 +270,8 @@
                         (~parse ((tvctx.x- tvctx.ctx) ...) #'()))
                   (~seq [(ctx:id-props+≫*) ⊢ . tc:tc*] ooo:elipsis ...
                         (~parse ((tvctx.x- tvctx.ctx) ...) #'()))
+                  ;; TODO: allow arbitrary number of groupings (instead of just one or two)?
+                  ;; but this will add another ellipses depth
                   (~seq [(tvctx:id-props+≫*) (ctx:id-props+≫*) ⊢ . tc:tc*] ooo:elipsis ...))
              #:with clause-depth (stx-length #'[ooo ...])
              #:with tcs-pat
@@ -253,12 +282,15 @@
              (with-depth
               #`[(tvctx.ctx ...) (ctx.ctx ...) tc.es-stx tc.es-stx-orig]
               #'[ooo ...])
-             #:with inf #'(infers/depths 'clause-depth
+             #:with inf #`(infers/depths 'clause-depth
                                          'tc.depth
                                          #`tvctxs/ctxs/ess/origs
-                                         #:tag (current-tag))
+                                         #:tag '#,(syntax-parameter-value #'current-tag-stx))
              #:with inf+ ((attribute tc.wrap-computation) #'inf)
-             #:with pat #`(~post (~post (~parse tcs-pat inf+)))]
+             ;; wrap2 allows using pat vars bound by inf+
+             ;; (wrap-computation does not)
+             #:with pat ((attribute tc.wrap2)
+                         #`(~post (~post (~parse tcs-pat inf+))))]
     )
   (define-splicing-syntax-class clause
     #:attributes (pat)
@@ -319,6 +351,80 @@
     [pattern (~seq #:fail-unless condition:expr message:expr)
              #:with pat
              #'(~post (~fail #:unless condition message))]
+    [pattern (~seq #:fail-when/prop prop-name:id condition:expr message:expr)
+             #:with param-name (mk-param #'prop-name)
+             #:with pat
+             #'(~post (~fail #:when (condition (param-name)) (if (procedure? message) (message (param-name)) message)))]
+    [pattern (~seq #:fail-unless/prop prop-name:id condition:expr message:expr)
+             #:with param-name (mk-param #'prop-name)
+             #:with pat
+             #'(~post (~fail #:unless (condition (param-name)) (if (procedure? message) (message (param-name)) message)))]
+    ;; #:fail-when with prop, eg #:fail-when/my-prop-name
+    [pattern (~seq f-w:keyword condition:expr message:expr)
+             #:do[(define kw-str (keyword->string (stx-e #'f-w)))]
+             #:when (string-prefix? kw-str "fail-when/") ; prefix is 10 chars
+             #:with param-name (format-id #'f-w "current-~a" (substring kw-str 10))
+             #:with pat
+             #'(~post (~fail #:when (condition (param-name)) (if (procedure? message) (message (param-name)) message)))]
+    [pattern (~seq f-u:keyword condition:expr message:expr)
+             #:do[(define kw-str (keyword->string (stx-e #'f-u)))]
+             #:when (string-prefix? kw-str "fail-unless/") ; prefix is 12 chars
+             #:with param-name (format-id #'f-u "current-~a" (substring kw-str 12))
+             #:with pat
+             #'(~post (~fail #:unless (condition (param-name)) (if (procedure? message) (message (param-name)) message)))]
+    [pattern (~seq #:update name fn)
+             #:with param-name (mk-param #'name)
+             #:with pat
+             #'(~do (param-name (fn (param-name))))]
+    [pattern (~seq #:join name merge-fn (sub-clause:clause ...))
+             #:with init-saved (generate-temporary 'init)
+             #:with (state ...) (generate-temporaries #'(sub-clause ...))
+             #:with param-name (mk-param #'name)
+             #:with pat
+             #`(~and (~do (define init-saved (param-name)))
+                     (~and sub-clause.pat
+                           (~do (define state (param-name))
+                                (param-name init-saved))) ...
+                     (~do (param-name (merge-fn state ...))))]
+    ;; #:join* is identical to #:join except
+    ;; it also gives merge-fn the initial state
+    ;; TODO: should be part of (or additionally added to)
+    ;;       tc-elem (like #:pre and #:post)?
+    [pattern (~seq #:join* name merge-fn (sub-clause:clause ...))
+             #:with init-saved (generate-temporary 'init)
+             #:with (state ...) (generate-temporaries #'(sub-clause ...))
+             #:with param-name (mk-param #'name)
+             #:with pat
+             #`(~and (~do (define init-saved (param-name)))
+                     (~and sub-clause.pat
+                           (~do (define state (param-name))
+                                (param-name init-saved))) ...
+                     (~do (param-name (merge-fn init-saved state ...))))]
+    ;; join and join* with prop name as part of keyword, eg #:join/my-prop-name
+    [pattern (~seq j:keyword merge-fn (sub-clause:clause ...))
+             #:do[(define kw-str (keyword->string (stx-e #'j)))]
+             #:when (string-prefix? kw-str "join/") ; prefix is 5 chars
+             #:with param-name (format-id #'j "current-~a" (substring kw-str 5))
+             #:with init-saved (generate-temporary 'init)
+             #:with (state ...) (generate-temporaries #'(sub-clause ...))
+             #:with pat
+             #`(~and (~do (define init-saved (param-name)))
+                     (~and sub-clause.pat
+                           (~do (define state (param-name))
+                                (param-name init-saved))) ...
+                     (~do (param-name (merge-fn state ...))))]
+    [pattern (~seq j:keyword merge-fn (sub-clause:clause ...))
+             #:do[(define kw-str (keyword->string (stx-e #'j)))]
+             #:when (string-prefix? kw-str "join*/") ; prefix is 6 chars
+             #:with param-name (format-id #'j "current-~a" (substring kw-str 6))
+             #:with init-saved (generate-temporary 'init)
+             #:with (state ...) (generate-temporaries #'(sub-clause ...))
+             #:with pat
+             #`(~and (~do (define init-saved (param-name)))
+                     (~and sub-clause.pat
+                           (~do (define state (param-name))
+                                (param-name init-saved))) ...
+                     (~do (param-name (merge-fn init-saved state ...))))]
     [pattern (~seq #:mode mode-expr (sub-clause:clause ...))
              #:with (the-mode tmp) (generate-temporaries #'(the-mode tmp))
              #:with pat
@@ -342,102 +448,103 @@
     )
   (define-syntax-class last-clause
     #:datum-literals (⊢ ≫ ≻ ⇒ ⇐)
-    #:attributes ([pat 0] [stuff 1] [body 0])
+    #:attributes ([pat 0] [body 0])
     ;; ⇒ conclusion
-    [pattern (~or [⊢ pat ≫ e-stx props:⇒-props/conclusion]
-                  [⊢ [pat ≫ e-stx props:⇒-props/conclusion]])
-             #:with [stuff ...] #'[]
+    [pattern [⊢ e-stx props:⇒-props/conclusion]
+             #:with pat #'_
              #:with body:expr
              (for/fold ([body #'(quasisyntax/loc this-syntax e-stx)])
                        ([k (in-stx-list #'[props.tag ...])]
                         [v (in-stx-list #'[props.tag-expr ...])])
-               (with-syntax ([body body] [k k] [v v])
-                 #`(attach body `k ((current-ev) v))))]
-    ;; ⇒ conclusion, implicit pat
-    [pattern (~or [⊢ e-stx props:⇒-props/conclusion]
-                  [⊢ [e-stx props:⇒-props/conclusion]])
-             #:with :last-clause #'[⊢ [_ ≫ e-stx . props]]]
+                       (with-syntax ([body body] [k k] [v v])
+                         #`(attach body `k v)))]
     ;; ⇐ conclusion
-    [pattern [⊢ (~and e-stx (~not [_ ≫ . rst]))] ;; TODO: this current tag isnt right?
-             #:with :last-clause #`[⊢ [_ ≫ e-stx ⇐ #,(datum->stx #'h (current-tag)) _]]]
-    [pattern (~or [⊢ pat* (~seq ≫ e-stx
-                                ⇐ τ-pat ; implicit tag
-                                  (~parse tag #',(current-tag)))]
-                  [⊢ pat* ≫ e-stx ⇐ tag:id τ-pat] ; explicit tag
-                  [⊢ [pat* (~seq ≫ e-stx
-                                 ⇐ τ-pat ; implicit tag
-                                   (~parse tag #',(current-tag)))]]
-                  [⊢ [pat* ≫ e-stx ⇐ tag:id τ-pat]]) ; explicit tag
-             #:with stx (generate-temporary 'stx)
-             #:with τ (generate-temporary #'τ-pat)
-             #:with pat
-             #'(~and stx
-                     pat*
-                     (~parse τ (get-expected-type #'stx))
-                     (~post (~post (~fail #:unless (syntax-e #'τ)
-                                          (no-expected-type-fail-msg))))
-                     (~parse τ-pat #'τ))
-             #:with [stuff ...] #'[]
-             #:with body:expr
-                    #'(attach (quasisyntax/loc this-syntax e-stx) `tag #`τ)]
+    [pattern [⊢ e-stx]
+             #:with τ (generate-temporary #'τ)
+             #:with tag (syntax-parameter-value #'current-tag-stx)
+             #:with pat #'(~expected-type τ)
+             #:with body:expr #'(attach (quasisyntax/loc this-syntax e-stx) 'tag #'τ)]
     ;; macro invocations
     [pattern [≻ e-stx]
-             #:with :last-clause #'[_ ≻ e-stx]]
-    [pattern [pat ≻ e-stx]
-             #:with [stuff ...] #'[]
+             #:with pat #'_
              #:with body:expr
              #'(quasisyntax/loc this-syntax e-stx)]
     [pattern [#:error msg:expr]
-             #:with :last-clause #'[_ #:error msg]]
-    [pattern [pat #:error msg:expr]
-             #:with [stuff ...]
-             #'[#:fail-unless #f msg]
+             #:with pat #'(~post (~fail msg))
              #:with body:expr
              ;; should never get here
-             #'(error msg)])
-  (define-splicing-syntax-class pat #:datum-literals (⇐)
-    [pattern (~seq pat)
-             #:attr transform-body identity]
-    [pattern (~or (~seq pat* left:⇐ τ-pat ; implicit tag
-                        (~parse tag #',(current-tag)))
-                  (~seq pat* left:⇐ tag:id τ-pat)) ; explicit tag
-             #:with stx (generate-temporary 'stx)
-             #:with τ (generate-temporary #'τ-pat)
-             #:with b (generate-temporary 'body)
-             #:with pat
-             #'(~and stx
-                     pat*
-                     (~parse τ (get-expected-type #'stx))
-                     (~post
-                      (~post
-                       (~fail #:unless (syntax-e #'τ)
-                              (no-expected-type-fail-msg))))
-                     (~parse τ-pat #'τ))
-             #:attr transform-body
-             (lambda (body)
-               #`(let* ([b #,body][ty-b (detach b `tag)])
-                   (when (and ty-b (not (check? ty-b #'τ)))
-                     (raise-⇐-expected-type-error #'left b #'τ ty-b))
-                   (attach b `tag #'τ)))])
+             #'(error msg)])))
+
+(begin-for-syntax
+  (define-syntax-class has-expected-type
+    [pattern stx
+             #:attr val (get-expected-type #'stx)
+             #:fail-unless (attribute val) (no-expected-type-fail-msg)])
+
+  (define-syntax ~expected-type
+    (pattern-expander
+      (syntax-parser
+        [(_ pat)
+         #'(~and tmp:has-expected-type (~parse pat #'tmp.val))])))
+
+  (define-syntax ~tag
+    (pattern-expander
+      (syntax-parser
+        [(_ tag pat)
+         #'(~and tmp (~parse pat (detach #'tmp 'tag)))])))
+
+  (define-syntax ~⇐pat
+    (pattern-expander
+      (syntax-parser
+        [(_ tag valpat)
+         (if (equal? (syntax-e #'tag) (syntax-parameter-value #'current-tag-stx))
+           #'(~expected-type valpat)
+           #'(~tag tag valpat))]))))
+
+(begin-for-syntax
+  (begin-for-syntax
+  ;; turnstile rule input PATTERN stx class -----------------------------------
+  (define-splicing-syntax-class pat #:attributes (pat)
+                                    #:datum-literals (⇐)
+    [pattern (~seq pat* ⇐ tagpat)
+             #:with (:pat) #`(pat* (⇐ #,(syntax-parameter-value #'current-tag-stx) tagpat))]
+    [pattern (~seq pat* ⇐ tag:id tagpat)
+             #:with (:pat) #'(pat* (⇐ tag tagpat))]
+    [pattern (~seq pat* (⇐ tag tagpat) ...)
+             #:with pat #'(~and pat* (~⇐pat tag tagpat) ...)])
+
+  (define-splicing-syntax-class conclusion-kw
+    [pattern (~seq #:update name:id fn)
+             #:with param-name (mk-param #'name)
+             #:attr thing #'[#:do[(param-name (fn (param-name)))]]])
+  (define-splicing-syntax-class conclusion-kws
+    #:attributes ([stuff 1])
+    [pattern (~seq kw:conclusion-kw ...)
+             #:with [stuff ...] (apply stx-append (stx->list #'(kw.thing ...)))])
+
+  ;; --------------------------------------------------------------------------
+  ;; turnstile RULE stx class, ie, a clause in define-typed-stx ---------------
   (define-syntax-class rule #:datum-literals (≫)
     [pattern [pat:pat ≫
               clause:clause ...
               :---
-              last-clause:last-clause]
-             #:with body:expr ((attribute pat.transform-body) #'last-clause.body)
+              last-clause:last-clause opt-kws:conclusion-kws]
              #:with norm
              #'[(~and pat.pat
                       last-clause.pat
                       clause.pat ...)
-                last-clause.stuff ...
-                body]])
+                opt-kws.stuff ...
+                last-clause.body]])
+  ))
+(module syntax-class-kws racket/base
+  (require syntax/parse)
+  (provide stxparse-kws)
   (define-splicing-syntax-class stxparse-kws
     [pattern (~seq (~or (~seq :keyword _)
                         (~seq :keyword))
-                   ...)])
-  )
-(require (for-meta 1 'syntax-classes)
-         (for-meta 2 'syntax-classes))
+                   ...)]))
+(require (for-meta 1 'syntax-class-kws)
+         (for-meta 2 'syntax-class-kws))
 
 (begin-for-syntax
   (define-syntax ~typecheck
@@ -456,7 +563,10 @@
       [(_ stx-expr
           (~and (~seq kw-stuff ...) :stxparse-kws)
           rule:rule ...)
-       #'(syntax-parse stx-expr kw-stuff ... rule.norm ...)])))
+       #'(syntax-parse stx-expr kw-stuff ... rule.norm ...)]))
+
+  (define-syntax-parameter current-tag-stx ':)
+  (define-syntax-parameter current-tag2-stx '::))
 
 ;; macrotypes/typecheck-core.rkt already defines (-define-syntax-category type);
 ;; - just add the "def-named-syntax" part of the def-stx-cat macro below
@@ -472,17 +582,24 @@
     [(_ rulename:id
         (~and (~seq kw-stuff ...) :stxparse-kws)
         rule ...+)
+     #:with tag1 (current-tag)
+     #:with tag2 (current-tag2)
      #'(define-syntax (rulename stx)
          (parameterize ([current-check-relation (current-typecheck-relation)]
                         [current-ev (current-type-eval)]
-                        [current-tag (type-key1)])
-           (syntax-parse/typecheck stx kw-stuff ... rule ...)))]))
+                        [current-tag (type-key1)]
+                        [current-tag2 (type-key2)])
+           (syntax-parameterize ([current-tag-stx 'tag1]
+                                 [current-tag2-stx 'tag2])
+             (syntax-parse/typecheck stx kw-stuff ... rule ...))))]))
 
 (define-syntax define-typed-variable-syntax
   (syntax-parser
+    ;; single-clause def
+    [(_ (name . pats) (~datum ≫) . rst) #'(define-typed-variable-syntax #:name name [(_ . pats) ≫ . rst])]
     [(_ (~optional (~seq #:name name:id) #:defaults ([name (generate-temporary '#%var)]))
         (~and (~seq kw-stuff ...) :stxparse-kws)
-        rule:rule ...+)
+        rule ...+)
      #'(begin
          (define-typed-syntax name kw-stuff ... rule ...)
          (begin-for-syntax
@@ -514,8 +631,30 @@
                 (parameterize ([current-check-relation (new-check-rel)]
                                [current-ev (new-eval)]
                                [current-tag 'key1]
+                               [current-tag2 'key2]
                                ; Syntax categories like kind want full expansion,
                                ; as types are expected to be fully expanded
                                [current-use-stop-list? #f])
-                  (syntax-parse/typecheck stx kw-stuff (... ...)
-                    rule (... ...))))])))]))
+                  (syntax-parameterize ([current-tag-stx 'key1]
+                                        [current-tag2-stx 'key2])
+                    (syntax-parse/typecheck stx kw-stuff (... ...)
+                      rule (... ...)))))])))]))
+
+(define-syntax (define-prop stx)
+  (syntax-parse stx
+    [(d e) ; no name, use "state" as default
+     #:with param-name (format-id #'d "current-state")
+     #'(define-for-syntax param-name (make-parameter e))]
+    [(d name #:initial e)
+     #:with param-name (mk-param #'name)
+     #:with definer (format-id #'name "define/~a" #'name)
+     #:with x (generate-temporary #'name)
+     #'(begin-for-syntax
+         (define param-name (make-parameter e))
+         (define-syntax-parameter name (syntax-rules ()))
+         (define-syntax (definer stx)
+           (syntax-parse stx
+             [(_ sig . rst)
+              #'(define (sig x)
+                  (syntax-parameterize ([name (make-rename-transformer #'x)])
+                    . rst))])))]))

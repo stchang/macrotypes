@@ -152,7 +152,7 @@
    [⊢ (#%datum- . n) ⇒ Int]]
   [(_ . x) ≫
    --------
-   [_ #:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])
+   [#:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])
 
 (define-typed-syntax (Λ bvs:kind-ctx e) ≫
   [[bvs.x ≫ tv- :: bvs.kind] ... ⊢ e ≫ e- ⇒ τ_e]

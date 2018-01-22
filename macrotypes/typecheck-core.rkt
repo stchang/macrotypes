@@ -80,7 +80,6 @@
   (define (mk-~ id) (format-id id "~~~a" id))
   (define (mk-#% id) (format-id id "#%~a" id))
   (define (mkx2 id) (format-id id "~a~a" id id))
-  (define (mk-param id) (format-id id "current-~a" id))
   (define-for-syntax (mk-? id) (format-id id "~a?" id))
   (define-for-syntax (mk-~ id) (format-id id "~~~a" id))
   ;; drop-file-ext : String -> String
@@ -200,6 +199,9 @@
 (define-syntax add-expected
   (syntax-parser
     [(_ e τ) (add-orig (add-expected-ty #'e #'τ) (get-orig #'e))]))
+(define-syntax attach/m
+  (syntax-parser
+    [(_ e tag τ) (attach #'e (stx->datum #'tag) #'τ)]))
 (define-syntax pass-expected
   (syntax-parser
     [(_ e stx) (add-expected-ty #'e (get-expected-type #'stx))]))
@@ -866,6 +868,7 @@
     (and (stx-length=? xs1 xs2) (stx-andmap check? xs1 xs2)))
   (define current-ev (make-parameter (current-type-eval)))
   (define current-tag (make-parameter (type-key1)))
+  (define current-tag2 (make-parameter (type-key2)))
 
   ;; --------------------------------------------------------------------------
   ;; var-assign allows customizing "T-Var" rule

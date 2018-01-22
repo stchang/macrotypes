@@ -1,6 +1,7 @@
 #lang racket/base
 (require syntax/stx syntax/parse syntax/parse/define
-         racket/list racket/format version/utils)
+         racket/list racket/format version/utils
+         racket/syntax)
 (provide (all-defined-out))
 
 ;; shorthands
@@ -197,3 +198,4 @@
        (let ([stx* (list* '#%app #'id (cdr (syntax-e stx)))])
          (datum->syntax stx stx* stx stx))])))
 
+(define (mk-param id) (format-id id "current-~a" id))

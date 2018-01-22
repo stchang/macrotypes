@@ -31,7 +31,7 @@
    (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
    [⊢ [e_arg ≫ e_arg- ⇐ : τ_in] ...]
    --------
-   [⊢ [_ ≫ (#%app- e_fn- e_arg- ...) ⇒ : τ_out]]]
+   [⊢ (#%app- e_fn- e_arg- ...) ⇒ : τ_out]]
   [(_ e_fn e_arg ...) ≫
    [⊢ [e_fn ≫ e_fn- ⇒ : (~case-> ~! . (~and ty_fns ((~→ . _) ...)))]]
    [⊢ [e_arg ≫ e_arg- ⇒ : τ_arg] ...]
@@ -63,7 +63,7 @@
            (string-join (stx-map type->str τs_given) ", ")
            (string-join (map ~s (stx-map syntax->datum expressions)) ", ")))])
    --------
-   [⊢ [_ ≫ (#%app- e_fn- e_arg- ...) ⇒ : τ_out]]])
+   [⊢ (#%app- e_fn- e_arg- ...) ⇒ : τ_out]])
 
 (begin-for-syntax
   (define (sub? t1 t2)
