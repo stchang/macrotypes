@@ -200,6 +200,9 @@
 (define-syntax add-expected
   (syntax-parser
     [(_ e τ) (add-orig (add-expected-ty #'e #'τ) (get-orig #'e))]))
+(define-syntax attach/m
+  (syntax-parser
+    [(_ e tag τ) (attach #'e (stx->datum #'tag) #'τ)]))
 (define-syntax pass-expected
   (syntax-parser
     [(_ e stx) (add-expected-ty #'e (get-expected-type #'stx))]))
