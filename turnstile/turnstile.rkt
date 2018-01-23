@@ -160,9 +160,12 @@
     [pattern (~seq (p:⇐-prop) (p2:⇒-prop) ...)
              #:with τ-stx #'p.τ-stx
              #:with e-pat #'(~and p.e-pat p2.e-pat ...)])
+  ;; TODO: what should follow p?
+  ;; - current cant do both ⇐ and ⇐*,
+  ;; - ie, cant do both expected-ty and other prop
   (define-splicing-syntax-class ⇐*-props
     #:attributes (τ-stx e-pat tag)
-    [pattern (~seq (p:⇐*-prop) (p2:⇒-prop) ...) ; TODO: what should follow p?
+    [pattern (~seq (p:⇐*-prop) (p2:⇒-prop) ...)
              #:with τ-stx #'p.τ-stx
              #:with tag #'p.tag
              #:with e-pat #'(~and p.e-pat p2.e-pat ...)])

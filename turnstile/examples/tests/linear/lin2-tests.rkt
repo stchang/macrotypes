@@ -13,3 +13,11 @@
 (typecheck-fail (λ ([x : Bool]) (pair x x))
  #:with-msg "attempting to use linear var twice: x")
 
+;; other examples from atapl
+
+(typecheck-fail
+ (λ ([x : Bool])
+   ((λ ([y : Bool] [z : Bool])
+      (pair (free z) (free y)))
+    x x))
+ #:with-msg "attempting to use linear var twice: x")
