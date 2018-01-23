@@ -95,12 +95,13 @@
   (define-splicing-syntax-class props
     [pattern (~and (~seq stuff ...) (~seq (~seq k:id v) ...))])
   (define-splicing-syntax-class ⇒-prop
-    #:datum-literals (⇒)
+    ; ⇒ and ⇒* the same for now
+    #:datum-literals (⇒ ⇒*)
     #:attributes (e-pat)
-    [pattern (~or (~seq ⇒ tag-pat ; implicit tag
+    [pattern (~or (~seq (~or ⇒ ⇒*) tag-pat ; implicit tag
                           (~parse tag #',(current-tag))
                           (tag-prop:⇒-prop) ...)
-                  (~seq ⇒ tag:id tag-pat (tag-prop:⇒-prop) ...)) ; explicit tag
+                  (~seq (~or ⇒ ⇒*) tag:id tag-pat (tag-prop:⇒-prop) ...)) ; explicit tag
              #:with e-tmp (generate-temporary)
              #:with e-pat
              #'(~and e-tmp
@@ -108,7 +109,7 @@
                       (~and tag-prop.e-pat ... tag-pat)
                       (detach #'e-tmp `tag)))])
   (define-splicing-syntax-class ⇒-prop/conclusion
-    #:datum-literals (⇒ ⇒*)
+    #:datum-literals (⇒ ⇒*) ; ⇒* = dont ty-eval
     #:attributes (tag tag-expr)
     [pattern (~or (~seq ⇒ tag-stx ; implicit tag
                           (~parse tag #',(current-tag))
@@ -361,7 +362,7 @@
                           ((mode-teardown-fn the-mode))))]
     )
   (define-syntax-class last-clause
-    #:datum-literals (⊢ ≫ ≻ ⇒ ⇐)
+    #:datum-literals (⊢ ≫ ≻ ⇒ ⇐ ⇒* ⇐*)
     #:attributes ([pat 0] [stuff 1] [body 0])
     ;; ⇒ conclusion
     [pattern (~or [⊢ pat ≫ e-stx props:⇒-props/conclusion]
@@ -415,7 +416,7 @@
              #:with body:expr
              ;; should never get here
              #'(error msg)])
-  (define-splicing-syntax-class pat #:datum-literals (⇐)
+  (define-splicing-syntax-class pat #:datum-literals (⇐ ⇐*)
     [pattern (~seq pat)
              #:attr transform-body identity]
     [pattern (~or (~seq pat* left:⇐ τ-pat ; implicit tag
@@ -439,8 +440,11 @@
                    (when (and ty-b (not (check? ty-b #'τ)))
                      (raise-⇐-expected-type-error #'left b #'τ ty-b))
                    (attach b `tag #'τ)))]
-    ;; pat, following by series of non-expected-ty, paren-wrapped props
-    [pattern (~seq pat* (:⇐ tag:id τ-pat) ...)
+    ;; pat, with ⇐* (ie, non-expected-ty) prop inputs
+    [pattern (~or (~seq pat* _:⇐* tag*:id τ-pat*
+                        (~parse (tag ...) #'(tag*))
+                        (~parse (τ-pat ...) #'(τ-pat*)))
+                  (~seq pat* (:⇐* tag:id τ-pat) ...))
              #:with stx (generate-temporary 'stx)
              #:with (tmp ...) (generate-temporaries #'(τ-pat ...))
              #:with pat
