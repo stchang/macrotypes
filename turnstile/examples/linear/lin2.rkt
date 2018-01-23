@@ -9,7 +9,7 @@
 
 (define-base-type Bool)
 (define-type-constructor → #:arity > 0)
-(define-type-constructor * #:arity = 2)
+(define-type-constructor × #:arity = 2)
 
 ;; some set operations on free ids
 (begin-for-syntax
@@ -31,23 +31,25 @@
      (free-id-set-subtract (immutable-free-id-set (stx->list xs))
                            (immutable-free-id-set (stx->list ys))))))
 
+; 'USED = prop name for used vars
+
 (define-typed-variable-syntax
   #:name #%lin-var
-  [(~and stx (#%var x- : τ)) ⇐* used vars-in ≫
-   #:fail-when (and (stx-e #'vars-in) (stx-member #'x- #'vars-in))
+  [(~and stx (#%var x- : τ)) ⇐* USED used-vars ≫
+   #:fail-when (and (stx-e #'used-vars) (stx-member #'x- #'used-vars))
                (format "attempting to use linear var twice: x" (stx->datum #'x-))
    ----------
-   [⊢ x- (⇒ : τ) (⇒* used (x-))]])
+   [⊢ x- (⇒ : τ) (⇒* USED (x-))]])
 
 (define-typed-syntax λ
   [(_ ([x:id (~datum :) τ_in:type] ...) e) ≫
-   [[x ≫ x- : τ_in.norm] ... ⊢ e ≫ e- (⇒ : τ_out) (⇒* used vars)]
-   #:fail-unless (stx-subset? #'(x- ...) #'vars)
-                 (unused-err (stx-diff #'(x- ...) #'vars))
-   #:with rst (stx-set-sub #'vars #'(x- ...))
+   [[x ≫ x- : τ_in.norm] ... ⊢ e ≫ e- (⇒ : τ_out) (⇒* USED used-vars)]
+   #:fail-unless (stx-subset? #'(x- ...) #'used-vars)
+                 (unused-err (stx-diff #'(x- ...) #'used-vars))
+   #:with rst (stx-set-sub #'used-vars #'(x- ...))
    -------
    [⊢ (λ- (x- ...) e-) (⇒ : (→ τ_in.norm ... τ_out))
-                       (⇒* used rst)]]
+                       (⇒* USED rst)]]
   ;; TODO: add used
   [(_ (x:id ...) e) ⇐ (~→ τ_in ... τ_out) ≫
    [[x ≫ x- : τ_in] ... ⊢ e ≫ e- ⇐ τ_out]
@@ -67,12 +69,12 @@
   --------
   [⊢ e- ⇒ τ.norm])
 
-(define-typed-syntax (pair e1 e2) ⇐* used vars-in ≫
-  [⊢ e1 ≫ e1- (⇐* used vars-in) (⇒ : τ1) (⇒* used vars1)]
-  [⊢ e2 ≫ e2- (⇐* used vars1) (⇒ : τ2) (⇒* used vars2)]
+(define-typed-syntax (pair e1 e2) ⇐* USED vars-in ≫
+  [⊢ e1 ≫ e1- (⇐* USED vars-in) (⇒ : τ1) (⇒* USED vars1)]
+  [⊢ e2 ≫ e2- (⇐* USED vars1) (⇒ : τ2) (⇒* USED vars2)]
   -----------------
-  [⊢ (#%app- cons- e1- e2-) (⇒ : (* τ1 τ2))
-                            (⇒* used vars2)])
+  [⊢ (#%app- cons- e1- e2-) (⇒ : (× τ1 τ2))
+                            (⇒* USED vars2)])
 
 (define-typed-syntax #%datum
   [(_ . b:boolean) ≫
@@ -106,7 +108,7 @@
    [⊢ e2 ≫ e2- ⇐ τ-expected]
    --------
    [⊢ (if- e_tst- e1- e2-)]]
-  [(_ e_tst e1 e2) ⇐* used vars-in ≫
+  [(_ e_tst e1 e2) ⇐* USED vars-in ≫
    [⊢ e_tst ≫ e_tst- ⇒ _] ; Any non-false value is truthy.
    [⊢ e1 ≫ e1- ⇒ τ1]
    [⊢ e2 ≫ e2- ⇒ τ2]
