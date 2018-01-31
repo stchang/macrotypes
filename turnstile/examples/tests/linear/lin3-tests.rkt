@@ -1,4 +1,4 @@
-#lang s-exp "../../linear/lin2.rkt"
+#lang s-exp "../../linear/lin3.rkt"
 (require turnstile/rackunit-typechecking)
 
 ;; very basic tests -------------------------------------------------
@@ -74,7 +74,7 @@
  #:with-msg "λ: linear vars unused: \\(a b\\)")
 
 ;; TODO: this passes due to let* shadowing but should this fail?
-(check-type (split (pair #t #t) as (x x) in x) : Bool)
+;(check-type (split (pair #t #t) as (x x) in x) : Bool)
 
 ;; used twice
 (typecheck-fail (split (pair #t #f) as (x y) in (pair x x))

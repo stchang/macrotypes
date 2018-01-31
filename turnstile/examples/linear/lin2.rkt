@@ -26,7 +26,7 @@
   (define (stx-diff xs ys)
     (if (and (stx-list? xs) (stx-list? ys))
         (free-id-set->list
-         (free-id-set-symmetric-difference
+         (free-id-set-subtract
           (immutable-free-id-set (stx->list xs))
           (immutable-free-id-set (stx->list ys))))
         xs))
@@ -58,7 +58,7 @@
 ;; "divide" (and thus any type rule using it) is undefined if x or y \in Γ
 (define-typed-syntax λ
   [(_ ([x:id (~datum :) τ_in:type] ...) e) ⇐* USED vars-in ≫
-   [[x ≫ x- : τ_in.norm] ... ⊢ e ≫ e- (⇒ : τ_out) (⇒* USED used-vars)]
+   [[x ≫ x- : τ_in.norm] ... ⊢ e ≫ e- (⇐* USED vars-in) (⇒ : τ_out) (⇒* USED used-vars)]
    ;; #:do[(printf "bound vars: ~a\n" (stx->datum #'(x ...)))
    ;;      (printf "used vars: ~a\n" (stx->datum #'used-vars))]
    #:fail-unless (stx-subset? #'(x- ...) #'used-vars)
