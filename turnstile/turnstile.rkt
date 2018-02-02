@@ -5,6 +5,7 @@
          define-typed-syntax
          define-typed-variable-syntax
          define-syntax-category
+         define-prop
          (rename-out [define-typed-syntax define-typerule]
                      [define-typed-syntax define-syntax/typecheck])
          (for-syntax syntax-parse/typecheck
@@ -377,7 +378,7 @@
                      (~and sub-clause.pat
                            (~do (define state (param-name))
                                 (param-name init-saved))) ...
-                     (~do (param-name (merge-fn state ...))))]
+                     (~do (param-name (merge-fn init-saved state ...))))]
     [pattern (~seq #:mode mode-expr (sub-clause:clause ...))
              #:with (the-mode tmp) (generate-temporaries #'(the-mode tmp))
              #:with pat
@@ -590,3 +591,12 @@
                                [current-use-stop-list? #f])
                   (syntax-parse/typecheck stx kw-stuff (... ...)
                     rule (... ...))))])))]))
+
+(define-syntax (define-prop stx)
+  (syntax-parse stx
+    [(d e) ; no name, use "state" as default
+     #:with param-name (format-id #'d "current-state")
+     #'(define-for-syntax param-name (make-parameter e))]
+    [(d name #:initial e)
+     #:with param-name (format-id #'name "current-~a" #'name)
+     #'(define-for-syntax param-name (make-parameter e))]))

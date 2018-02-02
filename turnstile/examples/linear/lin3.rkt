@@ -10,16 +10,6 @@
 (define-type-constructor → #:arity > 0)
 (define-type-constructor × #:arity = 2)
 
-
-(define-syntax (define-prop stx)
-  (syntax-parse stx
-    [(d e) ; no name, use "state" as default
-     #:with param-name (format-id #'d "current-state")
-     #'(define-for-syntax param-name (make-parameter e))]
-    [(d name #:initial e)
-     #:with param-name (format-id #'name "current-~a" #'name)
-     #'(define-for-syntax param-name (make-parameter e))]))
-
 (define-prop used-vars #:initial (immutable-free-id-set))
 
 ;; some set operations on free ids
@@ -135,7 +125,8 @@
    --------
    [#:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])
 
-(define-for-syntax (check/merge-branches . varss)
+(define-for-syntax (check/merge-branches . varss*)
+  (define varss (cdr varss*)) ; drop init
   (unless (apply equal? varss)
     (begin0
         (error 'if "if branches must use the same variables, given ~a"
