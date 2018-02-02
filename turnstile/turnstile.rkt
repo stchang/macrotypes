@@ -223,13 +223,14 @@
              #`(~post
                 #,(with-depth #'tc.e-pat #'[ooo ...]))])
   (define-syntax-class tc*
-    #:attributes (depth es-stx es-stx-orig es-pat wrap-computation)
+    #:attributes (depth es-stx es-stx-orig es-pat wrap-computation wrap2)
     [pattern tc:tc-elem
              #:with depth 0
              #:with es-stx #'tc.e-stx
              #:with es-stx-orig #'tc.e-stx-orig
              #:with es-pat #'tc.e-pat
-             #:attr wrap-computation (λ (stx) stx)]
+             #:attr wrap-computation (λ (stx) stx)
+             #:attr wrap2 (λ (x) x)]
     [pattern (tc:tc ... opts:tc-post-options ...)
              #:do [(define ds (stx-map syntax-e #'[tc.depth ...]))
                    (define max-d (apply max 0 ds))]
@@ -250,13 +251,34 @@
              (λ (stx)
                (foldr (λ (fun stx) (fun stx))
                       stx
-                      (attribute opts.wrap)))])
+                      (attribute opts.wrap)))
+             #:attr wrap2
+             (λ (stx)
+               (foldr (λ (fun stx) (fun stx))
+                      stx
+                      (attribute opts.wrap2)))])
   (define-splicing-syntax-class tc-post-options
-    #:attributes (wrap)
+    #:attributes (wrap wrap2)
+    [pattern (~seq #:pre pre-expr)
+             #:attr wrap2 (λ (stx) #`(~and (~do (current-mode (pre-expr (current-mode)))) #,stx))
+             #:attr wrap (λ(x)x)]
+    [pattern (~seq #:pre name pre-expr)
+             #:with param-name (mk-param #'name)
+             #:attr wrap2 (λ (stx) #`(~and (~do (param-name (pre-expr (param-name)))) #,stx))
+             #:attr wrap (λ(x)x)]
+    [pattern (~seq #:post post-expr)
+             #:attr wrap2 (λ (stx) #`(~and #,stx (~do (current-mode (post-expr (current-mode))))))
+             #:attr wrap (λ(x)x)]
+    [pattern (~seq #:post name post-expr)
+             #:with param-name (mk-param #'name)
+             #:attr wrap2 (λ (stx) #`(~and #,stx (~do (param-name (post-expr (param-name))))))
+             #:attr wrap (λ(x)x)]
     [pattern (~seq #:mode mode-expr)
-             #:attr wrap (λ (stx) #`(with-mode mode-expr #,stx))]
+             #:attr wrap (λ (stx) #`(with-mode mode-expr #,stx))
+             #:attr wrap2 (λ(x)x)]
     [pattern (~seq #:submode fn-expr)
-             #:attr wrap (λ (stx) #`(with-mode (fn-expr (current-mode)) #,stx))]
+             #:attr wrap (λ (stx) #`(with-mode (fn-expr (current-mode)) #,stx))
+             #:attr wrap2 (λ(x)x)]
     )
   (define-splicing-syntax-class tc-clause
     #:attributes (pat)
@@ -282,7 +304,10 @@
                                          #`tvctxs/ctxs/ess/origs
                                          #:tag (current-tag))
              #:with inf+ ((attribute tc.wrap-computation) #'inf)
-             #:with pat #`(~post (~post (~parse tcs-pat inf+)))]
+             ;; wrap2 allows using pat vars bound by inf+
+             ;; (wrap-computation does not)
+             #:with pat ((attribute tc.wrap2)
+                         #`(~post (~post (~parse tcs-pat inf+))))]
     )
   (define-splicing-syntax-class clause
     #:attributes (pat)
@@ -343,6 +368,16 @@
     [pattern (~seq #:fail-unless condition:expr message:expr)
              #:with pat
              #'(~post (~fail #:unless condition message))]
+    [pattern (~seq #:join name merge-fn (sub-clause:clause ...))
+             #:with init-saved (generate-temporary 'init)
+             #:with (state ...) (generate-temporaries #'(sub-clause ...))
+             #:with param-name (mk-param #'name)
+             #:with pat
+             #`(~and (~do (define init-saved (param-name)))
+                     (~and sub-clause.pat
+                           (~do (define state (param-name))
+                                (param-name init-saved))) ...
+                     (~do (param-name (merge-fn state ...))))]
     [pattern (~seq #:mode mode-expr (sub-clause:clause ...))
              #:with (the-mode tmp) (generate-temporaries #'(the-mode tmp))
              #:with pat

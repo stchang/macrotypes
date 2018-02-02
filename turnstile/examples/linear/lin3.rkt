@@ -10,6 +10,18 @@
 (define-type-constructor → #:arity > 0)
 (define-type-constructor × #:arity = 2)
 
+
+(define-syntax (define-prop stx)
+  (syntax-parse stx
+    [(d e) ; no name, use "state" as default
+     #:with param-name (format-id #'d "current-state")
+     #'(define-for-syntax param-name (make-parameter e))]
+    [(d name #:initial e)
+     #:with param-name (format-id #'name "current-~a" #'name)
+     #'(define-for-syntax param-name (make-parameter e))]))
+
+(define-prop used-vars #:initial (immutable-free-id-set))
+
 ;; some set operations on free ids
 (begin-for-syntax
   (define (unused-err xs)
@@ -32,19 +44,16 @@
   (define (stx-cons x xs)
     (if (stx-e xs) (cons x xs) (list x)))
 
-  (define OLD-USED null) ; listof USED
-  (define USED (immutable-free-id-set))
-  (define (reset-USED!) (set! USED (immutable-free-id-set)))
-  (define (pre [f (λ(x)x)])
-    (set! USED (f USED)))
-  (define (post [f (λ(x)x)])
-    (set! USED (f USED)))
+  (define INITIAL-STATE (immutable-free-id-set))
+  (define (reset-USED!) (current-used-vars INITIAL-STATE))
+
   (define (use! x)
-    (when (free-id-set-member? USED x)
+    (define USED (current-used-vars))
+    (when (free-id-set-member? (current-used-vars) x)
       (reset-USED!)
       (error 'var (format "attempting to use linear var twice: ~a" (stx->datum x))))
-;    (free-id-set-add! USED (syntax-local-introduce x)))
-    (set! USED (free-id-set-add USED (syntax-local-introduce x))))
+    (current-used-vars (free-id-set-add USED (syntax-local-introduce x))))
+
   (define ((check-used name xs*) used)
     (define xs (stx-map syntax-local-introduce xs*))
     (define ys (free-id-set->list used))
@@ -53,8 +62,6 @@
       (error name (unused-err (stx-diff xs ys))))
     (for/fold ([used used]) ([x xs]) (free-id-set-remove used x)))
   )
-
-; 'USED = prop name for used vars
 
 (define-typed-variable-syntax #:name #%lin-var
   [(_ x (~datum :) τ) ≫
@@ -70,36 +77,26 @@
 ;; "divide" (and thus any type rule using it) is undefined if x or y \in Γ
 (define-typed-syntax λ
   [(_ ([x:id (~datum :) τ_in:type] ...) e) ≫
-   #:do[(pre)]
-   [[x ≫ x- : τ_in.norm] ... ⊢ e ≫ e- ⇒ τ_out]
-   #:do[(post (check-used 'λ #'(x- ...)))]
+;   #:do[(PRE default-pre)]
+   [[x ≫ x- : τ_in.norm] ... ⊢ [e ≫ e- ⇒ τ_out] #:post used-vars (check-used 'λ #'(x- ...))]
+;   #:do[(POST (check-used 'λ #'(x- ...)))]
    -------
-   [⊢ (λ- (x- ...) e-) ⇒ (→ τ_in.norm ... τ_out)]]
-  ;; TODO: add used
-  #;[(_ (x:id ...) e) ⇐ (~→ τ_in ... τ_out) ≫
-   [[x ≫ x- : τ_in] ... ⊢ e ≫ e- ⇐ τ_out]
-   ---------
-   [⊢ (λ- (x- ...) e-)]])
+   [⊢ (λ- (x- ...) e-) ⇒ (→ τ_in.norm ... τ_out)]])
 
 (define-typed-syntax let
-  #;[(_ ([x e] ...) e_body) ⇐ τ_expected ≫
-   [⊢ e ≫ e- ⇒ : τ_x] ...
-   [[x ≫ x- : τ_x] ... ⊢ e_body ≫ e_body- ⇐ τ_expected]
-   --------
-   [⊢ (let- ([x- e-] ...) e_body-)]]
   [(_ [x e] body) ≫
-   [⊢ e ≫ e- ⇒ : τ_x]
-   #:do[(pre)]
-   [[x ≫ x- : τ_x] ⊢ body ≫ body- ⇒ τ_body]
-   #:do[(post (check-used 'let #'(x-)))]
+   [⊢ e ≫ e- ⇒ τ_x]
+;   #:do[(PRE)]
+   [[x ≫ x- : τ_x] ⊢ [body ≫ body- ⇒ τ_body] #:post used-vars (check-used 'let #'(x-))]
+;   #:do[(POST (check-used 'let #'(x-)))]
    --------
    [⊢ (let- ([x- e-]) body-) ⇒ τ_body]])
 
 (define-typed-syntax (split e (~datum as) (x y) (~datum in) body)≫
   [⊢ e ≫ e- ⇒ (~× τx τy)]
-  #:do[(pre)]
-  [[x ≫ x- : τx] [y ≫ y- : τy] ⊢ body ≫ body- ⇒ τ]
-  #:do[(post (check-used 'split #'(x- y-)))]
+;  #:do[(PRE)]
+  [[x ≫ x- : τx] [y ≫ y- : τy] ⊢ [body ≫ body- ⇒ τ] #:post used-vars (check-used 'split #'(x- y-))]
+;  #:do[(POST (check-used 'split #'(x- y-)))]
   -------------
   [⊢ (let*- ([p e-][x- (#%app- car p)][y- (#%app- cdr p)]) body-) ⇒ τ])
 
@@ -119,17 +116,16 @@
   --------
   [⊢ e- ⇒ τ.norm])
 
-(define-typed-syntax (pair e1 e2) ⇐* USED vars-in ≫
-  [⊢ e1 ≫ e1- (⇐* USED vars-in) (⇒ : τ1) (⇒* USED vars1)]
-  [⊢ e2 ≫ e2- (⇐* USED vars1) (⇒ : τ2) (⇒* USED vars2)]
+(define-typed-syntax (pair e1 e2) ≫
+  [⊢ e1 ≫ e1- ⇒ τ1]
+  [⊢ e2 ≫ e2- ⇒ τ2]
   -----------------
-  [⊢ (#%app- cons- e1- e2-) (⇒ : (× τ1 τ2))
-                            (⇒* USED vars2)])
+  [⊢ (#%app- cons- e1- e2-) ⇒ (× τ1 τ2)])
 
-(define-typed-syntax (free e) ⇐* USED vars-in ≫
-  [⊢ e ≫ e- (⇐* USED vars-in) (⇒* USED vars-out) (⇒ : τ)]
+(define-typed-syntax (free e) ≫
+  [⊢ e ≫ e- ⇒ τ]
   -----------
-  [⊢ e- (⇒ : τ) (⇒* USED vars-out)])
+  [⊢ e- ⇒ τ])
 
 (define-typed-syntax #%datum
   [(_ . b:boolean) ≫
@@ -139,43 +135,34 @@
    --------
    [#:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])
 
-(begin-for-syntax 
-  (define current-join 
-    (make-parameter 
-      (λ (x y) 
-        (unless (typecheck? x y)
-          (type-error
-            #:src x
-            #:msg  "branches have incompatible types: ~a and ~a" x y))
-        x))))
-
-(define-syntax ⊔
-  (syntax-parser
-    [(⊔ τ1 τ2 ...)
-     (for/fold ([τ ((current-type-eval) #'τ1)])
-               ([τ2 (in-list (stx-map (current-type-eval) #'[τ2 ...]))])
-       ((current-join) τ τ2))]))
-
+(define-for-syntax (check/merge-branches . varss)
+  (unless (apply equal? varss)
+    (begin0
+        (error 'if "if branches must use the same variables, given ~a"
+               (string-join (map (compose ~a stx->datum free-id-set->list) varss) " and "))
+      (reset-USED!)))
+  (car varss))
 (define-typed-syntax if
-  #;[(_ e_tst e1 e2) ⇐ τ-expected ≫
-   [⊢ e_tst ≫ e_tst- ⇒ _] ; Any non-false value is truthy.
-   [⊢ e1 ≫ e1- ⇐ τ-expected]
-   [⊢ e2 ≫ e2- ⇐ τ-expected]
-   --------
-   [⊢ (if- e_tst- e1- e2-)]]
-  [(_ e_tst e1 e2) ≫
+  #;[(_ e_tst e1 e2) ≫
    [⊢ e_tst ≫ e_tst- ⇒ _] ; non-false value is truthy
-   #:do[(define USED-saved USED)]
-   [⊢ e1 ≫ e1- ⇒ τ1]
-   #:do[(define USED-by-then USED)
-        (set! USED USED-saved)]
-   [⊢ e2 ≫ e2- ⇒ τ2]
-   #:fail-unless (equal? USED-by-then USED)
+   #:do[(define USED-saved (current-used-vars))]
+   [⊢ e1 ≫ e1- ⇒ τ]
+   #:do[(define USED-by-then (current-used-vars))
+        (current-used-vars USED-saved)]
+   [⊢ e2 ≫ e2- ⇐ τ]
+   #:fail-unless (equal? USED-by-then (current-used-vars))
    (begin0
      (format "if branches must use the same variables, given ~a and ~a"
              (stx->datum (free-id-set->list USED-by-then))
-             (stx->datum (free-id-set->list USED)))
+             (stx->datum (free-id-set->list (current-used-vars))))
           (reset-USED!))
    --------
-   [⊢ (if- e_tst- e1- e2-) ⇒ (⊔ τ1 τ2)]])
+   [⊢ (if- e_tst- e1- e2-) ⇒ τ]]
+  [(_ e_tst e1 e2) ≫
+   [⊢ e_tst ≫ e_tst- ⇒ _] ; non-false value is truthy
+   #:join used-vars check/merge-branches
+   ([⊢ e1 ≫ e1- ⇒ τ]
+    [⊢ e2 ≫ e2- ⇐ τ])
+   --------
+   [⊢ (if- e_tst- e1- e2-) ⇒ τ]])
 
