@@ -369,6 +369,10 @@
     [pattern (~seq #:fail-unless condition:expr message:expr)
              #:with pat
              #'(~post (~fail #:unless condition message))]
+    [pattern (~seq #:update name fn)
+             #:with param-name (mk-param #'name)
+             #:with pat
+             #'(~do (param-name (fn (param-name))))]
     [pattern (~seq #:join name merge-fn (sub-clause:clause ...))
              #:with init-saved (generate-temporary 'init)
              #:with (state ...) (generate-temporaries #'(sub-clause ...))

@@ -4,7 +4,8 @@
 
 (require (for-syntax syntax/id-set))
 (provide → × λ #%app ann if let
-         Bool #%datum pair split free)
+         Bool #%datum pair split free
+         (for-syntax reset-USED!)) ; for testing/debugging only?
 
 (define-base-type Bool)
 (define-type-constructor → #:arity > 0)
@@ -37,10 +38,14 @@
   (define INITIAL-STATE (immutable-free-id-set))
   (define (reset-USED!) (current-used-vars INITIAL-STATE))
 
+  (define ((use x) USED)
+    (when (free-id-set-member? USED x)
+      (error 'var (format "attempting to use linear var twice: ~a" (stx->datum x))))
+    (free-id-set-add USED (syntax-local-introduce x)))
+
   (define (use! x)
     (define USED (current-used-vars))
     (when (free-id-set-member? (current-used-vars) x)
-      (reset-USED!)
       (error 'var (format "attempting to use linear var twice: ~a" (stx->datum x))))
     (current-used-vars (free-id-set-add USED (syntax-local-introduce x))))
 
@@ -48,14 +53,13 @@
     (define xs (stx-map syntax-local-introduce xs*))
     (define ys (free-id-set->list used))
     (unless (stx-subset? xs ys)
-      (reset-USED!)
       (error name (unused-err (stx-diff xs ys))))
     (for/fold ([used used]) ([x xs]) (free-id-set-remove used x)))
   )
 
 (define-typed-variable-syntax #:name #%lin-var
   [(_ x (~datum :) τ) ≫
-   #:do[(use! #'x)]
+   #:update used-vars (use #'x)
    ----------
    [⊢ x ⇒ τ]])
 

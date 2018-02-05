@@ -1,5 +1,5 @@
 #lang s-exp "../../linear/lin3.rkt"
-(require turnstile/rackunit-typechecking)
+(require "rackunit-lin.rkt")
 
 ;; very basic tests -------------------------------------------------
 
@@ -93,7 +93,7 @@
 
 ;; let --------------------
 ;; unused
-(typecheck-fail (let [x #f] #t) #:with-msg "linear vars unused: \\(x\\)")
+(typecheck-fail/reset-lin (let [x #f] #t) #:with-msg "linear vars unused: \\(x\\)")
 
 ;; if --------------------
 (typecheck-fail
