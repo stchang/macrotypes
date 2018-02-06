@@ -16,7 +16,8 @@
 (require (except-in (rename-in
                      macrotypes/typecheck-core
                      [define-syntax-category -define-syntax-category])
-                    #%module-begin))
+                    #%module-begin)
+         (for-syntax racket/stxparam))
 
 (module typecheck+ racket/base
   (provide (all-defined-out))
@@ -369,11 +370,33 @@
     [pattern (~seq #:fail-unless condition:expr message:expr)
              #:with pat
              #'(~post (~fail #:unless condition message))]
+    [pattern (~seq #:fail-when/prop prop-name:id condition:expr message:expr)
+             #:with param-name (mk-param #'prop-name)
+             #:with pat
+             #'(~post (~fail #:when (condition (param-name)) (if (procedure? message) (message (param-name)) message)))]
+    [pattern (~seq #:fail-unless/prop prop-name:id condition:expr message:expr)
+             #:with param-name (mk-param #'prop-name)
+             #:with pat
+             #'(~post (~fail #:unless (condition (param-name)) (if (procedure? message) (message (param-name)) message)))]
     [pattern (~seq #:update name fn)
              #:with param-name (mk-param #'name)
              #:with pat
              #'(~do (param-name (fn (param-name))))]
     [pattern (~seq #:join name merge-fn (sub-clause:clause ...))
+             #:with init-saved (generate-temporary 'init)
+             #:with (state ...) (generate-temporaries #'(sub-clause ...))
+             #:with param-name (mk-param #'name)
+             #:with pat
+             #`(~and (~do (define init-saved (param-name)))
+                     (~and sub-clause.pat
+                           (~do (define state (param-name))
+                                (param-name init-saved))) ...
+                     (~do (param-name (merge-fn state ...))))]
+    ;; #:join* is identical to #:join except
+    ;; it also gives merge-fn the initial state
+    ;; TODO: should be part of (or additionally added to)
+    ;;       tc-elem (like #:pre and #:post)?
+    [pattern (~seq #:join* name merge-fn (sub-clause:clause ...))
              #:with init-saved (generate-temporary 'init)
              #:with (state ...) (generate-temporaries #'(sub-clause ...))
              #:with param-name (mk-param #'name)
@@ -495,17 +518,26 @@
                      pat*
                      (~parse τ-pat (detach #'stx `tag)) ...)
              #:attr transform-body identity])
+  (define-splicing-syntax-class conclusion-kw
+    [pattern (~seq #:update name:id fn)
+             #:with param-name (mk-param #'name)
+             #:attr thing #'[#:do[(param-name (fn (param-name)))]]])
+  (define-splicing-syntax-class conclusion-kws
+    #:attributes ([stuff 1])
+    [pattern (~seq kw:conclusion-kw ...)
+             #:with [stuff ...] (apply stx-append (stx->list #'(kw.thing ...)))])
   (define-syntax-class rule #:datum-literals (≫)
     [pattern [pat:pat ≫
               clause:clause ...
               :---
-              last-clause:last-clause]
+              last-clause:last-clause opt-kws:conclusion-kws]
              #:with body:expr ((attribute pat.transform-body) #'last-clause.body)
              #:with norm
              #'[(~and pat.pat
                       last-clause.pat
                       clause.pat ...)
                 last-clause.stuff ...
+                opt-kws.stuff ...
                 body]])
   (define-splicing-syntax-class stxparse-kws
     [pattern (~seq (~or (~seq :keyword _)
@@ -602,5 +634,15 @@
      #:with param-name (format-id #'d "current-state")
      #'(define-for-syntax param-name (make-parameter e))]
     [(d name #:initial e)
-     #:with param-name (format-id #'name "current-~a" #'name)
-     #'(define-for-syntax param-name (make-parameter e))]))
+     #:with param-name (mk-param #'name)
+     #:with definer (format-id #'name "define/~a" #'name)
+     #:with x (generate-temporary #'name)
+     #'(begin-for-syntax
+         (define param-name (make-parameter e))
+         (define-syntax-parameter name (syntax-rules ()))
+         (define-syntax (definer stx)
+           (syntax-parse stx
+             [(_ sig . rst)
+              #'(define (sig x)
+                  (syntax-parameterize ([name (make-rename-transformer #'x)])
+                    . rst))])))]))

@@ -17,6 +17,8 @@
 (begin-for-syntax
   (define (unused-err xs)
     (format "linear vars unused: ~a\n" (stx->datum xs)))
+  (define/used-vars (unused-err2 xs)
+    (format "linear vars unused: ~a\n" (stx->datum (stx-diff (stx-map syntax-local-introduce xs) (free-id-set->list used-vars)))))
   (define (stx-subset? xs ys)
     (and (stx-list? xs) (stx-list? ys)
          (free-id-subset? (immutable-free-id-set (stx->list xs))
@@ -28,6 +30,7 @@
           (immutable-free-id-set (stx->list xs))
           (immutable-free-id-set (stx->list ys))))
         xs))
+
   (define (stx-set-sub xs ys)
     (free-id-set->list
      (free-id-set-subtract (immutable-free-id-set (stx->list xs))
@@ -38,30 +41,49 @@
   (define INITIAL-STATE (immutable-free-id-set))
   (define (reset-USED!) (current-used-vars INITIAL-STATE))
 
-  (define ((use x) USED)
-    (when (free-id-set-member? USED x)
+  ;; use : ID -> UsedVars -> UsedVars
+  ;; TODO: should split this into 2 parts? the err checking and the updating
+  #;(define ((used? x) USED)
+    (free-id-set-member? USED x))
+  (define/used-vars (used? x)
+    (free-id-set-member? used-vars x))
+  ;; like `used?` but consumes multiple xs
+  (define/used-vars (useds? xs)
+    (stx-andmap (λ (x) ((used? (syntax-local-introduce x)) used-vars)) xs))
+  #;(define ((use x) USED)
+    #;(when (free-id-set-member? USED x)
       (error 'var (format "attempting to use linear var twice: ~a" (stx->datum x))))
     (free-id-set-add USED (syntax-local-introduce x)))
-
-  (define (use! x)
-    (define USED (current-used-vars))
-    (when (free-id-set-member? (current-used-vars) x)
+  (define/used-vars (use x)
+    #;(when (free-id-set-member? USED x)
       (error 'var (format "attempting to use linear var twice: ~a" (stx->datum x))))
-    (current-used-vars (free-id-set-add USED (syntax-local-introduce x))))
+    (free-id-set-add used-vars (syntax-local-introduce x)))
 
-  (define ((check-used name xs*) used)
+  ;; check used : symbol [StxListOf Id] -> UsedVars -> UsedVars
+  #;(define ((check-used name xs*) used)
     (define xs (stx-map syntax-local-introduce xs*))
     (define ys (free-id-set->list used))
     (unless (stx-subset? xs ys)
       (error name (unused-err (stx-diff xs ys))))
     (for/fold ([used used]) ([x xs]) (free-id-set-remove used x)))
+  (define/used-vars (check-used name xs*)
+    (define xs (stx-map syntax-local-introduce xs*))
+    (define ys (free-id-set->list used-vars))
+    (unless (stx-subset? xs ys)
+      (error name (unused-err (stx-diff xs ys))))
+    (for/fold ([used used-vars]) ([x xs]) (free-id-set-remove used x)))
+  (define/used-vars (remove-used xs)
+    (for/fold ([used used-vars])
+              ([x (stx-map syntax-local-introduce xs)])
+      (free-id-set-remove used x)))
   )
 
 (define-typed-variable-syntax #:name #%lin-var
   [(_ x (~datum :) τ) ≫
-   #:update used-vars (use #'x)
+   #:fail-when/prop used-vars (used? #'x) (format "attempting to use linear var twice: ~a" (stx->datum #'x))
+;   #:update used-vars (use #'x)
    ----------
-   [⊢ x ⇒ τ]])
+   [⊢ x ⇒ τ] #:update used-vars (use #'x)])
 
 ;; binding forms ----------------------------------------------------
 
@@ -72,27 +94,30 @@
 (define-typed-syntax λ
   [(_ ([x:id (~datum :) τ_in:type] ...) e) ≫
 ;   #:do[(PRE default-pre)]
-   [[x ≫ x- : τ_in.norm] ... ⊢ [e ≫ e- ⇒ τ_out] #:post used-vars (check-used 'λ #'(x- ...))]
+   [[x ≫ x- : τ_in.norm] ... ⊢ [e ≫ e- ⇒ τ_out]]; #:post used-vars (check-used 'λ #'(x- ...))]
+   #:fail-unless/prop used-vars (useds? #'(x- ...)) (unused-err2 #'(x- ...))
 ;   #:do[(POST (check-used 'λ #'(x- ...)))]
    -------
-   [⊢ (λ- (x- ...) e-) ⇒ (→ τ_in.norm ... τ_out)]])
+   [⊢ (λ- (x- ...) e-) ⇒ (→ τ_in.norm ... τ_out)] #:update used-vars (remove-used #'(x- ...))])
 
 (define-typed-syntax let
   [(_ [x e] body) ≫
    [⊢ e ≫ e- ⇒ τ_x]
 ;   #:do[(PRE)]
-   [[x ≫ x- : τ_x] ⊢ [body ≫ body- ⇒ τ_body] #:post used-vars (check-used 'let #'(x-))]
+   [[x ≫ x- : τ_x] ⊢ [body ≫ body- ⇒ τ_body]]; #:post used-vars (check-used 'let #'(x-))]
+   #:fail-unless/prop used-vars (useds? #'(x-)) (unused-err2 #'(x-))
 ;   #:do[(POST (check-used 'let #'(x-)))]
    --------
-   [⊢ (let- ([x- e-]) body-) ⇒ τ_body]])
+   [⊢ (let- ([x- e-]) body-) ⇒ τ_body] #:update used-vars (remove-used #'(x-))])
 
 (define-typed-syntax (split e (~datum as) (x y) (~datum in) body)≫
   [⊢ e ≫ e- ⇒ (~× τx τy)]
 ;  #:do[(PRE)]
-  [[x ≫ x- : τx] [y ≫ y- : τy] ⊢ [body ≫ body- ⇒ τ] #:post used-vars (check-used 'split #'(x- y-))]
+  [[x ≫ x- : τx] [y ≫ y- : τy] ⊢ [body ≫ body- ⇒ τ]]; #:post used-vars (check-used 'split #'(x- y-))]
+   #:fail-unless/prop used-vars (useds? #'(x- y-)) (unused-err2 #'(x- y-))
 ;  #:do[(POST (check-used 'split #'(x- y-)))]
   -------------
-  [⊢ (let*- ([p e-][x- (#%app- car p)][y- (#%app- cdr p)]) body-) ⇒ τ])
+  [⊢ (let*- ([p e-][x- (#%app- car p)][y- (#%app- cdr p)]) body-) ⇒ τ] #:update used-vars (remove-used #'(x- y-)))
 
 
 ;; other forms ------------------------------------------------------
@@ -129,13 +154,10 @@
    --------
    [#:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])
 
-(define-for-syntax (check/merge-branches . varss*)
-  (define varss (cdr varss*)) ; drop init
+(define-for-syntax (check/merge-branches . varss)
   (unless (apply equal? varss)
-    (begin0
-        (error 'if "if branches must use the same variables, given ~a"
-               (string-join (map (compose ~a stx->datum free-id-set->list) varss) " and "))
-      (reset-USED!)))
+    (error 'if "if branches must use the same variables, given ~a"
+           (string-join (map (compose ~a stx->datum free-id-set->list) varss) " and ")))
   (car varss))
 (define-typed-syntax if
   #;[(_ e_tst e1 e2) ≫

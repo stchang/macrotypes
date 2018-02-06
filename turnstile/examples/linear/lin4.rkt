@@ -282,7 +282,7 @@
   [(λ ! ([x:id : T:type] ...) b) ≫
    #:with [σ ...] #'[T.norm ...]
 ;   #:mode (make-fresh-linear-mode)
-   #:join scopes (merge/ctx #'([x- : σ] ...))
+   #:join* scopes (merge/ctx #'([x- : σ] ...))
    ([[x ≫ x- : σ] ... ⊢ [b ≫ b- ⇒ σ_out]])
 ;    #:post scopes (linear-out-of-scope! #'([x- : σ] ...))])
    --------
@@ -302,7 +302,7 @@
    #:fail-unless (stx-length=? #'[x ...] #'[σ ...])
                  (num-args-fail-msg this-syntax #'[x ...] #'[σ ...])
 ;   #:mode (make-fresh-linear-mode)
-   #:join scopes (merge/ctx #'([x- : σ] ...))
+   #:join* scopes (merge/ctx #'([x- : σ] ...))
    ([[x ≫ x- : σ] ... ⊢ [b ≫ b- ⇐ σ_out]])
 ;     #:post scopes (linear-out-of-scope! #'([x- : σ] ...))])
    --------
@@ -347,7 +347,7 @@
   [(_ c e1 e2) ≫
    [⊢ c ≫ c- ⇐ Bool]
 ;   #:mode (make-linear-branch-mode 2)
-   #:join scopes merge-scopes!
+   #:join* scopes merge-scopes!
      ([⊢ e1 ≫ e1- ⇒ σ1]
       [⊢ e2 ≫ e2- ⇒ σ2])
    --------
