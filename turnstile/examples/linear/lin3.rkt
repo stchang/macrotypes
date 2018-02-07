@@ -78,12 +78,17 @@
       (free-id-set-remove used x)))
   )
 
-(define-typed-variable-syntax #:name #%lin-var
+#;(define-typed-variable-syntax #:name #%lin-var
   [(_ x (~datum :) τ) ≫
-   #:fail-when/prop used-vars (used? #'x) (format "attempting to use linear var twice: ~a" (stx->datum #'x))
+   #:fail-when/used-vars (used? #'x) (format "attempting to use linear var twice: ~a" (stx->datum #'x))
 ;   #:update used-vars (use #'x)
    ----------
    [⊢ x ⇒ τ] #:update used-vars (use #'x)])
+(define-typed-variable-syntax (#%lin-var x (~datum :) τ) ≫
+   #:fail-when/used-vars (used? #'x) (format "attempting to use linear var twice: ~a" (stx->datum #'x))
+;   #:update used-vars (use #'x)
+   ----------
+   [⊢ x ⇒ τ] #:update used-vars (use #'x))
 
 ;; binding forms ----------------------------------------------------
 
@@ -95,7 +100,7 @@
   [(_ ([x:id (~datum :) τ_in:type] ...) e) ≫
 ;   #:do[(PRE default-pre)]
    [[x ≫ x- : τ_in.norm] ... ⊢ [e ≫ e- ⇒ τ_out]]; #:post used-vars (check-used 'λ #'(x- ...))]
-   #:fail-unless/prop used-vars (useds? #'(x- ...)) (unused-err2 #'(x- ...))
+   #:fail-unless/used-vars (useds? #'(x- ...)) (unused-err2 #'(x- ...))
 ;   #:do[(POST (check-used 'λ #'(x- ...)))]
    -------
    [⊢ (λ- (x- ...) e-) ⇒ (→ τ_in.norm ... τ_out)] #:update used-vars (remove-used #'(x- ...))])
@@ -105,7 +110,7 @@
    [⊢ e ≫ e- ⇒ τ_x]
 ;   #:do[(PRE)]
    [[x ≫ x- : τ_x] ⊢ [body ≫ body- ⇒ τ_body]]; #:post used-vars (check-used 'let #'(x-))]
-   #:fail-unless/prop used-vars (useds? #'(x-)) (unused-err2 #'(x-))
+   #:fail-unless/used-vars (useds? #'(x-)) (unused-err2 #'(x-))
 ;   #:do[(POST (check-used 'let #'(x-)))]
    --------
    [⊢ (let- ([x- e-]) body-) ⇒ τ_body] #:update used-vars (remove-used #'(x-))])
@@ -114,7 +119,7 @@
   [⊢ e ≫ e- ⇒ (~× τx τy)]
 ;  #:do[(PRE)]
   [[x ≫ x- : τx] [y ≫ y- : τy] ⊢ [body ≫ body- ⇒ τ]]; #:post used-vars (check-used 'split #'(x- y-))]
-   #:fail-unless/prop used-vars (useds? #'(x- y-)) (unused-err2 #'(x- y-))
+   #:fail-unless/used-vars (useds? #'(x- y-)) (unused-err2 #'(x- y-))
 ;  #:do[(POST (check-used 'split #'(x- y-)))]
   -------------
   [⊢ (let*- ([p e-][x- (#%app- car p)][y- (#%app- cdr p)]) body-) ⇒ τ] #:update used-vars (remove-used #'(x- y-)))
@@ -177,7 +182,7 @@
    [⊢ (if- e_tst- e1- e2-) ⇒ τ]]
   [(_ e_tst e1 e2) ≫
    [⊢ e_tst ≫ e_tst- ⇒ _] ; non-false value is truthy
-   #:join used-vars check/merge-branches
+   #:join/used-vars check/merge-branches
    ([⊢ e1 ≫ e1- ⇒ τ]
     [⊢ e2 ≫ e2- ⇐ τ])
    --------

@@ -378,6 +378,19 @@
              #:with param-name (mk-param #'prop-name)
              #:with pat
              #'(~post (~fail #:unless (condition (param-name)) (if (procedure? message) (message (param-name)) message)))]
+    ;; #:fail-when with prop, eg #:fail-when/my-prop-name
+    [pattern (~seq f-w:keyword condition:expr message:expr)
+             #:do[(define kw-str (keyword->string (stx-e #'f-w)))]
+             #:when (string-prefix? kw-str "fail-when/") ; prefix is 10 chars
+             #:with param-name (format-id #'f-w "current-~a" (substring kw-str 10))
+             #:with pat
+             #'(~post (~fail #:when (condition (param-name)) (if (procedure? message) (message (param-name)) message)))]
+    [pattern (~seq f-u:keyword condition:expr message:expr)
+             #:do[(define kw-str (keyword->string (stx-e #'f-u)))]
+             #:when (string-prefix? kw-str "fail-unless/") ; prefix is 12 chars
+             #:with param-name (format-id #'f-u "current-~a" (substring kw-str 12))
+             #:with pat
+             #'(~post (~fail #:unless (condition (param-name)) (if (procedure? message) (message (param-name)) message)))]
     [pattern (~seq #:update name fn)
              #:with param-name (mk-param #'name)
              #:with pat
@@ -400,6 +413,31 @@
              #:with init-saved (generate-temporary 'init)
              #:with (state ...) (generate-temporaries #'(sub-clause ...))
              #:with param-name (mk-param #'name)
+             #:with pat
+             #`(~and (~do (define init-saved (param-name)))
+                     (~and sub-clause.pat
+                           (~do (define state (param-name))
+                                (param-name init-saved))) ...
+                     (~do (param-name (merge-fn init-saved state ...))))]
+    ;; join and join* with prop name as part of keyword, eg #:join/my-prop-name
+    [pattern (~seq j:keyword merge-fn (sub-clause:clause ...))
+             #:do[(define kw-str (keyword->string (stx-e #'j)))]
+             #:when (string-prefix? kw-str "join/") ; prefix is 5 chars
+             #:with param-name (format-id #'j "current-~a" (substring kw-str 5))
+             #:with init-saved (generate-temporary 'init)
+             #:with (state ...) (generate-temporaries #'(sub-clause ...))
+             #:with pat
+             #`(~and (~do (define init-saved (param-name)))
+                     (~and sub-clause.pat
+                           (~do (define state (param-name))
+                                (param-name init-saved))) ...
+                     (~do (param-name (merge-fn state ...))))]
+    [pattern (~seq j:keyword merge-fn (sub-clause:clause ...))
+             #:do[(define kw-str (keyword->string (stx-e #'j)))]
+             #:when (string-prefix? kw-str "join*/") ; prefix is 6 chars
+             #:with param-name (format-id #'j "current-~a" (substring kw-str 6))
+             #:with init-saved (generate-temporary 'init)
+             #:with (state ...) (generate-temporaries #'(sub-clause ...))
              #:with pat
              #`(~and (~do (define init-saved (param-name)))
                      (~and sub-clause.pat
@@ -588,6 +626,8 @@
 
 (define-syntax define-typed-variable-syntax
   (syntax-parser
+    ;; single-clause def
+    [(_ (name . pats) (~datum ≫) . rst) #'(define-typed-variable-syntax #:name name [(_ . pats) ≫ . rst])]
     [(_ (~optional (~seq #:name name:id) #:defaults ([name (generate-temporary '#%var)]))
         (~and (~seq kw-stuff ...) :stxparse-kws)
         rule:rule ...+)
