@@ -818,6 +818,53 @@
 
 ;; λ --------------------------------------------------------------------------
 
+; Lifted out of the let-syntax ([a ...]) below to avoid generating this meta-level
+
+(define-for-syntax (local-infer Xs xs TCs tys bodya)
+    (define/syntax-parse (X ...) Xs)
+    (define/syntax-parse (x ...) xs)
+    (define/syntax-parse (TC ...) TCs)
+    (define/syntax-parse (ty ...) tys)
+    (define/syntax-parse body bodya)
+
+    (syntax-parse (expand/df #'(void TC ...)) ; must expand in ctx of Xs
+                      [(_ _ .
+                        (~and (TC+ ...) 
+                              (~TCs ([op-sym ty-op] ...) ...)))
+                       ;; here, * suffix = flattened list
+                       ;; op* ... = op-sym ... with proper ctx, and then flattened
+                       #:with (op* ...)
+                              (stx-appendmap 
+                                (lambda (os tc)
+                                  (stx-map (lambda (o) (format-id tc "~a" o)) os))
+                                #'((op-sym ...) ...) #'(TC ...))
+                       #:with (op-tmp* ...) (generate-temporaries #'(op* ...))
+                       #:with (ty-op* ...) (stx-flatten #'((ty-op ...) ...))
+                       #:with ty-in-tagsss
+                              (stx-map 
+                               (syntax-parser
+                                [(~∀ _ fa-body)
+                                 (get-type-tags
+                                  (syntax-parse #'fa-body
+                                   [(~ext-stlc:→ in ... _) #'(in ...)]
+                                   [(~=> _ ... (~ext-stlc:→ in ... _)) #'(in ...)]))])
+                               #'(ty-op* ...))
+                         #:with (mangled-op ...) (stx-map mangle #'(op* ...) #'ty-in-tagsss)
+                         #:with (y ...) #'(x ...)
+                         #:with (_ _ ty+ ...) (expand/df #'(void ty ...))
+                         #:with res
+                         (expand/df 
+                          #'(lambda (op-tmp* ...)
+                             (let-syntax 
+                              ([mangled-op 
+                                (make-rename-transformer (assign-type #'op-tmp* #'ty-op*))] ...)
+                              (lambda (y ...)
+                               (let-syntax
+                                ([y (make-rename-transformer (assign-type #'y #'ty+))] ...)
+                                body)))))
+                         #'((void TC+ ...) (void ty+ ...) res)])
+
+    )
 ; all λs have type (∀ (X ...) (→ τ_in ... τ_out)), even monomorphic fns
 (define-typed-syntax liftedλ #:export-as λ
   [(_ ([x:id (~datum :) ty] ... #:where TC ...) body) ≫
@@ -846,43 +893,8 @@
                  (let-syntax
                   ;; must have this inner macro bc body of lambda may require
                   ;; ops defined by TC to be bound
-                  ([a (syntax-parser [(_)
-                    (syntax-parse (expand/df #'(void TC ...)) ; must expand in ctx of Xs
-                      [(_ _ .
-                        (~and (TC+ (... ...)) 
-                              (~TCs ([op-sym ty-op] (... ...)) (... ...))))
-                       ;; here, * suffix = flattened list
-                       ;; op* ... = op-sym ... with proper ctx, and then flattened
-                       #:with (op* (... ...))
-                              (stx-appendmap 
-                                (lambda (os tc)
-                                  (stx-map (lambda (o) (format-id tc "~a" o)) os))
-                                #'((op-sym (... ...)) (... ...)) #'(TC ...))
-                       #:with (op-tmp* (... ...)) (generate-temporaries #'(op* (... ...)))
-                       #:with (ty-op* (... ...)) (stx-flatten #'((ty-op (... ...)) (... ...)))
-                       #:with ty-in-tagsss
-                              (stx-map 
-                               (syntax-parser
-                                [(~∀ _ fa-body)
-                                 (get-type-tags
-                                  (syntax-parse #'fa-body
-                                   [(~ext-stlc:→ in (... ...) _) #'(in (... ...))]
-                                   [(~=> _ (... ...) (~ext-stlc:→ in (... ...) _)) #'(in (... ...))]))])
-                               #'(ty-op* (... ...)))
-                         #:with (mangled-op (... ...)) (stx-map mangle #'(op* (... ...)) #'ty-in-tagsss)
-                         #:with (y (... ...)) #'(x ...)
-                         #:with (_ _ ty+ (... ...)) (expand/df #'(void ty ...))
-                         #:with res
-                         (expand/df 
-                          #'(lambda (op-tmp* (... ...))
-                             (let-syntax 
-                              ([mangled-op 
-                                (make-rename-transformer (assign-type #'op-tmp* #'ty-op*))] (... ...))
-                              (lambda (y (... ...))
-                               (let-syntax
-                                ([y (make-rename-transformer (assign-type #'y #'ty+))] (... ...))
-                                body)))))
-                         #'((void TC+ (... ...)) (void ty+ (... ...)) res)])])])
+                  ([a (lambda (_)
+                        (local-infer #'(X ...) #'(x ...) #'(TC ...) #'(ty ...) #'body))])
                       (a)))))
    #:with ty-out (typeof #'body+)
    #:with ty-out-expected (get-expected-type #'body+)
