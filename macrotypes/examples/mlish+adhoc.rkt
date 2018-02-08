@@ -1680,7 +1680,7 @@
               (~=> TCsub ... 
                    (~TC [generic-op-expected ty-concrete-op-expected] ...)))
              _)
-            (infers/tyctx+erase #'([X :: #%type] ...) #'(TC ... (Name ty ...)))
+            (infers/tyctx+erase #'([X :: #%type] ...) #'(TC ... (Name ty ...)) #:stop-list? #f)
      #:when (TCs-exist? #'(TCsub ...) #:ctx stx)
      ;; simulate as if the declared concrete-op* has TC ... predicates
      ;; TODO: fix this manual deconstruction and assembly

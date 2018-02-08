@@ -18,7 +18,7 @@
   (define evt-ct 0)
   (current-expand-observe (lambda (x y)
                             (when (= x 0)
-                              ;(displayln x)
+                              ;(aisplayln x)
                               #;(displayln (if (syntax? y)
                                                (syntax->datum y)
                                                y))
@@ -29,6 +29,5 @@
 (m)
 
 (begin-for-syntax
-  (current-expand-observe (lambda (x y) (displayln y)))
-  (displayln evt-ct)
-  )
+  (current-expand-observe (lambda (x y) (void)))
+  (displayln evt-ct))

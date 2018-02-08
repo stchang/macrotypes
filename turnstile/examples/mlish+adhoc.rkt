@@ -1171,7 +1171,7 @@
    [⊢ n ≫ n- ⇐ Int]
    [⊢ rad ≫ rad- ⇐ Int]
    --------
-   [⊢ (number->string- n rad) ⇒ String]])
+   [⊢ (number->string- n- rad-) ⇒ String]])
 
 (provide (typed-out [string : (→ Char String)]
                     [sleep : (→ Int Unit)]
@@ -1669,8 +1669,8 @@
 (define-typed-syntax define-instance
   ;; base type, possibly with subclasses  ------------------------------------
   [(_ (Name ty ...) [generic-op concrete-op] ...) ≫
-   [⊢ (Name ty ...) ≫ 
-      (~=> TC ... (~TC [generic-op-expected ty-concrete-op-expected] ...)) ⇒ _]
+   #:with (~=> TC ... (~TC [generic-op-expected ty-concrete-op-expected] ...))
+   (expand/df #'(Name ty ...))
    #:when (TCs-exist? #'(TC ...) #:ctx this-syntax)
    #:fail-unless (set=? (syntax->datum #'(generic-op ...)) 
                         (syntax->datum #'(generic-op-expected ...)))
@@ -1724,7 +1724,7 @@
                 (~=> TCsub ... 
                      (~TC [generic-op-expected ty-concrete-op-expected] ...)))
            _)
-           (infers/tyctx+erase #'(X ...) #'(TC ... (Name ty ...)))
+           (infers/tyctx+erase #'(X ...) #'(TC ... (Name ty ...)) #:stop-list? #f)
    ;; this produces #%app bad stx err, so manually call infer for now
    ;; [([X ≫ X- :: #%type] ...) () ⊢ (TC ... (Name ty ...)) ≫
    ;;                                (TC+ ... 

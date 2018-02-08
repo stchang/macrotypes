@@ -514,6 +514,9 @@
             #'(define-syntax (rulename stx)
                 (parameterize ([current-check-relation (new-check-rel)]
                                [current-ev (new-eval)]
-                               [current-tag 'key1])
+                               [current-tag 'key1]
+                               ; Syntax categories like kind want full expansion,
+                               ; as types are expected to be fully expanded
+                               [current-use-stop-list? #f])
                   (syntax-parse/typecheck stx kw-stuff (... ...)
                     rule (... ...))))])))]))

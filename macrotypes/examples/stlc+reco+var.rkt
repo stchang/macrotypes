@@ -127,7 +127,7 @@
    #:with [e- τ_e] (infer+erase #'e)
    #:fail-unless (typecheck? #'τ_e #'τ_match)
                  (typecheck-fail-msg/1 #'τ_match #'τ_e #'e)
-   (⊢ (list- 'l e) : τ.norm)])
+   (⊢ (list- 'l e-) : τ.norm)])
 (define-typed-syntax case
   #:datum-literals (of =>)
   [(_ e [l:id x:id => e_l] ...)

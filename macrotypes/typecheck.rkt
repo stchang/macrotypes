@@ -962,11 +962,19 @@
                                  (L #'rst)]
                                 [es #'es]))))])))
 
+  (define current-use-stop-list? (make-parameter #t))
+
+  (define (decide-stop-list infer-flag?)
+    (if (and infer-flag? (current-use-stop-list?))
+      (list #'someiddoesntmatterwhat)
+      null))
+
   ;; basic infer function with no context:
   ;; infers the type and erases types in an expression
   (define (infer+erase e #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
-    (syntax-parse (infer (list e) #:tag tag #:stop-list? stop-list?)
-      [(_ _ (e+) (τ)) (list #'e+ #'τ)]))
+    (define e+ (local-expand e 'expression (decide-stop-list stop-list?)))
+    (list e+ (detach e+ tag)))
+
   ;; infers the types and erases types in multiple expressions
   (define (infers+erase es #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
     (stx-map (λ (e) (infer+erase e #:tag tag #:stop-list? stop-list?)) es))
@@ -1035,15 +1043,10 @@
                                    ...))])
          (syntax-local-bind-syntaxes (list x) rhs ctx))
 
-       (define stop-list
-         (if stop-list?
-           (list #'someiddoesntmatterwhat)
-           null))
-
        (define/syntax-parse
          (e+ ...)
          (for/list ([e (syntax->list #'(e ...))])
-                   (local-expand e 'expression stop-list ctx)))
+                   (local-expand e 'expression (decide-stop-list stop-list?) ctx)))
 
        (define (typeof e)
          (detach e tag))
