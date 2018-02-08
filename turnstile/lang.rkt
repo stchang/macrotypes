@@ -5,5 +5,5 @@
           macrotypes/typecheck))
 
 (require "turnstile.rkt"
-         (only-in macrotypes/typecheck #%module-begin))
+         (only-in macrotypes/typecheck #%module-begin current-use-stop-list?))
 

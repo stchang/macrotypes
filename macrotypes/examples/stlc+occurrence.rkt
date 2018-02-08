@@ -252,8 +252,8 @@
    #:with [x2 e2+ τ2] (infer/ctx+erase #'([x-stx : τ-]) #'e2)
    ;; 6. Desugar, replacing the filtered identifier
    (⊢  (if- (f e0+)
-            ((lambda- x1 e1+) x-stx)
-            ((lambda- x2 e2+) x-stx))
+            ((lambda- x1 e1+) x)
+            ((lambda- x2 e2+) x))
       : (∪ τ1 τ2))]
   ;; TODO lists
   ;; For now, we can't express the type (List* A (U A B)), so our filters are too strong
@@ -265,9 +265,9 @@
    #:with [x1 e1+ τ1] (infer/ctx+erase #'([x-stx : τ0+]) #'e1)
    #:with [x2 e2+ τ2] (infer/ctx+erase #'([x-stx : τ0-]) #'e2)
    ;; Expand to a conditional, using the runtime predicate
-   (⊢ (if- (f x-stx)
-           ((lambda- x1 e1+) x-stx)
-           ((lambda- x2 e2+) x-stx))
+   (⊢ (if- (f x)
+           ((lambda- x1 e1+) x)
+           ((lambda- x2 e2+) x))
       : (∪ τ1 τ2))])
 
 ;; =============================================================================

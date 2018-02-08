@@ -1,6 +1,9 @@
 #lang s-exp "../stlc+reco+var.rkt"
 (require "rackunit-typechecking.rkt")
 
+(check-type (λ ([n : Int]) (var b = (tup [c = n]) as (∨ [b : (× [c : Int])])))
+            : (→ Int (∨ [b : (× [c : Int])])))
+
 ;; define-type-alias
 (define-type-alias Integer Int)
 (define-type-alias ArithBinOp (→ Int Int Int))

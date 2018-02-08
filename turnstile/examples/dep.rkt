@@ -1,5 +1,8 @@
 #lang turnstile/lang
 
+(begin-for-syntax
+  (current-use-stop-list? #f))
+
 ; Π  λ ≻ ⊢ ≫ ⇒ ∧ (bidir ⇒ ⇐)
 
 (provide (rename-out [#%type *]) Π → ∀ λ #%app ann define define-type-alias)

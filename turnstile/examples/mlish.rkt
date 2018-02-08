@@ -992,7 +992,8 @@
    [⊢ [n ≫ n- ⇐ : Int]]
    [⊢ [rad ≫ rad- ⇐ : Int]]
    --------
-   [⊢ [_ ≫ (number->string- n rad) ⇒ : String]]])
+   [⊢ [_ ≫ (number->string- n- rad-) ⇒ : String]]])
+
 (provide (typed-out [string : (→ Char String)]
                     [sleep : (→ Int Unit)]
                     [string=? : (→ String String Bool)]

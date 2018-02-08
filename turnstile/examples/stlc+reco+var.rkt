@@ -125,7 +125,7 @@
                    this-syntax)))
    [⊢ e ≫ e- ⇐ τ_e]
    --------
-   [⊢ (list- 'l e)]])
+   [⊢ (list- 'l e-)]])
 
 (define-typed-syntax (case e [l:id x:id (~datum =>) e_l] ...) ≫
   #:fail-unless (not (null? (syntax->list #'(l ...)))) "no clauses"
