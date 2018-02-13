@@ -6,6 +6,7 @@
   (postfix-in - racket/match)
   (postfix-in - racket/promise)
   (for-syntax (except-in racket extends)
+              syntax/id-table
               syntax/parse racket/syntax syntax/stx racket/stxparam 
               syntax/parse/define
               (only-in racket/provide-transform 
@@ -407,6 +408,39 @@
                           #'ts1 #'ts2))]
                    [_ (and (stx-pair? t1) (stx-pair? t2)
                            (types=? t1 t2))])))
+
+
+           ; Reconstruct syntax with fresh binding names without scopes from
+           ; previous expansions, to avoid build-up of scopes resulting from
+           ; many re-expansions.
+           (define (reconstruct t [env (make-immutable-bound-id-table)])
+              (syntax-parse t
+                [_:id
+                 (let ([new (bound-id-table-ref env t #f)])
+                   (if new
+                     (transfer-stx-props new (syntax-track-origin new t t))
+                     t))]
+                [((~literal #%plain-lambda)
+                  (~and (_:id (... ...)) xs) . ts)
+                 #:with new-xs (stx-map (lambda (x)
+                                          (transfer-stx-props
+                                            ; TODO: why?
+                                            (fresh x) x))
+                                        #'xs)
+                 (define new-env
+                   (stx-fold (lambda (x new-x env) (bound-id-table-set env x new-x))
+                             env #'xs #'new-xs))
+                 (transfer-stx-props
+                   #`(#%plain-lambda new-xs . #,(reconstruct #'ts new-env))
+                   t)]
+                [(e (... ...))
+                 #:with res (stx-map (λ (e) (reconstruct e env)) #'(e (... ...)))
+                 ; context on the parens shouldn't matter, as stx is fully
+                 ; expanded with explicit #%app added, so the paren ctx won't
+                 ; be used.
+                 (transfer-stx-props #'res t #:ctx (quote-syntax here))]
+                [_ t]))
+
            (define current-type=? (make-parameter type=?))
            (define (types=? τs1 τs2)
              (and (stx-length=? τs1 τs2)
@@ -437,7 +471,15 @@
              ; - but this causes problems when combining unexpanded and
              ;   expanded types to create new types
              ; - alternative: use syntax-local-expand-expression?
-             (add-orig (expand/df τ) τ))
+             (define expanded (expand/df τ))
+             ; - Must disarm because we reconstruct expanded syntax that may have
+             ;   come from syntax-rules macros that do a syntax-protect. Doesn't bother
+             ;   to rearm; I'm not sure it matters.
+             ; - Must reexpand to ensure different bindings are distinct for free=?,
+             ;   as that is how they are compared in type=?.
+             (define reconstructed (expand/df (reconstruct (syntax-disarm expanded #f))))
+             (add-orig reconstructed τ))
+
            (define current-type-eval (make-parameter default-type-eval))
            (define (type-evals τs) #`#,(stx-map (current-type-eval) τs)))
          ;; defining types ----------------------------------------------------
