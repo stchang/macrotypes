@@ -10,11 +10,10 @@
 #;(begin-for-syntax
   (define old-ty= (current-type=?))
   (current-type=?
-   (λ (t1 t2)
+   (λ (t1 t2 env1 env2)
      (displayln (stx->datum t1))
      (displayln (stx->datum t2))
-     (old-ty= t1 t2)))
-  (current-typecheck-relation (current-type=?)))
+     (old-ty= t1 t2 env1 env2))))
 
 ;(define-syntax-category : kind)
 (define-internal-type-constructor →)

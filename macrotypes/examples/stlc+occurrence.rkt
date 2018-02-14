@@ -117,7 +117,7 @@
        ;; Remove duplicates from the union, sort members
        (define τ*
          (sort
-          (remove-duplicates (apply append τ**) (current-type=?))
+          (remove-duplicates (apply append τ**) type=?)
           symbol<?
           #:key τ->symbol))
        ;; Check for empty & singleton lists

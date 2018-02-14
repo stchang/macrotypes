@@ -109,7 +109,7 @@
     ;; (printf "t1 = ~a\n" (syntax->datum t1))
     ;; (printf "t2 = ~a\n" (syntax->datum t2))
     (or 
-     ((current-type=?) t1 t2)
+     (type=? t1 t2)
      (syntax-parse (list t1 t2)
        ; 2 U types, subtype = subset
        [((~U* . tys1) (~U* . tys2))

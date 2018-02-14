@@ -106,21 +106,20 @@
   ;; current-typecheck-relation
   ;; go under CCs if necessary
   (define old-type=? (current-type=?))
-  (define (new-type=? t1 t2) ; extend to literals
+  (define (new-type=? t1 t2 env1 env2) ; extend to literals
     ;; (printf "t1: ~a\n" (syntax->datum t1))
     ;; (printf "t2: ~a\n" (syntax->datum t2))
     (or (Any? t2)
-        (old-type=? t1 t2)
+        (old-type=? t1 t2 env1 env2)
         (equal? (syntax-e t1) (syntax-e t2))
         ;; unwrap CCs if necessary
         (syntax-parse (list t1 t2)
           [((~CCs _ _ _ t1*) _)
-           ((current-type=?) #'t1* t2)]
+           ((current-type=?) #'t1* t2 env1 env2)]
           [(_ (~CCs _ _ _ t2*))
-           ((current-type=?) t1 #'t2*)]
+           ((current-type=?) t1 #'t2* env1 env2)]
           [_ #f])))
   (current-type=? new-type=?)
-  (current-typecheck-relation new-type=?)
 
   ;; current-type?
   ;; TODO: disabling type validation for now

@@ -59,16 +59,16 @@
   (define (new-type-eval τ) (normalize (old-eval τ)))
   (current-type-eval new-type-eval)
   
-  (define old-type=? (current-type=?))
+  (define old-typecheck? (current-typecheck-relation))
   ;; need to also compare kinds of types
-  (define (new-type=? t1 t2)
+  (define (new-typecheck? t1 t2)
     (let ([k1 (kindof t1)][k2 (kindof t2)])
       ;; need these `not` checks bc type= does a structural stx traversal
       ;; and may compare non-type ids (like #%plain-app)
       (and (or (and (not k1) (not k2))
-               (and k1 k2 ((current-kind=?) k1 k2)))
-           (old-type=? t1 t2))))
-  (current-typecheck-relation new-type=?))
+               (and k1 k2 (kind=? k1 k2)))
+           (old-typecheck? t1 t2))))
+  (current-typecheck-relation new-typecheck?))
 
 (define-typed-syntax (Λ bvs:kind-ctx e) ≫
   [[bvs.x ≫ tv- :: bvs.kind] ... ⊢ e ≫ e- ⇒ τ_e]

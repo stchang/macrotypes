@@ -58,7 +58,7 @@
    ;; First try exact matches, then fall back to subtyping (unless 'exact?' is set).
    ;; When subtyping, the __order instances were declared__ resolves ties.
    (define result
-     (or (ℜ-find ℜ τ #:=? (current-type=?))
+     (or (ℜ-find ℜ τ #:=? type=?)
          (and (not exact?)
               (ℜ-find ℜ τ #:=? (current-typecheck-relation)))))
    (and (pair? result)
@@ -142,12 +142,12 @@
       [((~→ τ_dom1 τ_cod1)
         (~→ _      τ_cod2))
        ;; Really, need to unify this type with the template
-       ;; (unless ((current-type=?) τ_dom1 τ_dom2)
+       ;; (unless (type=? τ_dom1 τ_dom2)
        ;;   (instance-error #'name #'τ (format "Domain '~a' must unify with template domain '~a'."
        ;;                                      (syntax->datum #'τ_dom1) (syntax->datum #'τ_dom2))))
-       (unless ((current-type=?) ((current-type-eval) #'τ) #'τ_dom1)
+       (unless (type=? ((current-type-eval) #'τ) #'τ_dom1)
          (instance-error #'name #'τ (format "Domain '~a' must be the instance type, for now (2015-10-20)." (syntax->datum #'τ_dom1))))
-       (unless ((current-type=?) #'τ_cod1 #'τ_cod2)
+       (unless (type=? #'τ_cod1 #'τ_cod2)
          (instance-error #'name #'τ (format "Codomain '~a' must match template codomain '~a'"
                                             (syntax->datum #'τ_cod1) (syntax->datum #'τ_cod2))))
        (void)]

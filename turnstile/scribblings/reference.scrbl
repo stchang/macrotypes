@@ -2,6 +2,7 @@
 
 @(require scribble/example racket/sandbox
           (for-label racket/base
+                     syntax/id-table
                      turnstile/mode
                      (except-in turnstile/turnstile ⊢ stx mk-~ mk-?))
           "doc-utils.rkt" "common.rkt")
@@ -513,9 +514,13 @@ that you can still use other Turnstile conveniences like pattern expanders.}}
     list contains the given types and the second list contains the expected
     types.}
 
-@defparam[current-type=? type-cmp (-> type? type? boolean?)]{
-    A phase 1 parameter for computing type equality. Is initialized
-    to @racket[type=?].}
+@defparam[current-type=? type-cmp (-> type? type? immutable-bound-id-table? immutable-bound-id-table? boolean?)]{
+    A phase 1 parameter for customizing the behavior of @racket[type=?]. In addition
+    to the types to compare, it receives environments used to map type variables in each
+    type respectively to a common representation. When making a recursive call to
+    @racket[current-type=?] under a binding form, pass extended environments mapping the
+    binders to a new unique value (compared by @racket[eq?]).
+}
 
 @defproc[(type=? [τ1 type?] [τ2 type?]) boolean?]{
     A phase 1 equality predicate for types that computes structural,
@@ -741,7 +746,8 @@ functionality.
 @defproc[(infer [es (listof expr-stx)]
                 [#:ctx ctx (listof binding-stx) null]
                 [#:tvctx tvctx (listof tyvar-binding-stx) null]
-                [#:tag tag symbol? ':])
+                [#:tag tag symbol? ':]
+                [#:stop-list? stop-list? boolean? #t])
                 (list tvs xs es τs)]{
 
 Phase 1 function expanding a list of expressions, in the given contexts and
@@ -762,6 +768,17 @@ Use the @tt{tag} keyword argument to specify the key for the
 returned "type". The default key is @litchar{:}. For example, a programmer may
 want to specify a @litchar{::} key when using @racket[infer] to compute the
 kinds on types.}
+
+The @racket[#:stop-list?] argument controls an optimization to avoid unnecessary
+re-expansion. When @racket[#t], expansion for typechecking stops once Racket kernel
+forms are reached. Note that because types are expected to be in fully expanded form,
+this flag should be @racket[#f] when @racket[infer] is used to infer kinds.
+
+@defparam[current-use-stop-list? flag boolean? #:value #t]{
+An additional means to control the stop-list optimization. Set to @racket[#f] to disable.
+Useful for languages with features like dependent types where full expansion is always
+needed.
+}
 
 @defproc[(subst [τ syntax?]
                 [x identifier?]

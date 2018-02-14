@@ -40,7 +40,7 @@
     (define τ2 ((current-type-eval) t2))
 ;    (printf "t1 = ~a\n" (syntax->datum τ1))
 ;    (printf "t2 = ~a\n" (syntax->datum τ2))
-    (or ((current-type=?) τ1 τ2)
+    (or (type=? τ1 τ2)
         (Top? τ2)))
   (define current-sub? (make-parameter sub?))
   (current-typecheck-relation sub?)

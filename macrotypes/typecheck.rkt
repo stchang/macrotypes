@@ -389,10 +389,14 @@
                        'name (type->str #'any) 'name)
                       #:attr norm #f))
            ;; checking types
-           (define (type=? t1 t2)
+           (define (default-current-type=? t1 t2 env1 env2)
              ;; (printf "(τ=) t1 = ~a\n" #;τ1 (stx->datum t1))
              ;; (printf "(τ=) t2 = ~a\n" #;τ2 (stx->datum t2))
-             (or (and (id? t1) (id? t2) (free-id=? t1 t2))
+             (or (and (id? t1) (id? t2)
+                      (let ([r1 (bound-id-table-ref env1 t1 #f)]
+                            [r2 (bound-id-table-ref env2 t2 #f)])
+                        (or (and r1 r2 (eq? r1 r2))
+                            (free-id=? t1 t2))))
                  (and (stx-null? t1) (stx-null? t2))
                  (and (not (stx-pair? t1)) (not (id? t1))
                       (not (stx-pair? t2)) (not (id? t1)) ; datums
@@ -402,13 +406,30 @@
                      ((~literal #%plain-lambda) (~and (_:id (... ...)) ys) . ts2))
                     (and (stx-length=? #'xs #'ys) 
                          (stx-length=? #'ts1 #'ts2)
-                         (stx-andmap
-                          (λ (ty1 ty2)
-                            ((current-type=?) (substs #'ys #'xs ty1) ty2))
-                          #'ts1 #'ts2))]
+                         (let ([new-vars (map gensym (syntax->datum #'xs))])
+                           (stx-andmap
+                             (λ (ty1 ty2)
+                                ((current-type=?) ty1 ty2
+                                                  (ext-env* env1 (syntax->list #'xs) new-vars)
+                                                  (ext-env* env2 (syntax->list #'ys) new-vars)))
+                             #'ts1 #'ts2)))]
                    [_ (and (stx-pair? t1) (stx-pair? t2)
-                           (types=? t1 t2))])))
+                           (and (stx-length=? t1 t2)
+                                (stx-andmap
+                                  (λ (ty1 ty2)
+                                     ((current-type=?) ty1 ty2 env1 env2))
+                                  t1 t2)))])))
 
+           (define (ext-env* env keys values)
+             (for/fold ([env env])
+                       ([key keys]
+                        [value values])
+               (bound-id-table-set env key value)))
+
+           (define (type=? t1 t2)
+             ((current-type=?) t1 t2
+                               (make-immutable-bound-id-table)
+                               (make-immutable-bound-id-table)))
 
            ; Reconstruct syntax with fresh binding names without scopes from
            ; previous expansions, to avoid build-up of scopes resulting from
@@ -441,10 +462,10 @@
                  (transfer-stx-props #'res t #:ctx (quote-syntax here))]
                 [_ t]))
 
-           (define current-type=? (make-parameter type=?))
+           (define current-type=? (make-parameter default-current-type=?))
            (define (types=? τs1 τs2)
              (and (stx-length=? τs1 τs2)
-                  (stx-andmap (current-type=?) τs1 τs2)))
+                  (stx-andmap type=? τs1 τs2)))
            ; extra indirection, enables easily overriding type=? with eg sub?
            ; to add subtyping, without changing any other definitions
            (define current-typecheck-relation (make-parameter type=?))
@@ -457,7 +478,7 @@
            (define (same-types? τs)
              (define τs-lst (syntax->list τs))
              (or (null? τs-lst)
-                 (andmap (λ (τ) ((current-type=?) (car τs-lst) τ)) (cdr τs-lst))))
+                 (andmap (λ (τ) (type=? (car τs-lst) τ)) (cdr τs-lst))))
            ;; type eval
            ;; - default-type-eval == full expansion == canonical type representation
            ;; - must expand because:
@@ -837,7 +858,7 @@
 ;; generic, type-agnostic parameters
 ;; Use in code that is generic over types and kinds, e.g., in #lang Turnstile
 (begin-for-syntax
-  (define current=? (make-parameter (current-type=?)))
+  (define current=? (make-parameter type=?))
   (define (=s? xs1 xs2) ; map current=? pairwise over lists
     (and (stx-length=? xs1 xs2) (stx-andmap (current=?) xs1 xs2)))
   (define (sames? stx)  ; check list contains same types
