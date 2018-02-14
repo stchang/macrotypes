@@ -674,7 +674,7 @@
     ;; (printf "t2 = ~a\n" (syntax->datum t2))
     (or 
      (Any? t2)
-     ((current-type=?) t1 t2)
+     (type=? t1 t2)
      (syntax-parse (list t1 t2)
        [((~CListof ty1) (~CListof ty2))
         ((current-sub?) #'ty1 #'ty2)]

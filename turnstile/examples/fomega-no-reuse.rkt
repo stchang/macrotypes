@@ -18,7 +18,7 @@
 ;; - current-type?: well-formed types have kind ★
 ;; - current-any-type?: valid types have any valid kind
 ;; - current-type-eval: reduce tylams and tyapps
-;; - current-type=?: must compare kind annotations as well
+;; - current-typecheck-relation: must compare kind annotations as well
 (begin-for-syntax
   
   ;; well-formed types have kind ★

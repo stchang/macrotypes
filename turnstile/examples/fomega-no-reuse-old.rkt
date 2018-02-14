@@ -22,14 +22,14 @@
 ;; - current-type?: well-formed types have kind ★
 ;; - current-any-type?: valid types have any valid kind
 ;; - current-type-eval: reduce tylams and tyapps
-;; - current-type=?: must compare kind annotations as well
+;; - current-typecheck-relation: must compare kind annotations as well
 (begin-for-syntax
   
   ;; well-formed types have kind ★
   ;; (need this for define-primop, which still uses type stx-class)
   (current-type? (λ (t) (★? (kindof t))))
   ;; o.w., a valid type is one with any valid kind
-  (current-any-type? (λ (t) ((current-kind?) (kindof t))))
+  (current-any-type? (λ (t) (kind? (kindof t))))
 
   ;; TODO: I think this can be simplified
   (define (normalize τ)
@@ -51,18 +51,17 @@
       [_ τ]))
   (define old-eval (current-type-eval))
   (current-type-eval (lambda (τ) (normalize (old-eval τ))))
-  
-  (define old-type=? (current-type=?))
+
+  (define old-typecheck (current-typecheck-relation))
   ; ty=? == syntax eq and syntax prop eq
-  (define (type=? t1 t2)
+  (define (new-typecheck? t1 t2)
     (let ([k1 (kindof t1)][k2 (kindof t2)])
       ; the extra `and` and `or` clauses are bc type=? is a structural
       ; traversal on stx objs, so not all sub stx objs will have a "type"-stx
       (and (or (and (not k1) (not k2))
-               (and k1 k2 ((current-kind=?) k1 k2)))
-           (old-type=? t1 t2))))
-  (current-type=? type=?)
-  (current-typecheck-relation type=?))
+               (and k1 k2 (kind=? k1 k2)))
+           (old-typecheck t1 t2))))
+  (current-typecheck-relation new-typecheck?))
 
 ;; kinds ----------------------------------------------------------------------
 (define-internal-kind-constructor ★) ; defines ★-

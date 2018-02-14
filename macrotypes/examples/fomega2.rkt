@@ -79,12 +79,11 @@
 
   ;; must be kind= (and not kindcheck?) since old-kind=? recurs on curr-kind=
   (define old-kind=? (current-kind=?))
-  (define (new-kind=? k1 k2)
+  (define (new-kind=? k1 k2 env1 env2)
     (or (and (★? k1) (#%type? k2))
         (and (#%type? k1) (★? k2))
-        (old-kind=? k1 k2)))
-  (current-kind=? new-kind=?)
-  (current-kindcheck-relation new-kind=?))
+        (old-kind=? k1 k2 env1 env2)))
+  (current-kind=? new-kind=?))
 
 (define-typed-syntax Λ
   [(_ bvs:kind-ctx e)

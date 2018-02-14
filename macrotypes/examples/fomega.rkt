@@ -60,14 +60,14 @@
   (define (type-eval τ) (normalize (old-eval τ)))
   (current-type-eval type-eval)
   
-  (define old-type=? (current-type=?))
+  (define old-typecheck? (current-typecheck-relation))
   ; ty=? == syntax eq and syntax prop eq
-  (define (type=? t1 t2)
+  (define (new-type=? t1 t2)
     (let ([k1 (kindof t1)][k2 (kindof t2)])
       (and (or (and (not k1) (not k2))
-               (and k1 k2 ((current-kind=?) k1 k2)))
-           (old-type=? t1 t2))))
-  (current-typecheck-relation type=?))
+               (and k1 k2 (kind=? k1 k2)))
+           (old-typecheck? t1 t2))))
+  (current-typecheck-relation new-type=?))
 
 (define-typed-syntax Λ
   [(_ bvs:kind-ctx e)
