@@ -15,4 +15,4 @@
     "racket-doc"
     ))
 
-(define version "0.2")
+(define version "0.3")
