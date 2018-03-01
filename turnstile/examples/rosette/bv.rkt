@@ -65,11 +65,8 @@
                 #:implements spec-
                 #:library lib-expr- 
                 #:minbv minbv-))
-          (define-syntax id
-            (make-rename-transformer (⊢ id-internal : ty_spec)))
-          (define-syntax id-stx
-            (make-rename-transformer (⊢ id-stx-internal : CStx)))
-          )]])
+          (define-typed-variable-rename id ≫ id-internal : ty_spec)
+          (define-typed-variable-rename id-stx ≫ id-stx-internal : CStx))]])
 
 (define-typed-syntax bvlib
   [(_ [(~and ids (id ...)) n] ...) ≫

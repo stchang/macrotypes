@@ -174,7 +174,7 @@
    #:with (y ...) (generate-temporaries #'(x ...))
    --------
    [_ ≻ (begin-
-          (define-syntax- x (make-rename-transformer (⊢ y : ty.norm))) ...
+          (define-typed-variable-rename x ≫ y : ty.norm)
           (ro:define-symbolic y ... pred-))]])
 
 (define-typed-syntax define-symbolic*
@@ -184,7 +184,7 @@
    #:with (y ...) (generate-temporaries #'(x ...))
    --------
    [_ ≻ (begin-
-          (define-syntax- x (make-rename-transformer (⊢ y : ty.norm))) ...
+          (define-typed-variable-rename x ≫ y : ty.norm)
           (ro:define-symbolic* y ... pred-))]])
 
 ;; TODO: support internal definition contexts
@@ -247,8 +247,7 @@
    #:with f- (generate-temporary #'f)
    --------
    [_ ≻ (begin-
-          (define-syntax- f
-            (make-rename-transformer (⊢ f- : (C→ ty ... ty_out))))
+          (define-typed-variable-rename f ≫ f- : (C→ ty ... ty_out))
           (ro:define f-
             (stlc:λ ([x : ty] ...) (ann (begin e ...) : ty_out))))]])
 

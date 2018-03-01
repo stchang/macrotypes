@@ -205,16 +205,16 @@
 (define-typed-syntax define
   [(define x:id e:expr) ≫
    [⊢ [e ≫ e- ⇒ : τ_e]]
-   #:with tmp (generate-temporary #'x)
+   #:with x- (generate-temporary #'x)
    --------
    [_ ≻ (begin-
-          (define-syntax- x (make-rename-transformer (⊢ tmp : τ_e)))
-          (define- tmp e-))]])
+          (define-typed-variable-rename x ≫ x- : τ_e)
+          (define- x- e-))]])
 
 (define-typed-syntax define/rec #:datum-literals (:)
   [(define/rec x:id : τ_x:type e:expr) ≫
-   #:with tmp (generate-temporary #'x)
+   #:with x- (generate-temporary #'x)
    --------
    [_ ≻ (begin-
-          (define-syntax- x (make-rename-transformer (⊢ tmp : τ_x.norm)))
-          (define- tmp (ann e : τ_x.norm)))]])
+          (define-typed-variable-rename x ≫ x- : τ_x.norm)
+          (define- x- (ann e : τ_x.norm)))]])

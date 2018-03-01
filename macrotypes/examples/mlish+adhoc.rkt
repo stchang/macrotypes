@@ -274,16 +274,16 @@
 (define-typed-syntax define/tc #:export-as define
   [(_ x:id e)
    #:with (e- τ) (infer+erase #'e)
-   #:with y (generate-temporary)
+   #:with x- (generate-temporary)
    #'(begin-
-       (define-syntax- x (make-rename-transformer (⊢ y : τ)))
-       (define- y e-))]
+       (define-typed-variable-rename x ≫ x- : τ)
+       (define- x- e-))]
   ; explicit "forall"
   [(_ Ys (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) 
       e_body ... e)
    #:when (brace? #'Ys)
    ;; TODO; remove this code duplication
-   #:with g (add-orig (generate-temporary #'f) #'f)
+   #:with f- (add-orig (generate-temporary #'f) #'f)
    #:with e_ann (syntax/loc #'e (add-expected e τ_out))
    #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
    ;; TODO: check that specified return type is correct
@@ -292,8 +292,8 @@
    #:with (~and ty_fn_expected (~∀ _ (~ext-stlc:→ _ ... out_expected))) 
           ((current-type-eval) #'(∀ Ys (ext-stlc:→ τ+orig ...)))
    #`(begin-
-      (define-syntax- f (make-rename-transformer (⊢ g : ty_fn_expected)))
-      (define- g
+      (define-typed-variable-rename f ≫ f- : ty_fn_expected)
+      (define- f-
         (Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))]
   ;; alternate type sig syntax, after parameter names
   [(_ (f:id x:id ...) (~datum :) ty ... (~or (~datum ->) (~datum →)) ty_out . b)
@@ -302,7 +302,7 @@
             (~or (~datum ->) (~datum →)) τ_out)
       e_body ... e)
    #:with (~and Ys (Y ...)) (compute-tyvars #'(τ ... τ_out))
-   #:with g (add-orig (generate-temporary #'f) #'f)
+   #:with f- (add-orig (generate-temporary #'f) #'f)
    #:with e_ann (syntax/loc #'e (add-expected e τ_out)) ; must be macro bc t_out may have unbound tvs
    #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
    ;; TODO: check that specified return type is correct
@@ -314,15 +314,15 @@
            'orig
            (list #'(→ τ+orig ...)))
    #`(begin-
-      (define-syntax- f (make-rename-transformer (⊢ g : ty_fn_expected)))
-      (define- g
+      (define-typed-variable-rename f ≫ f- : ty_fn_expected)
+      (define- f-
         (Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))]
   [(_ (f:id [x:id (~datum :) τ] ... 
             (~seq #:where TC ...)
             (~or (~datum ->) (~datum →)) τ_out)
       e_body ... e)
    #:with (~and Ys (Y ...)) (compute-tyvars #'(τ ... τ_out))
-   #:with g (add-orig (generate-temporary #'f) #'f)
+   #:with f- (add-orig (generate-temporary #'f) #'f)
    #:with e_ann (syntax/loc #'e (add-expected e τ_out)) ; must be macro bc t_out may have unbound tvs
    #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
    ;; TODO: check that specified return type is correct
@@ -334,9 +334,9 @@
             'orig
             (list #'(→ τ+orig ...)))
    #`(begin-
-      (define-syntax- f (make-rename-transformer (⊢ g : ty_fn_expected)))
+      (define-typed-variable-rename f ≫ f- : ty_fn_expected)
        #,(quasisyntax/loc stx
-          (define- g
+          (define- f-
           ;(Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))])
            (liftedλ {Y ...} ([x : τ] ... #:where TC ...) 
             #,(syntax/loc #'e_ann (ext-stlc:begin e_body ... e_ann))))))])
@@ -831,91 +831,41 @@
                     [odd? : (→ Int Bool)]))
 
 ;; λ --------------------------------------------------------------------------
+(define-typed-syntax BindTC
+  [(_ (TC ...) body)
+   #:with (~and (TC+ ...) (~TCs ([op-sym ty-op] ...) ...))
+          (stx-map expand/df #'(TC ...))
+   #:with (op* ...)
+   (stx-appendmap
+     (lambda (os tc)
+       (stx-map (lambda (o) (format-id tc "~a" o)) os))
+     #'((op-sym ...) ...) #'(TC ...))
+   #:with (ty-op* ...) (stx-flatten #'((ty-op ...) ...))
+   #:with ty-in-tagsss
+   (stx-map
+     (syntax-parser
+       [(~∀ _ fa-body)
+        (get-type-tags
+          (syntax-parse #'fa-body
+                        [(~ext-stlc:→ in ... _) #'(in ...)]
+                        [(~=> _ ... (~ext-stlc:→ in ... _)) #'(in ...)]))])
+     #'(ty-op* ...))
+   #:with (mangled-op ...) (stx-map mangle #'(op* ...) #'ty-in-tagsss)
 
-; Lifted out of the let-syntax ([a ...]) below to avoid generating this meta-level
-;  code at every lambda.
-(define-for-syntax (local-infer Xs xs TCs tys bodya)
-    (define/syntax-parse (X ...) Xs)
-    (define/syntax-parse (x ...) xs)
-    (define/syntax-parse (TC ...) TCs)
-    (define/syntax-parse (ty ...) tys)
-    (define/syntax-parse body bodya)
-    (syntax-parse (expand/df #'(void TC ...)) ; must expand in ctx of Xs
-                      [(_ _ .
-                        (~and (TC+ ...)
-                              (~TCs ([op-sym ty-op] ...) ...)))
-                       ;; here, * suffix = flattened list
-                       ;; op* ... = op-sym ... with proper ctx, and then flattened
-                       #:with (op* ...)
-                              (stx-appendmap 
-                                (lambda (os tc)
-                                  (stx-map (lambda (o) (format-id tc "~a" o)) os))
-                                #'((op-sym ...) ...) #'(TC ...))
-                       #:with (op-tmp* ...) (generate-temporaries #'(op* ...))
-                       #:with (ty-op* ...) (stx-flatten #'((ty-op ...) ...))
-                       #:with ty-in-tagsss
-                              (stx-map 
-                               (syntax-parser
-                                [(~∀ _ fa-body)
-                                 (get-type-tags
-                                  (syntax-parse #'fa-body
-                                   [(~ext-stlc:→ in ... _) #'(in ...)]
-                                   [(~=> _ ... (~ext-stlc:→ in ... _)) #'(in ...)]))])
-                               #'(ty-op* ...))
-                         #:with (mangled-op ...) (stx-map mangle #'(op* ...) #'ty-in-tagsss)
-                         #:with (y ...) #'(x ...)
-                         #:with (_ _ ty+ ...) (expand/df #'(void ty ...))
-                         #:with res
-                         (expand/df 
-                          #'(lambda (op-tmp* ...)
-                             (let-syntax 
-                              ([mangled-op 
-                                (make-rename-transformer (assign-type #'op-tmp* #'ty-op*))] ...)
-                              (lambda (y ...)
-                               (let-syntax
-                                ([y (make-rename-transformer (assign-type #'y #'ty+))] ...)
-                                body)))))
-                         #'((void TC+ ...) (void ty+ ...) res)]))
+   #:with (mangled-ops- body- t-) (infer/ctx+erase #'([mangled-op : ty-op*] ...)
+                                           #'body)
+
+   (⊢ (λ- mangled-ops- body-)
+      : (=> TC+ ... t-))])
 
 ; all λs have type (∀ (X ...) (→ τ_in ... τ_out)), even monomorphic fns
 (define-typed-syntax liftedλ #:export-as λ
   [(_ ([x:id (~datum :) ty] ... #:where TC ...) body)
    #:with (X ...) (compute-tyvars #'(ty ...))
    (syntax/loc stx (liftedλ {X ...} ([x : ty] ... #:where TC ...) body))]
-  ;; TODO: I dont think this works for nested lambdas
-  ;; ie, this will will re-infer tyvars X that should be bound by outer lam
-  ;; - tyvars need to be bound in 2nd expand/df
-  ;; - This is fixed in master by Alex
   [(_ (~and Xs (X ...)) ([x:id (~datum :) ty] ... #:where TC ...) body)
    #:when (brace? #'Xs)
-   #:with (_ Xs+
-           (_ () (_ () (_ () (_ () ; 2 let-stx = 4 let-values
-            (_ (_ _ TC+ ...) 
-               (_ _ ty+ ...)
-               (_ op-tmps+
-                (_ () (_ ()
-                 ((~literal #%expression)
-                  (_ xs+
-                   (_ () (_ () body+)))))))))))))
-           (expand/df
-            #'(lambda (X ...) 
-                (let-syntax 
-                 ([X (make-rename-transformer (mk-type #'X))] ...)
-                 (let-syntax
-                  ;; must have this inner macro bc body of lambda may require
-                  ;; ops defined by TC to be bound
-                  ([a (lambda (_)
-                        (local-infer #'(X ...) #'(x ...) #'(TC ...) #'(ty ...) #'body))])
-                      (a)))))
-   #:with ty-out (typeof #'body+)
-   #:with ty-out-expected (get-expected-type #'body+)
-   #:fail-unless (or (not (syntax-e #'ty-out-expected))
-                     (typecheck? #'ty-out #'ty-out-expected))
-                 (type-error #:src #'body
-                  #:msg "Body has type ~a, expected/given: ~a"
-                  #'ty-out #'ty-out-expected)           
-   (⊢ (λ op-tmps+ (λ xs+ body+)) 
-      : (∀ Xs+ (=> TC+ ... (ext-stlc:→ ty+ ... ty-out))))]
+   #'(Λ (X ...) (BindTC (TC ...) (ext-stlc:λ ([x : ty] ...) body)))]
   [(_ ([x:id (~datum :) ty] ...) body) ; no TC
    #:with (X ...) (compute-tyvars #'(ty ...))
    #:with (~∀ () (~ext-stlc:→ _ ... body-ty)) (get-expected-type stx)
@@ -1495,10 +1445,10 @@
 (define-typed-syntax require-typed
   [(_ x:id ... #:from mod)
    #:with (x-ty ...) (stx-map (lambda (y) (format-id y "~a-ty" y)) #'(x ...))
-   #:with (y ...) (generate-temporaries #'(x ...))
+   #:with (x- ...) (generate-temporaries #'(x ...))
    #'(begin-
-       (require- (rename-in- (only-in- mod x ... x-ty ...) [x y] ...))
-       (define-syntax- x (make-rename-transformer (assign-type #'y #'x-ty))) ...)])
+       (require- (rename-in- (only-in- mod x ... x-ty ...) [x x-] ...))
+       (define-typed-variable-rename x ≫ x- : x-ty) ...)])
 
 (define-base-type Regexp)
 (provide (typed-out [regexp-match : (→ Regexp String (List String))]
@@ -1564,9 +1514,13 @@
                    (syntax->list #'((ty-arg ...) ...))))
        : ty-conc-op-noTC)]
    ;; base type --------------------------------------------------
-   [(((~literal #%plain-app) tag) ...) (expand/df (mangle gen-op #'(tag ...)))]
+   [(((~literal #%plain-app) tag) ...)
+    #:with (op- t-) (infer+erase (mangle gen-op #'(tag ...)))
+    #'op-]
    ;; tyvars --------------------------------------------------
-   [_ (expand/df (mangle gen-op tys))]))
+   [_
+     #:with (op- t-) (infer+erase (mangle gen-op tys))
+     #'op-]))
  (define (get-fn-ty-in-tags ty-fn)
    (syntax-parse ty-fn
      [(~∀ _ (~ext-stlc:→ ty_in ... _))

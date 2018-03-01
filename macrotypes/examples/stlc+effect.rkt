@@ -26,9 +26,8 @@
      
   (define (get-effects e tag [vs '()])
     (or (syntax-property
-         (local-expand
-          (if (null? vs) e #`(stlc+box:λ #,vs #,e)) 'expression null)
-         tag)
+          (first (infer+erase (if (null? vs) e #`(stlc+box:λ #,vs #,e))))
+          tag)
         null))
   (define (get-new-effects e [vs '()]) (get-effects e 'ν vs))
   (define (get-assign-effects e [vs '()]) (get-effects e ':= vs))
@@ -36,7 +35,7 @@
   
   (define (print-effects e)
     (printf "expr ~a\n" (syntax->datum e))
-    (define e+ (local-expand e 'expression null))
+    (define e+ (first (infer+erase e)))
     (printf "new locs: ~a\n" (syntax-property e+ 'ν))
     (printf "deref locs: ~a\n" (syntax-property e+ '!))
     (printf "assign locs: ~a\n" (syntax-property e+ ':=)))
@@ -91,7 +90,7 @@
           (get-assign-effects #'e-)
           (get-deref-effects #'e-)))
   (define (assign-type/eff e ty news assigns derefs)
-    (assign-type (add-effects e news assigns derefs) ty)))
+    (add-effects (assign-type e ty) news assigns derefs)))
 
 (define-typed-syntax ref
   [(_ e)

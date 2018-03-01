@@ -22,8 +22,7 @@
   (syntax-parse stx #:datum-literals (⇒ ->)
     ;; duplicate code to avoid redundant expansions
     [(_ e tag:id τ-expected (~or ⇒ ->) v)
-     #:with e+ (expand/df #'(add-expected e τ-expected))
-     #:with τ (detach #'e+ (stx->datum #'tag))
+     #:with (e+ τ) (infer+erase #'(add-expected e τ-expected) #:tag (stx->datum #'tag))
      #:fail-unless (typecheck? #'τ ((current-type-eval) #'τ-expected))
                    (format
                     "Expression ~a [loc ~a:~a] has type ~a, expected ~a"
@@ -31,8 +30,7 @@
                     (type->str #'τ) (type->str #'τ-expected))
      (syntax/loc stx (check-equal? e+ (add-expected v τ-expected)))]
     [(_ e tag:id τ-expected)
-     #:with e+ (expand/df #'(add-expected e τ-expected))
-     #:with τ (detach #'e+ (stx->datum #'tag))
+     #:with (e+ τ) (infer+erase #'(add-expected e τ-expected) #:tag (stx->datum #'tag))
      #:fail-unless
      (typecheck? #'τ ((current-type-eval) #'τ-expected))
      (format
@@ -45,7 +43,8 @@
 (define-syntax (check-props stx)
   (syntax-parse stx #:datum-literals (: ⇒ ->)
     [(_ prop e : v (~optional (~seq (~or ⇒ ->) v2) #:defaults ([v2 #'e])))
-     #:with props (or (syntax-property (expand/df #'e) (syntax->datum #'prop))
+     #:with (e+ _) (infer+erase #'e)
+     #:with props (or (syntax-property #'e+ (syntax->datum #'prop))
                       #'())
      #:fail-unless (equal? (syntax->datum #'v)
                            (syntax->datum #'props))
@@ -58,7 +57,7 @@
 (define-syntax (check-not-type stx)
   (syntax-parse stx #:datum-literals (:)
     [(_ e : not-τ)
-     #:with τ (typeof (expand/df #'e))
+     #:with (_ τ) (infer+erase #'e)
      #:fail-when
      (typecheck? #'τ ((current-type-eval) #'not-τ))
      (format
@@ -89,7 +88,7 @@
                        ; check err msg matches
                        (regexp-match? (syntax-e #'msg) (exn-message ex))))
                 (λ ()
-                  (expand/df #'e)))))
+                  (expand/df (car (infer+erase #'e)))))))
      #'(void)]))
 
 (define-syntax (typecheck-fail/toplvl stx)
@@ -116,7 +115,7 @@
 (define-syntax (check-runtime-exn stx)
   (syntax-parse stx
     [(_ e)
-     #:with e- (expand/df #'e)
+     #:with (e- _) (infer+erase #'e)
      (syntax/loc stx (check-exn exn:fail? (lambda () e-)))]))
 
 (define-simple-macro (check-equal/rand f (~optional (~seq #:process p)
@@ -135,7 +134,7 @@
   (syntax-parse stx
     [(_ e (~optional (~seq #:tag tag:id) #:defaults ([tag #':]))
           (~optional (~and #:raw raw?)))
-     #:with τ (detach (expand/df #'e) (stx->datum #'tag))
+     #:with (_ τ) (infer+erase #'e #:tag (stx->datum #'tag))
      #:do [(if (attribute raw?)
                (pretty-print (stx->datum #'τ))
                (displayln (type->str #'τ)))]
