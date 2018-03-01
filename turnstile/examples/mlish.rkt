@@ -335,17 +335,17 @@
 (define-typed-syntax define
   [(_ x:id e) ≫
    [⊢ e ≫ e- ⇒ τ]
-   #:with y (generate-temporary)
+   #:with x- (generate-temporary)
    --------
    [≻ (begin-
-        (define-syntax x (make-rename-transformer (⊢ y : τ)))
-        (define- y e-))]]
+        (define-typed-variable-rename x ≫ x- : τ)
+        (define- x- e-))]]
   ; explicit "forall"
   [(_ Ys (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) 
      e_body ... e) ≫
    #:when (brace? #'Ys)
    ;; TODO; remove this code duplication
-   #:with g (add-orig (generate-temporary #'f) #'f)
+   #:with f- (add-orig (generate-temporary #'f) #'f)
    #:with e_ann #'(add-expected e τ_out)
    #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
    ;; TODO: check that specified return type is correct
@@ -355,8 +355,8 @@
           ((current-type-eval) #'(?∀ Ys (ext-stlc:→ τ+orig ...)))
    --------
    [≻ (begin-
-        (define-syntax f (make-rename-transformer (⊢ g : ty_fn_expected)))
-        (define- g
+        (define-typed-variable-rename f ≫ f- : ty_fn_expected)
+        (define- f-
           (Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))]]
   ;; alternate type sig syntax, after parameter names
   [(_ (f:id x:id ...) (~datum :) ty ... (~or (~datum ->) (~datum →)) ty_out . b) ≫
@@ -365,7 +365,7 @@
   [(_ (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) 
      e_body ... e) ≫
    #:with Ys (compute-tyvars #'(τ ... τ_out))
-   #:with g (add-orig (generate-temporary #'f) #'f)
+   #:with f- (add-orig (generate-temporary #'f) #'f)
    #:with e_ann (syntax/loc #'e (ann e : τ_out)) ; must be macro bc t_out may have unbound tvs
    #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
    ;; TODO: check that specified return type is correct
@@ -378,8 +378,8 @@
            (list #'(→ τ+orig ...)))
    --------
    [≻ (begin-
-        (define-syntax f (make-rename-transformer (⊢ g : ty_fn_expected)))
-        (define- g
+        (define-typed-variable-rename f ≫ f- : ty_fn_expected)
+        (define- f-
           (?Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))]])
 
 ;; define-type -----------------------------------------------
@@ -1394,11 +1394,11 @@
 (define-typed-syntax require-typed
   [(require-typed x:id ... #:from mod) ≫
    #:with (x-ty ...) (stx-map (lambda (y) (format-id y "~a-ty" y)) #'(x ...))
-   #:with (y ...) (generate-temporaries #'(x ...))
+   #:with (x- ...) (generate-temporaries #'(x ...))
    --------
    [_ ≻ (begin-
-          (require- (rename-in (only-in mod x ... x-ty ...) [x y] ...))
-          (define-syntax x (make-rename-transformer (assign-type #'y #'x-ty))) ...)]])
+          (require- (rename-in (only-in mod x ... x-ty ...) [x x-] ...))
+          (define-typed-variable-rename x ≫ x- : x-ty) ...)]])
 
 (define-base-type Regexp)
 (provide (typed-out [regexp-match : (→ Regexp String (List String))]

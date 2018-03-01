@@ -283,13 +283,11 @@
    #:with (X ...) (generate-temporaries #'(x ...))
    [([X ≫ X- :: #%type] ...) ([x ≫ x- : X] ...) 
     ⊢ (begin . es) ≫ e- ⇒ τ_out]
-   ;; TODO: investigate why this extra syntax-local-introduce is needed?
-   #:with τ_out* (syntax-local-introduce #'τ_out)
-   #:with (~or (~CCs Ys Cs Bs τ_out**) 
-               (~and τ_out**
+   #:with (~or (~CCs Ys Cs Bs τ_out*) 
+               (~and τ_out*
                      (~parse (Ys Cs Bs)
                              #'(() (#%app void) (#%app void)))))
-           #'τ_out*
+           #'τ_out
 ;   #:when (begin (displayln "Bs:")
 ;                 (stx-map 
 ;                  (compose pretty-print syntax->datum)
@@ -312,7 +310,7 @@
 ;             (syntax->datum #'(→- Ys Cs ty-arg ... τ_out**))))
    -------
    [⊢ (tr:λ ([x- tr:: ty] ...) e-) 
-      ⇒ (→- Ys Cs ty-arg ... τ_out**)]])
+      ⇒ (→- Ys Cs ty-arg ... τ_out*)]])
 
 ;; #%app --------------------------------------------------------------------
 (define-typed-syntax app/tc
@@ -382,20 +380,18 @@
 (define-typed-syntax define
   [(_ x:id e) ≫
    [⊢ e ≫ e- ⇒ ty]
-   #:with x* (generate-temporary)
+   #:with x- (generate-temporary)
    ----------
    [≻ (begin-
-        (tr:define-syntax x
-          (make-rename-transformer (⊢ x* : ty)))
-        (tr:define x* e-))]]   
+        (define-typed-variable-rename x ≫ x- : ty)
+        (tr:define x- e-))]]   
   [(_ (f b ...) . es) ≫
    [⊢ (λ (b ...) (begin . es)) ≫ fn- ⇒ ty-f]
-   #:with g (generate-temporary #'f)
+   #:with f- (generate-temporary #'f)
    --------
    [≻ (begin-
-        (tr:define-syntax f
-          (make-rename-transformer (⊢ g : ty-f)))
-        (tr:define g fn-))]])
+        (define-typed-variable-rename f ≫ f- : ty-f)
+        (tr:define f- fn-))]])
 
 (define-typed-syntax begin
   [(_ e_unit ... e) ≫

@@ -49,8 +49,8 @@
                  (typecheck-fail-msg/1 #'τ_list #'τ_e2 #'e2)
    ;; propagate up inferred types of variables
    #:with env (stx-flatten (filter (λ (x) x) (stx-map get-env #'(e1- e2-))))
-   #:with result-cons (add-env #'(cons- e1- e2-) #'env)
-   (⊢/no-teval result-cons : τ_list)])
+   #:with result-cons #'(cons- e1- e2-)
+   (add-env (⊢/no-teval result-cons : τ_list) #'env)])
 (define-typed-syntax isnil
   [(_ e)
    #:with [e- (~List _)] (infer+erase #'e)
