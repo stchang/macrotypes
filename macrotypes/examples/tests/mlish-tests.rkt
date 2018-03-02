@@ -260,7 +260,7 @@
 (check-type (Leaf 10) : (Tree Int))
 (check-type (Node (Leaf 10) (Leaf 11)) : (Tree Int))
 
-(typecheck-fail Nil #:with-msg "Nil: no expected type, add annotations")
+(check-type (λ () Nil) : (→/test {X} (List X)))
 (typecheck-fail (Cons 1 (Nil {Bool}))
  #:with-msg 
  "expected: \\(List Int\\)\n *given: \\(List Bool\\)")
@@ -272,11 +272,11 @@
 (typecheck-fail (Cons {Bool} 1 Nil)
  #:with-msg
  (string-append
-  "Cons: type mismatch\n *expected: +Bool, \\(List Bool\\)\n *given: +Int, \\(List Bool\\)\n"
+  "Cons: type mismatch\n *expected: +Bool, \\(List Bool\\)\n *given: +Int, \\(\\?∀ \\(\\) \\(List X\\)\\)\n"
   " *expressions: 1, Nil"))
 
 (typecheck-fail (match Nil with [Cons x xs -> 2] [Nil -> 1])
-                #:with-msg "Nil: no expected type, add annotations")
+                #:with-msg "match: add annotations")
 (check-type
  (match (Nil {Int}) with
    [Cons x xs -> 2]
@@ -359,13 +359,16 @@
 ;; nested lambdas
 
 (check-type (λ ([x : X]) (λ ([y : X]) y)) : (→/test X (→ X X)))
-(check-not-type (λ ([x : X]) (λ ([y : X]) y)) : (→/test {X} X (→/test {Y} Y Y)))
-(check-type (λ ([x : X]) (λ ([y : Y]) y)) : (→/test {X} X (→/test {Y} Y Y)))
+(check-not-type (λ ([x : X]) (λ ([y : X]) y)) : (→/test X (→ Y Y)))
+(check-type (λ ([x : X]) (λ ([y : Y]) y)) : (→/test X (→ Y Y)))
 (check-not-type (λ ([x : X]) (λ ([y : Y]) x)) : (→/test X (→ X X)))
 
 (check-type 
   ((λ ([x : X]) (λ ([y : Y]) y)) 1)
-  : (→/test Y Y))
+  : (→ Int Int))
+(check-type 
+  ((λ ([x : X]) (λ ([y : Y]) y)) 1)
+  : (→ String String))
 
 ;; TODO?
 ;; - this fails if polymorphic functions are allowed as HO args
@@ -378,14 +381,15 @@
 
 (check-type 
   ((λ ([x : X]) (λ ([y : Y]) (λ ([z : Z]) z))) 1)
-  : (→/test {Y} Y (→/test {Z} Z Z)))
-
+  : (→/test Int (→ String String)))
+(check-type 
+  ((λ ([x : X]) (λ ([y : Y]) (λ ([z : Z]) z))) 1)
+  : (→/test String (→ Int Int)))
 (check-type (inst Cons (→/test X X))
   : (→ (→/test X X) (List (→/test X X)) (List (→/test X X))))
 (check-type map : (→/test (→ X Y) (List X) (List Y)))
-
 (check-type (Cons (λ ([x : X]) x) Nil)
-  : (List (→/test {X} X X)))
+  : (?∀ {X} (List (→ X X))))
 
 (define (nn [x : X] -> (→ (× X (→ Y Y))))
   (λ () (tup x (λ ([x : Y]) x))))
@@ -419,6 +423,8 @@
 (check-type (let ([x (nn4)])
               x)
             : (→/test (Option X)))
+(check-type (λ () (nn4)) : (→/test (→ (Option X))))
+
 
 (define (nn5 -> (→ (Ref (Option X))))
   (λ () (ref (None {X}))))
@@ -430,6 +436,7 @@
   (let ([r (((inst nn5 X)))])
     (λ () (deref r))))
 (check-type (nn6) : (→/test (Option X)))
+(check-type (λ () (nn6)) : (→/test (→ (Option X))))
 
 ;; A is covariant, B is invariant.
 (define-type (Cps A B)
@@ -449,6 +456,7 @@
 (check-type (let ([x (nn8)])
               x)
             : (→/test (Cps (Option A) Int)))
+(check-type (λ () (nn8)) : (→/test (→ (Cps (Option A) Int))))
 
 (define-type (Result A B)
   (Ok A)
@@ -748,7 +756,7 @@
 (typecheck-fail
  (if #t 1 "2")
  #:with-msg 
- "branches have incompatible types: Int and String")
+ "couldn't unify Int and String")
 
 ;; tests from stlc+lit-tests.rkt --------------------------
 ; most should pass, some failing may now pass due to added types/forms
@@ -778,7 +786,7 @@
 
 (typecheck-fail
  (+ 1 (λ ([x : Int]) x))
- #:with-msg "expected: Int\n *given: \\(→ Int Int\\)")
+ #:with-msg "couldn't unify Int and \\(\\?∀ \\(\\) \\(→ Int Int\\)\\)")
 (typecheck-fail
  (λ ([x : (→ Int Int)]) (+ x x))
   #:with-msg "expected: Int\n *given: \\(→ Int Int\\)")
@@ -787,4 +795,3 @@
  #:with-msg "wrong number of arguments: expected 2, given 1\n *expected: +Int, Int\n *arguments: 1")
 
 (check-type ((λ ([x : Int]) (+ x x)) 10) : Int ⇒ 20)
-
