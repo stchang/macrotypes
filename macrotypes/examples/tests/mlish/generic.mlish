@@ -21,10 +21,10 @@
 (typecheck-fail (== "1" "1")
   #:with-msg "== operation undefined for input types: String, String")
 
+
 (define-instance (Eq String) ; test use of lambda on rhs
   [== (λ ([x : String] [y : String]) 
         (string=? x y))])
-
 (check-type (== "1" "2") : Bool -> (string=? "1" "2"))
 (check-type (== "1" "2") : Bool -> #f)
 (check-type (== "2" "2") : Bool -> (string=? "2" "2"))

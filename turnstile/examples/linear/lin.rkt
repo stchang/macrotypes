@@ -343,8 +343,8 @@
   [(_ x:id : τ:type e:expr) ≫
    #:fail-when (linear-type? #'τ.norm)
                "cannot define linear type globally"
-   #:with y (generate-temporary #'x)
+   #:with x- (generate-temporary #'x)
    --------
    [≻ (begin-
-        (define-syntax x (make-rename-transformer (⊢ y : τ.norm)))
-        (define- y (ann e : τ.norm)))]])
+        (define-typed-variable-rename x ≫ x- : τ.norm)
+        (define- x- (ann e : τ.norm)))]])

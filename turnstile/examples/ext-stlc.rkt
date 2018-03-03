@@ -53,16 +53,16 @@
 (define-typed-syntax define
   [(_ x:id (~datum :) τ:type e:expr) ≫
    ;[⊢ e ≫ e- ⇐ τ.norm]
-   #:with y (generate-temporary #'x)
+   #:with x- (generate-temporary #'x)
    --------
    [≻ (begin-
-        (define-syntax x (make-rename-transformer (⊢ y : τ.norm)))
-        (define- y (ann e : τ.norm)))]]
+        (define-typed-variable-rename x ≫ x- : τ.norm)
+        (define- x- (ann e : τ.norm)))]]
   [(_ x:id e) ≫
    ;This won't work with mutually recursive definitions
    [⊢ e ≫ e- ⇒ τ]
    #:with y (generate-temporary #'x)
-   #:with y+props (transfer-props #'e- (assign-type #'y #'τ))
+   #:with y+props (transfer-props #'e- (assign-type #'y #'τ #:wrap? #f))
    --------
    [≻ (begin-
         (define-syntax x (make-rename-transformer #'y+props))
@@ -71,8 +71,7 @@
    #:with f- (add-orig (generate-temporary #'f) #'f)
    --------
    [≻ (begin-
-        (define-syntax- f
-          (make-rename-transformer (⊢ f- : (→ ty ... ty_out))))
+        (define-typed-variable-rename f ≫ f- : (→ ty ... ty_out))
         (define- f-
           (stlc+lit:λ ([x : ty] ...)
             (stlc+lit:ann (begin e ...) : ty_out))))]])

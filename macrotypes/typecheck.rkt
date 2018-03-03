@@ -32,6 +32,11 @@
  (for-meta 2 (all-from-out racket/base syntax/parse racket/syntax))
  (rename-out [define-syntax-category define-stx-category]))
 
+(define-syntax (erased stx)
+  (syntax-case stx ()
+    [(_ e)
+     #'e]))
+
 (module+ test
   (require (for-syntax rackunit)))
 
@@ -102,6 +107,14 @@
      #'(define-syntax (name syntx)
          (syntax-parameterize ([stx (make-rename-transformer #'syntx)])
            (syntax-parse syntx stx-parse-clause ...)))]))
+
+
+(define-syntax define-typed-variable-rename
+  (syntax-parser
+    [(_ v:id (~datum ≫) v-:id (~datum :) τ)
+     #'(define-syntax v
+         (make-rename-transformer
+           (assign-type #'v- #`τ #:wrap? #f)))]))
 
 ;; need options for
 ;; - pass through
@@ -285,7 +298,6 @@
      #:with type-key1 (format-id #'name "~a-key1" #'name)
      #:with type-key2 (format-id #'name "~a-key2" #'name)
      #:with assign-type (format-id #'name "assign-~a" #'name)
-     #:with fast-assign-type (format-id #'name "fast-assign-~a" #'name)
      #:with typeof (format-id #'name "~aof" #'name)
      #:with tagoftype (format-id #'name "tagof~a" #'name)
      ;; type checking
@@ -324,10 +336,10 @@
            (define (type-key2) 'key2)
            (define (typeof stx)    (detach stx 'key1))
            (define (tagoftype stx) (detach stx 'key2)) ; = kindof if kind stx-cat defined
-           (define (fast-assign-type e τ) ; TODO: does this actually help?
-             (attach e 'key1 τ))
-           (define (assign-type e τ)
-             (fast-assign-type e ((current-type-eval) τ)))
+           (define (assign-type e τ #:eval? [eval? #t] #:wrap? [wrap? #t])
+             (attach (if wrap? #`(erased #,e) e)
+                     'key1
+                     (if eval? ((current-type-eval) τ) τ)))
            ;; helper stx classes ----------------------------------------------
            (define-syntax-class type ;; e.g., well-formed types
              #:attributes (norm)
@@ -904,18 +916,19 @@
     (datum->syntax x `(,mac-id ,x+ . ,(stx-appendmap list seps τs))))
 
   ;; current-var-assign :
-  ;; (Parameterof [Id (Listof Sym) (StxListof TypeStx) -> Stx])
+  ;; (Parameterof [Id Id (Listof Sym) (StxListof TypeStx) -> Stx])
   (define current-var-assign
     (make-parameter var-assign))
-  
+
   ;; Type assignment macro (ie assign-type) for nicer syntax
   (define-syntax (⊢ stx)
     (syntax-parse stx
       [(_ e tag τ) #'(assign-type #`e #`τ)]
       [(_ e τ) #'(⊢ e : τ)]))
+
   (define-syntax (⊢/no-teval stx)
     (syntax-parse stx
-      [(_ e tag τ) #'(fast-assign-type #`e #`τ)]
+      [(_ e tag τ) #'(assign-type #`e #`τ #:eval? #f)]
       [(_ e τ) #'(⊢/no-teval e : τ)]))
 
   ;; functions for manipulating "expected type"
@@ -927,8 +940,8 @@
     (intro-if-stx (get-stx-prop/cd*r e 'expected-type)))
 
   ;; TODO: remove? only used by macrotypes/examples/infer.rkt
-  (define (add-env e env) (set-stx-prop/preserved e 'env env))
-  (define (get-env e) (syntax-property e 'env))
+  (define (add-env e env) (set-stx-prop/preserved e 'env (intro-if-stx env)))
+  (define (get-env e) (intro-if-stx (syntax-property e 'env)))
   
   (define (mk-tyvar X) (attach X 'tyvar #t))
   (define (tyvar? X) (syntax-property X 'tyvar))
@@ -963,7 +976,7 @@
                                     (string->symbol
                                      (cadr matched-ty))))
                                   (list #'e t-in-msg))])
-               (infer+erase #'e #:stop-list? #f))
+               (infer+erase #'e))
            #:context #'e
            [(e- τ_e_)
             #:with τ_e ((current-promote) #'τ_e_)
@@ -1029,7 +1042,7 @@
 
   (define (decide-stop-list infer-flag?)
     (if (and infer-flag? (current-use-stop-list?))
-      (list #'someiddoesntmatterwhat)
+      (list #'erased)
       null))
 
   ;; basic infer function with no context:

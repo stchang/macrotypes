@@ -258,10 +258,10 @@ For example, here is a basic typed version of @racket[define]:
    #:with y (generate-temporary #'x)
    --------
    [≻ (begin-
-        (define-syntax x (make-rename-transformer (⊢ y : τ)))
+        (define-typed-variable-rename x ≫ y : τ)
         (define- y e-))]])]
 
-This macro creates an indirection @racket[make-rename-transformer] in order to
+This macro creates an indirection @racket[define-typed-variable-rename] in order to
 attach type information to the top-level @tt{x} identifier, so the
 @racket[define] forms themselves do not need type information.}
 
@@ -283,6 +283,15 @@ Aliases for @racket[define-typed-syntax].}
 A @racket[syntax-parse]-like form that supports
 @racket[define-typed-syntax]-style clauses. In particular, see the
 "rule" part of @racket[define-typed-syntax]'s grammar above.}
+
+
+@; define-typed-variable-rename -----------------------------------------------
+
+@defform[(define-typed-variable-rename typed-var ≫ untyped-var : type)]
+
+Defines @racket[typed-var] as a variable with type @racket[type] that erases to
+@racket[untyped-var]. Supports @racket[set!]. Generally typed definition
+forms will expand to a combination of an untyped @racket[define] and this form.
 
 
 @; define-primop --------------------------------------------------------------

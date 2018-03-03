@@ -55,10 +55,10 @@
 (define-typed-syntax define
   [(_ x:id e)
    #:with (e- τ) (infer+erase #'e)
-   #:with y (generate-temporary)
+   #:with x- (generate-temporary)
    #'(begin-
-       (define-syntax x (make-rename-transformer (⊢ y : τ)))
-       (define- y e-))])
+       (define-typed-variable-rename x ≫ x- : τ)
+       (define- x- e-))])
 
 (define-typed-syntax #%datum
   [(_ . b:boolean) (⊢ #,(syntax/loc stx (#%datum- . b)) : Bool)]
