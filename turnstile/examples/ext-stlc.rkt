@@ -37,6 +37,12 @@
 (define-primop typed- - (→ Int Int Int))
 (define-primop typed* * : (→ Int Int Int))
 
+(define-for-syntax (make-type-alias-transformer xs ty)
+  (syntax-parser
+    [(_ y ...)
+    #:with τ:any-type (substs #'(y ...) xs ty)
+    #'τ.norm]))
+
 ;; τ.norm in 1st case causes "not valid type" error when file is compiled
 (define-syntax define-type-alias
   (syntax-parser
@@ -44,11 +50,7 @@
      #'(define-syntax- alias
          (make-variable-like-transformer #'τ))]
     [(_ (f:id x:id ...) ty)
-     #'(define-syntax- (f stx)
-         (syntax-parse stx
-           [(_ x ...)
-            #:with τ:any-type #'ty
-            #'τ.norm]))]))
+     #'(define-syntax f (make-type-alias-transformer #'(x ...) #'ty))]))
 
 (define-typed-syntax define
   [(_ x:id (~datum :) τ:type e:expr) ≫
