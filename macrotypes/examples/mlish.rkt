@@ -35,7 +35,7 @@
 (module+ test
   (require (for-syntax rackunit)))
 
-(provide define-type
+(provide define-type define-types
          → →/test
          ; redefine these to use lifted →
          (typed-out [+ : (→ Int Int Int)]
@@ -406,144 +406,199 @@
          (?Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))])
 
 ;; define-type -----------------------------------------------
-;; TODO: should validate τ as part of define-type definition (before it's used)
-;; - not completely possible, since some constructors may not be defined yet,
-;;   ie, mutually recursive datatypes
-;; for now, validate types but punt if encountering unbound ids
+
+(define-for-syntax (make-type-constructor-transformer
+                     name           ; Name of type constructor we're defining
+                     internal-name  ; Identifier used for internal rep of type
+                     key2           ; Syntax property to attach kind of type
+                     op             ; numeric operator to compare expected arg count
+                     n              ; Expected arity, relative to op
+                    )
+  (define/syntax-parse τ- internal-name)
+  (syntax-parser
+    [(_ . args)
+     #:fail-unless (op (stx-length #'args) n)
+     (format
+       "wrong number of arguments, expected ~a ~a"
+       (object-name op) n)
+     #:with ([arg- _] ...) (infers+erase #'args #:tag key2 #:stop-list? #f)
+     ;; args are validated on the next line rather than above
+     ;; to ensure enough stx-parse progress for proper err msg,
+     ;; ie, "invalid type" instead of "improper tycon usage"
+     #:with (~! _:type ...) #'(arg- ...)
+     (add-orig (mk-type (syntax/loc this-syntax (τ- arg- ...))) this-syntax)]
+    [_ ;; else fail with err msg
+      (type-error #:src this-syntax
+                  #:msg
+                  (string-append
+                    "Improper usage of type constructor ~a: ~a, expected ~a ~a arguments")
+                  #`#,name this-syntax #`#,(object-name op) #`#,n)]))
+
+
+(begin-for-syntax
+  (define-syntax-class constructor
+    (pattern
+      ;; constructors must have the form (Cons τ ...)
+      ;; but the first ~or clause accepts 0-arg constructors as ids;
+      ;; the ~and is a workaround to bind the duplicate Cons ids (see Ryan's email)
+      (~and C (~or
+                ; Nullary constructor, without parens. Like `Nil`.
+                ; Ensure fld, τ are bound though empty.
+                (~and IdCons:id
+                      (~parse (Cons [fld (~datum :) τ] ...) #'(IdCons)))
+                ; With named fields
+                (Cons [fld (~datum :) τ] ...)
+                ; Fields not named; generate internal names
+                (~and (Cons τ ...)
+                      (~parse (fld ...) (generate-temporaries #'(τ ...)))))))))
+
+;; defines a set of mutually recursive datatypes
+(define-syntax (define-types stx)
+  (syntax-parse stx
+    [(_ [(Name:id X:id ...)
+         c:constructor ...]
+        ...)
+     ;; validate tys
+     #:with ((ty_flat ...) ...) (stx-map (λ (tss) (stx-flatten tss)) #'(((c.τ ...) ...) ...))
+     #:with ((_ _ (_ _ (_ _ (_ _ ty+ ...)))) ...)
+            (stx-map expand/df
+              #`((lambda (X ...)
+                   (let-syntax
+                       ([X (make-rename-transformer (mk-type #'X))] ...
+                        ; Temporary binding of the type we are now defining,
+                        ; so that we can expand the types of constructor arguments
+                        ; that refer to it. This binding is the reason we can't use infer
+                        ; here; infer is specifically about attaching types, not binding
+                        ; general transformers.
+                        [Name
+                         (make-type-constructor-transformer
+                           #'Name #'void ':: = (stx-length #'(X ...)))] ...)
+                     (void ty_flat ...))) ...))
+     #:when (stx-map
+             (λ (ts+ ts)
+               (stx-map
+                (lambda (t+ t) (unless (type? t+)
+                                 (type-error #:src t
+                                             #:msg "~a is not a valid type" t)))
+                ts+ ts))
+             #'((ty+ ...) ...) #'((ty_flat ...) ...))
+     #:with (NameExtraInfo ...) (stx-map (λ (n) (format-id n "~a-extra-info" n)) #'(Name ...))
+     #:with (n ...) (stx-map (λ (Xs) #`#,(stx-length Xs)) #'((X ...) ...))
+     #:with (arg-variance-vars ...) (generate-temporaries #'(Name ...))
+     #`(begin-
+         (begin-for-syntax
+           ;; arg-variance-vars : (List Variance-Var ...)
+           (define arg-variance-vars
+             (list (variance-var (syntax-e (generate-temporary 'X))) ...)) ...)
+         (define-type-constructor Name
+           #:arity = n
+           #:arg-variances (make-arg-variances-proc arg-variance-vars
+                                                    (list #'X ...)
+                                                    (list #'c.τ ... ...))
+           #:extra-info 'NameExtraInfo) ...
+         (define-type-rest (Name X ...) c.C ...) ...
+         )]))
+
+;; defines the runtime components of a define-datatype
+(define-syntax (define-type-rest stx)
+  (syntax-parse stx
+    [(_ (Name:id X:id ...)
+        c:constructor ...)
+     #:with Name? (mk-? #'Name)
+     #:with NameExtraInfo (format-id #'Name "~a-extra-info" #'Name)
+     #:with (StructName ...) (generate-temporaries #'(c.Cons ...))
+     #:with ((exposed-acc ...) ...)
+            (stx-map 
+             (λ (C fs) (stx-map (λ (f) (format-id C "~a-~a" C f)) fs))
+             #'(c.Cons ...) #'((c.fld ...) ...))
+     #:with ((acc ...) ...)
+            (stx-map
+             (λ (S fs) (stx-map (λ (f) (format-id S "~a-~a" S f)) fs))
+             #'(StructName ...) #'((c.fld ...) ...))
+     #:with (Cons? ...) (stx-map mk-? #'(StructName ...))
+     #:with (exposed-Cons? ...) (stx-map mk-? #'(c.Cons ...))
+     #`(begin-
+         (define-syntax NameExtraInfo
+           (make-extra-info-transformer #'(X ...) #'(('c.Cons 'StructName Cons? [acc c.τ] ...) ...)))
+         (struct- StructName (c.fld ...) #:reflection-name 'c.Cons #:transparent) ...
+         (define-syntax exposed-acc ; accessor for records
+           (make-variable-like-transformer
+             (assign-type #'acc #'(?∀ (X ...) (ext-stlc:→ (Name X ...) c.τ)))))
+         ... ...
+         (define-syntax exposed-Cons? ; predicates for each variant
+           (make-variable-like-transformer
+             (assign-type #'Cons? #'(?∀ (X ...) (ext-stlc:→ (Name X ...) Bool))))) ...
+         (define-syntax c.Cons
+           (make-constructor-transformer #'(X ...) #'(c.τ ...) #'Name #'StructName Name?))
+         ...)]))
+
+;; defines a single datatype; dispatches to define-types
 (define-syntax (define-type stx)
   (syntax-parse stx
-    [(define-type Name:id . rst)
+    [(_ Name:id . rst)
      #:with NewName (generate-temporary #'Name)
      #:with Name2 (add-orig #'(NewName) #'Name)
      #`(begin-
          (define-type Name2 . #,(subst #'Name2 #'Name #'rst))
          (stlc+rec-iso:define-type-alias Name Name2))]
-    [(define-type (Name:id X:id ...)
-       ;; constructors must have the form (Cons τ ...)
-       ;; but the first ~or clause accepts 0-arg constructors as ids;
-       ;; the ~and is a workaround to bind the duplicate Cons ids (see Ryan's email)
-       (~and (~or (~and IdCons:id 
-                        (~parse (Cons [fld (~datum :) τ] ...) #'(IdCons)))
-                  (Cons [fld (~datum :) τ] ...)
-                  (~and (Cons τ ...)
-                        (~parse (fld ...) (generate-temporaries #'(τ ...)))))) ...)
-     ;; validate tys
-     #:with (ty_flat ...) (stx-flatten #'((τ ...) ...))
-     #:with (_ _ (_ _ (_ _ (_ _ ty+ ...))))
-            (with-handlers 
-              ([exn:fail:syntax:unbound?
-                (λ (e) 
-                  (define X (stx-car (exn:fail:syntax-exprs e)))
-                  #`(lambda () (let-syntax () (let-syntax () (#%app void unbound)))))])
-              (expand/df 
-                #`(lambda (X ...)
-                    (let-syntax
-                      ([Name 
-                        (syntax-parser 
-                         [(_ X ...) (mk-type #'void)]
-                         [stx 
-                          (type-error 
-                           #:src #'stx
-                           #:msg 
-                           (format "Improper use of constructor ~a; expected ~a args, got ~a"
-                                   (syntax->datum #'Name) (stx-length #'(X ...))
-                                   (stx-length (stx-cdr #'stx))))])]
-                       [X (make-rename-transformer (mk-type #'X))] ...)
-                      (void ty_flat ...)))))
-     #:when (or (equal? '(unbound) (syntax->datum #'(ty+ ...)))
-                (stx-map 
-                  (lambda (t+ t) (unless (type? t+)
-                              (type-error #:src t
-                                          #:msg "~a is not a valid type" t)))
-                  #'(ty+ ...) #'(ty_flat ...)))
-     #:with NameExpander (format-id #'Name "~~~a" #'Name)
-     #:with NameExtraInfo (format-id #'Name "~a-extra-info" #'Name)
-     #:with (StructName ...) (generate-temporaries #'(Cons ...))
-     #:with ((e_arg ...) ...) (stx-map generate-temporaries #'((τ ...) ...))
-     #:with ((e_arg- ...) ...) (stx-map generate-temporaries #'((τ ...) ...))
-     #:with ((τ_arg ...) ...) (stx-map generate-temporaries #'((τ ...) ...))
-     #:with ((exposed-acc ...) ...)
-            (stx-map 
-              (λ (C fs) (stx-map (λ (f) (format-id C "~a-~a" C f)) fs))
-              #'(Cons ...) #'((fld ...) ...))
-     #:with ((acc ...) ...) (stx-map (λ (S fs) (stx-map (λ (f) (format-id S "~a-~a" S f)) fs))
-                                     #'(StructName ...) #'((fld ...) ...))
-     #:with (Cons? ...) (stx-map mk-? #'(StructName ...))
-     #:with (exposed-Cons? ...) (stx-map mk-? #'(Cons ...))
-     #`(begin-
-         (define-syntax (NameExtraInfo stx)
-           (syntax-parse stx
-             [(_ X ...) #'(('Cons 'StructName Cons? [acc τ] ...) ...)]))
-         (begin-for-syntax
-           ;; arg-variance-vars : (List Variance-Var ...)
-           (define arg-variance-vars
-             (list (variance-var (syntax-e (generate-temporary 'X))) ...)))
-         (define-type-constructor Name
-           #:arity = #,(stx-length #'(X ...))
-           #:arg-variances (make-arg-variances-proc arg-variance-vars
-                                                    (list #'X ...)
-                                                    (list #'τ ... ...))
-           #:extra-info 'NameExtraInfo)
-         (struct- StructName (fld ...) #:reflection-name 'Cons #:transparent) ...
-         (define-syntax (exposed-acc stx) ; accessor for records
-           (syntax-parse stx
-            [_:id (⊢ acc (?∀ (X ...) (ext-stlc:→ (Name X ...) τ)))]
-            [(o . rst) ; handle if used in fn position
-             #:with app (datum->syntax #'o '#%app)
-             #`(app 
-                #,(assign-type #'acc #'(?∀ (X ...) (ext-stlc:→ (Name X ...) τ))) 
-                . rst)])) ... ...
-         (define-syntax (exposed-Cons? stx) ; predicates for each variant
-           (syntax-parse stx
-            [_:id (⊢ Cons? (?∀ (X ...) (ext-stlc:→ (Name X ...) Bool)))]
-            [(o . rst) ; handle if used in fn position
-             #:with app (datum->syntax #'o '#%app)
-             #`(app 
-                #,(assign-type #'Cons? #'(?∀ (X ...) (ext-stlc:→ (Name X ...) Bool))) 
-                . rst)])) ...
-         (define-syntax (Cons stx)
-           (syntax-parse stx
-             ; no args and not polymorphic
-             [C:id #:when (and (stx-null? #'(X ...)) (stx-null? #'(τ ...))) #'(C)]
-             ; no args but polymorphic, check inferred type
-             [C:id
-              #:when (stx-null? #'(τ ...))
-              #:with τ-expected (syntax-property #'C 'expected-type)
-              #:fail-unless (syntax-e #'τ-expected)
-              (raise
-               (exn:fail:type:infer
-                (format "~a (~a:~a): ~a: ~a"
-                         (syntax-source stx) (syntax-line stx) (syntax-column stx)
-                         (syntax-e #'C)
-                         (no-expected-type-fail-msg))
-                (current-continuation-marks)))
-              #:with (NameExpander τ-expected-arg (... ...)) ((current-type-eval) #'τ-expected)
-              #'(C {τ-expected-arg (... ...)})]
-             [_:id (⊢ StructName (?∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))] ; HO fn
-             [(C τs e_arg ...)
-              #:when (brace? #'τs) ; commit to this clause
-              #:with {~! τ_X:type (... ...)} #'τs
-              #:with (τ_in:type (... ...)) ; instantiated types
-                     (stx-map
-                      (λ (t) (substs #'(τ_X.norm (... ...)) #'(X ...) t))
-                      #'(τ ...))
-              #:with ([e_arg- τ_arg] ...)
-                     (stx-map
-                      (λ (e τ_e)
-                        (infer+erase (set-stx-prop/preserved e 'expected-type τ_e)))
-                      #'(e_arg ...) #'(τ_in.norm (... ...)))
-              #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in.norm (... ...)))
-              (typecheck-fail-msg/multi #'(τ_in.norm (... ...)) #'(τ_arg ...) #'(e_arg ...))
-              (⊢ (StructName e_arg- ...) : (Name τ_X (... ...)))]
-             [(C . args) ; no type annotations, must infer instantiation
-              #:with StructName/ty 
-                     (set-stx-prop/preserved
-                      (⊢ StructName : (?∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))
-                      'orig
-                      (list #'C))
-              ; stx/loc transfers expected-type
-              (syntax/loc stx (mlish:#%app StructName/ty . args))]))
-         ...)]))
+    [(_ Name . Cs) #'(define-types [Name . Cs])]))
+
+(begin-for-syntax
+  (define (make-extra-info-transformer Xs stuff)
+    (syntax-parser
+      [(_ Y ...)
+       (substs #'(Y ...) Xs stuff)]))
+
+  (define (make-constructor-transformer Xs τs Name-arg StructName-arg Name?)
+    (define/syntax-parse (X ...) Xs)
+    (define/syntax-parse (τ ...) τs)
+    (define/syntax-parse Name Name-arg)
+    (define/syntax-parse StructName StructName-arg)
+    (syntax-parser 
+      ; no args and not polymorphic
+      [C:id #:when (and (stx-null? #'(X ...)) (stx-null? #'(τ ...))) #'(C)]
+      ; no args but polymorphic, check inferred type
+      [C:id
+        #:when (stx-null? #'(τ ...))
+        #:with τ-expected (syntax-property #'C 'expected-type)
+        #:fail-unless (syntax-e #'τ-expected)
+        (raise
+          (exn:fail:type:infer
+            (format "~a (~a:~a): ~a: ~a"
+                    (syntax-source this-syntax) (syntax-line this-syntax) (syntax-column this-syntax)
+                    (syntax-e #'C)
+                    (no-expected-type-fail-msg))
+            (current-continuation-marks)))
+        #:with τ-expected+ ((current-type-eval) #'τ-expected)
+        #:fail-unless (Name? #'τ-expected+)
+        (format "Expected ~a type, got: ~a"
+                (syntax-e #'Name) (type->str #'τ-expected+))
+        #:with (~Any _ τ-expected-arg ...) #'τ-expected+
+        #'(C {τ-expected-arg ...})]
+      [_:id (⊢ StructName (?∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))] ; HO fn
+      [(C τs e_arg ...)
+       #:when (brace? #'τs) ; commit to this clause
+       #:with {~! τ_X:type ...} #'τs
+       #:with (τ_in:type ...) ; instantiated types
+       (stx-map
+         (λ (t) (substs #'(τ_X.norm ...) #'(X ...) t))
+         #'(τ ...))
+       #:with ([e_arg- τ_arg] ...)
+       (stx-map
+         (λ (e τ_e)
+            (infer+erase (set-stx-prop/preserved e 'expected-type τ_e)))
+         #'(e_arg ...) #'(τ_in.norm ...))
+       #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in.norm ...))
+       (typecheck-fail-msg/multi #'(τ_in.norm ...) #'(τ_arg ...) #'(e_arg ...))
+       (⊢ (StructName e_arg- ...) : (Name τ_X ...))]
+      [(C . args) ; no type annotations, must infer instantiation
+       #:with StructName/ty 
+       (set-stx-prop/preserved
+         (⊢ StructName : (?∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))
+         'orig
+         (list #'C))
+       ; stx/loc transfers expected-type
+       (syntax/loc this-syntax (mlish:#%app StructName/ty . args))])))
 
 ;; match --------------------------------------------------
 (begin-for-syntax

@@ -102,7 +102,7 @@
         (BankersDeque A)
         (ImplicitCatDeque (BankersDeque A) (CmpdElem (BankersDeque A)))
         (BankersDeque A)])
-  #:with-msg "Improper use of constructor ImplicitCatDeque; expected 1 args, got 2")
+  #:verb-msg "Improper usage of type constructor ImplicitCatDeque: (ImplicitCatDeque (BankersDeque A) (CmpdElem (BankersDeque A))), expected = 1 arguments")
 
 #;(define-type (CmpdElem A)
   [Simple (BankersDeque A)]
