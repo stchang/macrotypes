@@ -104,10 +104,10 @@
     (map (λ ([c : Color]) (channel-get ch-res)) inits)))
 
 (define res1 (go 100 (list Blue Red Yellow)))
-
+res1
 (define (check-res1 [r : Result] -> Bool)
   (match r with
-   [met same -> (or (= met 66) (= met 67))]))
+   [met same -> (or (= met 66) (= met 67) (= met 68))]))
 
 (check-type (length res1) : Int -> 3)
 
@@ -122,12 +122,13 @@
   (map (λ ([x : Result]) (proj x 0))
        (go 1000 (list Blue Red Yellow Red Yellow Blue))))
 (check-type res2 : (List Int))
-(define (=333/4 [x : Int] -> Bool) (or (= x 333) (= x 334)))
+res2
+(define (=332-4 [x : Int] -> Bool) (or (= x 332) (= x 333) (= x 334)))
 (define (andmap [p? : (→ X Bool)] [xs : (List X)] → Bool)
   (match2 xs with
    [nil -> #t]
    [x :: rst -> (and (p? x) (andmap p? rst))]))         
-(check-type (andmap =333/4 res2) : Bool -> #t)
+(check-type (andmap =332-4 res2) : Bool -> #t)
   ;; -> (list (list 333 0)
   ;;          (list 333 0)
   ;;          (list 333 0)
