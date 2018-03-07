@@ -515,6 +515,149 @@
                                    (combine-out . ts) (combine-out . t-s)
                                    (for-syntax (combine-out . t-expanders) . t?s)))
                   modes)]))))
+
+         ;; transformer functions, for defining types
+         ;; - avoids expensive re-expansion of syntax-parse
+         (begin-for-syntax
+           (define ((mk-type-recognizer τ-internal) τ)
+             (syntax-parse τ
+               [((~literal #%plain-app) id:id . _) (free-id=? τ-internal #'id)]
+               [_ #f]))
+           (begin-for-syntax
+             (define (mk-base-expander τ-internal)
+               (pattern-expander
+                (syntax-parser
+                  [(~var _ id)
+                   #`((~literal #%plain-app) (~literal #,τ-internal))]
+                  [(_ . rst) ; case for matching a list of types, e.g., in stlc+sub (~Nat τ)
+                   #`(((~literal #%plain-app) (~literal #,τ-internal)) . rst)])))
+             (define (mk-ctor-expander τ-internal τ)
+               (pattern-expander
+                (syntax-parser
+                  [(_ . pat)
+                   #:with expanded-τ (generate-temporary)
+                   #`(~and expanded-τ 
+                           (~Any
+                            (~literal/else #,τ-internal
+                                           (format "Expected ~a ~a, got: ~a"
+                                                   '#,τ 'name (type->str #'expanded-τ))
+                                         #'expanded-τ)
+                            . pat))])))
+             (define (mk-binding-expander τ-internal τ)
+               (pattern-expander
+                (syntax-parser
+                  ; this case used by ⇑, TODO: remove this case?
+                  ;; if has-annotations?
+                  ;; - type has surface shape:
+                  ;;     (τ ([tv : k] ...) body ...)
+                  ;; - and parses to pattern:
+                  ;;     [([tv k] ...) (body ...)]
+                  ;; if not has-annotations?
+                  ;; - type has surface shape:
+                  ;;     (τ (tv ...) body ...)
+                  ;; - and parses to pattern:
+                  ;;     [(tv ...) (body ...)]
+                  [(_ . pat:id)
+                   #:with expanded-τ (generate-temporary)
+;                      #:with kindcon-expander (mk-~ #'kindcon)
+                   #`(~and expanded-τ
+                           (~Any/bvs 
+                            (~literal/else #,τ-internal
+                                           (format "Expected ~a type, got: ~a"
+                                                   '#,τ (type->str #'expanded-τ))
+                                           #'expanded-τ)
+                            bvs . rst)
+                           ;; #,(if (attribute has-annotations?)
+                           ;;       #'(~and
+                           ;;          (~parse (kindcon-expander k (... (... ...)))
+                           ;;                  (detach #'expanded-τ))
+                           ;;          (~parse pat
+                           ;;                  #'[([tv k] (... (... ...))) rst]))
+                           (~parse pat #'[bvs rst]))]
+                  ;; TODO: fix this to handle has-annotations?
+                  ;; the difference with the first case is that here
+                  ;; the body is ungrouped, ie,
+                  ;; parses to pattern[(tv ...) . (body ...)]
+                  [(_ bvs-pat . pat)
+                   #:with expanded-τ (generate-temporary)
+                   #`(~and expanded-τ
+                           (~Any/bvs 
+                            (~literal/else #,τ-internal
+                                           (format "Expected ~a ~a, got: ~a"
+                                                   '#,τ 'name (type->str #'expanded-τ))
+                                           #'expanded-τ)
+                            bvs-pat . pat))]))))
+           (define (mk-base-transformer τ-internal key2 kind)
+             (syntax-parser
+               [(~var TY id)
+                (add-orig 
+                 (attach
+                  (quasisyntax/loc #'TY (#,τ-internal))
+                  key2 (expand/df kind))
+                 #'TY)]))
+           (define (mk-internal-ctor-transformer τ-internal extra-info arg-vars)
+             (syntax-parser
+               [(_ . args)
+                #:with τ* (add-arg-variances τ-internal (arg-vars this-syntax))
+                (quasisyntax/loc this-syntax
+                  (τ* (λ () (#%expression #,extra-info) (list . args))))]))
+           (define (mk-ctor-transformer τ-internal τ op op-name op-rhs)
+             (syntax-parser
+               [(_ . args)
+                #:fail-unless (op (stx-length #'args) op-rhs)
+                  (format "wrong number of arguments, expected ~a ~a" op-name op-rhs)
+                #:and ~! ; prefer "invalid type" over "improper tycon" err
+                #:with ((~var arg- type) (... ...)) #'args
+                (add-orig
+                 (mk-type
+                  (quasisyntax/loc this-syntax (#,τ-internal arg- (... ...))))
+                 this-syntax)]
+               [_ ;; else fail with err msg (type-error undefined here, so raise stx err directly)
+                (raise-syntax-error #f
+                  (format "Improper usage of type constructor ~a: ~s, expected ~a ~a arguments"
+                          τ (syntax->datum this-syntax) op-name op-rhs)
+                  this-syntax)]))
+           (define (mk-internal-binding-transformer τ-internal extra-info arg-vars)
+             (syntax-parser
+               [(_ bvs . args)
+                #:with τ* (add-arg-variances τ-internal (arg-vars this-syntax))
+                (quasisyntax/loc this-syntax
+                  (τ* (λ bvs (#%expression #,extra-info) (list . args))))]))
+           (define (mk-binding-transformer τ-internal τ kind-ctor/#f
+                                           bvop bvop-name bvop-rhs
+                                           op op-name op-rhs
+                                           infer-fn)
+             (define un-anno? (not kind-ctor/#f))
+             (syntax-parser
+               [(_ (~and bvs
+                         (~or (bv:id (... ...))
+                              (~and (~fail #:when un-anno?)
+                                    ([_ (~datum key2) _] (... ...))
+                                    bvs+ann)))
+                   . args)
+                #:fail-unless (bvop (stx-length #'bvs) bvop-rhs)
+                  (format "wrong number of type vars, expected ~a ~a"
+                          'bvop-name 'bvop-rhs)
+                #:fail-unless (op (stx-length #'args) op-rhs)
+                  (format "wrong number of arguments, expected ~a ~a"
+                          op-name op-rhs)
+                #:with bvs+ks (if un-anno? #'([bv key2 #%tag] (... ...)) #'bvs+ann)
+                #:and ~!
+                #:with (bvs- ((~var τ- type) (... ...)) _) (infer-fn #'bvs+ks #'args)
+                #:with ([_ (~datum key2) k_arg] (... ...)) #'bvs+ks
+                #:with k_result (if un-anno? #'#%tag #`(#,kind-ctor/#f k_arg (... ...)))
+                (add-orig
+                 (attach #`(#,τ-internal bvs- τ- (... ...)) 'key2 (default-type-eval #'k_result))
+                 this-syntax)]
+               [_
+                (raise-syntax-error #f
+                  (format "Improper usage of type constructor ~a: ~s, expected ~a ~a arguments")
+                            τ (syntax->datum this-syntax) op-name op-rhs)]))
+           (define (default-arg-vars stx)
+             (for/list ([_ (in-stx-list (stx-cdr stx))]) invariant))
+           (define (default-arg-vars/binding stx)
+             (for/list ([_ (in-stx-list (stx-cddr stx))]) invariant))
+           )
          ;; base types --------------------------------------------------------
          (define-syntax define-base-type
            (syntax-parser  ; default = 'key2 + #%tag
@@ -528,20 +671,8 @@
              #:with τ-internal (generate-temporary #'τ)
              #`(begin
                 (begin-for-syntax
-                 (define (τ? t)
-                   (syntax-parse t
-                    [((~literal #%plain-app) (~literal τ-internal)) #t]
-                    [_ #f]))
-                 (define-syntax τ-expander
-                   (pattern-expander
-                    (syntax-parser
-                     [(~var _ id)
-                      #'((~literal #%plain-app) (~literal τ-internal))]
-                     ; - this case used by ⇑, TODO: remove this case?
-                     ; - but it's also needed when matching a list of types,
-                     ; e.g., in stlc+sub (~Nat τ)
-                     [(_ . rst)
-                      #'(((~literal #%plain-app) (~literal τ-internal)) . rst)]))))
+                 (define τ? (mk-type-recognizer #'τ-internal))
+                 (define-syntax τ-expander (mk-base-expander #'τ-internal)))
                 (define (τ-internal)
                   #,(if (attribute runtime?)
                         #''τ
@@ -549,14 +680,7 @@
                            (exn:fail:type:runtime
                             (format "~a: Cannot use ~a at run time" 'τ 'tag)
                             (current-continuation-marks)))))
-                (define-syntax τ
-                  (syntax-parser
-                    [(~var _ id)
-                     (add-orig 
-                      (attach
-                       (syntax/loc this-syntax (τ-internal))
-                       'new-key2 (expand/df #'new-#%tag))
-                      #'τ)])))]))
+                (define-syntax τ (mk-base-transformer #'τ-internal 'new-key2 #'new-#%tag)))]))
          (define-syntax define-base-types
            (syntax-parser
              [(_ (~var x id) (... ...))
@@ -580,13 +704,9 @@
                   (~and #:runtime (~parse runtime? #'#t))
                   #:name "#:runtime keyword")
                  (~optional ; variances
-                  (~seq #:arg-variances arg-variances-stx:expr)
+                  (~seq #:arg-variances arg-var-fn:expr)
                   #:name "#:arg-variances keyword"
-                  #:defaults
-                  ([arg-variances-stx
-                    #`(λ (stx-id)
-                        (for/list ([_ (in-stx-list (stx-cdr stx-id))])
-                                  invariant))]))
+                  #:defaults ([arg-var-fn #'default-arg-vars]))
                  (~optional ; extra-info
                   (~seq #:extra-info extra-info)
                   #:name "#:extra-info keyword"
@@ -597,23 +717,8 @@
              #:with τ-internal (generate-temporary #'τ)
              #`(begin
                 (begin-for-syntax
-                  (define (τ? t)
-                    (syntax-parse t
-                      [(~Any (~literal τ-internal) . _) #t]
-                      [_ #f]))
-                  (define-syntax τ-expander
-                    (pattern-expander
-                     (syntax-parser
-                       [(_ . pat)
-                        #:with expanded-τ (generate-temporary)
-                        #'(~and expanded-τ 
-                                (~Any
-                                 (~literal/else τ-internal
-                                   (format "Expected ~a ~a, got: ~a"
-                                           'τ 'name (type->str #'expanded-τ))
-                                   #'expanded-τ)
-                                 . pat))])))
-                  (define arg-vars arg-variances-stx))
+                  (define τ? (mk-type-recognizer #'τ-internal))
+                  (define-syntax τ-expander (mk-ctor-expander #'τ-internal 'τ)))
                 (define (τ-internal args)
                   #,(if (attribute runtime?)
                         #'(cons 'τ (args))
@@ -625,12 +730,7 @@
                 ; It does not validate inputs and does not attach a kind,
                 ; ie, it won't be recognized as a valid type, the programmer
                 ; must implement their own kind system on top
-                (define-syntax (τ- stx)
-                  (syntax-parse stx
-                    [(_ . args)
-                     #:with τ* (add-arg-variances #'τ-internal (arg-vars stx))
-                     (syntax/loc stx 
-                       (τ* (λ () (#%expression extra-info) (list . args))))])))]))
+                (define-syntax τ- (mk-internal-ctor-transformer #'τ-internal #'extra-info arg-var-fn)))]))
          (define-syntax define-type-constructor
            (syntax-parser
             [(_ (~var τ id)
@@ -642,25 +742,7 @@
              #:with τ- (mk-- #'τ)
              #'(begin
                  (define-internal-type-constructor τ . other-options)
-                 (define-syntax (τ stx)
-                   (syntax-parse stx
-                    [(_ . args)
-                     #:fail-unless (op (stx-length #'args) n)
-                                   (format
-                                    "wrong number of arguments, expected ~a ~a"
-                                    'op 'n)
-                     #:with ([arg- _] (... (... ...))) (infers+erase #'args #:tag 'key2 #:stop-list? #f)
-                     ;; args are validated on the next line rather than above
-                     ;; to ensure enough stx-parse progress for proper err msg,
-                     ;; ie, "invalid type" instead of "improper tycon usage"
-                     #:with (~! (~var _ type) (... (... ...))) #'(arg- (... (... ...)))
-                     (add-orig (mk-type (syntax/loc stx (τ- arg- (... (... ...))))) stx)]
-                    [_ ;; else fail with err msg
-                     (type-error #:src stx
-                      #:msg
-                      (string-append
-                       "Improper usage of type constructor ~a: ~a, expected ~a ~a arguments")
-                      #'τ stx #'op #'n)])))]))
+                 (define-syntax τ (mk-ctor-transformer #'τ- 'τ op 'op 'n)))]))
          (define-syntax define-internal-binding-type
            (syntax-parser
             [(_ (~var τ id)
@@ -669,13 +751,10 @@
                   (~and #:runtime (~parse runtime? #'#t))
                   #:name "#:runtime keyword")
                  (~optional ; variances
-                  (~seq #:arg-variances arg-variances-stx:expr)
+                  (~seq #:arg-variances arg-vars-fn:expr)
                   #:name "#:arg-variances keyword"
                   #:defaults
-                  ([arg-variances-stx
-                    #`(λ (stx-id)
-                        (for/list ([arg (in-stx-list (stx-cddr stx-id))])
-                          invariant))]))
+                  ([arg-vars-fn #'default-arg-vars/binding]))
                  (~optional ; extra-info
                   (~seq #:extra-info extra-info)
                   #:name "#:extra-info keyword"
@@ -686,59 +765,9 @@
              #:with τ-internal (generate-temporary #'τ)
              #`(begin
                 (begin-for-syntax
-                 (define (τ? t)
-                   (syntax-parse t
-                     [(~Any/bvs (~literal τ-internal) _ . _)
-                      #t]
-                     [_ #f]))
-                 ;; cannot deal with annotations bc τ- has no knowledge of
-                 ;; its kind
-                 (define-syntax τ-expander
-                   (pattern-expander
-                    (syntax-parser
-                     ; this case used by ⇑, TODO: remove this case?
-                     ;; if has-annotations?
-                     ;; - type has surface shape:
-                     ;;     (τ ([tv : k] ...) body ...)
-                     ;; - and parses to pattern:
-                     ;;     [([tv k] ...) (body ...)]
-                     ;; if not has-annotations?
-                     ;; - type has surface shape:
-                     ;;     (τ (tv ...) body ...)
-                     ;; - and parses to pattern:
-                     ;;     [(tv ...) (body ...)]
-                     [(_ . pat:id)
-                      #:with expanded-τ (generate-temporary)
-;                      #:with kindcon-expander (mk-~ #'kindcon)
-                      #'(~and expanded-τ
-                              (~Any/bvs 
-                               (~literal/else τ-internal
-                                              (format "Expected ~a type, got: ~a"
-                                                      'τ (type->str #'expanded-τ))
-                                              #'expanded-τ)
-                               (~and bvs (tv (... (... (... ...)))))
-                               . rst)
-                              ;; #,(if (attribute has-annotations?)
-                              ;;       #'(~and
-                              ;;          (~parse (kindcon-expander k (... (... ...)))
-                              ;;                  (detach #'expanded-τ))
-                              ;;          (~parse pat
-                              ;;                  #'[([tv k] (... (... ...))) rst]))
-                              (~parse pat #'[bvs rst]))]
-                     ;; TODO: fix this to handle has-annotations?
-                     ;; the difference with the first case is that here
-                     ;; the body is ungrouped, ie,
-                     ;; parses to pattern[(tv ...) . (body ...)]
-                     [(_ bvs-pat . pat)
-                      #:with expanded-τ (generate-temporary)
-                      #'(~and expanded-τ
-                              (~Any/bvs 
-                               (~literal/else τ-internal
-                                              (format "Expected ~a ~a, got: ~a"
-                                                      'τ 'name (type->str #'expanded-τ))
-                                              #'expanded-τ)
-                               bvs-pat . pat))])))
-                 (define arg-vars arg-variances-stx))
+                  (define τ? (mk-type-recognizer #'τ-internal))
+                  ;; cannot deal with annotations bc τ- has no knowledge of its kind
+                  (define-syntax τ-expander (mk-binding-expander #'τ-internal 'τ)))
                 (define (τ-internal args)
                   #,(if (attribute runtime?)
                         #'(let ([bvs (build-list (procedure-arity args) (λ _ (gensym)))])
@@ -751,12 +780,8 @@
                 ; It does not validate inputs and does not attach a kind,
                 ; ie, it won't be recognized as a valid type, the programmer
                 ; must implement their own kind system
-                (define-syntax (τ- stx)
-                  (syntax-parse stx
-                    [(_ bvs . args)
-                     #:with τ* (add-arg-variances #'τ-internal (arg-vars stx))
-                     (syntax/loc stx
-                       (τ* (λ bvs (#%expression extra-info) (list . args))))])))]))
+                (define-syntax τ-
+                  (mk-internal-binding-transformer #'τ-internal #'extra-info arg-vars-fn)))]))
          (define-syntax define-binding-type
            (syntax-parser
              [(_ (~var τ id)
@@ -771,49 +796,22 @@
                    #:defaults ([bvs-op #'>=][bvs-n #'0]))
                   (~optional ; arr, ie constructor for kind annotations
                    (~seq #:arr (~and kindcon (~parse has-annotations? #'#t)))
-                   #:name "#:arr keyword"
-                   #:defaults ([kindcon #'void]))) ; dont use kindcon default
+                   #:name "#:arr keyword")) ; no default, use has-annotations to check
                   (... ...)
                  . (~and other-options
                          (~not ((~or #:arity #:bvs #:arr) . _))))
               #:with τ- (mk-- #'τ)
+              #:with kind-ctor/#f (if (attribute has-annotations?) #'#'kindcon #''#f)
               #`(begin
                  (define-internal-binding-type τ . other-options)
-                 (define-syntax (τ stx)
-                   (syntax-parse stx
-                    [(_ (~and bvs
-                              (~or (bv:id (... (... ...)))
-                                   (~and (~fail #:unless #,(attribute has-annotations?))
-                                         ([_ (~datum key2) _] (... (... ...)))
-                                         bvs+ann)))
-                        . args)
-                     #:fail-unless (bvs-op (stx-length #'bvs) bvs-n)
-                                   (format "wrong number of type vars, expected ~a ~a"
-                                           'bvs-op 'bvs-n)
-                     #:fail-unless (op (stx-length #'args) n)
-                                   (format "wrong number of arguments, expected ~a ~a"
-                                           'op 'n)
-                     #:with bvs+ks (if #,(attribute has-annotations?)
-                                       #'bvs+ann
-                                       #'([bv key2 #%tag] (... (... ...))))
-                     #:with (bvs- τs- _) (infers/ctx+erase #'bvs+ks #'args #:tag 'key2 #:stop-list? #f)
-                     ;; args are validated on the next line rather than above
-                     ;; to ensure enough stx-parse progress for proper err msg,
-                     ;; ie, "invalid type" instead of "improper tycon usage"
-                     #:with (~! (~var _ type) (... (... ...))) #'τs-
-                     #:with ([tv (~datum key2) k_arg] (... (... ...))) #'bvs+ks
-                     #:with k_result (if #,(attribute has-annotations?)
-                                         #'(kindcon k_arg (... (... ...)))
-                                         #'#%tag)
-                     (add-orig
-                      (attach #'(τ- bvs- . τs-) 'key2 (default-type-eval #'k_result))
-                      stx)]
-                    [_
-                     (type-error #:src stx
-                      #:msg
-                      (string-append
-                       "Improper usage of type constructor ~a: ~a, expected ~a ~a arguments")
-                      #'τ stx #'op #'n)])))])))]))
+                 (define-syntax τ (mk-binding-transformer #'τ- 'τ kind-ctor/#f
+                                                          bvs-op 'bvs-op 'bvs-n
+                                                          op 'op 'n
+                                                          (λ (ctx es)
+                                                            (infers/ctx+erase
+                                                             ctx es
+                                                             #:tag 'key2
+                                                             #:stop-list? #f)))))])))]))
 
 ;; ----------------------------------------------------------------------------
 ;; ----------------------------------------------------------------------------
