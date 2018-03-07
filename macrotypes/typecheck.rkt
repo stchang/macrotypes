@@ -889,16 +889,6 @@
       ([x (make-variable-like-transformer (assign-type #'x- #'ty))] ...)
     e ...))
 
-(define-syntax (let*-syntax stx)
-  (syntax-parse stx
-    [(_ () . body) #'(let-syntax () . body)]
-    [(_ (b . bs) . es) #'(let-syntax (b) (let*-syntax bs . es))]))
-
-(define-syntax (⊢m stx)
-  (syntax-parse stx #:datum-literals (:)
-   [(_ e : τ) (assign-type #`e #`τ)]
-   [(_ e τ) (assign-type #`e #`τ)]))
-
 (begin-for-syntax
   ;; var-assign :
   ;; Id (Listof Sym) (StxListof TypeStx) -> Stx
@@ -1022,21 +1012,6 @@
 
   ;; --------------------------------------------------------------------------
   ;; "infer" function for expanding/computing type of an expression
-
-  ;; matches arbitrary number of nexted (expanded) let-stxs
-  (define-syntax ~let*-syntax
-    (pattern-expander
-     (syntax-parser
-       [(_ . pat)
-        #:with the-stx (generate-temporary)
-        #'(~and the-stx
-                (~parse pat (let L ([stxs #'(the-stx)])
-                              (syntax-parse stxs
-                                [(((~literal let-values) ()
-                                   ((~literal let-values) ()
-                                    . rst)))
-                                 (L #'rst)]
-                                [es #'es]))))])))
 
   (define current-use-stop-list? (make-parameter #t))
 
