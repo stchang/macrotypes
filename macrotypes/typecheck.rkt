@@ -537,7 +537,7 @@
 
          ; (type-use-error <id>)
          ; To be raised when a type is attempted to be evaluated
-         (define-syntax-rule (type-use-error tag-expr)
+         (define-simple-macro (type-use-error tag-expr)
            (raise (exn:fail:type:runtime
                    (format "~a: Cannot use ~a at run time" tag-expr 'name)
                    (current-continuation-marks))))
@@ -646,34 +646,7 @@
                             (format "Expected ~a ~a, got: ~a"
                                     '#,surf-name 'name (type->str #'tmp))
                             #'tmp)
-                          . pat))])))
-
-           ;; [Nat Nat -> Bool] Sym Nat Id -> [Stx -> Stx]
-           ;; the first three argument describe the relation to be imposed on the # of
-           ;; arguments, e.g. (.. = '= 2 #'→-) for a function type that takes exactly two
-           ;; arguments. The id is the internal transformer defined by
-           ;; define-internal-type-constructor
-           (define (mk-ctor-surface-transformer <> <>-name <>-rhs
-                                                surf-name intern-id)
-             (syntax-parser
-               [(_ arg (... ...))
-                #:fail-unless (<> (stx-length #'[arg (... ...)]) <>-rhs)
-                  (format "wrong number of arguments, expected ~a ~a" <>-name <>-rhs)
-                #:with args- (map expand/df (attribute arg))
-                ;; args are validated on the next line rather than above
-                ;; to ensure enough stx-parse progress for proper err msg,
-                ;; ie, "invalid type" instead of "improper tycon usage"
-                #:with [~! (~var _ type) (... ...)] #'args-
-                #:with repr (quasisyntax/loc this-syntax (#,intern-id . args-))
-                #:with repr+ (mk-type #'repr)
-                (add-orig #'repr+ this-syntax)]
-               [_ ;; else fail with err msg
-                (raise-syntax-error #f
-                  (format "Improper usage of type constructor ~a: ~s, expected ~a ~a arguments"
-                          surf-name
-                          (syntax->datum this-syntax)
-                          <>-name <>-rhs)
-                  this-syntax)])))
+                          . pat))]))))
 
          (define-syntax define-internal-type-constructor
            (syntax-parser
@@ -704,6 +677,34 @@
                    (define τ? (mk-type-recognizer #'τ-internal))
                    (define-syntax τ-expander (mk-ctor-~expander #'τ-internal 'τ))))]))
 
+         ;; Sym Id [Nat Nat -> Bool] Sym Nat  -> [Stx -> Stx]
+         ;; the last three argument describe the relation to be imposed on the # of
+         ;; arguments, e.g. (.. = '= 2) for a function type that takes exactly two
+         ;; arguments. The id is the internal transformer defined by
+         ;; define-internal-type-constructor
+         (define-for-syntax (mk-ctor-surface-transformer surf-name intern-id
+                                                         op op-name op-rhs)
+           (syntax-parser
+             [(_ arg (... ...))
+              #:fail-unless (op (stx-length #'[arg (... ...)]) op-rhs)
+                (format "wrong number of arguments, expected ~a ~a" op-name op-rhs)
+              #:with args- (map expand/df (attribute arg))
+              ;; args are validated on the next line rather than above
+              ;; to ensure enough stx-parse progress for proper err msg,
+              ;; ie, "invalid type" instead of "improper tycon usage"
+              #:with [~! (~var _ type) (... ...)] #'args-
+              #:with repr (quasisyntax/loc this-syntax (#,intern-id . args-))
+              #:with repr+ (mk-type #'repr)
+              (add-orig #'repr+ this-syntax)]
+
+             [_ ;; else fail with err msg
+              (raise-syntax-error #f
+                 (format "Improper usage of type constructor ~a: ~s, expected ~a ~a arguments"
+                         surf-name
+                         (syntax->datum this-syntax)
+                         op-name op-rhs)
+                 this-syntax)]))
+
          (define-syntax define-type-constructor
            (syntax-parser
             [(_ (~var τ id)
@@ -715,8 +716,7 @@
              #:with τ- (mk-- #'τ)
              #'(begin
                  (define-internal-type-constructor τ . other-options)
-                 (define-syntax τ (mk-ctor-surface-transformer op 'op 'n 'τ #'τ-)))]))
-
+                 (define-syntax τ (mk-ctor-surface-transformer 'τ #'τ- op 'op 'n)))]))
 
          ;; --------------------------------------------------------------------------
          ;; binding types ------------------------------------------------------------
@@ -724,7 +724,7 @@
          (begin-for-syntax
            ;; Stx -> [Listof Variance]
            (define (default-arg-vars/binding stx)
-             ; only difference is 'stx-cddr' to skip over binding types
+             ; only difference is 'stx-cddr' to skip over binding ids
              (for/list ([_ (in-stx-list (stx-cddr stx))])
                invariant))
 
@@ -790,25 +790,24 @@
              [[:id (~datum key2) _] #t]
              [_ #f]))
 
-         ;; Sym Id [Maybe Stx] <...> -> [Stx -> Stx]
-         ;; See 'mk-ctor-surface-transformer' for explanation about the <> stuff
+         ;; Sym Id [Maybe Stx] {...} [Ctx Stxs -> [List Ctx Stxs Types]] -> [Stx -> Stx]
          (define-for-syntax (mk-btype-surface-transformer surf-name intern-id
                                                           kind-con-stx
                                                           ; b = bound vars
                                                           ; t = type arguments
-                                                          <b> <b>-name <b>-rhs
-                                                          <t> <t>-name <t>-rhs
+                                                          bvop bvop-name bvop-rhs
+                                                          op op-name op-rhs
                                                           ; bleh
                                                           infers/ctx-fn)
            (define has-anno? (syntax? kind-con-stx))
            (syntax-parser
              [(_ [bind (... ...)] arg (... ...))
-              #:fail-unless (<b> (length (attribute bind)) <b>-rhs)
+              #:fail-unless (bvop (length (attribute bind)) bvop-rhs)
                 (format "wrong number of type vars, expected ~a ~a"
-                        <b>-name <b>-rhs)
-              #:fail-unless (<t> (length (attribute arg)) <t>-rhs)
+                        bvop-name bvop-rhs)
+              #:fail-unless (op (length (attribute arg)) op-rhs)
                 (format "wrong number of arguments, expected ~a ~a"
-                        <t>-name <t>-rhs)
+                        op-name op-rhs)
               #:fail-unless (if has-anno?
                                 (andmap annotated-bv? (attribute bind))
                                 (andmap identifier? (attribute bind)))
@@ -825,7 +824,6 @@
               ;; to ensure enough stx-parse progress for proper err msg,
               ;; ie, "invalid type" instead of "improper tycon usage"
               #:with [~! (~var _ type) (... ...)] #'τs-
-              #:with ([tv (~datum key2) k_arg] (... ...)) #'bvs+ks
               #:with kind (if has-anno?
                               (with-syntax ([ks (stx-map stx-caddr #'bvs+ks)])
                                 #`(#,kind-con-stx . ks))
@@ -922,12 +920,6 @@
     (and (stx-length=? xs1 xs2) (stx-andmap check? xs1 xs2)))
   (define current-ev (make-parameter (current-type-eval)))
   (define current-tag (make-parameter (type-key1))))
-
-;; type assignment utilities --------------------------------------------------
-(define-simple-macro (with-ctx ([x x- ty] ...) e ...)
-  (let-syntax
-      ([x (make-variable-like-transformer (assign-type #'x- #'ty))] ...)
-    e ...))
 
 (begin-for-syntax
   ;; var-assign :
@@ -1233,6 +1225,7 @@
   (struct exn:fail:type:infer exn:fail:user ())
 
   ;; TODO: deprecate this? can we rely on stx-parse instead?
+  ;;       please deprecate, the '(type->str args) ...' is really obnoxious
   ;; type-error #:src Syntax #:msg String Syntax ...
   ;; usage:
   ;; type-error #:src src-stx
