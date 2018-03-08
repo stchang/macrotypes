@@ -553,8 +553,8 @@
            ;; Id -> [Type -> Boolean]
            ;; Creates a predicate recognizing types of the particular constructor.
            ;; Works with base types as well as constructor types.
-           (define (mk-type-recognizer intern-id)
-             (syntax-parser
+           (define ((mk-type-recognizer intern-id) τ)
+             (syntax-parse ((current-promote) τ) ; why is this necessary *here*?
                [((~literal #%plain-app) giv-id . _)
                 (free-identifier=? #'giv-id intern-id)]
                [_ #f]))
@@ -743,11 +743,7 @@
              #:with τ-internal (generate-temporary #'τ)
              #`(begin
                 (begin-for-syntax
-                 (define (τ? t)
-                   (syntax-parse t
-                     [(~Any/bvs (~literal τ-internal) _ . _)
-                      #t]
-                     [_ #f]))
+                 (define τ? (mk-type-recognizer #'τ-internal))
                  ;; cannot deal with annotations bc τ- has no knowledge of
                  ;; its kind
                  (define-syntax τ-expander
