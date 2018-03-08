@@ -635,6 +635,7 @@
                   (τ* (λ () (#%expression #,extra-info-stx) (list . args))))]))
 
            ;; Id Sym -> Pat-Expander
+           ;; TODO: factor out ~literal/else
            (define-for-syntax (mk-ctor-~expander intern-id surf-name)
              (pattern-expander
               (syntax-parser
@@ -738,11 +739,24 @@
 
            ;; Id Sym -> Pat-Expander
            (define-for-syntax (mk-btype-~expander intern-id surf-name)
+             ;; TODO: fix this to handle has-annotations?
              ;; cannot deal with annotations bc τ- has no knowledge of
              ;; its kind
              (pattern-expander
               (syntax-parser
-                ;; TODO: fix this to handle has-annotations?
+                ;; this is used by ⇑ and is pretty redundant so I wonder
+                ;; if there is a better way to do this
+                [(_ . bvs+body-pat:id)
+                 #:with [tmp tmp-bvs tmp-body] (generate-temporaries #'[a b c])
+                 #`(~and tmp
+                         (~Any/bvs
+                          (~literal/else #,intern-id
+                                         (format "Expected ~a ~a, got: ~a"
+                                                 '#,surf-name 'name (type->str #'tmp))
+                                         #'tmp)
+                          tmp-bvs . tmp-body)
+                         (~parse bvs+body-pat #'[tmp-bvs . tmp-body]))]
+
                 [(_ bvs-pat . body-pat)
                  #:with tmp (generate-temporary)
                  #`(~and tmp
@@ -1011,7 +1025,7 @@
                  (syntax->datum #'e))
              'tycon (type->str #'τ_e))
             (syntax-parse #'τ_e
-              [(τ-expander bvs . rst) #'(e- [bvs rst])]
+              [(τ-expander . args) #'(e- args)]
               [_ #'e-])])]))
   (define-syntax (⇑s stx)
     (syntax-parse stx #:datum-literals (as)

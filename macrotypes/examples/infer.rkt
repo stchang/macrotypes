@@ -156,7 +156,7 @@
    #:with ([e_arg- τ_arg] ...) #'maybe-inferred-τs
    #:with e_fn_anno (syntax-property #'e_fn 'given-τ-args #'(τ_arg ...))
 ;   #:with [e_fn- (τ_in ... τ_out)] (⇑ e_fn_anno as →)
-   #:with [e_fn- ((X ...) ((~ext-stlc:→ τ_inX ... τ_outX)))] (⇑ e_fn_anno as ∀)
+   #:with [e_fn- ((X ...) (~ext-stlc:→ τ_inX ... τ_outX))] (⇑ e_fn_anno as ∀)
    #:fail-unless (stx-length=? #'(τ_inX ...) #'(e_arg ...)) ; check arity
                  (type-error #:src stx
                   #:msg (string-append
@@ -197,7 +197,7 @@
    (add-env (⊢ result-app : τ_out) #'env)]
   [(_ e_fn e_arg ...) ; infer fn first ------------------------- ; TODO: remove code dup
 ;   #:when (printf "fn first ~a\n" (syntax->datum stx))
-   #:with [e_fn- ((X ...) ((~ext-stlc:→ τ_inX ... τ_outX)))] (⇑ e_fn as ∀)
+   #:with [e_fn- ((X ...) (~ext-stlc:→ τ_inX ... τ_outX))] (⇑ e_fn as ∀)
    #:fail-unless (stx-length=? #'(τ_inX ...) #'(e_arg ...)) ; check arity
                  (type-error #:src stx
                   #:msg (string-append
