@@ -622,7 +622,7 @@
          ;; =============
          (begin-for-syntax
            ;; Stx -> [Listof Variance]
-           (define (default-arg-variances stx)
+           (define (default-arg-vars stx)
              (for/list ([_ (in-stx-list (stx-cdr stx))])
                invariant))
 
@@ -634,7 +634,7 @@
                 (quasisyntax/loc this-syntax
                   (τ* (λ () (#%expression #,extra-info-stx) (list . args))))]))
 
-           ;; Id -> Pat-Expander
+           ;; Id Sym -> Pat-Expander
            (define-for-syntax (mk-ctor-~expander intern-id surf-name)
              (pattern-expander
               (syntax-parser
@@ -684,7 +684,7 @@
                      (~optional ; variances
                       (~seq #:arg-variances arg-var-fn:expr)
                       #:name "#:arg-variances keyword"
-                      #:defaults ([arg-var-fn #'default-arg-variances]))
+                      #:defaults ([arg-var-fn #'default-arg-vars]))
                      (~optional ; extra-info
                       (~seq #:extra-info extra-info)
                       #:name "#:extra-info keyword"
@@ -718,98 +718,72 @@
                  (define-syntax τ (mk-ctor-surface-transformer op 'op 'n 'τ #'τ-)))]))
 
 
+         ;; --------------------------------------------------------------------------
+         ;; binding types ------------------------------------------------------------
+
+         (begin-for-syntax
+           ;; Stx -> [Listof Variance]
+           (define (default-arg-vars/binding stx)
+             ; only difference is 'stx-cddr' to skip over binding types
+             (for/list ([_ (in-stx-list (stx-cddr stx))])
+               invariant))
+
+           ;; Id Stx [Type -> [Listof Variance]] -> [Stx -> Stx]
+           (define (mk-btype-internal-transformer intern-id extra-info-stx arg-vars)
+             (syntax-parser
+               [(_ bvs . args)
+                #:with τ* (add-arg-variances intern-id (arg-vars this-syntax))
+                (quasisyntax/loc this-syntax
+                  (τ* (λ bvs (#%expression #,extra-info-stx) (list . args))))]))
+
+           ;; Id Sym -> Pat-Expander
+           (define-for-syntax (mk-btype-~expander intern-id surf-name)
+             ;; cannot deal with annotations bc τ- has no knowledge of
+             ;; its kind
+             (pattern-expander
+              (syntax-parser
+                ;; TODO: fix this to handle has-annotations?
+                [(_ bvs-pat . body-pat)
+                 #:with tmp (generate-temporary)
+                 #`(~and tmp
+                         (~Any/bvs
+                          (~literal/else #,intern-id
+                                         (format "Expected ~a ~a, got: ~a"
+                                                 '#,surf-name 'name (type->str #'tmp))
+                                         #'tmp)
+                          bvs-pat . body-pat))]))))
+
          (define-syntax define-internal-binding-type
            (syntax-parser
             [(_ (~var τ id)
-                (~or
-                 (~optional ; allow type at runtime
-                  (~and #:runtime (~parse runtime? #'#t))
-                  #:name "#:runtime keyword")
-                 (~optional ; variances
-                  (~seq #:arg-variances arg-variances-stx:expr)
-                  #:name "#:arg-variances keyword"
-                  #:defaults
-                  ([arg-variances-stx
-                    #`(λ (stx-id)
-                        (for/list ([arg (in-stx-list (stx-cddr stx-id))])
-                          invariant))]))
-                 (~optional ; extra-info
-                  (~seq #:extra-info extra-info)
-                  #:name "#:extra-info keyword"
-                  #:defaults ([extra-info #'void]))) (... ...))
+                (~or (~optional ; allow type at runtime
+                      (~and #:runtime (~parse runtime? #'#t))
+                      #:name "#:runtime keyword")
+                     (~optional ; variances
+                      (~seq #:arg-variances arg-vars-fn:expr)
+                      #:name "#:arg-variances keyword"
+                      #:defaults ([arg-vars-fn #'default-arg-vars/binding]))
+                      (~optional ; extra-info
+                       (~seq #:extra-info extra-info)
+                       #:name "#:extra-info keyword"
+                       #:defaults ([extra-info #'void]))) (... ...))
              #:with τ? (mk-? #'τ)
              #:with τ- (mk-- #'τ)
              #:with τ-expander (mk-~ #'τ)
              #:with τ-internal (generate-temporary #'τ)
+             #:with τ-runtime (if (attribute runtime?)
+                                  #'(λ (args)
+                                      (let ([bvs (build-list (procedure-arity args) (λ _ (gensym)))])
+                                        (list* 'τ bvs (apply args bvs))))
+                                  #'(λ (args) (type-use-error 'τ)))
              #`(begin
+                 (define τ-internal τ-runtime)
+                 (define-syntax τ-
+                   (mk-btype-internal-transformer #'τ-internal #'extra-info arg-vars-fn))
                 (begin-for-syntax
                  (define τ? (mk-type-recognizer #'τ-internal))
-                 ;; cannot deal with annotations bc τ- has no knowledge of
-                 ;; its kind
-                 (define-syntax τ-expander
-                   (pattern-expander
-                    (syntax-parser
-                     ; this case used by ⇑, TODO: remove this case?
-                     ;; if has-annotations?
-                     ;; - type has surface shape:
-                     ;;     (τ ([tv : k] ...) body ...)
-                     ;; - and parses to pattern:
-                     ;;     [([tv k] ...) (body ...)]
-                     ;; if not has-annotations?
-                     ;; - type has surface shape:
-                     ;;     (τ (tv ...) body ...)
-                     ;; - and parses to pattern:
-                     ;;     [(tv ...) (body ...)]
-                     [(_ . pat:id)
-                      #:with expanded-τ (generate-temporary)
-;                      #:with kindcon-expander (mk-~ #'kindcon)
-                      #'(~and expanded-τ
-                              (~Any/bvs 
-                               (~literal/else τ-internal
-                                              (format "Expected ~a type, got: ~a"
-                                                      'τ (type->str #'expanded-τ))
-                                              #'expanded-τ)
-                               (~and bvs (tv (... (... (... ...)))))
-                               . rst)
-                              ;; #,(if (attribute has-annotations?)
-                              ;;       #'(~and
-                              ;;          (~parse (kindcon-expander k (... (... ...)))
-                              ;;                  (detach #'expanded-τ))
-                              ;;          (~parse pat
-                              ;;                  #'[([tv k] (... (... ...))) rst]))
-                              (~parse pat #'[bvs rst]))]
-                     ;; TODO: fix this to handle has-annotations?
-                     ;; the difference with the first case is that here
-                     ;; the body is ungrouped, ie,
-                     ;; parses to pattern[(tv ...) . (body ...)]
-                     [(_ bvs-pat . pat)
-                      #:with expanded-τ (generate-temporary)
-                      #'(~and expanded-τ
-                              (~Any/bvs 
-                               (~literal/else τ-internal
-                                              (format "Expected ~a ~a, got: ~a"
-                                                      'τ 'name (type->str #'expanded-τ))
-                                              #'expanded-τ)
-                               bvs-pat . pat))])))
-                 (define arg-vars arg-variances-stx))
-                (define (τ-internal args)
-                  #,(if (attribute runtime?)
-                        #'(let ([bvs (build-list (procedure-arity args) (λ _ (gensym)))])
-                            (list* 'τ bvs (apply args bvs)))
-                        #'(raise
-                           (exn:fail:type:runtime
-                            (format "~a: Cannot use ~a at run time" 'τ 'name)
-                            (current-continuation-marks)))))
-                ; τ- is an internal constructor:
-                ; It does not validate inputs and does not attach a kind,
-                ; ie, it won't be recognized as a valid type, the programmer
-                ; must implement their own kind system
-                (define-syntax (τ- stx)
-                  (syntax-parse stx
-                    [(_ bvs . args)
-                     #:with τ* (add-arg-variances #'τ-internal (arg-vars stx))
-                     (syntax/loc stx
-                       (τ* (λ bvs (#%expression extra-info) (list . args))))])))]))
+                 (define-syntax τ-expander (mk-btype-~expander #'τ-internal 'τ))))]))
+
          (define-syntax define-binding-type
            (syntax-parser
              [(_ (~var τ id)
@@ -1017,7 +991,7 @@
                  (syntax->datum #'e))
              'tycon (type->str #'τ_e))
             (syntax-parse #'τ_e
-              [(τ-expander . args) #'(e- args)]
+              [(τ-expander bvs . rst) #'(e- [bvs rst])]
               [_ #'e-])])]))
   (define-syntax (⇑s stx)
     (syntax-parse stx #:datum-literals (as)
