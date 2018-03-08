@@ -491,6 +491,7 @@
              (define τs-lst (syntax->list τs))
              (or (null? τs-lst)
                  (andmap (λ (τ) (type=? (car τs-lst) τ)) (cdr τs-lst))))
+
            ;; type eval
            ;; - default-type-eval == full expansion == canonical type representation
            ;; - must expand because:
@@ -515,6 +516,7 @@
 
            (define current-type-eval (make-parameter default-type-eval))
            (define (type-evals τs) #`#,(stx-map (current-type-eval) τs)))
+
          ;; defining types ----------------------------------------------------
          (define-syntax type-out ;; helps with providing defined types
            (make-provide-transformer
@@ -530,7 +532,52 @@
                                    (combine-out . ts) (combine-out . t-s)
                                    (for-syntax (combine-out . t-expanders) . t?s)))
                   modes)]))))
+
+         ;; -------------------------------------------
+
+         ; (type-use-error <id>)
+         ; To be raised when a type is attempted to be evaluated
+         (define-syntax-rule (type-use-error tag-expr)
+           (raise (exn:fail:type:runtime
+                   (format "~a: Cannot use ~a at run time" tag-expr 'name)
+                   (current-continuation-marks))))
+
+         ;; -------------------------------------------------------------------
          ;; base types --------------------------------------------------------
+
+         ;; ============
+         ;; helper functions and macros
+         ;; ===========
+
+         (begin-for-syntax
+           ;; Id -> [Type -> Boolean]
+           ;; Creates a predicate recognizing types of the particular constructor.
+           ;; Works with base types as well as constructor types.
+           (define (mk-type-recognizer intern-id)
+             (syntax-parser
+               [((~literal #%plain-app) giv-id . _)
+                (free-identifier=? #'giv-id intern-id)]
+               [_ #f]))
+
+           ;; Id Sym Stx -> [Stx -> Stx]
+           (define (mk-base-transformer intern-id key kind-expr)
+             (syntax-parser
+               [(~var X id)
+                #:with repr (quasisyntax/loc #'X (#,intern-id))
+                ; TODO: cache the expansion of the kind?
+                #:with repr+ (attach #'repr key (expand/df kind-expr))
+                (add-orig #'repr+ #'X)]))
+
+           ;; Id -> Pat-Expander
+           (define-for-syntax (mk-base-~expander intern-id)
+             (pattern-expander
+              (syntax-parser
+                [(~var _ id)
+                 #`((~literal #%plain-app) (~literal #,intern-id))]
+                [(_ . rst)
+                 #`(((~literal #%plain-app) (~literal #,intern-id)) . rst)])))
+           )
+
          (define-syntax define-base-type
            (syntax-parser  ; default = 'key2 + #%tag
             [(_ (~var τ id) (~optional (~seq k:keyword (... ...)) #:defaults ([(k 1) null])))
@@ -541,37 +588,16 @@
              #:with τ? (mk-? #'τ)
              #:with τ-expander (mk-~ #'τ)
              #:with τ-internal (generate-temporary #'τ)
+             #:with τ-runtime (if (attribute runtime?)
+                                  #'(λ () 'τ)
+                                  #'(λ () (type-use-error 'τ)))
              #`(begin
+                (define τ-internal τ-runtime)
+                (define-syntax τ (mk-base-transformer #'τ-internal 'new-key2 #'new-#%tag))
                 (begin-for-syntax
-                 (define (τ? t)
-                   (syntax-parse t
-                    [((~literal #%plain-app) (~literal τ-internal)) #t]
-                    [_ #f]))
-                 (define-syntax τ-expander
-                   (pattern-expander
-                    (syntax-parser
-                     [(~var _ id)
-                      #'((~literal #%plain-app) (~literal τ-internal))]
-                     ; - this case used by ⇑, TODO: remove this case?
-                     ; - but it's also needed when matching a list of types,
-                     ; e.g., in stlc+sub (~Nat τ)
-                     [(_ . rst)
-                      #'(((~literal #%plain-app) (~literal τ-internal)) . rst)]))))
-                (define (τ-internal)
-                  #,(if (attribute runtime?)
-                        #''τ
-                        #'(raise
-                           (exn:fail:type:runtime
-                            (format "~a: Cannot use ~a at run time" 'τ 'tag)
-                            (current-continuation-marks)))))
-                (define-syntax τ
-                  (syntax-parser
-                    [(~var _ id)
-                     (add-orig 
-                      (attach
-                       (syntax/loc this-syntax (τ-internal))
-                       'new-key2 (expand/df #'new-#%tag))
-                      #'τ)])))]))
+                 (define τ? (mk-type-recognizer #'τ-internal))
+                 (define-syntax τ-expander (mk-base-~expander #'τ-internal))))]))
+
          (define-syntax define-base-types
            (syntax-parser
              [(_ (~var x id) (... ...))
