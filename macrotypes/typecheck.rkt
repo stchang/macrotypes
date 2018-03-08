@@ -784,6 +784,56 @@
                  (define τ? (mk-type-recognizer #'τ-internal))
                  (define-syntax τ-expander (mk-btype-~expander #'τ-internal 'τ))))]))
 
+         ;; Stx -> Boolean
+         (define-for-syntax annotated-bv?
+           (syntax-parser
+             [[:id (~datum key2) _] #t]
+             [_ #f]))
+
+         ;; Sym Id [Maybe Stx] <...> -> [Stx -> Stx]
+         ;; See 'mk-ctor-surface-transformer' for explanation about the <> stuff
+         (define-for-syntax (mk-btype-surface-transformer surf-name intern-id
+                                                          kind-con-stx
+                                                          ; b = bound vars
+                                                          ; t = type arguments
+                                                          <b> <b>-name <b>-rhs
+                                                          <t> <t>-name <t>-rhs
+                                                          ; bleh
+                                                          infers/ctx-fn)
+           (define has-anno? (syntax? kind-con-stx))
+           (syntax-parser
+             [(_ [bind (... ...)] arg (... ...))
+              #:fail-unless (<b> (length (attribute bind)) <b>-rhs)
+                (format "wrong number of type vars, expected ~a ~a"
+                        <b>-name <b>-rhs)
+              #:fail-unless (<t> (length (attribute arg)) <t>-rhs)
+                (format "wrong number of arguments, expected ~a ~a"
+                        <t>-name <t>-rhs)
+              #:fail-unless (if has-anno?
+                                (andmap annotated-bv? (attribute bind))
+                                (andmap identifier? (attribute bind)))
+                (if has-anno?
+                    "type variables must be annotated"
+                    "type variables must be identifiers")
+
+              #:with bvs+ks (if has-anno?
+                                #'[bind (... ...)]
+                                #'([bind key2 #%tag] (... ...)))
+
+              #:with (bvs- τs- _) (infers/ctx-fn #'bvs+ks #'[arg (... ...)])
+              ;; args are validated on the next line rather than above
+              ;; to ensure enough stx-parse progress for proper err msg,
+              ;; ie, "invalid type" instead of "improper tycon usage"
+              #:with [~! (~var _ type) (... ...)] #'τs-
+              #:with ([tv (~datum key2) k_arg] (... ...)) #'bvs+ks
+              #:with kind (if has-anno?
+                              (with-syntax ([ks (stx-map stx-caddr #'bvs+ks)])
+                                #`(#,kind-con-stx . ks))
+                              #'#%tag)
+              #:with repr (quasisyntax/loc this-syntax (#,intern-id bvs- . τs-))
+              #:with repr+ (attach #'repr 'key2 (default-type-eval #'kind))
+              (add-orig #'repr+ this-syntax)]))
+
          (define-syntax define-binding-type
            (syntax-parser
              [(_ (~var τ id)
@@ -804,43 +854,21 @@
                  . (~and other-options
                          (~not ((~or #:arity #:bvs #:arr) . _))))
               #:with τ- (mk-- #'τ)
+              #:with kind-con-expr (if (attribute has-annotations?)
+                                       #'#'kindcon
+                                       #''#f)
               #`(begin
                  (define-internal-binding-type τ . other-options)
-                 (define-syntax (τ stx)
-                   (syntax-parse stx
-                    [(_ (~and bvs
-                              (~or (bv:id (... (... ...)))
-                                   (~and (~fail #:unless #,(attribute has-annotations?))
-                                         ([_ (~datum key2) _] (... (... ...)))
-                                         bvs+ann)))
-                        . args)
-                     #:fail-unless (bvs-op (stx-length #'bvs) bvs-n)
-                                   (format "wrong number of type vars, expected ~a ~a"
-                                           'bvs-op 'bvs-n)
-                     #:fail-unless (op (stx-length #'args) n)
-                                   (format "wrong number of arguments, expected ~a ~a"
-                                           'op 'n)
-                     #:with bvs+ks (if #,(attribute has-annotations?)
-                                       #'bvs+ann
-                                       #'([bv key2 #%tag] (... (... ...))))
-                     #:with (bvs- τs- _) (infers/ctx+erase #'bvs+ks #'args #:tag 'key2 #:stop-list? #f)
-                     ;; args are validated on the next line rather than above
-                     ;; to ensure enough stx-parse progress for proper err msg,
-                     ;; ie, "invalid type" instead of "improper tycon usage"
-                     #:with (~! (~var _ type) (... (... ...))) #'τs-
-                     #:with ([tv (~datum key2) k_arg] (... (... ...))) #'bvs+ks
-                     #:with k_result (if #,(attribute has-annotations?)
-                                         #'(kindcon k_arg (... (... ...)))
-                                         #'#%tag)
-                     (add-orig
-                      (attach #'(τ- bvs- . τs-) 'key2 (default-type-eval #'k_result))
-                      stx)]
-                    [_
-                     (type-error #:src stx
-                      #:msg
-                      (string-append
-                       "Improper usage of type constructor ~a: ~a, expected ~a ~a arguments")
-                      #'τ stx #'op #'n)])))])))]))
+                 (define-syntax τ
+                   (mk-btype-surface-transformer 'τ #'τ- kind-con-expr
+                                                 bvs-op 'bvs-op 'bvs-n
+                                                 op 'op n
+                                                 (λ (ctx es)
+                                                   (infers/ctx+erase
+                                                    ctx es
+                                                    #:tag 'tag2
+                                                    #:stop-list? #f)))))]))
+         )]))
 
 ;; ----------------------------------------------------------------------------
 ;; ----------------------------------------------------------------------------
