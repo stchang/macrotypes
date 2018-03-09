@@ -84,6 +84,9 @@
    (⊢ e- : (∀ ([X- <: τsub] ...) τ_e))])
 (define-typed-syntax inst
   [(_ e τ:type ...)
+   ; there appears to be contradiction in how ⇑ is interpreted when
+   ; the type is binding, specifically should τ_body be parenthesized
+   ; or not?
    #:with (e- (([tv τ_sub] ...) τ_body)) (⇑ e as ∀)
    #:when (typechecks? #'(τ.norm ...) #'(τ_sub ...))
    (⊢ e- : #,(substs #'(τ.norm ...) #'(tv ...) #'τ_body))])
