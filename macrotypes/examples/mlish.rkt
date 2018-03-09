@@ -35,7 +35,7 @@
 (module+ test
   (require (for-syntax rackunit)))
 
-(provide define-type
+(provide define-type define-types
          → →/test
          ; redefine these to use lifted →
          (typed-out [+ : (→ Int Int Int)]
@@ -440,68 +440,91 @@
                   #`#,name this-syntax #`#,(object-name op) #`#,n)]))
 
 
-(define-syntax (define-type stx)
+;; defines a set of mutually recursive datatypes
+(define-syntax (define-types stx)
   (syntax-parse stx
-    [(define-type Name:id . rst)
-     #:with NewName (generate-temporary #'Name)
-     #:with Name2 (add-orig #'(NewName) #'Name)
-     #`(begin-
-         (define-type Name2 . #,(subst #'Name2 #'Name #'rst))
-         (stlc+rec-iso:define-type-alias Name Name2))]
-    [(define-type (Name:id X:id ...)
-       ;; constructors must have the form (Cons τ ...)
-       ;; but the first ~or clause accepts 0-arg constructors as ids;
-       ;; the ~and is a workaround to bind the duplicate Cons ids (see Ryan's email)
-       (~and (~or
-               ; Nullary constructor, without parens. Like `Nil`.
-               ; Ensure fld, τ are bound though empty.
-               (~and IdCons:id 
-                     (~parse (Cons [fld (~datum :) τ] ...) #'(IdCons)))
-               ; With named fields
-               (Cons [fld (~datum :) τ] ...)
-               ; Fields not named; generate internal names
-               (~and (Cons τ ...)
-                     (~parse (fld ...) (generate-temporaries #'(τ ...)))))) ...)
+    [(_ [(Name:id X:id ...)
+         ;; constructors must have the form (Cons τ ...)
+         ;; but the first ~or clause accepts 0-arg constructors as ids;
+         ;; the ~and is a workaround to bind the duplicate Cons ids (see Ryan's email)
+         (~and C (~or
+                  ; Nullary constructor, without parens. Like `Nil`.
+                  ; Ensure fld, τ are bound though empty.
+                  (~and IdCons:id 
+                        (~parse (Cons [fld (~datum :) τ] ...) #'(IdCons)))
+                  ; With named fields
+                  (Cons [fld (~datum :) τ] ...)
+                  ; Fields not named; generate internal names
+                  (~and (Cons τ ...)
+                        (~parse (fld ...) (generate-temporaries #'(τ ...)))))) ...] ...)
      ;; validate tys
-     #:with (ty_flat ...) (stx-flatten #'((τ ...) ...))
-     #:with (_ _ (_ _ (_ _ (_ _ ty+ ...))))
-            (expand/df
-              #`(lambda (X ...)
-                  (let-syntax
-                    ([X (make-rename-transformer (mk-type #'X))] ...
-                     [Name
-                       (make-type-constructor-transformer #'Name #'void ':: = (stx-length #'(X ...)))])
-                    (void ty_flat ...))))
+     #:with ((ty_flat ...) ...) (stx-map (λ (tss) (stx-flatten tss)) #'(((τ ...) ...) ...))
+     #:with ((_ _ (_ _ (_ _ (_ _ ty+ ...)))) ...)
+            (stx-map expand/df
+              #`((lambda (X ...)
+                   (let-syntax
+                       ([X (make-rename-transformer (mk-type #'X))] ...
+                        [Name
+                         (make-type-constructor-transformer #'Name #'void ':: = (stx-length #'(X ...)))] ...)
+                     (void ty_flat ...))) ...))
      #:when (stx-map
-              (lambda (t+ t) (unless (type? t+)
-                               (type-error #:src t
-                                           #:msg "~a is not a valid type" t)))
-              #'(ty+ ...) #'(ty_flat ...))
-     #:with NameExpander (format-id #'Name "~~~a" #'Name)
+             (λ (ts+ ts)
+               (stx-map
+                (lambda (t+ t) (unless (type? t+)
+                                 (type-error #:src t
+                                             #:msg "~a is not a valid type" t)))
+                ts+ ts))
+             #'((ty+ ...) ...) #'((ty_flat ...) ...))
+     #:with (NameExtraInfo ...) (stx-map (λ (n) (format-id n "~a-extra-info" n)) #'(Name ...))
+     #:with (n ...) (stx-map (λ (Xs) #`#,(stx-length Xs)) #'((X ...) ...))
+     #:with (arg-variance-vars ...) (generate-temporaries #'(Name ...))
+     #`(begin-
+         (begin-for-syntax
+           ;; arg-variance-vars : (List Variance-Var ...)
+           (define arg-variance-vars
+             (list (variance-var (syntax-e (generate-temporary 'X))) ...)) ...)
+         (define-type-constructor Name
+           #:arity = n
+           #:arg-variances (make-arg-variances-proc arg-variance-vars
+                                                    (list #'X ...)
+                                                    (list #'τ ... ...))
+           #:extra-info 'NameExtraInfo) ...
+         (define-type-rest (Name X ...) C ...) ...
+         )]))
+
+;; defines the runtime components of a define-datatype
+(define-syntax (define-type-rest stx)
+  (syntax-parse stx
+    [(_ (Name:id X:id ...)
+        ;; constructors must have the form (Cons τ ...)
+        ;; but the first ~or clause accepts 0-arg constructors as ids;
+        ;; the ~and is a workaround to bind the duplicate Cons ids (see Ryan's email)
+        (~and Cs (~or
+                  ; Nullary constructor, without parens. Like `Nil`.
+                  ; Ensure fld, τ are bound though empty.
+                  (~and IdCons:id 
+                        (~parse (Cons [fld (~datum :) τ] ...) #'(IdCons)))
+                  ; With named fields
+                  (Cons [fld (~datum :) τ] ...)
+                  ; Fields not named; generate internal names
+                  (~and (Cons τ ...)
+                        (~parse (fld ...) (generate-temporaries #'(τ ...)))))) ...)
      #:with Name? (mk-? #'Name)
      #:with NameExtraInfo (format-id #'Name "~a-extra-info" #'Name)
      #:with (StructName ...) (generate-temporaries #'(Cons ...))
      #:with ((exposed-acc ...) ...)
             (stx-map 
-              (λ (C fs) (stx-map (λ (f) (format-id C "~a-~a" C f)) fs))
-              #'(Cons ...) #'((fld ...) ...))
-     #:with ((acc ...) ...) (stx-map (λ (S fs) (stx-map (λ (f) (format-id S "~a-~a" S f)) fs))
-                                     #'(StructName ...) #'((fld ...) ...))
+             (λ (C fs) (stx-map (λ (f) (format-id C "~a-~a" C f)) fs))
+             #'(Cons ...) #'((fld ...) ...))
+     #:with ((acc ...) ...)
+            (stx-map
+             (λ (S fs) (stx-map (λ (f) (format-id S "~a-~a" S f)) fs))
+             #'(StructName ...) #'((fld ...) ...))
      #:with (Cons? ...) (stx-map mk-? #'(StructName ...))
      #:with (exposed-Cons? ...) (stx-map mk-? #'(Cons ...))
      #`(begin-
          (define-syntax NameExtraInfo
            (make-extra-info-transformer #'(X ...) #'(('Cons 'StructName Cons? [acc τ] ...) ...)))
-         (begin-for-syntax
-           ;; arg-variance-vars : (List Variance-Var ...)
-           (define arg-variance-vars
-             (list (variance-var (syntax-e (generate-temporary 'X))) ...)))
-         (define-type-constructor Name
-           #:arity = #,(stx-length #'(X ...))
-           #:arg-variances (make-arg-variances-proc arg-variance-vars
-                                                    (list #'X ...)
-                                                    (list #'τ ... ...))
-           #:extra-info 'NameExtraInfo)
          (struct- StructName (fld ...) #:reflection-name 'Cons #:transparent) ...
          (define-syntax exposed-acc ; accessor for records
            (make-variable-like-transformer
@@ -513,6 +536,17 @@
          (define-syntax Cons
            (make-constructor-transformer #'(X ...) #'(τ ...) #'Name #'StructName Name?))
          ...)]))
+
+;; defines a single datatype; dispatches to define-types
+(define-syntax (define-type stx)
+  (syntax-parse stx
+    [(_ Name:id . rst)
+     #:with NewName (generate-temporary #'Name)
+     #:with Name2 (add-orig #'(NewName) #'Name)
+     #`(begin-
+         (define-type Name2 . #,(subst #'Name2 #'Name #'rst))
+         (stlc+rec-iso:define-type-alias Name Name2))]
+    [(_ Name . Cs) #'(define-types [Name . Cs])]))
 
 (begin-for-syntax
   (define (make-extra-info-transformer Xs stuff)
