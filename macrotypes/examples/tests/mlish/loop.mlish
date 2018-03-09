@@ -9,7 +9,7 @@
 (typecheck-fail
     (define-type (Test2 X)
       (AA (Test2 X X)))
-  #:with-msg "Improper usage of type constructor Test2: (Test2 X X), expected = 1 arguments")
+  #:with-msg "Improper usage of type constructor Test2: \\(Test2 X X\\), expected = 1 arguments")
 
 (typecheck-fail
     (define-type (Test3 X)
