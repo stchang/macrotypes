@@ -440,32 +440,44 @@
                   #`#,name this-syntax #`#,(object-name op) #`#,n)]))
 
 
+(begin-for-syntax
+  (define-syntax-class constructor
+    (pattern
+      ;; constructors must have the form (Cons τ ...)
+      ;; but the first ~or clause accepts 0-arg constructors as ids;
+      ;; the ~and is a workaround to bind the duplicate Cons ids (see Ryan's email)
+      (~and C (~or
+                ; Nullary constructor, without parens. Like `Nil`.
+                ; Ensure fld, τ are bound though empty.
+                (~and IdCons:id
+                      (~parse (Cons [fld (~datum :) τ] ...) #'(IdCons)))
+                ; With named fields
+                (Cons [fld (~datum :) τ] ...)
+                ; Fields not named; generate internal names
+                (~and (Cons τ ...)
+                      (~parse (fld ...) (generate-temporaries #'(τ ...)))))))))
+
 ;; defines a set of mutually recursive datatypes
 (define-syntax (define-types stx)
   (syntax-parse stx
     [(_ [(Name:id X:id ...)
-         ;; constructors must have the form (Cons τ ...)
-         ;; but the first ~or clause accepts 0-arg constructors as ids;
-         ;; the ~and is a workaround to bind the duplicate Cons ids (see Ryan's email)
-         (~and C (~or
-                  ; Nullary constructor, without parens. Like `Nil`.
-                  ; Ensure fld, τ are bound though empty.
-                  (~and IdCons:id 
-                        (~parse (Cons [fld (~datum :) τ] ...) #'(IdCons)))
-                  ; With named fields
-                  (Cons [fld (~datum :) τ] ...)
-                  ; Fields not named; generate internal names
-                  (~and (Cons τ ...)
-                        (~parse (fld ...) (generate-temporaries #'(τ ...)))))) ...] ...)
+         c:constructor ...]
+        ...)
      ;; validate tys
-     #:with ((ty_flat ...) ...) (stx-map (λ (tss) (stx-flatten tss)) #'(((τ ...) ...) ...))
+     #:with ((ty_flat ...) ...) (stx-map (λ (tss) (stx-flatten tss)) #'(((c.τ ...) ...) ...))
      #:with ((_ _ (_ _ (_ _ (_ _ ty+ ...)))) ...)
             (stx-map expand/df
               #`((lambda (X ...)
                    (let-syntax
                        ([X (make-rename-transformer (mk-type #'X))] ...
+                        ; Temporary binding of the type we are now defining,
+                        ; so that we can expand the types of constructor arguments
+                        ; that refer to it. This binding is the reason we can't use infer
+                        ; here; infer is specifically about attaching types, not binding
+                        ; general transformers.
                         [Name
-                         (make-type-constructor-transformer #'Name #'void ':: = (stx-length #'(X ...)))] ...)
+                         (make-type-constructor-transformer
+                           #'Name #'void ':: = (stx-length #'(X ...)))] ...)
                      (void ty_flat ...))) ...))
      #:when (stx-map
              (λ (ts+ ts)
@@ -487,54 +499,42 @@
            #:arity = n
            #:arg-variances (make-arg-variances-proc arg-variance-vars
                                                     (list #'X ...)
-                                                    (list #'τ ... ...))
+                                                    (list #'c.τ ... ...))
            #:extra-info 'NameExtraInfo) ...
-         (define-type-rest (Name X ...) C ...) ...
+         (define-type-rest (Name X ...) c.C ...) ...
          )]))
 
 ;; defines the runtime components of a define-datatype
 (define-syntax (define-type-rest stx)
   (syntax-parse stx
     [(_ (Name:id X:id ...)
-        ;; constructors must have the form (Cons τ ...)
-        ;; but the first ~or clause accepts 0-arg constructors as ids;
-        ;; the ~and is a workaround to bind the duplicate Cons ids (see Ryan's email)
-        (~and Cs (~or
-                  ; Nullary constructor, without parens. Like `Nil`.
-                  ; Ensure fld, τ are bound though empty.
-                  (~and IdCons:id 
-                        (~parse (Cons [fld (~datum :) τ] ...) #'(IdCons)))
-                  ; With named fields
-                  (Cons [fld (~datum :) τ] ...)
-                  ; Fields not named; generate internal names
-                  (~and (Cons τ ...)
-                        (~parse (fld ...) (generate-temporaries #'(τ ...)))))) ...)
+        c:constructor ...)
      #:with Name? (mk-? #'Name)
      #:with NameExtraInfo (format-id #'Name "~a-extra-info" #'Name)
-     #:with (StructName ...) (generate-temporaries #'(Cons ...))
+     #:with (StructName ...) (generate-temporaries #'(c.Cons ...))
      #:with ((exposed-acc ...) ...)
             (stx-map 
              (λ (C fs) (stx-map (λ (f) (format-id C "~a-~a" C f)) fs))
-             #'(Cons ...) #'((fld ...) ...))
+             #'(c.Cons ...) #'((c.fld ...) ...))
      #:with ((acc ...) ...)
             (stx-map
              (λ (S fs) (stx-map (λ (f) (format-id S "~a-~a" S f)) fs))
-             #'(StructName ...) #'((fld ...) ...))
+             #'(StructName ...) #'((c.fld ...) ...))
      #:with (Cons? ...) (stx-map mk-? #'(StructName ...))
-     #:with (exposed-Cons? ...) (stx-map mk-? #'(Cons ...))
+     #:with (exposed-Cons? ...) (stx-map mk-? #'(c.Cons ...))
      #`(begin-
          (define-syntax NameExtraInfo
-           (make-extra-info-transformer #'(X ...) #'(('Cons 'StructName Cons? [acc τ] ...) ...)))
-         (struct- StructName (fld ...) #:reflection-name 'Cons #:transparent) ...
+           (make-extra-info-transformer #'(X ...) #'(('c.Cons 'StructName Cons? [acc c.τ] ...) ...)))
+         (struct- StructName (c.fld ...) #:reflection-name 'c.Cons #:transparent) ...
          (define-syntax exposed-acc ; accessor for records
            (make-variable-like-transformer
-             (assign-type #'acc #'(?∀ (X ...) (ext-stlc:→ (Name X ...) τ)))))
+             (assign-type #'acc #'(?∀ (X ...) (ext-stlc:→ (Name X ...) c.τ)))))
          ... ...
          (define-syntax exposed-Cons? ; predicates for each variant
            (make-variable-like-transformer
              (assign-type #'Cons? #'(?∀ (X ...) (ext-stlc:→ (Name X ...) Bool))))) ...
-         (define-syntax Cons
-           (make-constructor-transformer #'(X ...) #'(τ ...) #'Name #'StructName Name?))
+         (define-syntax c.Cons
+           (make-constructor-transformer #'(X ...) #'(c.τ ...) #'Name #'StructName Name?))
          ...)]))
 
 ;; defines a single datatype; dispatches to define-types
