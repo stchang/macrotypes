@@ -9,7 +9,7 @@
 (typecheck-fail
     (define-type (Test2 X)
       (AA (Test2 X X)))
-  #:with-msg "Improper use of constructor Test2; expected 1 args, got 2")
+  #:verb-msg "Improper usage of type constructor Test2: (Test2 X X), expected = 1 arguments")
 
 (typecheck-fail
     (define-type (Test3 X)
@@ -55,19 +55,21 @@
      [C x xs -> x]) : Int -> 1)
 
 ;; mutually referential datatypes
-(define-type (Loop1 X)
-  (L1 (Loop2 X)))
-(define-type (Loop2 X)
-  (L2 (Loop1 X)))
+(define-types
+  [(Loop1 X)
+   (L1 (Loop2 X))]
+  [(Loop2 X)
+   (L2 (Loop1 X))])
 
 (define (looping-f [x : (Loop1 Y)] -> (Loop1 Y)) x)
 
-(define-type (ListA X)
-  NA
-  (CA X (ListB X)))
-(define-type (ListB X)
-  NB
-  (CB X (ListA X)))
+(define-types
+  [(ListA X)
+   NA
+   (CA X (ListB X))]
+  [(ListB X)
+   NB
+   (CB X (ListA X))])
 
 (typecheck-fail
     (define-type (ListC X)
@@ -102,19 +104,19 @@
 (define-type (BankersDeque A)
   [BD Int (List A) Int (List A)])
 
-(define-type (ImplicitCatDeque A)
-  [Shallow (BankersDeque A)]
-  [Deep (BankersDeque A)
-        (ImplicitCatDeque (BankersDeque (CmpdElem (BankersDeque A))))
-        (BankersDeque A)
-        (ImplicitCatDeque (BankersDeque (CmpdElem (BankersDeque A))))
-        (BankersDeque A)])
-
-(define-type (CmpdElem A)
-  [Simple (BankersDeque A)]
-  [Cmpd (BankersDeque A) 
-        (ImplicitCatDeque 
-          (BankersDeque (CmpdElem (BankersDeque A)))) (BankersDeque A)])
+(define-types
+  [(ImplicitCatDeque A)
+   [Shallow (BankersDeque A)]
+   [Deep (BankersDeque A)
+         (ImplicitCatDeque (BankersDeque (CmpdElem (BankersDeque A))))
+         (BankersDeque A)
+         (ImplicitCatDeque (BankersDeque (CmpdElem (BankersDeque A))))
+         (BankersDeque A)]]
+  [(CmpdElem A)
+   [Simple (BankersDeque A)]
+   [Cmpd (BankersDeque A)
+         (ImplicitCatDeque
+           (BankersDeque (CmpdElem (BankersDeque A)))) (BankersDeque A)]])
 
 (define (id (icd : (ImplicitCatDeque Int)) → (ImplicitCatDeque Int))
   icd)

@@ -216,8 +216,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;(define-type (T17 X) (t17-some X) (t18 (T18 X)))
-;(define-type (T18 X) t18-none (t18-cons (T17 X) (T18 X)))
 (define-types
   [(T17 X) (t17-some X) (t18 (T18 X))]
   [(T18 X) t18-none (t18-cons (T17 X) (T18 X))])

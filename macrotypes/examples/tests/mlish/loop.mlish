@@ -55,10 +55,6 @@
      [C x xs -> x]) : Int -> 1)
 
 ;; mutually referential datatypes
-;(define-type (Loop1 X)
-  ;(L1 (Loop2 X)))
-;(define-type (Loop2 X)
-  ;(L2 (Loop1 X)))
 (define-types
   [(Loop1 X)
    (L1 (Loop2 X))]
@@ -67,12 +63,6 @@
 
 (define (looping-f [x : (Loop1 Y)] -> (Loop1 Y)) x)
 
-;(define-type (ListA X)
-  ;NA
-  ;(CA X (ListB X)))
-;(define-type (ListB X)
-  ;NB
-  ;(CB X (ListA X)))
 (define-types
   [(ListA X)
    NA
@@ -114,18 +104,6 @@
 (define-type (BankersDeque A)
   [BD Int (List A) Int (List A)])
 
-;(define-type (ImplicitCatDeque A)
-  ;[Shallow (BankersDeque A)]
-  ;[Deep (BankersDeque A)
-        ;(ImplicitCatDeque (BankersDeque (CmpdElem (BankersDeque A))))
-        ;(BankersDeque A)
-        ;(ImplicitCatDeque (BankersDeque (CmpdElem (BankersDeque A))))
-        ;(BankersDeque A)])
-;(define-type (CmpdElem A)
-  ;[Simple (BankersDeque A)]
-  ;[Cmpd (BankersDeque A)
-        ;(ImplicitCatDeque
-          ;(BankersDeque (CmpdElem (BankersDeque A)))) (BankersDeque A)])
 (define-types
   [(ImplicitCatDeque A)
    [Shallow (BankersDeque A)]
