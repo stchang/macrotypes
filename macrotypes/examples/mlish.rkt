@@ -571,7 +571,7 @@
             (current-continuation-marks)))
         #:with τ-expected+ ((current-type-eval) #'τ-expected)
         #:fail-unless (Name? #'τ-expected+)
-        (format "Expected ~a, got: ~a"
+        (format "Expected ~a type, got: ~a"
                 (syntax-e #'Name) (type->str #'τ-expected+))
         #:with (~Any _ τ-expected-arg ...) #'τ-expected+
         #'(C {τ-expected-arg ...})]
