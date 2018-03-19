@@ -406,11 +406,6 @@
          (?Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))])
 
 ;; define-type -----------------------------------------------
-;; TODO: should validate τ as part of define-type definition (before it's used)
-;; - not completely possible, since some constructors may not be defined yet,
-;;   ie, mutually recursive datatypes
-;; for now, validate types but punt if encountering unbound ids
-
 
 (define-for-syntax (make-type-constructor-transformer
                      name           ; Name of type constructor we're defining
