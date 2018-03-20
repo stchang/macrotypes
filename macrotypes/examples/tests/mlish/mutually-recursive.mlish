@@ -1,0 +1,29 @@
+#lang s-exp "../../mlish.rkt"
+(require turnstile/rackunit-typechecking)
+(require (only-in racket [let let-]))
+
+(define (even? [n : Int] -> Bool)
+  (if (zero? n)
+    #t
+    (odd? (- n 1))))
+
+(define (odd? [n : Int] -> Bool)
+  (if (zero? n)
+    #f
+    (even? (- n 1))))
+
+
+(check-type (even? 5) : Bool)
+
+(typecheck-fail/definitions
+  [(define (even2? [n : Int] -> Int)
+      (if (zero? n)
+        #t
+        (odd2? (- n 1))))
+
+   (define (odd2? [n : Int] -> Bool)
+     (if (zero? n)
+       #f
+       (even2? (- n 1))))]
+  #:with-msg "couldn't unify Int and Bool\n  expected: Int\n  given: Bool")
+

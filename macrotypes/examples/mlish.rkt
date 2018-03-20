@@ -372,9 +372,6 @@
    #:with f- (add-orig (generate-temporary #'f) #'f)
    #:with e_ann #'(add-expected e τ_out)
    #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
-   ;; TODO: check that specified return type is correct
-   ;; - currently cannot do it here; to do the check here, need all types of
-   ;;  top-lvl fns, since they can call each other
    #:with (~and ty_fn_expected (~?∀ _ (~ext-stlc:→ _ ... out_expected))) 
           ((current-type-eval) #'(?∀ Ys (ext-stlc:→ τ+orig ...)))
    #`(begin-
@@ -390,9 +387,6 @@
    #:with f- (add-orig (generate-temporary #'f) #'f)
    #:with e_ann #'(add-expected e τ_out) ; must be macro bc t_out may have unbound tvs
    #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
-   ;; TODO: check that specified return type is correct
-   ;; - currently cannot do it here; to do the check here, need all types of
-   ;;  top-lvl fns, since they can call each other
    #:with (~and ty_fn_expected (~?∀ _ (~ext-stlc:→ _ ... out_expected))) 
           (set-stx-prop/preserved 
            ((current-type-eval) #'(?∀ Ys (ext-stlc:→ τ+orig ...)))
