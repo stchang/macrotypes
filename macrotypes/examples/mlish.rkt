@@ -365,15 +365,18 @@
        (define-typed-variable-rename x ≫ x- : τ)
        (define- x- e-))]
   ; explicit "forall"
-  [(_ Ys (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) 
+  [(_ Ys (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out)
      e_body ... e)
    #:when (brace? #'Ys)
    ;; TODO; remove this code duplication
    #:with f- (add-orig (generate-temporary #'f) #'f)
    #:with e_ann #'(add-expected e τ_out)
    #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
-   #:with (~and ty_fn_expected (~?∀ _ (~ext-stlc:→ _ ... out_expected))) 
-          ((current-type-eval) #'(?∀ Ys (ext-stlc:→ τ+orig ...)))
+   #:with (~and ty_fn_expected (~?∀ _ (~ext-stlc:→ _ ... out_expected)))
+          (set-stx-prop/preserved
+            ((current-type-eval) #'(?∀ Ys (ext-stlc:→ τ+orig ...)))
+            'orig
+            (list #'(→ τ+orig ...)))
    #`(begin-
        (define-typed-variable-rename f ≫ f- : ty_fn_expected)
        (define- f-
@@ -381,21 +384,11 @@
   ;; alternate type sig syntax, after parameter names
   [(_ (f:id x:id ...) (~datum :) ty ... (~or (~datum ->) (~datum →)) ty_out . b)
    #'(define (f [x : ty] ... -> ty_out) . b)]
-  [(_ (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) 
+  [(_ (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out)
      e_body ... e)
-   #:with Ys (compute-tyvars #'(τ ... τ_out))
-   #:with f- (add-orig (generate-temporary #'f) #'f)
-   #:with e_ann #'(add-expected e τ_out) ; must be macro bc t_out may have unbound tvs
-   #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
-   #:with (~and ty_fn_expected (~?∀ _ (~ext-stlc:→ _ ... out_expected))) 
-          (set-stx-prop/preserved 
-           ((current-type-eval) #'(?∀ Ys (ext-stlc:→ τ+orig ...)))
-           'orig
-           (list #'(→ τ+orig ...)))
-   #`(begin-
-       (define-typed-variable-rename f ≫ f- : ty_fn_expected)
-       (define- f-
-         (?Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))])
+   #:with (Y ...) (compute-tyvars #'(τ ... τ_out))
+   #'(define {Y ...} (f [x : τ] ... -> τ_out)
+       e_body ... e)])
 
 ;; define-type -----------------------------------------------
 
