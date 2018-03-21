@@ -144,7 +144,7 @@
               (for/fold ([as- null] [cs initial-cs])
                         ([a (in-list (syntax->list #'args))]
                          [tyXin (in-list (syntax->list #'(τ_inX ...)))])
-                (define ty_in (inst-type/cs Xs cs tyXin))
+                (define ty_in (inst-type/cs/orig Xs cs tyXin datum=?))
                 (define/with-syntax [a- ty_a]
                   (infer+erase (if (empty? (find-free-Xs Xs ty_in))
                                    (add-expected-ty a ty_in)
@@ -154,9 +154,7 @@
                  (add-constraints Xs cs (list (list ty_in #'ty_a))
                                   (list (list (inst-type/cs/orig
                                                Xs cs ty_in
-                                               (λ (id1 id2)
-                                                 (equal? (syntax->datum id1)
-                                                         (syntax->datum id2))))
+                                               datum=?)
                                               #'ty_a))))))
 
          (list (reverse as-) Xs cs)])]))
@@ -529,7 +527,7 @@
            (make-variable-like-transformer
              (assign-type #'Cons? #'(?∀ (X ...) (ext-stlc:→ (Name X ...) Bool))))) ...
          (define-syntax c.Cons
-           (make-constructor-transformer #'(X ...) #'(c.τ ...) #'Name #'StructName Name?))
+           (make-constructor-transformer #'((X ...) (c.τ ...) Name StructName)))
          ...)]))
 
 ;; defines a single datatype; dispatches to define-types
@@ -549,56 +547,25 @@
       [(_ Y ...)
        (substs #'(Y ...) Xs stuff)]))
 
-  (define (make-constructor-transformer Xs τs Name-arg StructName-arg Name?)
-    (define/syntax-parse (X ...) Xs)
-    (define/syntax-parse (τ ...) τs)
-    (define/syntax-parse Name Name-arg)
-    (define/syntax-parse StructName StructName-arg)
-    (syntax-parser 
-      ; no args and not polymorphic
-      [C:id #:when (and (stx-null? #'(X ...)) (stx-null? #'(τ ...))) #'(C)]
-      ; no args but polymorphic, check inferred type
-      [C:id
-        #:when (stx-null? #'(τ ...))
-        #:with τ-expected (syntax-property #'C 'expected-type)
-        #:fail-unless (syntax-e #'τ-expected)
-        (raise
-          (exn:fail:type:infer
-            (format "~a (~a:~a): ~a: ~a"
-                    (syntax-source this-syntax) (syntax-line this-syntax) (syntax-column this-syntax)
-                    (syntax-e #'C)
-                    (no-expected-type-fail-msg))
-            (current-continuation-marks)))
-        #:with τ-expected+ ((current-type-eval) #'τ-expected)
-        #:fail-unless (Name? #'τ-expected+)
-        (format "Expected ~a type, got: ~a"
-                (syntax-e #'Name) (type->str #'τ-expected+))
-        #:with (~Any _ τ-expected-arg ...) #'τ-expected+
-        #'(C {τ-expected-arg ...})]
-      [_:id (⊢ StructName (?∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))] ; HO fn
-      [(C τs e_arg ...)
-       #:when (brace? #'τs) ; commit to this clause
-       #:with {~! τ_X:type ...} #'τs
-       #:with (τ_in:type ...) ; instantiated types
-       (stx-map
-         (λ (t) (substs #'(τ_X.norm ...) #'(X ...) t))
-         #'(τ ...))
-       #:with ([e_arg- τ_arg] ...)
-       (stx-map
-         (λ (e τ_e)
-            (infer+erase (set-stx-prop/preserved e 'expected-type τ_e)))
-         #'(e_arg ...) #'(τ_in.norm ...))
-       #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in.norm ...))
-       (typecheck-fail-msg/multi #'(τ_in.norm ...) #'(τ_arg ...) #'(e_arg ...))
-       (⊢ (StructName e_arg- ...) : (Name τ_X ...))]
-      [(C . args) ; no type annotations, must infer instantiation
-       #:with StructName/ty 
-       (set-stx-prop/preserved
-         (⊢ StructName : (?∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))
-         'orig
-         (list #'C))
-       ; stx/loc transfers expected-type
-       (syntax/loc this-syntax (mlish:#%app StructName/ty . args))])))
+  (define make-constructor-transformer
+    (syntax-parser
+      [((X ...) (τ ...) Name StructName)
+       #:with fn-ty-body #'(ext-stlc:→ τ ... (Name X ...))
+       #:with fn-ty #'(?∀ (X ...) fn-ty-body)
+       #:with StructName/ty (⊢ StructName : fn-ty)
+       ;; stx/loc transfers expected-type (mlish:#%app needs for inference)
+       (syntax-parser 
+         [C:id #:when (stx-null? #'(τ ...)) ; id, as unary constructor applied w/o parens
+          (syntax/loc this-syntax (C))]
+         [_:id #'StructName/ty]             ; id, as HO fn
+         [(C τs . args) ; explicit instantiation
+          #:when (brace? #'τs) ; commit to this clause
+          #:with fn-ty-inst (inst-type #'τs #'(X ...) #'fn-ty-body)
+          #:with StructName/inst/orig (add-orig (⊢ StructName : fn-ty-inst) #'C)
+          (syntax/loc this-syntax (mlish:#%app StructName/inst/orig . args))]
+         [(C . args)    ; no explicit instantiation, defer inference to mlish:#%app
+          #:with StructName/orig (add-orig #'StructName/ty #'C)
+          (syntax/loc this-syntax (mlish:#%app StructName/orig . args))])])))
 
 ;; match --------------------------------------------------
 (begin-for-syntax
@@ -649,8 +616,7 @@
        #:with (_ (_ Cons) _ _ [_ _ τ] ...)
               (stx-findf
                 (syntax-parser
-                 [(_ 'C . rst) 
-                  (equal? (syntax->datum #'Name) (syntax->datum #'C))])
+                 [(_ 'C . rst) (datum=? #'Name #'C)])
                 (stx-cdr (get-extra-info #'ty)))
        (unifys #'([p τ] ...))]
       [p+t #:fail-when #t (format "could not unify ~a" (syntax->datum #'p+t))
@@ -708,8 +674,7 @@
       #:with (_ (_ Cons) (_ StructName) _ [_ _ τ] ...)
              (stx-findf
                (syntax-parser
-                [(_ 'C . rst) 
-                 (equal? (syntax->datum #'Name) (syntax->datum #'C))])
+                [(_ 'C . rst) (datum=? #'Name #'C)])
                (stx-cdr (get-extra-info ty)))
       #:with (p- ...) (stx-map compile-pat #'pats #'(τ ...))
       (syntax/loc p (StructName p- ...))]))
