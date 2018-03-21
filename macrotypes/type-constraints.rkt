@@ -10,6 +10,7 @@
          inst-types/cs
          inst-type/cs/orig
          inst-types/cs/orig
+         datum=?
          )
 
 (require syntax/parse
@@ -20,7 +21,7 @@
 
 ;; add-constraints :
 ;; (Listof Id) (Listof (List Id Type)) (Stx-Listof (Stx-List Stx Stx)) -> (Listof (List Id Type))
-;; Adds a new set of constaints to a substituion, using the type
+;; Adds a new set of constaints to a substitution, using the type
 ;; unification algorithm for local type inference.
 (define (add-constraints Xs substs new-cs [orig-cs new-cs])
   (define Xs* (stx->list Xs))

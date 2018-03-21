@@ -114,7 +114,7 @@
     [(_ v:id (~datum ≫) v-:id (~datum :) τ)
      #'(define-syntax v
          (make-rename-transformer
-           (assign-type #'v- #`τ #:wrap? #f)))]))
+           (add-orig (assign-type #'v- #`τ #:wrap? #f) #'v)))]))
 
 ;; need options for
 ;; - pass through

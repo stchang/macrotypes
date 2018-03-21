@@ -9,7 +9,7 @@
  #:except → define #%app λ #%datum begin
           + - * void = zero? sub1 add1 not let let* and
  #:rename [~→ ~ext-stlc:→])
-(reuse inst  #:from "sysf.rkt")
+(reuse inst #:from "sysf.rkt")
 (require (only-in "ext-stlc.rkt" → →?))
 (require (only-in "sysf.rkt" ~∀ ∀ ∀? Λ))
 (reuse × tup proj define-type-alias #:from "stlc+rec-iso.rkt")
@@ -37,13 +37,11 @@
 
 (provide define-type define-types
          → →/test
-         ; redefine these to use lifted →
          (typed-out [+ : (→ Int Int Int)]
                     [- : (→ Int Int Int)]
                     [* : (→ Int Int Int)]
                     [max : (→ Int Int Int)]
                     [min : (→ Int Int Int)]
-                    [void : (→ Unit)]
                     [= : (→ Int Int Bool)]
                     [<= : (→ Int Int Bool)]
                     [< : (→ Int Int Bool)]
@@ -52,15 +50,47 @@
                     [zero? : (→ Int Bool)]
                     [sub1 : (→ Int Int)]
                     [add1 : (→ Int Int)]
-                    [not : (→ Bool Bool)]
                     [abs : (→ Int Int)]
                     [even? : (→ Int Bool)]
-                    [odd? : (→ Int Bool)])
+                    [odd? : (→ Int Bool)]
+                    [random : (→ Int Int)]
+                    [integer->char : (→ Int Char)]
+                    [string->list : (→ String (List Char))]
+                    [string->number : (→ String Int)]
+                    [string : (→ Char String)]
+                    [sleep : (→ Int Unit)]
+                    [string=? : (→ String String Bool)]
+                    [string<=? : (→ String String Bool)]
+                    [newline : (→ Unit)]
+                    [open-output-string : (→ String-Port)]
+                    [get-output-string : (→ String-Port String)]
+                    [string-upcase : (→ String String)]
+                    [make-string : (→ Int String)]
+                    [string-set! : (→ String Int Char Unit)]
+                    [string-ref : (→ String Int Char)]
+                    [fl+ : (→ Float Float Float)]
+                    [fl- : (→ Float Float Float)]
+                    [fl* : (→ Float Float Float)]
+                    [fl/ : (→ Float Float Float)]
+                    [flsqrt : (→ Float Float)]
+                    [flceiling : (→ Float Float)]
+                    [inexact->exact : (→ Float Int)]
+                    [exact->inexact : (→ Int Float)]
+                    [char->integer : (→ Char Int)]
+                    [real->decimal-string : (→ Float Int String)]
+                    [fx->fl : (→ Int Float)]
+                    [quotient : (→ Int Int Int)]
+                    [regexp-match : (→ Regexp String (List String))]
+                    [regexp : (→ String Regexp)]
+                    [channel-get : (∀ (X) (→ (Channel X) X))]
+                    [channel-put : (∀ (X) (→ (Channel X) X Unit))]
+                    [thread : (∀ (X) (→ (→ X) Thread))])
+         not void
           define match match2 λ
           (rename-out [mlish:#%app #%app])
           cond when unless
-         Channel make-channel channel-get channel-put
-         Thread thread
+         Channel make-channel
+         Thread
          List Vector
          vector make-vector vector-length vector-ref vector-set! vector-copy!
          Sequence in-range in-naturals in-vector in-list in-lines
@@ -71,6 +101,7 @@
          Hash in-hash hash hash-set! hash-ref hash-has-key? hash-count
          String-Port Input-Port
          write-string string-length string-copy!
+         number->string string-append
          quotient+remainder
          set!
          provide-type
@@ -144,7 +175,7 @@
               (for/fold ([as- null] [cs initial-cs])
                         ([a (in-list (syntax->list #'args))]
                          [tyXin (in-list (syntax->list #'(τ_inX ...)))])
-                (define ty_in (inst-type/cs Xs cs tyXin))
+                (define ty_in (inst-type/cs/orig Xs cs tyXin datum=?))
                 (define/with-syntax [a- ty_a]
                   (infer+erase (if (empty? (find-free-Xs Xs ty_in))
                                    (add-expected-ty a ty_in)
@@ -154,9 +185,7 @@
                  (add-constraints Xs cs (list (list ty_in #'ty_a))
                                   (list (list (inst-type/cs/orig
                                                Xs cs ty_in
-                                               (λ (id1 id2)
-                                                 (equal? (syntax->datum id1)
-                                                         (syntax->datum id2))))
+                                               datum=?)
                                               #'ty_a))))))
 
          (list (reverse as-) Xs cs)])]))
@@ -367,18 +396,18 @@
        (define-typed-variable-rename x ≫ x- : τ)
        (define- x- e-))]
   ; explicit "forall"
-  [(_ Ys (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) 
+  [(_ Ys (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out)
      e_body ... e)
    #:when (brace? #'Ys)
    ;; TODO; remove this code duplication
    #:with f- (add-orig (generate-temporary #'f) #'f)
    #:with e_ann #'(add-expected e τ_out)
    #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
-   ;; TODO: check that specified return type is correct
-   ;; - currently cannot do it here; to do the check here, need all types of
-   ;;  top-lvl fns, since they can call each other
-   #:with (~and ty_fn_expected (~?∀ _ (~ext-stlc:→ _ ... out_expected))) 
-          ((current-type-eval) #'(?∀ Ys (ext-stlc:→ τ+orig ...)))
+   #:with (~and ty_fn_expected (~?∀ _ (~ext-stlc:→ _ ... out_expected)))
+          (set-stx-prop/preserved
+            ((current-type-eval) #'(?∀ Ys (ext-stlc:→ τ+orig ...)))
+            'orig
+            (list #'(→ τ+orig ...)))
    #`(begin-
        (define-typed-variable-rename f ≫ f- : ty_fn_expected)
        (define- f-
@@ -386,24 +415,11 @@
   ;; alternate type sig syntax, after parameter names
   [(_ (f:id x:id ...) (~datum :) ty ... (~or (~datum ->) (~datum →)) ty_out . b)
    #'(define (f [x : ty] ... -> ty_out) . b)]
-  [(_ (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out) 
+  [(_ (f:id [x:id (~datum :) τ] ... (~or (~datum ->) (~datum →)) τ_out)
      e_body ... e)
-   #:with Ys (compute-tyvars #'(τ ... τ_out))
-   #:with f- (add-orig (generate-temporary #'f) #'f)
-   #:with e_ann #'(add-expected e τ_out) ; must be macro bc t_out may have unbound tvs
-   #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
-   ;; TODO: check that specified return type is correct
-   ;; - currently cannot do it here; to do the check here, need all types of
-   ;;  top-lvl fns, since they can call each other
-   #:with (~and ty_fn_expected (~?∀ _ (~ext-stlc:→ _ ... out_expected))) 
-          (set-stx-prop/preserved 
-           ((current-type-eval) #'(?∀ Ys (ext-stlc:→ τ+orig ...)))
-           'orig
-           (list #'(→ τ+orig ...)))
-   #`(begin-
-       (define-typed-variable-rename f ≫ f- : ty_fn_expected)
-       (define- f-
-         (?Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))])
+   #:with (Y ...) (compute-tyvars #'(τ ... τ_out))
+   #'(define {Y ...} (f [x : τ] ... -> τ_out)
+       e_body ... e)])
 
 ;; define-type -----------------------------------------------
 
@@ -529,7 +545,7 @@
            (make-variable-like-transformer
              (assign-type #'Cons? #'(?∀ (X ...) (ext-stlc:→ (Name X ...) Bool))))) ...
          (define-syntax c.Cons
-           (make-constructor-transformer #'(X ...) #'(c.τ ...) #'Name #'StructName Name?))
+           (make-constructor-transformer #'((X ...) (c.τ ...) Name StructName)))
          ...)]))
 
 ;; defines a single datatype; dispatches to define-types
@@ -549,56 +565,25 @@
       [(_ Y ...)
        (substs #'(Y ...) Xs stuff)]))
 
-  (define (make-constructor-transformer Xs τs Name-arg StructName-arg Name?)
-    (define/syntax-parse (X ...) Xs)
-    (define/syntax-parse (τ ...) τs)
-    (define/syntax-parse Name Name-arg)
-    (define/syntax-parse StructName StructName-arg)
-    (syntax-parser 
-      ; no args and not polymorphic
-      [C:id #:when (and (stx-null? #'(X ...)) (stx-null? #'(τ ...))) #'(C)]
-      ; no args but polymorphic, check inferred type
-      [C:id
-        #:when (stx-null? #'(τ ...))
-        #:with τ-expected (syntax-property #'C 'expected-type)
-        #:fail-unless (syntax-e #'τ-expected)
-        (raise
-          (exn:fail:type:infer
-            (format "~a (~a:~a): ~a: ~a"
-                    (syntax-source this-syntax) (syntax-line this-syntax) (syntax-column this-syntax)
-                    (syntax-e #'C)
-                    (no-expected-type-fail-msg))
-            (current-continuation-marks)))
-        #:with τ-expected+ ((current-type-eval) #'τ-expected)
-        #:fail-unless (Name? #'τ-expected+)
-        (format "Expected ~a type, got: ~a"
-                (syntax-e #'Name) (type->str #'τ-expected+))
-        #:with (~Any _ τ-expected-arg ...) #'τ-expected+
-        #'(C {τ-expected-arg ...})]
-      [_:id (⊢ StructName (?∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))] ; HO fn
-      [(C τs e_arg ...)
-       #:when (brace? #'τs) ; commit to this clause
-       #:with {~! τ_X:type ...} #'τs
-       #:with (τ_in:type ...) ; instantiated types
-       (stx-map
-         (λ (t) (substs #'(τ_X.norm ...) #'(X ...) t))
-         #'(τ ...))
-       #:with ([e_arg- τ_arg] ...)
-       (stx-map
-         (λ (e τ_e)
-            (infer+erase (set-stx-prop/preserved e 'expected-type τ_e)))
-         #'(e_arg ...) #'(τ_in.norm ...))
-       #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in.norm ...))
-       (typecheck-fail-msg/multi #'(τ_in.norm ...) #'(τ_arg ...) #'(e_arg ...))
-       (⊢ (StructName e_arg- ...) : (Name τ_X ...))]
-      [(C . args) ; no type annotations, must infer instantiation
-       #:with StructName/ty 
-       (set-stx-prop/preserved
-         (⊢ StructName : (?∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))
-         'orig
-         (list #'C))
-       ; stx/loc transfers expected-type
-       (syntax/loc this-syntax (mlish:#%app StructName/ty . args))])))
+  (define make-constructor-transformer
+    (syntax-parser
+      [((X ...) (τ ...) Name StructName)
+       #:with fn-ty-body #'(ext-stlc:→ τ ... (Name X ...))
+       #:with fn-ty #'(?∀ (X ...) fn-ty-body)
+       #:with StructName/ty (⊢ StructName : fn-ty)
+       ;; stx/loc transfers expected-type (mlish:#%app needs for inference)
+       (syntax-parser 
+         [C:id #:when (stx-null? #'(τ ...)) ; id, as unary constructor applied w/o parens
+          (syntax/loc this-syntax (C))]
+         [_:id #'StructName/ty]             ; id, as HO fn
+         [(C τs . args) ; explicit instantiation
+          #:when (brace? #'τs) ; commit to this clause
+          #:with fn-ty-inst (inst-type #'τs #'(X ...) #'fn-ty-body)
+          #:with StructName/inst/orig (add-orig (⊢ StructName : fn-ty-inst) #'C)
+          (syntax/loc this-syntax (mlish:#%app StructName/inst/orig . args))]
+         [(C . args)    ; no explicit instantiation, defer inference to mlish:#%app
+          #:with StructName/orig (add-orig #'StructName/ty #'C)
+          (syntax/loc this-syntax (mlish:#%app StructName/orig . args))])])))
 
 ;; match --------------------------------------------------
 (begin-for-syntax
@@ -649,8 +634,7 @@
        #:with (_ (_ Cons) _ _ [_ _ τ] ...)
               (stx-findf
                 (syntax-parser
-                 [(_ 'C . rst) 
-                  (equal? (syntax->datum #'Name) (syntax->datum #'C))])
+                 [(_ 'C . rst) (datum=? #'Name #'C)])
                 (stx-cdr (get-extra-info #'ty)))
        (unifys #'([p τ] ...))]
       [p+t #:fail-when #t (format "could not unify ~a" (syntax->datum #'p+t))
@@ -708,8 +692,7 @@
       #:with (_ (_ Cons) (_ StructName) _ [_ _ τ] ...)
              (stx-findf
                (syntax-parser
-                [(_ 'C . rst) 
-                 (equal? (syntax->datum #'Name) (syntax->datum #'C))])
+                [(_ 'C . rst) (datum=? #'Name #'C)])
                (stx-cdr (get-extra-info ty)))
       #:with (p- ...) (stx-map compile-pat #'pats #'(τ ...))
       (syntax/loc p (StructName p- ...))]))
@@ -962,6 +945,9 @@
                         #'(∀ (unsolved-X ... Y ...) τ_out)]))
    (⊢ (#%app- e_fn- e_arg- ...) : τ_out*)])
 
+;; define these explicitly (instead of typed-out), for use in desugarings
+(define-primop void : (→ Unit))
+(define-primop not : (→ Bool Bool))
 
 ;; cond and other conditionals
 (define-typed-syntax cond
@@ -975,16 +961,11 @@
    (⊢ (cond- [test- b- ... body-] ...) : (⊔ ty_body ...))])
 (define-typed-syntax when
   [(_ test body ...)
-;   #:with test- (⇑ test as Bool)
-   #:with [test- _] (infer+erase #'test)
-   #:with [(body- _) ...] (infers+erase #'(body ...))
-   (⊢ (when- test- body- ... (void-)) : Unit)])
+   (syntax/loc this-syntax (cond [test body ... (mlish:#%app void)]))])
 (define-typed-syntax unless
   [(_ test body ...)
-;   #:with test- (⇑ test as Bool)
-   #:with [test- _] (infer+erase #'test)
-   #:with [(body- _) ...] (infers+erase #'(body ...))
-   (⊢ (unless- test- body- ... (void-)) : Unit)])
+   (syntax/loc this-syntax (cond [test (mlish:#%app void)]
+                                 [else body ... (mlish:#%app void)]))])
 
 ;; sync channels and threads
 (define-type-constructor Channel)
@@ -993,30 +974,9 @@
   [(_ (~and tys {ty}))
    #:when (brace? #'tys)
    (⊢ (make-channel-) : (Channel ty))])
-(define-typed-syntax channel-get
-  [(_ c)
-   #:with [c- (~Channel ty)] (infer+erase #'c)
-   (⊢ (channel-get- c-) : ty)])
-(define-typed-syntax channel-put
-  [(_ c v)
-   #:with [c- (~Channel ty)] (infer+erase #'c)
-   #:with [v- ty_v] (infer+erase #'v)
-   #:fail-unless (typechecks? #'ty_v #'ty)
-   (typecheck-fail-msg/1 #'ty #'ty_v #'v)
-   (⊢ (channel-put- c- v-) : Unit)])
 
 (define-base-type Thread)
 
-;; threads
-(define-typed-syntax thread
-  [(_ th)
-   #:with (th- (~?∀ () (~ext-stlc:→ τ_out))) (infer+erase #'th)
-   (⊢ (thread- th-) : Thread)])
-
-(provide (typed-out [random : (→ Int Int)]
-                    [integer->char : (→ Int Char)]
-                    [string->list : (→ String (List Char))]
-                    [string->number : (→ String Int)]))
 (define-typed-syntax number->string
  [f:id (assign-type #'number->string- #'(→ Int String))]
  [(_ n)
@@ -1024,11 +984,6 @@
  [(_ n rad)
   #:with args- (⇑s (n rad) as Int)
   (⊢ (number->string- . args-) : String)])
-(provide number->string string-append
-         (typed-out [string : (→ Char String)]
-                    [sleep : (→ Int Unit)]
-                    [string=? : (→ String String Bool)]
-                    [string<=? : (→ String String Bool)]))
 
 (define-typed-syntax string-append
   [(_ . strs)
@@ -1197,7 +1152,6 @@
   [(displayln e)
    #:with [e- _] (infer+erase #'e)
    (⊢ (displayln- e-) : Unit)])
-(provide (typed-out [newline : (→ Unit)]))
 
 (define-typed-syntax list->vector
   [(list->vector e)
@@ -1289,9 +1243,6 @@
 
 (define-base-type String-Port)
 (define-base-type Input-Port)
-(provide (typed-out [open-output-string : (→ String-Port)]
-                    [get-output-string : (→ String-Port String)]
-                    [string-upcase : (→ String String)]))
 
 (define-typed-syntax write-string
  [(write-string str out)
@@ -1307,9 +1258,7 @@
  [(string-length str) 
   #:with str- (⇑ str as String)
   (⊢ (string-length- str-) : Int)])
-(provide (typed-out [make-string : (→ Int String)]
-                    [string-set! : (→ String Int Char Unit)]
-                    [string-ref : (→ String Int Char)]))
+
 (define-typed-syntax string-copy!
   [(string-copy! dest dest-start src)
    #'(string-copy! 
@@ -1322,17 +1271,6 @@
    #:with src-end- (⇑ src-end as Int)
    (⊢ (string-copy!- dest- dest-start- src- src-start- src-end-) : Unit)])
 
-(provide (typed-out [fl+ : (→ Float Float Float)]
-                    [fl- : (→ Float Float Float)]
-                    [fl* : (→ Float Float Float)]
-                    [fl/ : (→ Float Float Float)]
-                    [flsqrt : (→ Float Float)]
-                    [flceiling : (→ Float Float)]
-                    [inexact->exact : (→ Float Int)]
-                    [exact->inexact : (→ Int Float)]
-                    [char->integer : (→ Char Int)]
-                    [real->decimal-string : (→ Float Int String)]
-                    [fx->fl : (→ Int Float)]))
 (define-typed-syntax quotient+remainder
   [(quotient+remainder x y)
    #:with x- (⇑ x as Int)
@@ -1340,7 +1278,6 @@
    (⊢ (let-values- ([[a b] (quotient/remainder- x- y-)])
         (list- a b))
       : (stlc+rec-iso:× Int Int))])
-(provide (typed-out [quotient : (→ Int Int Int)]))
 
 (define-typed-syntax set!
  [(set! x:id e)
@@ -1370,8 +1307,6 @@
        (define-typed-variable-rename x ≫ x- : x-ty) ...)])
 
 (define-base-type Regexp)
-(provide (typed-out [regexp-match : (→ Regexp String (List String))]
-                    [regexp : (→ String Regexp)]))
 
 (define-typed-syntax equal?
   [(equal? e1 e2)

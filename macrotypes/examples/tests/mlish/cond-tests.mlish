@@ -1,0 +1,13 @@
+#lang s-exp "../../mlish.rkt"
+(require turnstile/rackunit-typechecking)
+
+(typecheck-fail (when 1 2)
+ #:with-msg "Expected expression 1 to have Bool type, got: Int")
+(typecheck-fail (unless 1 2)
+ #:with-msg "Expected expression 1 to have Bool type, got: Int")
+
+(check-type (when #t 1) : Unit)
+(check-type (when #f 1) : Unit)
+(check-type (unless #t 1) : Unit)
+(check-type (unless #f 1) : Unit)
+
