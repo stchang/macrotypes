@@ -15,7 +15,7 @@
 (define-type-alias ResultChan (Channel Result))
 
 (typecheck-fail (channel-put (make-channel {Bool}) 1)
- #:with-msg "channel-put: type mismatch: expected Bool, given Int\n *expression: 1")
+ #:with-msg "couldn't unify Bool and Int.*expected: Bool.*given: Int")
 
 (define (change [c1 : Color] [c2 : Color] -> Color)
   (match c1 with

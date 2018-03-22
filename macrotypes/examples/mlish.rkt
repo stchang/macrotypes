@@ -9,7 +9,7 @@
  #:except → define #%app λ #%datum begin
           + - * void = zero? sub1 add1 not let let* and
  #:rename [~→ ~ext-stlc:→])
-(reuse inst  #:from "sysf.rkt")
+(reuse inst #:from "sysf.rkt")
 (require (only-in "ext-stlc.rkt" → →?))
 (require (only-in "sysf.rkt" ~∀ ∀ ∀? Λ))
 (reuse × tup proj define-type-alias #:from "stlc+rec-iso.rkt")
@@ -37,13 +37,11 @@
 
 (provide define-type define-types
          → →/test
-         ; redefine these to use lifted →
          (typed-out [+ : (→ Int Int Int)]
                     [- : (→ Int Int Int)]
                     [* : (→ Int Int Int)]
                     [max : (→ Int Int Int)]
                     [min : (→ Int Int Int)]
-                    [void : (→ Unit)]
                     [= : (→ Int Int Bool)]
                     [<= : (→ Int Int Bool)]
                     [< : (→ Int Int Bool)]
@@ -52,7 +50,6 @@
                     [zero? : (→ Int Bool)]
                     [sub1 : (→ Int Int)]
                     [add1 : (→ Int Int)]
-                    [not : (→ Bool Bool)]
                     [abs : (→ Int Int)]
                     [even? : (→ Int Bool)]
                     [odd? : (→ Int Bool)]
@@ -84,12 +81,16 @@
                     [fx->fl : (→ Int Float)]
                     [quotient : (→ Int Int Int)]
                     [regexp-match : (→ Regexp String (List String))]
-                    [regexp : (→ String Regexp)])
+                    [regexp : (→ String Regexp)]
+                    [channel-get : (∀ (X) (→ (Channel X) X))]
+                    [channel-put : (∀ (X) (→ (Channel X) X Unit))]
+                    [thread : (∀ (X) (→ (→ X) Thread))])
+         not void
           define match match2 λ
           (rename-out [mlish:#%app #%app])
           cond when unless
-         Channel make-channel channel-get channel-put
-         Thread thread
+         Channel make-channel
+         Thread
          List Vector
          vector make-vector vector-length vector-ref vector-set! vector-copy!
          Sequence in-range in-naturals in-vector in-list in-lines
@@ -944,6 +945,9 @@
                         #'(∀ (unsolved-X ... Y ...) τ_out)]))
    (⊢ (#%app- e_fn- e_arg- ...) : τ_out*)])
 
+;; define these explicitly (instead of typed-out), for use in desugarings
+(define-primop void : (→ Unit))
+(define-primop not : (→ Bool Bool))
 
 ;; cond and other conditionals
 (define-typed-syntax cond
@@ -957,16 +961,11 @@
    (⊢ (cond- [test- b- ... body-] ...) : (⊔ ty_body ...))])
 (define-typed-syntax when
   [(_ test body ...)
-;   #:with test- (⇑ test as Bool)
-   #:with [test- _] (infer+erase #'test)
-   #:with [(body- _) ...] (infers+erase #'(body ...))
-   (⊢ (when- test- body- ... (void-)) : Unit)])
+   (syntax/loc this-syntax (cond [test body ... (mlish:#%app void)]))])
 (define-typed-syntax unless
   [(_ test body ...)
-;   #:with test- (⇑ test as Bool)
-   #:with [test- _] (infer+erase #'test)
-   #:with [(body- _) ...] (infers+erase #'(body ...))
-   (⊢ (unless- test- body- ... (void-)) : Unit)])
+   (syntax/loc this-syntax (cond [test (mlish:#%app void)]
+                                 [else body ... (mlish:#%app void)]))])
 
 ;; sync channels and threads
 (define-type-constructor Channel)
@@ -975,22 +974,12 @@
   [(_ (~and tys {ty}))
    #:when (brace? #'tys)
    (⊢ (make-channel-) : (Channel ty))])
-(define-typed-syntax channel-get
-  [(_ c)
-   #:with [c- (~Channel ty)] (infer+erase #'c)
-   (⊢ (channel-get- c-) : ty)])
-(define-typed-syntax channel-put
-  [(_ c v)
-   #:with [c- (~Channel ty)] (infer+erase #'c)
-   #:with [v- ty_v] (infer+erase #'v)
-   #:fail-unless (typechecks? #'ty_v #'ty)
-   (typecheck-fail-msg/1 #'ty #'ty_v #'v)
-   (⊢ (channel-put- c- v-) : Unit)])
 
 (define-base-type Thread)
 
+; thread : (∀ (X) (-> (-> X) Thread))
 ;; threads
-(define-typed-syntax thread
+#;(define-typed-syntax thread
   [(_ th)
    #:with (th- (~?∀ () (~ext-stlc:→ τ_out))) (infer+erase #'th)
    (⊢ (thread- th-) : Thread)])
