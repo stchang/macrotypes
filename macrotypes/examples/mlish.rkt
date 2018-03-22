@@ -977,13 +977,6 @@
 
 (define-base-type Thread)
 
-; thread : (∀ (X) (-> (-> X) Thread))
-;; threads
-#;(define-typed-syntax thread
-  [(_ th)
-   #:with (th- (~?∀ () (~ext-stlc:→ τ_out))) (infer+erase #'th)
-   (⊢ (thread- th-) : Thread)])
-
 (define-typed-syntax number->string
  [f:id (assign-type #'number->string- #'(→ Int String))]
  [(_ n)
