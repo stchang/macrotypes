@@ -504,6 +504,8 @@
              ; - but this causes problems when combining unexpanded and
              ;   expanded types to create new types
              ; - alternative: use syntax-local-expand-expression?
+             (unless (and (syntax? τ) (syntax-e τ))
+               (error 'type-eval "internal error: attempted to type-eval on non-syntax: ~a\n" τ))
              (define expanded (expand/df τ))
              ; - Must disarm because we reconstruct expanded syntax that may have
              ;   come from syntax-rules macros that do a syntax-protect. Doesn't bother
