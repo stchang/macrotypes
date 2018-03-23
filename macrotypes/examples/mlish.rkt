@@ -1125,7 +1125,7 @@
 
 (define-typed-syntax for/sum
   [(for/sum ([x:id e]... 
-       (~optional (~seq #:when guard) #:defaults ([guard #'#t])))
+       (~optional (~seq #:when guard) #:defaults ([guard #'(ext-stlc:#%datum . #t)])))
       body)
    #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
    #:with [(x- ...) (guard- body-) (_ ty_body)]

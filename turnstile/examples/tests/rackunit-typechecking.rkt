@@ -88,18 +88,19 @@
                        ; check err msg matches
                        (regexp-match? (syntax-e #'msg) (exn-message ex))))
                 (λ ()
-                  (expand/df (car (infer+erase #'e)))))))
+                  (expand/df #'e)))))
      #'(void)]))
 
 (define-syntax typecheck-fail/definitions
   (syntax-parser
     [(_ [def ...] . kws)
-     #'(typecheck-fail
+     (syntax/loc this-syntax
+       (typecheck-fail
          (let ()
            def
            ...
            (void))
-         . kws)]))
+         . kws))]))
 
 (define-syntax (check-runtime-exn stx)
   (syntax-parse stx

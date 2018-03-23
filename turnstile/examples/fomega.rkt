@@ -28,7 +28,7 @@
 (begin-for-syntax
   (define ★? #%type?)
   (define-syntax ~★ (λ _ (error "~★ not implemented")))) ; placeholder
-(define-syntax ★ (make-rename-transformer #'#%type))
+(define-syntax ★ (make-variable-like-transformer (mk-kind #'#%type)))
 (define-kind-constructor ⇒ #:arity >= 1)
 (define-kind-constructor ∀★ #:arity >= 0)
 
@@ -79,17 +79,21 @@
 ;; (via infer fn)
 (define-typed-syntax (inst e τ:any-type ...) ≫
   [⊢ e ≫ e- ⇒ (~∀ tvs τ_body) (⇒ :: (~∀★ k ...))]
-  [⊢ τ ≫ τ- ⇐ :: k] ...
+  #:with ((τ- k*) ...) (infers+erase #'(τ ...) #:tag ':: #:stop-list? #f)
+  #:fail-unless (kindchecks? #'(k* ...) #'(k ...))
+                 (typecheck-fail-msg/multi 
+                  #'(k ...) #'(k* ...) #'(τ ...))
   --------
   [⊢ e- ⇒ #,(substs #'(τ.norm ...) #'tvs #'τ_body)])
 
 ;; - see fomega2.rkt for example with no explicit tyλ and tyapp
 (define-kinded-syntax (tyλ bvs:kind-ctx τ_body) ≫
   [[bvs.x ≫ tv- :: bvs.kind] ... ⊢ τ_body ≫ τ_body- ⇒ k_body]
+  #:with k/tagged (mk-kind #'k_body)
   #:fail-unless ((current-kind?) #'k_body) ; better err, in terms of τ_body
                 (format "not a valid type: ~a\n" (type->str #'τ_body))
   --------
-  [⊢ (λ- (tv- ...) τ_body-) ⇒ (⇒ bvs.kind ... k_body)])
+  [⊢ (λ- (tv- ...) τ_body-) ⇒ (⇒ bvs.kind ... k/tagged)])
 
 (define-kinded-syntax (tyapp τ_fn τ_arg ...) ≫
   [⊢ τ_fn ≫ τ_fn- ⇒ (~⇒ k_in ... k_out)]

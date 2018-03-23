@@ -161,10 +161,10 @@
 
 (define-typed-syntax (inst e τ:any-type ...) ≫
   [⊢ e ≫ e- ⇒ (~∀ (tv ...) τ_body) (⇒ :: (~★ k ...))]
-;  [⊢ τ ≫ τ- ⇐ k] ...     ; ⇐ would use typechecks?
-  [⊢ τ ≫ τ- ⇒ :: k_τ] ... ; so use ⇒ and kindchecks?
-  #:fail-unless (kindchecks? #'(k_τ ...) #'(k ...))
-                (typecheck-fail-msg/multi #'(k ...) #'(k_τ ...) #'(τ ...))
+  #:with ((τ- k*) ...) (infers+erase #'(τ ...) #:tag ':: #:stop-list? #f)
+  #:fail-unless (kindchecks? #'(k* ...) #'(k ...))
+                 (typecheck-fail-msg/multi 
+                  #'(k ...) #'(k* ...) #'(τ ...))
   --------
   [⊢ e- ⇒ #,(substs #'(τ.norm ...) #'(tv ...) #'τ_body)])
 

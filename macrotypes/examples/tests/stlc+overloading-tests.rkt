@@ -6,11 +6,11 @@
 
 (typecheck-fail
  (signature (to-string0 α) (→ α Str Str))
- #:with-msg "Expected")
+ #:with-msg "Expected.*signature")
 
 (typecheck-fail
  (signature (to-string0 α) (→ Str Str))
- #:with-msg "Expected")
+ #:with-msg "Expected.*signature")
 
 (typecheck-fail
  (signature (to-string0 α) (→ α Str))

@@ -11,7 +11,6 @@
 ;; - extend sysf with Λ inst
 
 (provide (type-out ∀) (kind-out ★ ⇒ ∀★ ∀) Λ inst tyλ tyapp)
-
 (define-syntax-category :: kind)
 
 ;; want #%type to be equiv to ★
@@ -29,7 +28,7 @@
 (begin-for-syntax
   (define ★? #%type?)
   (define-syntax ~★ (lambda _ (error "~★ not implemented")))) ; placeholder
-(define-syntax ★ (make-rename-transformer #'#%type))
+(define-syntax ★ (make-variable-like-transformer (mk-kind #'#%type)))
 (define-kind-constructor ⇒ #:arity >= 1)
 (define-kind-constructor ∀★ #:arity >= 0)
 
@@ -92,9 +91,10 @@
 (define-typed-syntax tyλ
   [(_ bvs:kind-ctx τ_body)
    #:with (tvs- τ_body- k_body) (infer/ctx+erase #'bvs #'τ_body #:tag ':: #:stop-list? #f)
+   #:with k/tagged (mk-kind #'k_body) ; lift from sysf #%type to fomega ★
    #:fail-unless ((current-kind?) #'k_body)
                  (format "not a valid type: ~a\n" (type->str #'τ_body))
-   (assign-kind #'(λ- tvs- τ_body-) #'(⇒ bvs.kind ... k_body))])
+   (assign-kind #'(λ- tvs- τ_body-) #'(⇒ bvs.kind ... k/tagged))])
 
 (define-typed-syntax tyapp
   [(_ τ_fn τ_arg ...)

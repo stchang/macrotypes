@@ -1045,11 +1045,23 @@
       (list #'erased)
       null))
 
+    (define ((typeof/err tag ctx) e+ e)
+      (define ty (detach e+ tag)) 
+      (unless ty
+        (raise-syntax-error #f
+          (case tag
+            [(:) "expected a typed term"]
+            [(::) "expected a kinded type"]
+            [(::::) "expected a valid kind"]
+            [else (format "expected syntax with property ~a" tag)])
+          ctx
+          (get-orig e)))
+      ty)
   ;; basic infer function with no context:
   ;; infers the type and erases types in an expression
   (define (infer+erase e #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
     (define e+ (local-expand e 'expression (decide-stop-list stop-list?)))
-    (list e+ (detach e+ tag)))
+    (list e+ ((typeof/err tag (current-syntax-context)) e+ e)))
 
   ;; infers the types and erases types in multiple expressions
   (define (infers+erase es #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
@@ -1070,6 +1082,7 @@
                     #:tag [tag (current-tag)] ; the "type" to return from es
                     #:key [kev #'(current-type-eval)] ; kind-eval (tvk in tvctx)
                     #:stop-list? [stop-list? #t])
+     (define old-stx-ctx (current-syntax-context))
      (syntax-parse ctx
        [((~or X:id [x:id (~seq sep:id τ) ...]) ...) ; dont expand; τ may reference to tv
        #:with (~or (~and (tv:id ...)
@@ -1124,12 +1137,9 @@
          (for/list ([e (syntax->list #'(e ...))])
                    (local-expand e 'expression (decide-stop-list stop-list?) ctx)))
 
-       (define (typeof e)
-         (detach e tag))
-
        (list #'(tv+ ...) #'(X+ ... x+ ...)
              #'(e+ ...)
-             (stx-map typeof #'(e+ ...)))]
+             (stx-map (typeof/err tag old-stx-ctx) #'(e+ ...) #'(e ...)))]
 
       [([x τ] ...) (infer es #:ctx #`([x #,tag τ] ...) #:tvctx tvctx #:tag tag #:stop-list? stop-list?)]))
 

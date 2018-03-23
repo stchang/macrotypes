@@ -1347,7 +1347,7 @@
 (define-typed-syntax 
   (for/sum 
     ([x:id e]... 
-     (~optional (~seq #:when guard) #:defaults ([guard #'#t])))
+     (~optional (~seq #:when guard) #:defaults ([guard #'(ext-stlc:#datum . #t)])))
     body) ≫
    [⊢ e ≫ e- ⇒ (~Sequence ty)] ...
    [[x ≫ x- : ty] ... ⊢ [guard ≫ guard- ⇒ _] [body ≫ body- ⇐ Int]]
@@ -1729,7 +1729,7 @@
                 (~=> TCsub ... 
                      (~TC [generic-op-expected ty-concrete-op-expected] ...)))
            _)
-           (infers/tyctx+erase #'(X ...) #'(TC ... (Name ty ...)) #:stop-list? #f)
+           (infers/tyctx+erase #'(X ...) #'(TC ... (Name ty ...)) #:tag ':: #:stop-list? #f)
    ;; this produces #%app bad stx err, so manually call infer for now
    ;; [([X ≫ X- :: #%type] ...) () ⊢ (TC ... (Name ty ...)) ≫
    ;;                                (TC+ ... 

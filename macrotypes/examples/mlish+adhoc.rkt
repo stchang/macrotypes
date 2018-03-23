@@ -1311,7 +1311,7 @@
 
 (define-typed-syntax for/sum
   [(_ ([x:id e]... 
-       (~optional (~seq #:when guard) #:defaults ([guard #'#t])))
+       (~optional (~seq #:when guard) #:defaults ([guard #'(ext-stlc:#%datum . #t)])))
       body)
    #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
    #:with [(x- ...) (guard- body-) (_ ty_body)]
@@ -1618,7 +1618,7 @@
               (datum->syntax stx (cons #'app (cons #'out-op #'(e- (... ...)))))])) ...
          (define-syntax- (Name stx)
            (syntax-parse stx
-             [(_ X ...) 
+             [(_ X ...)
               (add-orig 
                 #`(=> TC ... #,(mk-type #'(('op ty) ...)))
                 #'(Name X ...))])))]))
@@ -1685,7 +1685,7 @@
               (~=> TCsub ... 
                    (~TC [generic-op-expected ty-concrete-op-expected] ...)))
              _)
-            (infers/tyctx+erase #'([X :: #%type] ...) #'(TC ... (Name ty ...)) #:stop-list? #f)
+            (infers/tyctx+erase #'([X :: #%type] ...) #'(TC ... (Name ty ...)) #:tag ':: #:stop-list? #f)
      #:when (TCs-exist? #'(TCsub ...) #:ctx stx)
      ;; simulate as if the declared concrete-op* has TC ... predicates
      ;; TODO: fix this manual deconstruction and assembly

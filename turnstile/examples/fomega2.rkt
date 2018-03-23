@@ -122,7 +122,7 @@
 
 ;; extend #%app to also work as a type
 (define-kinded-syntax #%app
-  [(_ τ_fn τ_arg ...) ≫                     ; type
+  [(_ τ_fn:any-type τ_arg:type ...) ≫                     ; type
    [⊢ τ_fn ≫ τ_fn- ⇒ (~→ k_in ... k_out)]
    #:fail-unless (stx-length=? #'[k_in ...] #'[τ_arg ...])
                  (num-args-fail-msg #'τ_fn #'[k_in ...] #'[τ_arg ...])

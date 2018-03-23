@@ -11,7 +11,7 @@
 (typecheck-fail (→ 1))
 (check-type 1 : Int)
 
-(typecheck-fail (tyλ ([x :: ★]) 1) #:with-msg "not a valid type: 1")
+(typecheck-fail (tyλ ([x :: ★]) 1) #:with-msg "expected a kinded type\n  at: 1")
 
 (check-type (Λ ([X :: ★]) (λ ([x : X]) x)) : (∀ ([X :: ★]) (→ X X)))
 (check-not-type (Λ ([X :: ★]) (λ ([x : X]) x)) :

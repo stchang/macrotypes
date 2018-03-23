@@ -10,4 +10,3 @@
 (check-type (when #f 1) : Unit)
 (check-type (unless #t 1) : Unit)
 (check-type (unless #f 1) : Unit)
-

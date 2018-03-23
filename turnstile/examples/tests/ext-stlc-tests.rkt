@@ -47,13 +47,13 @@
 (check-type (ann 1 : Int) : Int ⇒ 1)
 (check-type ((λ ([x : Int]) (ann x : Int)) 10) : Int ⇒ 10)
 (typecheck-fail (ann 1 : Bool)
-                #:with-msg "ann: type mismatch: expected Bool, given Int\n *expression: 1")
+ #:with-msg "ann: type mismatch: expected Bool, given Int\n *expression: 1")
 ;ann errs
 (typecheck-fail (ann 1 : Complex) #:with-msg "unbound identifier")
 (typecheck-fail (ann 1 : 1) #:with-msg "not a well-formed type")
 (typecheck-fail (ann 1 : (λ ([x : Int]) x)) #:with-msg "not a well-formed type")
 (typecheck-fail (ann Bool : Int)
-                #:with-msg "ann: type mismatch: expected Int, given an invalid expression\n *expression: Bool")
+ #:with-msg "ann: expected a typed term\n  at: Bool\n  in: \\(ann Bool : Int\\)")
 
 ; let
 (check-type (let () (+ 1 1)) : Int ⇒ 2)

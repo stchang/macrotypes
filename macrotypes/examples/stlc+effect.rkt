@@ -24,9 +24,11 @@
       assign-locs)
      deref-locs))
      
-  (define (get-effects e tag [vs '()])
+  (define (get-effects e-or-τ tag [vs '()])
+    (define e-or-τ/closed (if (null? vs) e-or-τ #`(stlc+box:λ #,vs #,e-or-τ)))
+    (define tytag (if (type? e-or-τ) ':: ':))
     (or (syntax-property
-          (first (infer+erase (if (null? vs) e #`(stlc+box:λ #,vs #,e))))
+          (first (infer+erase e-or-τ/closed #:tag tytag))
           tag)
         null))
   (define (get-new-effects e [vs '()]) (get-effects e 'ν vs))

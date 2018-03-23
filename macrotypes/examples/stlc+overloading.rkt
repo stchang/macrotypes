@@ -106,7 +106,7 @@
 
 (define-typed-syntax signature
   [(_ (name:id α:id) τ)
-   #:with ((α+) (~→ τ_α:id τ-cod) _) (infer/tyctx+erase #'([α :: #%type]) #'τ #:stop-list? #f)
+   #:with ((α+) (~→ τ_α:id τ-cod) _) (infer/tyctx+erase #'([α :: #%type]) #'τ #:stop-list? #f #:tag '::)
    (define ℜ (ℜ-init #'name #'τ-cod))
    (⊢ (define-syntax name
         (syntax-parser

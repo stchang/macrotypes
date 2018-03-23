@@ -5,7 +5,7 @@
 
 ; Π  λ ≻ ⊢ ≫ ⇒ ∧ (bidir ⇒ ⇐)
 
-(provide (rename-out [#%type *]) Π → ∀ λ #%app ann define define-type-alias)
+(provide * Π → ∀ λ #%app ann define define-type-alias)
 
 #;(begin-for-syntax
   (define old-ty= (current-type=?))
@@ -15,20 +15,22 @@
      (displayln (stx->datum t2))
      (old-ty= t1 t2 env1 env2))))
 
-;(define-syntax-category : kind)
 (define-internal-type-constructor →)
 (define-internal-binding-type ∀)
+(define-syntax *
+  (make-variable-like-transformer
+   (assign-type #'#%type #'#%type)))
 ;; TODO: how to do Type : Type
-(define-typed-syntax (Π ([X:id : τ_in] ...) τ_out) ≫
+(define-typed-syntax (Π ([X:id (~datum :) τ_in] ...) τ_out) ≫
   [[X ≫ X- : τ_in] ... ⊢ [τ_out ≫ τ_out- ⇒ _][τ_in ≫ τ_in- ⇒ _] ...]
   -------
-  [⊢ (∀- (X- ...) (→- τ_in- ... τ_out-)) ⇒ #,(expand/df #'#%type)])
+  [⊢ (∀- (X- ...) (→- τ_in- ... τ_out-)) ⇒ #,(expand/df #'*)])
 ;; abbrevs for Π
 (define-simple-macro (→ τ_in ... τ_out)
   #:with (X ...) (generate-temporaries #'(τ_in ...))
   (Π ([X : τ_in] ...) τ_out))
 (define-simple-macro (∀ (X ...)  τ)
-  (Π ([X : #%type] ...) τ))
+  (Π ([X : *] ...) τ))
 ;; ~Π pattern expander
 (begin-for-syntax
   (define-syntax ~Π

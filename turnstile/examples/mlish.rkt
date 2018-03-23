@@ -924,7 +924,8 @@
    [⊢ (λ- (x- ...) body-)]]
   [(λ ([x : τ_x] ...) body) ⇐ (~?∀ (V ...) (~ext-stlc:→ τ_in ... τ_out)) ≫
    #:with [X ...] (compute-tyvars #'(τ_x ...))
-   [[X ≫ X- :: #%type] ... ⊢ [τ_x ≫ τ_x- ⇐ :: #%type] ...]
+   #:with ((X- ...) (τ_x-:type ...) _) (infers/ctx+erase #'(X ...) #'(τ_x ...) #:tag '::)
+;   [[X ≫ X- :: #%type] ... ⊢ [τ_x ≫ τ_x- ⇐ :: #%type] ...]
    [τ_in τ⊑ τ_x- #:for x] ...
    ;; TODO is there a way to have λs that refer to ids defined after them?
    [(V ... X- ...) ([x ≫ x- : τ_x-] ...) ⊢ body ≫ body- ⇐ τ_out]
@@ -1235,7 +1236,7 @@
 
 (define-typed-syntax for/sum
   [(for/sum ([x:id e]... 
-             (~optional (~seq #:when guard) #:defaults ([guard #'#t])))
+             (~optional (~seq #:when guard) #:defaults ([guard #'(ext-stlc:#%datum . #t)])))
      body) ≫
    [⊢ [e ≫ e- ⇒ : (~Sequence ty)] ...]
    [() ([x ≫ x- : ty] ...)

@@ -125,7 +125,8 @@
 
 (define-typed-syntax ann #:datum-literals (:)
   [(_ e : ascribed-τ:type)
-   #:with (e- τ) (infer+erase #'(add-expected e ascribed-τ.norm))
+   #:with e/expected (add-expected-type #'e #'ascribed-τ.norm)
+   #:with (e- τ) (infer+erase #'e/expected)
    #:fail-unless (typecheck? #'τ #'ascribed-τ.norm)
    (typecheck-fail-msg/1 #'ascribed-τ.norm #'τ #'e)
    (⊢/no-teval e- : ascribed-τ.norm)])
