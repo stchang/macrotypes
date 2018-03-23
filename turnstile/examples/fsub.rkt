@@ -1,5 +1,5 @@
 #lang turnstile/lang
-(extends "stlc+reco+sub.rkt" #:except +)
+(extends "stlc+reco+sub.rkt" #:except + #%app proj)
 (require (rename-in (only-in "sysf.rkt" ∀? ∀ ~∀) [~∀ ~sysf:∀] [∀ sysf:∀]))
  
 ;; System F<:
@@ -11,12 +11,13 @@
 ;; - extend Λ and inst
 ;; - redefine + with Nat
 ;; Other
-;; - current-promote, expose
-;; - extend current-sub? to call current-promote
+;; - expose (no current-promote anymore)
+;; - extend current-sub? to call expose
 
 (provide <: ∀
          (typed-out [+ : (→ Nat Nat Nat)])
-         Λ inst)
+         (rename-out [typed-app #%app])
+         Λ inst proj)
 
 ; can't just call expose in type-eval,
 ; otherwise typevars will have bound as type, rather than instantiated type
@@ -29,10 +30,8 @@
            (define sub (detach t '<:))
            (if sub (expose sub) t)]
           [else t]))
-  (current-promote expose)
   (define stlc:sub? (current-sub?))
-  (define (sub? t1 t2)
-    (stlc:sub? ((current-promote) t1) t2))
+  (define (sub? t1 t2) (stlc:sub? (expose t1) t2))
   (current-sub? sub?)
   (current-typecheck-relation sub?))
 
@@ -89,3 +88,17 @@
   --------
   [⊢ e- ⇒ τ_inst])
 
+;; ------------------------------------------------------------
+;; must override the following rules, to insert current-expose
+
+(define-typed-syntax (typed-app e_fn . args) ≫
+  [⊢ e_fn ≫ e_fn- ⇒ τ_fn]
+  #:with τ_fn* (expose #'τ_fn)
+  -----------------------
+  [≻ (stlc+reco+sub:#%app (⊢m e_fn- : τ_fn* #:eval? #f) . args)])
+
+(define-typed-syntax (proj e_rec . args) ≫
+  [⊢ e_rec ≫ e_rec- ⇒ τ_e]
+  #:with τ_e* (expose #'τ_e)
+  -----------
+  [≻ (stlc+reco+sub:proj (⊢m e_rec- : τ_e* #:eval? #f) . args)])

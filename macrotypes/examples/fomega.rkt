@@ -36,6 +36,7 @@
 
 ;; alternative: normalize before type=?
 ;; but then also need to normalize in current-promote?
+;; NOTE (2018-03-23): current-promote removed
 (begin-for-syntax
   (define (normalize τ)
     (syntax-parse τ #:literals (#%plain-app #%plain-lambda)

@@ -896,7 +896,8 @@
 
 (define-syntax (⊢m stx)
   (syntax-parse stx #:datum-literals (:)
-   [(_ e : τ) (assign-type #`e #`τ)]
+   [(_ e : τ (~optional (~seq #:eval? x) #:defaults ([x #'#t])))
+    (assign-type #`e #`τ #:eval? (syntax-e #'x))]
    [(_ e τ) (assign-type #`e #`τ)]))
 
 (begin-for-syntax
@@ -949,6 +950,8 @@
   (define type-pat "[A-Za-z]+")
   
   ;; TODO: remove this? only benefit is single control point for current-promote
+  ;;   2018-03-23: not sure this is true; it also enables including exp in err msgs
+  ;; NOTE (2018-03-23): current-promote removed
   ;; - infers type of e
   ;; - checks that type of e matches the specified type
   ;; - erases types in e
@@ -978,8 +981,7 @@
                                   (list #'e t-in-msg))])
                (infer+erase #'e))
            #:context #'e
-           [(e- τ_e_)
-            #:with τ_e ((current-promote) #'τ_e_)
+           [(e- τ_e)
             #:fail-unless (τ? #'τ_e)
             (format
              "~a (~a:~a): Expected expression ~s to have ~a type, got: ~a"
@@ -998,8 +1000,7 @@
        #:with τ-get (format-id #'tycon "~a-get" #'tycon)
        #:with τ-expander (mk-~ #'tycon)
        #'(syntax-parse (stx-map (lambda (e) (infer+erase e #:stop-list? #f)) #'es) #:context #'es
-           [((e- τ_e_) (... ...))
-            #:with (τ_e (... ...)) (stx-map (current-promote) #'(τ_e_ (... ...)))
+           [((e- τ_e) (... ...))
             #:when (stx-andmap
                     (λ (e t)
                       (or (τ? t)
@@ -1163,8 +1164,6 @@
       [(tvs+ _ es+ tys) (list #'tvs+ #'es+ #'tys)]))
   (define infer/tyctx infer/tyctx+erase)
   (define infer/ctx infer/ctx+erase)
-
-  (define current-promote (make-parameter (λ (t) t)))
 
   ;; term expansion
   ;; expand/df : Syntax -> Syntax
@@ -1342,7 +1341,7 @@
                  ((~literal #%plain-app) tycons
                   ((~literal #%plain-lambda) bvs 
                    skipped-extra-info ((~literal #%plain-app) (~literal list) . rst)))
-                 ((current-promote) #'ty)))])))
+                 #'ty))])))
   (define-syntax ~Any
     (pattern-expander
      (syntax-parser
