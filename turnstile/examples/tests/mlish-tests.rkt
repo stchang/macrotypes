@@ -57,7 +57,7 @@
 (check-type (g2 (Nil {Int})) : (List Int) ⇒ (Nil {Int}))
 (check-type (g2 (Nil {Bool})) : (List Bool) ⇒ (Nil {Bool}))
 (check-type (g2 (Nil {(List Int)})) : (List (List Int)) ⇒ (Nil {(List Int)}))
-(check-type (g2 (Nil {(→ Int Int)})) : (List (→ Int Int)) ⇒ (Nil {(List (→ Int Int))}))
+(check-type (g2 (Nil {(→ Int Int)})) : (List (→ Int Int)) ⇒ (Nil {(→ Int Int)}))
 ;; annotations unneeded: same as tests above, but without annotations
 (check-type (g2 Nil) : (List Int) ⇒ Nil)
 (check-type (g2 Nil) : (List Bool) ⇒ Nil)
@@ -258,19 +258,19 @@
 (check-type (Leaf 10) : (Tree Int))
 (check-type (Node (Leaf 10) (Leaf 11)) : (Tree Int))
 
-(typecheck-fail Nil #:with-msg "Nil: no expected type, add annotations")
+(typecheck-fail Nil
+ #:with-msg "Could not infer instantiation of polymorphic function Nil")
 (typecheck-fail (Cons 1 (Nil {Bool}))
  #:with-msg 
  "expected: \\(List Int\\)\n *given: \\(List Bool\\)")
 (typecheck-fail (Cons {Bool} 1 (Nil {Int}))
- #:with-msg
- "Cons: type mismatch: expected Bool, given Int\n *expression: 1")
+ #:with-msg "couldn't unify Bool and Int.*expected: Bool.*given: Int")
 (typecheck-fail (Cons {Bool} 1 Nil)
- #:with-msg
- "Cons: type mismatch: expected Bool, given Int\n *expression: 1")
+ #:with-msg "couldn't unify Bool and Int.*expected: Bool.*given: Int")
 
 (typecheck-fail (match Nil with [Cons x xs -> 2] [Nil -> 1])
-                #:with-msg "Nil: no expected type, add annotations")
+ #:with-msg "Could not infer instantiation of polymorphic function Nil")
+
 (check-type
  (match (Nil {Int}) with
    [Cons x xs -> 2]
