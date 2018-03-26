@@ -168,15 +168,10 @@
       v))
 
 ;; set-stx-prop/preserved : Stx Any Any -> Stx
-;; Returns a new syntax object with the prop property set to val. If preserved
-;; syntax properties are supported, this also marks the property as preserved.
-(define REQUIRED-VERSION "6.5.0.4")
-(define VERSION (version))
-(define PRESERVED-STX-PROP-SUPPORTED? (version<=? REQUIRED-VERSION VERSION))
+;; Returns a new syntax object with the prop property set to val,
+;; and marks the property as preserved.
 (define (set-stx-prop/preserved stx prop val)
-  (if PRESERVED-STX-PROP-SUPPORTED?
-      (syntax-property stx prop val #t)
-      (syntax-property stx prop val)))
+  (syntax-property stx prop val))
 
 ;; stx-contains-id? : Stx Id -> Boolean
 ;; Returns true if stx contains the identifier x, false otherwise.

@@ -14,4 +14,4 @@ A Racket language for creating typed embedded DSLs
 
 - run just mlish tests (from test directory) with `racket run-all-mlish-tests.rkt`
 
-- running tests require Racket v6.5 or later
+- requires Racket v6.6 or later (or preserved stx props)
