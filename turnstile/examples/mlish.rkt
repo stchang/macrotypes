@@ -6,11 +6,11 @@
  (for-syntax macrotypes/type-constraints macrotypes/variance-constraints))
 
 (extends
- "ext-stlc.rkt" 
+ "ext-stlc.rkt"
  #:except → define #%app λ #%datum begin
           + - * void = zero? sub1 add1 not let let* and
  #:rename [~→ ~ext-stlc:→])
-(reuse inst #:from "sysf.rkt") 
+(reuse inst #:from "sysf.rkt")
 (require (only-in "ext-stlc.rkt" → →?))
 (require (only-in "sysf.rkt" ~∀ ∀ ∀? Λ))
 (reuse × tup proj define-type-alias #:from "stlc+rec-iso.rkt")
@@ -28,16 +28,14 @@
 (require (prefix-in stlc+cons: (only-in "stlc+cons.rkt" list)))
 (require (prefix-in stlc+tup: (only-in "stlc+tup.rkt" tup)))
 
-;; for demonstrating user ability to extend the type system, see fasta.mlish
-(provide (for-syntax ~seq ...))
-
 ;; ML-like language
 ;; - top level recursive functions
 ;; - user-definable algebraic datatypes
 ;; - pattern matching
 ;; - (local) type inference
 
-(provide → →/test
+(provide define-type define-types
+         → →/test
          (typed-out [+ : (→ Int Int Int)]
                     [- : (→ Int Int Int)]
                     [* : (→ Int Int Int)]
@@ -87,21 +85,33 @@
                     [channel-put : (∀ (X) (→ (Channel X) X Unit))]
                     [thread : (∀ (X) (→ (→ X) Thread))])
          not void
-         define-type define-types
-         List Channel Thread Vector Sequence Hash String-Port Input-Port Regexp
-         match2)
+         define match match2 λ
+         (rename-out [mlish:#%app #%app])
+         cond when unless
+         Channel make-channel
+         Thread
+         List Vector
+         vector make-vector vector-length vector-ref vector-set! vector-copy!
+         Sequence in-range in-naturals in-vector in-list in-lines
+         for for*
+         for/list for/vector for*/vector for*/list for/fold for/hash for/sum
+         printf format display displayln list->vector
+         let let* begin
+         Hash in-hash hash hash-set! hash-ref hash-has-key? hash-count
+         String-Port Input-Port
+         write-string string-length string-copy!
+         number->string string-append
+         quotient+remainder
+         set!
+         provide-type
+         (rename-out [mlish-provide provide])
+         require-typed
+         Regexp
+         equal?
+         read)
 
-;; providing version of define-typed-syntax
-(define-syntax (define-typed-syntax stx)
-  (syntax-parse stx
-    [(_ name:id #:export-as out-name:id . rst)
-     #'(begin-
-         (provide- (rename-out [name out-name]))
-         (define-typerule name . rst))] ; define-typerule doesnt provide
-    [(_ name:id . rst)
-     #'(define-typed-syntax name #:export-as name . rst)]
-    [(_ (name:id . pat) . rst)
-     #'(define-typed-syntax name #:export-as name [(_ . pat) . rst])]))
+;; for demonstrating user ability to extend the type system, see fasta.mlish
+(provide (for-syntax ~seq ...))
 
 (module+ test
   (require (for-syntax rackunit)))
@@ -140,7 +150,9 @@
   ;; find-free-Xs : (Stx-Listof Id) Type -> (Listof Id)
   ;; finds the free Xs in the type
   (define (find-free-Xs Xs ty)
-    (for/list ([X (in-stx-list Xs)] #:when (stx-contains-id? ty X)) X))
+    (for/list ([X (in-stx-list Xs)]
+               #:when (stx-contains-id? ty X))
+      X))
 
   ;; solve for Xs by unifying quantified fn type with the concrete types of stx's args
   ;;   stx = the application stx = (#%app e_fn e_arg ...)
@@ -174,7 +186,7 @@
                   (infer+erase (if (empty? (find-free-Xs Xs ty_in))
                                    (add-expected-ty a ty_in)
                                    a)))
-                (values 
+                (values
                  (cons #'a- as-)
                  (add-constraints Xs cs (list (list ty_in #'ty_a))
                                   (list (list (inst-type/cs/orig
@@ -936,7 +948,7 @@
 
 
 ;; #%app --------------------------------------------------
-(define-typed-syntax mlish:#%app #:export-as #%app
+(define-typed-syntax mlish:#%app
   [(_ e_fn e_arg ...) ≫
    ;; compute fn type (ie ∀ and →)
    [⊢ e_fn ≫ e_fn- ⇒ (~?∀ Xs (~ext-stlc:→ . tyX_args))]
@@ -1382,7 +1394,7 @@
    --------
    [_ ≻ (provide- ty ...)]])
 
-(define-typed-syntax mlish-provide #:export-as provide
+(define-typed-syntax mlish-provide
   [(provide x:id ...) ≫
    [⊢ [x ≫ x- ⇒ : ty_x] ...]
    ; TODO: use hash-code to generate this tmp

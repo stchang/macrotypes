@@ -16,7 +16,8 @@
 (reuse × tup proj define-type-alias #:from "stlc+rec-iso.rkt")
 (require (only-in "stlc+rec-iso.rkt" ~× ×?))
 (provide (rename-out [ext-stlc:and and] [ext-stlc:#%datum #%datum]))
-(reuse member length reverse list-ref cons nil isnil head tail list #:from "stlc+cons.rkt")
+(reuse member length reverse list-ref cons nil isnil head tail list
+       #:from "stlc+cons.rkt")
 (require (prefix-in stlc+cons: (only-in "stlc+cons.rkt" list cons nil)))
 (require (only-in "stlc+cons.rkt" ~List List? List))
 (reuse ref deref := Ref #:from "stlc+box.rkt")
@@ -32,9 +33,6 @@
 ;; - user-definable algebraic datatypes
 ;; - pattern matching
 ;; - (local) type inference
-
-(module+ test
-  (require (for-syntax rackunit)))
 
 (provide define-type define-types
          → →/test
@@ -87,9 +85,9 @@
                     [channel-put : (∀ (X) (→ (Channel X) X Unit))]
                     [thread : (∀ (X) (→ (→ X) Thread))])
          not void
-          define match match2 λ
-          (rename-out [mlish:#%app #%app])
-          cond when unless
+         define match match2 λ
+         (rename-out [mlish:#%app #%app])
+         cond when unless
          Channel make-channel
          Thread
          List Vector
@@ -111,6 +109,9 @@
          Regexp
          equal?
          read)
+
+(module+ test
+  (require (for-syntax rackunit)))
 
 ;; creating possibly polymorphic types
 ;; ?∀ only wraps a type in a forall if there's at least one type variable
@@ -146,7 +147,7 @@
   ;; find-free-Xs : (Stx-Listof Id) Type -> (Listof Id)
   ;; finds the free Xs in the type
   (define (find-free-Xs Xs ty)
-    (for/list ([X (in-list (stx->list Xs))]
+    (for/list ([X (in-stx-list Xs)]
                #:when (stx-contains-id? ty X))
       X))
 
@@ -164,8 +165,9 @@
     (syntax-parse tyXs
       [(τ_inX ... τ_outX)
        ;; generate initial constraints with expected type and τ_outX
-       #:with (~?∀ Vs expected-ty) (and (get-expected-type stx)
-                                        ((current-type-eval) (get-expected-type stx)))
+       #:with (~?∀ Vs expected-ty)
+              (and (get-expected-type stx)
+                   ((current-type-eval) (get-expected-type stx)))
        (define initial-cs
          (if (and (syntax-e #'expected-ty) (stx-null? #'Vs))
              (add-constraints Xs '() (list (list #'expected-ty #'τ_outX)))
@@ -174,14 +176,14 @@
          [(_ e_fn . args)
           (define-values (as- cs)
               (for/fold ([as- null] [cs initial-cs])
-                        ([a (in-list (syntax->list #'args))]
-                         [tyXin (in-list (syntax->list #'(τ_inX ...)))])
+                        ([a (in-stx-list #'args)]
+                         [tyXin (in-stx-list #'(τ_inX ...))])
                 (define ty_in (inst-type/cs/orig Xs cs tyXin datum=?))
                 (define/with-syntax [a- ty_a]
                   (infer+erase (if (empty? (find-free-Xs Xs ty_in))
                                    (add-expected-ty a ty_in)
                                    a)))
-                (values 
+                (values
                  (cons #'a- as-)
                  (add-constraints Xs cs (list (list ty_in #'ty_a))
                                   (list (list (inst-type/cs/orig
@@ -209,7 +211,7 @@
   (define (covariant-Xs? ty)
     (syntax-parse ((current-type-eval) ty)
       [(~?∀ Xs ty)
-       (for/and ([X (in-list (syntax->list #'Xs))])
+       (for/and ([X (in-stx-list #'Xs)])
          (covariant-X? X #'ty))]))
 
   ;; find-X-variance : Id Type [Variance] -> Variance
@@ -246,7 +248,7 @@
          (for/list ([arg-variance (in-list (get-arg-variances #'tycons))])
            (variance-compose ctxt-variance arg-variance)))
        (for/fold ([acc (make-list (length Xs) irrelevant)])
-                 ([τ (in-list (syntax->list #'[τ ...]))]
+                 ([τ (in-stx-list #'[τ ...])]
                   [τ-ctxt-variance (in-list τ-ctxt-variances)])
          (map variance-join
               acc
