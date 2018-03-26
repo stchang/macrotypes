@@ -2,7 +2,7 @@
 
 @(require scribble/example racket/sandbox
           (for-label racket/base
-                     (except-in turnstile/turnstile ⊢ mk-~ mk-?))
+                     (except-in turnstile/turnstile mk-~ mk-?))
           "doc-utils.rkt" "common.rkt")
 
 @title{The Turnstile Guide}

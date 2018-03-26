@@ -2,6 +2,7 @@
 (require
  (postfix-in - racket/fixnum)
  (postfix-in - racket/flonum)
+ (postfix-in - racket/match)
  (for-syntax macrotypes/type-constraints macrotypes/variance-constraints))
 
 (extends
@@ -565,7 +566,7 @@
       [((X ...) (τ ...) Name StructName)
        #:with fn-ty-body #'(ext-stlc:→ τ ... (Name X ...))
        #:with fn-ty #'(?∀ (X ...) fn-ty-body)
-       #:with StructName/ty (⊢ StructName : fn-ty)
+       #:with StructName/ty (assign-type #'StructName #'fn-ty)
        ;; stx/loc transfers expected-type (mlish:#%app needs for inference)
     (lambda (stx)
       (syntax-parse/typecheck stx
@@ -578,7 +579,7 @@
          [(C τs . args) ≫ ; explicit instantiation
           #:when (brace? #'τs) ; commit to this clause
           #:with fn-ty-inst (inst-type #'τs #'(X ...) #'fn-ty-body)
-          #:with StructName/inst/orig (add-orig (⊢ StructName : fn-ty-inst) #'C)
+          #:with StructName/inst/orig (add-orig (assign-type #'StructName #'fn-ty-inst) #'C)
           -----------------
           [≻ #,(syntax/loc this-syntax (mlish:#%app StructName/inst/orig . args))]]
          [(C . args) ≫   ; no explicit instantiation, defer inference to mlish:#%app

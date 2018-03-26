@@ -1,7 +1,7 @@
 #lang racket/base
 
-(provide (except-out (all-from-out macrotypes/typecheck)
-                     -define-typed-syntax -define-syntax-category)
+(provide (except-out (all-from-out macrotypes/typecheck-core)
+                     -define-syntax-category)
          define-typed-syntax
          define-typed-variable-syntax
          define-syntax-category
@@ -13,14 +13,13 @@
                       [syntax-parse/typecheck syntax-parse/typed-syntax])))
 
 (require (except-in (rename-in
-                     macrotypes/typecheck
-                     [define-typed-syntax -define-typed-syntax]
+                     macrotypes/typecheck-core
                      [define-syntax-category -define-syntax-category])
                     #%module-begin))
 
 (module typecheck+ racket/base
   (provide (all-defined-out))
-  (require (for-meta -1 (except-in macrotypes/typecheck #%module-begin))
+  (require (for-meta -1 (except-in macrotypes/typecheck-core #%module-begin))
            (only-in lens/common lens-view lens-set)
            (only-in lens/private/syntax/stx stx-flatten/depth-lens))
   ;; infer/depth returns a list of three values:
@@ -67,9 +66,9 @@
   (provide (all-defined-out))
   (require (for-meta 0 (submod ".." typecheck+))
            (for-meta -1 (submod ".." typecheck+)
-                     (except-in macrotypes/typecheck #%module-begin mk-~ mk-?)
+                     (except-in macrotypes/typecheck-core #%module-begin mk-~ mk-?)
                      "mode.rkt")
-           (for-meta -2 (except-in macrotypes/typecheck #%module-begin)))
+           (for-meta -2 (except-in macrotypes/typecheck-core #%module-begin)))
   (define-syntax-class ---
     [pattern dashes:id
              #:do [(define str-dashes (symbol->string (syntax->datum #'dashes)))]
@@ -459,7 +458,7 @@
           rule:rule ...)
        #'(syntax-parse stx-expr kw-stuff ... rule.norm ...)])))
 
-;; macrotypes/typecheck.rkt already defines (-define-syntax-category type);
+;; macrotypes/typecheck-core.rkt already defines (-define-syntax-category type);
 ;; - just add the "def-named-syntax" part of the def-stx-cat macro below
 ;; TODO: eliminate code dup with def-named-stx in define-stx-cat below?
 (define-syntax define-typed-syntax

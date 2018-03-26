@@ -1,5 +1,7 @@
 #lang turnstile
-(require (postfix-in - racket/fixnum) (postfix-in - racket/flonum))
+(require (postfix-in - racket/fixnum)
+         (postfix-in - racket/flonum)
+         (postfix-in - racket/match))
 
 (extends
  "ext-stlc.rkt"
@@ -520,7 +522,7 @@
         [(C . args) ≫ ; no type annotations, must infer instantiation
          #:with StructName/ty
          (set-stx-prop/preserved
-          (⊢ StructName : (∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))
+          (assign-type #'StructName #'(∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))
           'orig
           (list #'C))
          --------
@@ -881,15 +883,7 @@
        (stx-map (lambda (o) (format-id tc "~a" o)) os))
      #'((op-sym ...) ...) #'(TC ...))
    #:with (ty-op* ...) (stx-flatten #'((ty-op ...) ...))
-   #:with ty-in-tagsss
-   (stx-map
-     (syntax-parser
-       [(~∀ _ fa-body)
-        (get-type-tags
-          (syntax-parse #'fa-body
-                        [(~ext-stlc:→ in ... _) #'(in ...)]
-                        [(~=> _ ... (~ext-stlc:→ in ... _)) #'(in ...)]))])
-     #'(ty-op* ...))
+   #:with ty-in-tagsss (stx-map get-fn-ty-in-tags #'(ty-op* ...))
    #:with (mangled-op ...) (stx-map mangle #'(op* ...) #'ty-in-tagsss)
 
    #:with (mangled-ops- body- t-) (infer/ctx+erase #'([mangled-op : ty-op*] ...)
@@ -953,7 +947,7 @@
            #:fail-unless (stx-length=? #'(e_arg ...) #'(τ_inX ...))
            (mk-app-err-msg #'this-app #:expected #'(τ_inX ...) 
                            #:note "Wrong number of arguments.")
-           #:with e_fn/ty (⊢ e_fn- : (ext-stlc:→ . tyX_args))
+           #:with e_fn/ty (assign-type #'e_fn- #'(ext-stlc:→ . tyX_args))
            #'(ext-stlc:#%app e_fn/ty (add-expected e_arg τ_inX) ...)])]
        [else
      (syntax-parse #'ty_fnX
@@ -1000,7 +994,7 @@
                               (unless (→? #'τ_out)
                                 (raise-app-poly-infer-error #'this-app #'(τ_in ...) #'(τ_arg ...) #'e_fn))
                               #'(∀ (unsolved-X ... Y ...) τ_out)]))
-         (⊢ (#%app- e_fn- e_arg- ...) : τ_out*)])]
+         (assign-type #'(#%app- e_fn- e_arg- ...) #'τ_out*)])]
       ;; handle type class constraints ----------------------------------------
       [(~=> TCX ... (~ext-stlc:→ . tyX_args))
        ;; ) solve for type variables Xs
@@ -1086,7 +1080,7 @@
                               (unless (→? #'τ_out)
                                 (raise-app-poly-infer-error #'this-app #'(τ_in ...) #'(τ_arg ...) #'e_fn))
                               #'(∀ (unsolved-X ... Y ...) τ_out)]))
-          (⊢ ((#%app- e_fn- op ...) e_arg- ...) : τ_out*)])])])]]
+          (assign-type #'((#%app- e_fn- op ...) e_arg- ...) #'τ_out*)])])])]]
   [(_ e_fn . e_args) ≫ ; err case; e_fn is not a function
    [⊢ e_fn ≫ e_fn- ⇒ τ_fn]
    --------
@@ -1607,11 +1601,11 @@
     ;; drop the TCs in result type, the proper subops are already applied
     #:with ty-conc-op-noTC #'(∀ Xs (ext-stlc:→ . ty-args))
     ;; recursively call lookup-op for each subop and input ty-args
-    (⊢ (conc-op 
+    (assign-type #`(conc-op 
          #,@(apply stx-appendmap (lambda (ops . tys) (stx-map (lambda (o) (lookup-op o tys)) ops))
                    #'((sub-op ...) ...)
                    (syntax->list #'((ty-arg ...) ...))))
-       : ty-conc-op-noTC)]
+       #'ty-conc-op-noTC)]
    ;; base type --------------------------------------------------
    [(((~literal #%plain-app) tag) ...)
     #:with (op- t-) (infer+erase (mangle gen-op #'(tag ...)))
@@ -1620,9 +1614,19 @@
    [_
      #:with (op- t-) (infer+erase (mangle gen-op tys))
      #'op-]))
- (define (get-fn-ty-in-tags ty-fn)
+ ;; gets the internal id in a type representation
+  (define (get-type-tag t)
+    (syntax-parse t
+      [((~literal #%plain-app) tycons . _) #'tycons]
+      [X:id #'X]
+      [_ (type-error #:src t #:msg "Can't get internal id: ~a" t)]))
+  (define (get-type-tags ts)
+    (stx-map get-type-tag ts))
+  (define (get-fn-ty-in-tags ty-fn)
    (syntax-parse ty-fn
      [(~∀ _ (~ext-stlc:→ ty_in ... _))
+      (get-type-tags #'(ty_in ...))]
+     [(~∀ _ (~=> _ ... (~ext-stlc:→ ty_in ... _)))
       (get-type-tags #'(ty_in ...))]))
  (define (TC-exists? TC #:ctx [ctx TC]) ; throws exn if fail
    (syntax-parse TC
@@ -1701,12 +1705,7 @@
    ;; typecheck type of given concrete-op with expected type from define-typeclass
    [⊢ concrete-op-sorted ≫ concrete-op+ ⇐ ty-concrete-op-expected] ...
    ;; generate mangled name from tags in input types
-   #:with (ty_in-tags ...) 
-          (stx-map 
-           (syntax-parser
-             [(~∀ _ (~ext-stlc:→ ty_in ... _))
-              (get-type-tags #'(ty_in ...))])
-           #'(ty-concrete-op-expected ...))
+   #:with (ty_in-tags ...) (stx-map get-fn-ty-in-tags #'(ty-concrete-op-expected ...))
    ;; use input types
    #:with (mangled-op ...) (stx-map mangle #'(generic-op ...) #'(ty_in-tags ...))
   --------
@@ -1778,14 +1777,7 @@
    ;; TODO: right now, dont recur to get nested tags
    ;; but may need to do so, ie if an instance needs to define more than one concrete op,
    ;; eg (define-instance (Eq (List Int)) ...)
-   #:with (ty_in-tags ...) 
-          (stx-map 
-           (syntax-parser
-             [(~∀ _ (~ext-stlc:→ ty_in ... _))
-              (get-type-tags #'(ty_in ...))]
-             #;[(~∀ _ (~=> _ ... (~ext-stlc:→ ty_in ... _)))
-                (get-type-tags #'(ty_in ...))])
-           #'(ty-concrete-op-expected ...))
+   #:with (ty_in-tags ...) (stx-map get-fn-ty-in-tags #'(ty-concrete-op-expected ...))
    #:with (mangled-op ...) (stx-map mangle #'(generic-op ...) #'(ty_in-tags ...))
    ;; need a name for concrete-op because concrete-op and generic-op may be
    ;; mutually recursive, eg (Eq (List X))

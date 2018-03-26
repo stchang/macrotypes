@@ -93,11 +93,11 @@
 (define-typed-syntax typed-app
   [(_ e_fn . args)
    #:with [e_fn- τ_fn] (infer+erase #'e_fn)
-   #:with τ_fn* (expose #'τ_fn)
-   #'(stlc+reco+sub:#%app (⊢m e_fn- : τ_fn* #:eval? #f) . args)])
+   #:with e_fn-/exposed (assign-type #'e_fn- (expose #'τ_fn) #:eval? #f)
+   #'(stlc+reco+sub:#%app e_fn-/exposed . args)])
 
 (define-typed-syntax proj
   [(_ e_rec . args)
    #:with [e_rec- τ_e] (infer+erase #'e_rec)
-   #:with τ_e* (expose #'τ_e)
-   #'(stlc+reco+sub:proj (⊢m e_rec- : τ_e* #:eval? #f) . args)])
+   #:with e_rec-/exposed (assign-type #'e_rec- (expose #'τ_e) #:eval? #f)
+   #'(stlc+reco+sub:proj e_rec-/exposed . args)])

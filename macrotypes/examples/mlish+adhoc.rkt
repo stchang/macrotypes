@@ -2,7 +2,8 @@
 (require (only-in "../typecheck.rkt"
                   [define-typed-syntax def-typed-stx/no-provide]))
 (require (postfix-in - racket/fixnum)
-         (postfix-in - racket/flonum))
+         (postfix-in - racket/flonum)
+         (postfix-in - racket/match))
 
 (extends
  "ext-stlc.rkt"
@@ -892,15 +893,7 @@
        (stx-map (lambda (o) (format-id tc "~a" o)) os))
      #'((op-sym ...) ...) #'(TC ...))
    #:with (ty-op* ...) (stx-flatten #'((ty-op ...) ...))
-   #:with ty-in-tagsss
-   (stx-map
-     (syntax-parser
-       [(~∀ _ fa-body)
-        (get-type-tags
-          (syntax-parse #'fa-body
-                        [(~ext-stlc:→ in ... _) #'(in ...)]
-                        [(~=> _ ... (~ext-stlc:→ in ... _)) #'(in ...)]))])
-     #'(ty-op* ...))
+   #:with ty-in-tagsss (stx-map get-fn-ty-in-tags #'(ty-op* ...))
    #:with (mangled-op ...) (stx-map mangle #'(op* ...) #'ty-in-tagsss)
 
    #:with (mangled-ops- body- t-) (infer/ctx+erase #'([mangled-op : ty-op*] ...)
@@ -1572,9 +1565,18 @@
    [_
      #:with (op- t-) (infer+erase (mangle gen-op tys))
      #'op-]))
- (define (get-fn-ty-in-tags ty-fn)
+  (define (get-type-tag t)
+    (syntax-parse t
+      [((~literal #%plain-app) tycons . _) #'tycons]
+      [X:id #'X]
+      [_ (type-error #:src t #:msg "Can't get internal id: ~a" t)]))
+  (define (get-type-tags ts)
+    (stx-map get-type-tag ts))
+  (define (get-fn-ty-in-tags ty-fn)
    (syntax-parse ty-fn
      [(~∀ _ (~ext-stlc:→ ty_in ... _))
+      (get-type-tags #'(ty_in ...))]
+     [(~∀ _ (~=> _ ... (~ext-stlc:→ ty_in ... _)))
       (get-type-tags #'(ty_in ...))]))
  (define (TC-exists? TC #:ctx [ctx TC]) ; throws exn if fail
    (syntax-parse TC
@@ -1659,12 +1661,7 @@
                      #:action "defining typeclass instance"
                      #:name (format "~a" (syntax->datum #'(Name ty ...))))
      ;; generate mangled name from tags in input types
-     #:with (ty_in-tags ...) 
-            (stx-map 
-              (syntax-parser
-                [(~∀ _ (~ext-stlc:→ ty_in ... _))
-                 (get-type-tags #'(ty_in ...))])
-              #'(ty-concrete-op-expected ...))
+     #:with (ty_in-tags ...) (stx-map get-fn-ty-in-tags #'(ty-concrete-op-expected ...))
      ;; use input types
      #:with (mangled-op ...) (stx-map mangle #'(generic-op ...) #'(ty_in-tags ...))
      #'(begin-
@@ -1726,14 +1723,7 @@
      ;; TODO: right now, dont recur to get nested tags
      ;; but may need to do so, ie if an instance needs to define more than one concrete op,
      ;; eg (define-instance (Eq (List Int)) ...)
-     #:with (ty_in-tags ...) 
-            (stx-map 
-              (syntax-parser
-                [(~∀ _ (~ext-stlc:→ ty_in ... _))
-                 (get-type-tags #'(ty_in ...))]
-                #;[(~∀ _ (~=> _ ... (~ext-stlc:→ ty_in ... _)))
-                 (get-type-tags #'(ty_in ...))])
-              #'(ty-concrete-op-expected ...))
+     #:with (ty_in-tags ...) (stx-map get-fn-ty-in-tags #'(ty-concrete-op-expected ...))
      #:with (mangled-op ...) (stx-map mangle #'(generic-op ...) #'(ty_in-tags ...))
      ;; need a name for concrete-op because concrete-op and generic-op may be
      ;; mutually recursive, eg (Eq (List X))

@@ -4,7 +4,7 @@
           (for-label racket/base
                      syntax/id-table
                      turnstile/mode
-                     (except-in turnstile/turnstile ⊢ stx mk-~ mk-?))
+                     (except-in turnstile/turnstile mk-~ mk-?))
           "doc-utils.rkt" "common.rkt")
 
 @title{The Turnstile Reference}

@@ -2,6 +2,7 @@
 (require
  (postfix-in - racket/fixnum)
  (postfix-in - racket/flonum)
+ (postfix-in - racket/match)
  (for-syntax macrotypes/type-constraints macrotypes/variance-constraints))
 
 (extends

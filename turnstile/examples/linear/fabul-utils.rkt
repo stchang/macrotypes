@@ -2,7 +2,7 @@
 (require syntax/parse
          turnstile/mode
          (for-syntax syntax/parse syntax/stx racket/syntax)
-         (for-template macrotypes/typecheck
+         (for-template macrotypes/typecheck-core
                        (only-in "lin.rkt"
                                 linear-mode?
                                 make-empty-linear-mode)))

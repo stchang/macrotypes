@@ -1,5 +1,5 @@
 #lang racket/base
-(require (for-syntax rackunit syntax/srcloc) rackunit macrotypes/typecheck
+(require (for-syntax rackunit syntax/srcloc) rackunit macrotypes/typecheck-core
          (only-in "../fomega2.rkt" current-kind-eval kindcheck?))
 (provide check-kind)
 
