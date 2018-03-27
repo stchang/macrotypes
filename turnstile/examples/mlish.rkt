@@ -6,11 +6,11 @@
  (for-syntax macrotypes/type-constraints macrotypes/variance-constraints))
 
 (extends
- "ext-stlc.rkt" 
+ "ext-stlc.rkt"
  #:except → define #%app λ #%datum begin
           + - * void = zero? sub1 add1 not let let* and
  #:rename [~→ ~ext-stlc:→])
-(reuse inst #:from "sysf.rkt") 
+(reuse inst #:from "sysf.rkt")
 (require (only-in "ext-stlc.rkt" → →?))
 (require (only-in "sysf.rkt" ~∀ ∀ ∀? Λ))
 (reuse × tup proj define-type-alias #:from "stlc+rec-iso.rkt")
@@ -28,16 +28,14 @@
 (require (prefix-in stlc+cons: (only-in "stlc+cons.rkt" list)))
 (require (prefix-in stlc+tup: (only-in "stlc+tup.rkt" tup)))
 
-;; for demonstrating user ability to extend the type system, see fasta.mlish
-(provide (for-syntax ~seq ...))
-
 ;; ML-like language
 ;; - top level recursive functions
 ;; - user-definable algebraic datatypes
 ;; - pattern matching
 ;; - (local) type inference
 
-(provide → →/test
+(provide define-type define-types
+         → →/test
          (typed-out [+ : (→ Int Int Int)]
                     [- : (→ Int Int Int)]
                     [* : (→ Int Int Int)]
@@ -85,23 +83,49 @@
                     [regexp : (→ String Regexp)]
                     [channel-get : (∀ (X) (→ (Channel X) X))]
                     [channel-put : (∀ (X) (→ (Channel X) X Unit))]
-                    [thread : (∀ (X) (→ (→ X) Thread))])
+                    [thread : (∀ (X) (→ (→ X) Thread))]
+                    [vector-length : (∀ (X) (→ (Vector X) Int))]
+                    [vector-ref : (∀ (X) (→ (Vector X) Int X))]
+                    [vector-set! : (∀ (X) (→ (Vector X) Int X Unit))]
+                    [vector-copy! : (∀ (X) (→ (Vector X) Int (Vector X) Unit))]
+                    [in-vector : (∀ (X) (→ (Vector X) (Sequence X)))]
+                    [in-list : (∀ (X) (→ (List X) (Sequence X)))]
+                    [display : (∀ (X) (→ X Unit))]
+                    [displayln : (∀ (X) (→ X Unit))]
+                    [list->vector : (∀ (X) (→ (List X) (Vector X)))]
+                    [in-hash : (∀ (K V) (→ (Hash K V) (Sequence (stlc+rec-iso:× K V))))]
+                    [hash-set! : (∀ (K V) (→ (Hash K V) K V Unit))]
+                    [hash-has-key? : (∀ (K V) (→ (Hash K V) K Bool))]
+                    [hash-count : (∀ (K V) (→ (Hash K V) Int))]
+                    [equal? : (∀ (X) (→ X X Bool))]
+                    )
          not void
-         define-type define-types
-         List Channel Thread Vector Sequence Hash String-Port Input-Port Regexp
-         match2)
+         define match match2 λ
+         (rename-out [mlish:#%app #%app])
+         cond when unless
+         Channel make-channel
+         Thread
+         List Vector
+         vector make-vector
+         Sequence in-range in-naturals in-lines
+         for for*
+         for/list for/vector for*/vector for*/list for/fold for/hash for/sum
+         printf format
+         let let* begin
+         Hash hash hash-ref
+         String-Port Input-Port
+         write-string string-length string-copy!
+         number->string string-append
+         quotient+remainder
+         set!
+         provide-type
+         (rename-out [mlish-provide provide])
+         require-typed
+         Regexp
+         read)
 
-;; providing version of define-typed-syntax
-(define-syntax (define-typed-syntax stx)
-  (syntax-parse stx
-    [(_ name:id #:export-as out-name:id . rst)
-     #'(begin-
-         (provide- (rename-out [name out-name]))
-         (define-typerule name . rst))] ; define-typerule doesnt provide
-    [(_ name:id . rst)
-     #'(define-typed-syntax name #:export-as name . rst)]
-    [(_ (name:id . pat) . rst)
-     #'(define-typed-syntax name #:export-as name [(_ . pat) . rst])]))
+;; for demonstrating user ability to extend the type system, see fasta.mlish
+(provide (for-syntax ~seq ...))
 
 (module+ test
   (require (for-syntax rackunit)))
@@ -140,7 +164,9 @@
   ;; find-free-Xs : (Stx-Listof Id) Type -> (Listof Id)
   ;; finds the free Xs in the type
   (define (find-free-Xs Xs ty)
-    (for/list ([X (in-stx-list Xs)] #:when (stx-contains-id? ty X)) X))
+    (for/list ([X (in-stx-list Xs)]
+               #:when (stx-contains-id? ty X))
+      X))
 
   ;; solve for Xs by unifying quantified fn type with the concrete types of stx's args
   ;;   stx = the application stx = (#%app e_fn e_arg ...)
@@ -174,7 +200,7 @@
                   (infer+erase (if (empty? (find-free-Xs Xs ty_in))
                                    (add-expected-ty a ty_in)
                                    a)))
-                (values 
+                (values
                  (cons #'a- as-)
                  (add-constraints Xs cs (list (list ty_in #'ty_a))
                                   (list (list (inst-type/cs/orig
@@ -936,7 +962,7 @@
 
 
 ;; #%app --------------------------------------------------
-(define-typed-syntax mlish:#%app #:export-as #%app
+(define-typed-syntax mlish:#%app
   [(_ e_fn e_arg ...) ≫
    ;; compute fn type (ie ∀ and →)
    [⊢ e_fn ≫ e_fn- ⇒ (~?∀ Xs (~ext-stlc:→ . tyX_args))]
@@ -1054,37 +1080,6 @@
    [⊢ [e ≫ e- ⇒ : ty]]
    --------
    [⊢ [_ ≫ (make-vector- n- e-) ⇒ : (Vector ty)]]])
-(define-typed-syntax vector-length
-  [(vector-length e) ≫
-   [⊢ [e ≫ e- ⇒ : (~Vector _)]]
-   --------
-   [⊢ [_ ≫ (vector-length- e-) ⇒ : Int]]])
-(define-typed-syntax vector-ref
-  [(vector-ref e n) ⇐ : ty ≫
-   [⊢ [e ≫ e- ⇐ : (Vector ty)]]
-   [⊢ [n ≫ n- ⇐ : Int]]
-   --------
-   [⊢ [_ ≫ (vector-ref- e- n-) ⇐ : _]]]
-  [(vector-ref e n) ≫
-   [⊢ [e ≫ e- ⇒ : (~Vector ty)]]
-   [⊢ [n ≫ n- ⇐ : Int]]
-   --------
-   [⊢ [_ ≫ (vector-ref- e- n-) ⇒ : ty]]])
-(define-typed-syntax vector-set!
-  [(vector-set! e n v) ≫
-   [⊢ [e ≫ e- ⇒ : (~Vector ty)]]
-   [⊢ [n ≫ n- ⇐ : Int]]
-   [⊢ [v ≫ v- ⇐ : ty]]
-   --------
-   [⊢ [_ ≫ (vector-set!- e- n- v-) ⇒ : Unit]]])
-(define-typed-syntax vector-copy!
-  [(vector-copy! dest start src) ≫
-   [⊢ [dest ≫ dest- ⇒ : (~Vector ty)]]
-   [⊢ [start ≫ start- ⇐ : Int]]
-   [⊢ [src ≫ src- ⇐ : (Vector ty)]]
-   --------
-   [⊢ [_ ≫ (vector-copy!- dest- start- src-) ⇒ : Unit]]])
-
 
 ;; sequences and for loops
 
@@ -1112,19 +1107,6 @@
   [⊢ [start ≫ start- ⇐ : Int]]
   --------
   [⊢ [_ ≫ (in-naturals- start-) ⇒ : (Sequence Int)]]])
-
-
-(define-typed-syntax in-vector
-  [(in-vector e) ≫
-   [⊢ [e ≫ e- ⇒ : (~Vector ty)]]
-   --------
-   [⊢ [_ ≫ (in-vector- e-) ⇒ : (Sequence ty)]]])
-
-(define-typed-syntax in-list
-  [(in-list e) ≫
-   [⊢ [e ≫ e- ⇒ : (~List ty)]]
-   --------
-   [⊢ [_ ≫ (in-list- e-) ⇒ : (Sequence ty)]]])
 
 (define-typed-syntax in-lines
   [(in-lines e) ≫
@@ -1220,26 +1202,6 @@
    [⊢ [e ≫ e- ⇒ : ty] ...]
    --------
    [⊢ [_ ≫ (format- s- e- ...) ⇒ : String]]])
-(define-typed-syntax display
-  [(display e) ≫
-   [⊢ [e ≫ e- ⇒ : _]]
-   --------
-   [⊢ [_ ≫ (display- e-) ⇒ : Unit]]])
-(define-typed-syntax displayln
-  [(displayln e) ≫
-   [⊢ [e ≫ e- ⇒ : _]]
-   --------
-   [⊢ [_ ≫ (displayln- e-) ⇒ : Unit]]])
-
-(define-typed-syntax list->vector
-  [(list->vector e) ⇐ : (~Vector ty) ≫
-   [⊢ [e ≫ e- ⇐ : (List ty)]]
-   --------
-   [⊢ [_ ≫ (list->vector- e-) ⇐ : _]]]
-  [(list->vector e) ≫
-   [⊢ [e ≫ e- ⇒ : (~List ty)]]
-   --------
-   [⊢ [_ ≫ (list->vector- e-) ⇒ : (Vector ty)]]])
 
 (define-typed-syntax let
   [(let name:id (~datum :) ty:type ~! ([x:id e] ...) b ... body) ≫
@@ -1273,12 +1235,6 @@
 ;; hash
 (define-type-constructor Hash #:arity = 2)
 
-(define-typed-syntax in-hash
-  [(_ e) ≫
-   [⊢ [e ≫ e- ⇒ : (~Hash ty_k ty_v)]]
-   --------
-   [⊢ [_ ≫ (hash-map- e- list-) ⇒ : (Sequence (stlc+rec-iso:× ty_k ty_v))]]])
-
 ; mutable hashes
 (define-typed-syntax hash
   [(hash (~and tys {ty_key ty_val})) ≫
@@ -1294,13 +1250,6 @@
    #:with ty_val (stx-car #'(ty_v ...))
    --------
    [⊢ [_ ≫ (make-hash- (list- (cons- k- v-) ...)) ⇒ : (Hash ty_key ty_val)]]])
-(define-typed-syntax hash-set!
-  [(hash-set! h k v) ≫
-   [⊢ [h ≫ h- ⇒ : (~Hash ty_k ty_v)]]
-   [⊢ [k ≫ k- ⇐ : ty_k]]
-   [⊢ [v ≫ v- ⇐ : ty_v]]
-   --------
-   [⊢ [_ ≫ (hash-set!- h- k- v-) ⇒ : Unit]]])
 (define-typed-syntax hash-ref
   [(hash-ref h k) ≫
    [⊢ [h ≫ h- ⇒ : (~Hash ty_k ty_v)]]
@@ -1313,26 +1262,16 @@
    [⊢ [fail ≫ fail- ⇐ : (→ ty_v)]]
    --------
    [⊢ [_ ≫ (hash-ref- h- k- fail-) ⇒ : ty_val]]])
-(define-typed-syntax hash-has-key?
-  [(hash-has-key? h k) ≫
-   [⊢ [h ≫ h- ⇒ : (~Hash ty_k _)]]
-   [⊢ [k ≫ k- ⇐ : ty_k]]
-   --------
-   [⊢ [_ ≫ (hash-has-key?- h- k-) ⇒ : Bool]]])
-
-(define-typed-syntax hash-count
-  [(hash-count h) ≫
-   [⊢ [h ≫ h- ⇒ : (~Hash _ _)]]
-   --------
-   [⊢ [_ ≫ (hash-count- h-) ⇒ : Int]]])
 
 (define-base-type String-Port)
 (define-base-type Input-Port)
 
+(define-primop string-length : (→ String Int))
+
 (define-typed-syntax write-string
  [(write-string str out) ≫
   --------
-  [_ ≻ (write-string str out (ext-stlc:#%datum . 0) (string-length str))]]
+  [_ ≻ (write-string str out (ext-stlc:#%datum . 0) (mlish:#%app string-length str))]]
  [(write-string str out start end) ≫
   [⊢ [str ≫ str- ⇐ : String]]
   [⊢ [out ≫ out- ⇐ : String-Port]]
@@ -1341,17 +1280,11 @@
   --------
   [⊢ [_ ≫ (begin- (write-string- str- out- start- end-) (void-)) ⇒ : Unit]]])
 
-(define-typed-syntax string-length
- [(string-length str) ≫
-  [⊢ [str ≫ str- ⇐ : String]]
-  --------
-  [⊢ [_ ≫ (string-length- str-) ⇒ : Int]]])
-
 (define-typed-syntax string-copy!
   [(string-copy! dest dest-start src) ≫
    --------
    [_ ≻ (string-copy!
-         dest dest-start src (ext-stlc:#%datum . 0) (string-length src))]]
+         dest dest-start src (ext-stlc:#%datum . 0) (mlish:#%app string-length src))]]
   [(string-copy! dest dest-start src src-start src-end) ≫
    [⊢ [dest ≫ dest- ⇐ : String]]
    [⊢ [src ≫ src- ⇐ : String]]
@@ -1382,7 +1315,7 @@
    --------
    [_ ≻ (provide- ty ...)]])
 
-(define-typed-syntax mlish-provide #:export-as provide
+(define-typed-syntax mlish-provide
   [(provide x:id ...) ≫
    [⊢ [x ≫ x- ⇒ : ty_x] ...]
    ; TODO: use hash-code to generate this tmp
@@ -1402,13 +1335,6 @@
           (define-typed-variable-rename x ≫ x- : x-ty) ...)]])
 
 (define-base-type Regexp)
-
-(define-typed-syntax equal?
-  [(equal? e1 e2) ≫
-   [⊢ [e1 ≫ e1- ⇒ : ty1]]
-   [⊢ [e2 ≫ e2- ⇐ : ty1]]
-   --------
-   [⊢ [_ ≫ (equal?- e1- e2-) ⇒ : Bool]]])
 
 (define-typed-syntax read-int
   [(read-int) ≫

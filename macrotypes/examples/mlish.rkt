@@ -16,7 +16,8 @@
 (reuse × tup proj define-type-alias #:from "stlc+rec-iso.rkt")
 (require (only-in "stlc+rec-iso.rkt" ~× ×?))
 (provide (rename-out [ext-stlc:and and] [ext-stlc:#%datum #%datum]))
-(reuse member length reverse list-ref cons nil isnil head tail list #:from "stlc+cons.rkt")
+(reuse member length reverse list-ref cons nil isnil head tail list
+       #:from "stlc+cons.rkt")
 (require (prefix-in stlc+cons: (only-in "stlc+cons.rkt" list cons nil)))
 (require (only-in "stlc+cons.rkt" ~List List? List))
 (reuse ref deref := Ref #:from "stlc+box.rkt")
@@ -32,9 +33,6 @@
 ;; - user-definable algebraic datatypes
 ;; - pattern matching
 ;; - (local) type inference
-
-(module+ test
-  (require (for-syntax rackunit)))
 
 (provide define-type define-types
          → →/test
@@ -85,21 +83,36 @@
                     [regexp : (→ String Regexp)]
                     [channel-get : (∀ (X) (→ (Channel X) X))]
                     [channel-put : (∀ (X) (→ (Channel X) X Unit))]
-                    [thread : (∀ (X) (→ (→ X) Thread))])
+                    [thread : (∀ (X) (→ (→ X) Thread))]
+                    [vector-length : (∀ (X) (→ (Vector X) Int))]
+                    [vector-ref : (∀ (X) (→ (Vector X) Int X))]
+                    [vector-set! : (∀ (X) (→ (Vector X) Int X Unit))]
+                    [vector-copy! : (∀ (X) (→ (Vector X) Int (Vector X) Unit))]
+                    [in-vector : (∀ (X) (→ (Vector X) (Sequence X)))]
+                    [in-list : (∀ (X) (→ (List X) (Sequence X)))]
+                    [display : (∀ (X) (→ X Unit))]
+                    [displayln : (∀ (X) (→ X Unit))]
+                    [list->vector : (∀ (X) (→ (List X) (Vector X)))]
+                    [in-hash : (∀ (K V) (→ (Hash K V) (Sequence (stlc+rec-iso:× K V))))]
+                    [hash-set! : (∀ (K V) (→ (Hash K V) K V Unit))]
+                    [hash-has-key? : (∀ (K V) (→ (Hash K V) K Bool))]
+                    [hash-count : (∀ (K V) (→ (Hash K V) Int))]
+                    [equal? : (∀ (X) (→ X X Bool))]
+                    )
          not void
-          define match match2 λ
-          (rename-out [mlish:#%app #%app])
-          cond when unless
+         define match match2 λ
+         (rename-out [mlish:#%app #%app])
+         cond when unless
          Channel make-channel
          Thread
          List Vector
-         vector make-vector vector-length vector-ref vector-set! vector-copy!
-         Sequence in-range in-naturals in-vector in-list in-lines
+         vector make-vector
+         Sequence in-range in-naturals in-lines
          for for*
          for/list for/vector for*/vector for*/list for/fold for/hash for/sum
-         printf format display displayln list->vector
+         printf format
          let let* begin
-         Hash in-hash hash hash-set! hash-ref hash-has-key? hash-count
+         Hash hash hash-ref
          String-Port Input-Port
          write-string string-length string-copy!
          number->string string-append
@@ -109,8 +122,10 @@
          (rename-out [mlish-provide provide])
          require-typed
          Regexp
-         equal?
          read)
+
+(module+ test
+  (require (for-syntax rackunit)))
 
 ;; creating possibly polymorphic types
 ;; ?∀ only wraps a type in a forall if there's at least one type variable
@@ -146,7 +161,7 @@
   ;; find-free-Xs : (Stx-Listof Id) Type -> (Listof Id)
   ;; finds the free Xs in the type
   (define (find-free-Xs Xs ty)
-    (for/list ([X (in-list (stx->list Xs))]
+    (for/list ([X (in-stx-list Xs)]
                #:when (stx-contains-id? ty X))
       X))
 
@@ -164,8 +179,9 @@
     (syntax-parse tyXs
       [(τ_inX ... τ_outX)
        ;; generate initial constraints with expected type and τ_outX
-       #:with (~?∀ Vs expected-ty) (and (get-expected-type stx)
-                                        ((current-type-eval) (get-expected-type stx)))
+       #:with (~?∀ Vs expected-ty)
+              (and (get-expected-type stx)
+                   ((current-type-eval) (get-expected-type stx)))
        (define initial-cs
          (if (and (syntax-e #'expected-ty) (stx-null? #'Vs))
              (add-constraints Xs '() (list (list #'expected-ty #'τ_outX)))
@@ -174,14 +190,14 @@
          [(_ e_fn . args)
           (define-values (as- cs)
               (for/fold ([as- null] [cs initial-cs])
-                        ([a (in-list (syntax->list #'args))]
-                         [tyXin (in-list (syntax->list #'(τ_inX ...)))])
+                        ([a (in-stx-list #'args)]
+                         [tyXin (in-stx-list #'(τ_inX ...))])
                 (define ty_in (inst-type/cs/orig Xs cs tyXin datum=?))
                 (define/with-syntax [a- ty_a]
                   (infer+erase (if (empty? (find-free-Xs Xs ty_in))
                                    (add-expected-ty a ty_in)
                                    a)))
-                (values 
+                (values
                  (cons #'a- as-)
                  (add-constraints Xs cs (list (list ty_in #'ty_a))
                                   (list (list (inst-type/cs/orig
@@ -209,7 +225,7 @@
   (define (covariant-Xs? ty)
     (syntax-parse ((current-type-eval) ty)
       [(~?∀ Xs ty)
-       (for/and ([X (in-list (syntax->list #'Xs))])
+       (for/and ([X (in-stx-list #'Xs)])
          (covariant-X? X #'ty))]))
 
   ;; find-X-variance : Id Type [Variance] -> Variance
@@ -246,7 +262,7 @@
          (for/list ([arg-variance (in-list (get-arg-variances #'tycons))])
            (variance-compose ctxt-variance arg-variance)))
        (for/fold ([acc (make-list (length Xs) irrelevant)])
-                 ([τ (in-list (syntax->list #'[τ ...]))]
+                 ([τ (in-stx-list #'[τ ...])]
                   [τ-ctxt-variance (in-list τ-ctxt-variances)])
          (map variance-join
               acc
@@ -1009,33 +1025,6 @@
    #:with n- (⇑ n as Int)
    #:with [e- ty] (infer+erase #'e)
    (⊢ (make-vector- n- e-) : (Vector ty))])
-(define-typed-syntax vector-length
-  [(_ e)
-   #:with [e- _] (⇑ e as Vector)
-   (⊢ (vector-length- e-) : Int)])
-(define-typed-syntax vector-ref
-  [(_ e n)
-   #:with n- (⇑ n as Int)
-   #:with [e- (ty)] (⇑ e as Vector)
-   (⊢ (vector-ref- e- n-) : ty)])
-(define-typed-syntax vector-set!
-  [(_ e n v)
-   #:with n- (⇑ n as Int)
-   #:with [e- (~Vector ty)] (infer+erase #'e)
-   #:with [v- ty_v] (infer+erase #'v)
-   #:fail-unless (typecheck? #'ty_v #'ty)
-                 (typecheck-fail-msg/1 #'ty #'ty_v #'v)
-   (⊢ (vector-set!- e- n- v-) : Unit)])
-(define-typed-syntax vector-copy!
-  [(_ dest start src)
-   #:with start- (⇑ start as Int)
-   #:with [dest- (~Vector ty_dest)] (infer+erase #'dest)
-   #:with [src- (~Vector ty_src)] (infer+erase #'src)
-   #:fail-unless (typecheck? #'ty_dest #'ty_src)
-                 (typecheck-fail-msg/1
-                  #'(Vector ty_src) #'(Vector ty_dest) #'dest)
-   (⊢ (vector-copy!- dest- start- src-) : Unit)])
-
 
 ;; sequences and for loops
 
@@ -1055,17 +1044,6 @@
  [(in-naturals start)
   #:with start- (⇑ start as Int)
   (⊢ (in-naturals- start-) : (Sequence Int))])
- 
-
-(define-typed-syntax in-vector
-  [(in-vector e)
-   #:with [e- (ty)] (⇑ e as Vector)
-   (⊢ (in-vector- e-) : (Sequence ty))])
-
-(define-typed-syntax in-list
-  [(in-list e)
-   #:with [e- (ty)] (⇑ e as List)
-   (⊢ (in-list- e-) : (Sequence ty))])
 
 (define-typed-syntax in-lines
   [(in-lines e)
@@ -1145,19 +1123,6 @@
    #:with s- (⇑ str as String)
    #:with ([e- ty] ...) (infers+erase #'(e ...))
    (⊢ (format- s- e- ...) : String)])
-(define-typed-syntax display
-  [(display e)
-   #:with [e- _] (infer+erase #'e)
-   (⊢ (display- e-) : Unit)])
-(define-typed-syntax displayln
-  [(displayln e)
-   #:with [e- _] (infer+erase #'e)
-   (⊢ (displayln- e-) : Unit)])
-
-(define-typed-syntax list->vector
-  [(list->vector e)
-   #:with [e- (ty)] (⇑ e as List)
-   (⊢ (list->vector- e-) : (Vector ty))])
 
 (define-typed-syntax let
   [(let name:id (~datum :) ty:type ~! ([x:id e] ...) b ... body)
@@ -1186,12 +1151,6 @@
 ;; hash
 (define-type-constructor Hash #:arity = 2)
 
-(define-typed-syntax in-hash
-  [(in-hash e)
-   #:with [e- (ty_k ty_v)] (⇑ e as Hash)
-   (⊢ (hash-map- e- list-)
-      : (Sequence (stlc+rec-iso:× ty_k ty_v)))])
-
 ; mutable hashes
 (define-typed-syntax hash
   [(hash (~and tys {ty_key ty_val}))
@@ -1205,14 +1164,7 @@
    #:with ty_key (stx-car #'(ty_k ...))
    #:with ty_val (stx-car #'(ty_v ...))
    (⊢ (make-hash- (list- (cons- k- v-) ...)) : (Hash ty_key ty_val))])
-(define-typed-syntax hash-set!
-  [(hash-set! h k v)
-   #:with [h- (~Hash ty_key ty_val)] (infer+erase #'h)
-   #:with [k- ty_k] (infer+erase #'k)
-   #:with [v- ty_v] (infer+erase #'v)
-   #:fail-unless (typecheck? #'ty_k #'ty_key) (typecheck-fail-msg/1 #'ty_key #'ty_k #'k)
-   #:fail-unless (typecheck? #'ty_v #'ty_val) (typecheck-fail-msg/1 #'ty_val #'ty_v #'v)
-   (⊢ (hash-set!- h- k- v-) : Unit)])
+
 (define-typed-syntax hash-ref
   [(hash-ref h k)
    #:with [h- (~Hash ty_key ty_val)] (infer+erase #'h)
@@ -1229,25 +1181,15 @@
    #:fail-unless (typecheck? #'ty_fail #'ty_val)
    (typecheck-fail-msg/1 #'(→ ty_val) #'(→ ty_fail) #'fail)
    (⊢ (hash-ref- h- k- fail-) : ty_val)])
-(define-typed-syntax hash-has-key?
-  [(hash-has-key? h k)
-   #:with [h- (~Hash ty_key _)] (infer+erase #'h)
-   #:with [k- ty_k] (infer+erase #'k)
-   #:fail-unless (typecheck? #'ty_k #'ty_key)
-   (typecheck-fail-msg/1 #'ty_key #'ty_k #'k)
-   (⊢ (hash-has-key?- h- k-) : Bool)])
-
-(define-typed-syntax hash-count
-  [(hash-count h)
-   #:with [h- _] (⇑ h as Hash)
-   (⊢ (hash-count- h-) : Int)])
 
 (define-base-type String-Port)
 (define-base-type Input-Port)
 
+(define-primop string-length : (→ String Int))
+
 (define-typed-syntax write-string
  [(write-string str out)
-  #'(write-string str out (ext-stlc:#%datum . 0) (string-length str))]
+  #'(write-string str out (ext-stlc:#%datum . 0) (mlish:#%app string-length str))]
  [(write-string str out start end)
    #:with str- (⇑ str as String)
    #:with out- (⇑ out as String-Port)
@@ -1255,15 +1197,10 @@
    #:with end- (⇑ end as Int)
    (⊢ (begin- (write-string- str- out- start- end-) (void-)) : Unit)])
 
-(define-typed-syntax string-length
- [(string-length str) 
-  #:with str- (⇑ str as String)
-  (⊢ (string-length- str-) : Int)])
-
 (define-typed-syntax string-copy!
   [(string-copy! dest dest-start src)
    #'(string-copy! 
-      dest dest-start src (ext-stlc:#%datum . 0) (string-length src))]
+      dest dest-start src (ext-stlc:#%datum . 0) (mlish:#%app string-length src))]
   [(string-copy! dest dest-start src src-start src-end)
    #:with dest- (⇑ dest as String)
    #:with src- (⇑ src as String)
@@ -1308,13 +1245,6 @@
        (define-typed-variable-rename x ≫ x- : x-ty) ...)])
 
 (define-base-type Regexp)
-
-(define-typed-syntax equal?
-  [(equal? e1 e2)
-   #:with [e1- ty1] (infer+erase #'e1)
-   #:with [e2- ty2] (infer+erase #'(add-expected e2 ty1))
-   #:fail-unless (typecheck? #'ty1 #'ty2) "arguments to equal? have different types"
-   (⊢ (equal?- e1- e2-) : Bool)])
 
 (define-typed-syntax read
   [(read)
