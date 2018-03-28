@@ -520,42 +520,46 @@
              #:with body:expr
              ;; should never get here
              #'(error msg)])
-  (define-splicing-syntax-class pat #:datum-literals (⇐ ⇐*)
-    [pattern (~seq pat)
-             #:attr transform-body identity]
-    [pattern (~or (~seq pat* left:⇐ τ-pat ; implicit tag
-                        (~parse tag #',(current-tag)))
-                  (~seq pat* left:⇐ tag:id τ-pat)) ; explicit tag
-             #:with stx (generate-temporary 'stx)
-             #:with τ (generate-temporary #'τ-pat)
-             #:with b (generate-temporary 'body)
-             #:with pat
-             #'(~and stx
-                     pat*
-                     (~parse τ (get-expected-type #'stx))
-                     (~post
-                      (~post
-                       (~fail #:unless (syntax-e #'τ)
-                              (no-expected-type-fail-msg))))
-                     (~parse τ-pat #'τ))
+
+  
+  ;; turnstile rule input PATTERN stx class -----------------------------------
+  (define-syntax-class ⇐pat #:attributes (tagpat transform-body)
+                            #:datum-literals (⇐)
+    ;; `tag` cannot be `id` stx-class because it might be ,(current-tag)
+    ;; - ,(current-tag) needs the unquote because in the typical case,
+    ;;   `tag` is an id, that is then used as a (quasi)quoted symbol
+    [pattern (left:⇐ tag valpat) 
+             #:with tagpat #'(~and stx
+                                   (~bind [val (if (equal? `tag (current-tag))
+                                                   (get-expected-type #'stx)
+                                                   (detach #'stx `tag))])
+                                   (~post
+                                    (~post
+                                     (~fail #:unless (or (not (equal? `tag (current-tag)))
+                                                         (attribute val))
+                                                (no-expected-type-fail-msg))))
+                                   (~parse valpat (attribute val)))
              #:attr transform-body
-             (lambda (body)
-               #`(let* ([b #,body][ty-b (detach b `tag)])
-                   (when (and ty-b (not (check? ty-b #'τ)))
-                     (raise-⇐-expected-type-error #'left b #'τ ty-b))
-                   (attach b `tag #'τ)))]
-    ;; pat, with ⇐* (ie, non-expected-ty) prop inputs
-    [pattern (~or (~seq pat* _:⇐* tag*:id τ-pat*
-                        (~parse (tag ...) #'(tag*))
-                        (~parse (τ-pat ...) #'(τ-pat*)))
-                  (~seq pat* (:⇐* tag:id τ-pat) ...))
-             #:with stx (generate-temporary 'stx)
-             #:with (tmp ...) (generate-temporaries #'(τ-pat ...))
-             #:with pat
-             #'(~and stx
-                     pat*
-                     (~parse τ-pat (detach #'stx `tag)) ...)
-             #:attr transform-body identity])
+                    (λ (body)
+                      #`(if (equal? `tag (current-tag))
+                            (let* ([b #,body] [ty-b (detach b `tag)])
+                              (when (and ty-b (not (check? ty-b #'val)))
+                                (raise-⇐-expected-type-error #'left b #'val ty-b))
+                              (attach b `tag #'val))
+                            #,body))])
+  (define-splicing-syntax-class pat #:attributes (pat transform-body)
+                                    #:datum-literals (⇐)
+    [pattern pat ; no left arrow (⇐)
+             #:attr transform-body identity]
+    [pattern (~or (~seq pat* left:⇐ tagpat ; single ⇐, no parens, implicit tag
+                        (~parse tag #',(current-tag))) ;; see ⇐pat comments for why unquote
+                  (~seq pat* left:⇐ tag:id tagpat)) ; explicit tag
+             #:with tmp:⇐pat #`(left tag tagpat)
+             #:with pat #'(~and pat* tmp.tagpat)
+             #:attr transform-body (attribute tmp.transform-body)]
+    [pattern (~seq pat* expected:⇐pat ...)
+             #:with pat #'(~and pat* expected.tagpat ...)
+             #:attr transform-body (apply compose (attribute expected.transform-body))])
   (define-splicing-syntax-class conclusion-kw
     [pattern (~seq #:update name:id fn)
              #:with param-name (mk-param #'name)
@@ -564,6 +568,9 @@
     #:attributes ([stuff 1])
     [pattern (~seq kw:conclusion-kw ...)
              #:with [stuff ...] (apply stx-append (stx->list #'(kw.thing ...)))])
+  
+  ;; --------------------------------------------------------------------------
+  ;; turnstile RULE stx class, ie, a clause in define-typed-stx ---------------
   (define-syntax-class rule #:datum-literals (≫)
     [pattern [pat:pat ≫
               clause:clause ...
