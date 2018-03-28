@@ -14,16 +14,22 @@
                       [syntax-parse/typecheck syntax-parse/typed-syntax])))
 
 (require (except-in (rename-in
-                     macrotypes/typecheck-core
-                     [define-syntax-category -define-syntax-category])
+                      macrotypes/typecheck-core
+                      [define-syntax-category -define-syntax-category])
                     #%module-begin)
-         (for-syntax racket/stxparam))
+         (for-syntax racket/stxparam
+                     "mode.rkt"
+                     (only-in lens/common lens-view lens-set)
+                     (only-in lens/private/syntax/stx stx-flatten/depth-lens))
+         (for-meta 2
+                   racket/function
+                   racket/base
+                   racket/string
+                   syntax/stx
+                   macrotypes/stx-utils))
 
-(module typecheck+ racket/base
-  (provide (all-defined-out))
-  (require (for-meta -1 (except-in macrotypes/typecheck-core #%module-begin))
-           (only-in lens/common lens-view lens-set)
-           (only-in lens/private/syntax/stx stx-flatten/depth-lens))
+(begin-for-syntax
+
   ;; infer/depth returns a list of three values:
   ;;   tvxs- ; a stx-list of the expanded versions of type variables in the tvctx
   ;;   xs-   ; a stx-list of the expanded versions of variables in the ctx
@@ -38,7 +44,7 @@
       (infer #:tvctx tvctx #:ctx ctx (stx-map pass-orig es origs) #:tag tag))
     (define es*- (lens-set flat es* #`es-))
     (list #'tvxs- #'xs- es*-))
-  ;; infers/depths
+
   (define (infers/depths clause-depth tc-depth tvctxs/ctxs/ess/origss*
                          #:tag tag)
     (define flat (stx-flatten/depth-lens clause-depth))
@@ -64,18 +70,8 @@
              (type->str existing-type))
      ⇐-stx
      body)))
-;(module syntax-classes racket/base
+
 (begin-for-syntax (begin-for-syntax
-;  (provide (all-defined-out))
- ;;  (require (for-meta 0 (submod ".." typecheck+))
-;;  ;          syntax/stx
-;;   ;         macrotypes/stx-utils
-;;    ;        racket/string
-;;            (for-meta -1 (submod ".." typecheck+)
-;; ;                     (only-in macrotypes/typecheck-core mk-param)
-;;                      (except-in macrotypes/typecheck-core #%module-begin mk-~ mk-?)
-;;                      "mode.rkt")
-;;            (for-meta -2 (except-in macrotypes/typecheck-core #%module-begin)))
   (define-syntax-class ---
     [pattern dashes:id
              #:do [(define str-dashes (symbol->string (syntax->datum #'dashes)))]
@@ -106,7 +102,7 @@
     #:datum-literals (⇒ ⇒*)
     #:attributes (e-pat)
     [pattern (~or (~seq (~or ⇒ ⇒*) tag-pat ; implicit tag
-                          (~parse tag #',(current-tag))
+                          (~parse tag (syntax-parameter-value #'current-tag-stx))
                           (tag-prop:⇒-prop) ...)
                   (~seq (~or ⇒ ⇒*) tag:id tag-pat (tag-prop:⇒-prop) ...)) ; explicit tag
              #:with e-tmp (generate-temporary)
@@ -119,7 +115,7 @@
     #:datum-literals (⇒ ⇒*) ; ⇒* = dont ty-eval
     #:attributes (tag tag-expr)
     [pattern (~or (~seq ⇒ tag-stx ; implicit tag
-                          (~parse tag #',(current-tag))
+                          (~parse tag (syntax-parameter-value #'current-tag-stx))
                           (~parse (tag-prop.tag ...) #'())
                           (~parse (tag-prop.tag-expr ...) #'()))
                   (~seq ⇒ tag:id tag-stx (tag-prop:⇒-prop/conclusion) ...))
@@ -135,7 +131,7 @@
   (define-splicing-syntax-class ⇐-prop
     #:datum-literals (⇐)
     #:attributes (τ-stx e-pat)
-    [pattern (~or (~seq ⇐ τ-stx (~parse tag #',(current-tag)))
+    [pattern (~or (~seq ⇐ τ-stx (~parse tag (syntax-parameter-value #'current-tag-stx)))
                   (~seq ⇐ tag:id τ-stx))
              #:with e-tmp (generate-temporary)
              #:with τ-tmp (generate-temporary)
@@ -308,10 +304,10 @@
              (with-depth
               #`[(tvctx.ctx ...) (ctx.ctx ...) tc.es-stx tc.es-stx-orig]
               #'[ooo ...])
-             #:with inf #'(infers/depths 'clause-depth
+             #:with inf #`(infers/depths 'clause-depth
                                          'tc.depth
                                          #`tvctxs/ctxs/ess/origs
-                                         #:tag (current-tag))
+                                         #:tag '#,(syntax-parameter-value #'current-tag-stx))
              #:with inf+ ((attribute tc.wrap-computation) #'inf)
              ;; wrap2 allows using pat vars bound by inf+
              ;; (wrap-computation does not)
@@ -491,14 +487,14 @@
              #:with :last-clause #'[⊢ [_ ≫ e-stx . props]]]
     ;; ⇐ conclusion
     [pattern [⊢ (~and e-stx (~not [_ ≫ . rst]))] ;; TODO: this current tag isnt right?
-             #:with :last-clause #`[⊢ [_ ≫ e-stx ⇐ #,(datum->stx #'h (current-tag)) _]]]
+             #:with :last-clause #`[⊢ [_ ≫ e-stx ⇐ #,(datum->stx #'h (syntax-parameter-value #'current-tag-stx)) _]]]
     [pattern (~or [⊢ pat* (~seq ≫ e-stx
                                 ⇐ τ-pat ; implicit tag
-                                  (~parse tag #',(current-tag)))]
+                                  (~parse tag (syntax-parameter-value #'current-tag-stx)))]
                   [⊢ pat* ≫ e-stx ⇐ tag:id τ-pat] ; explicit tag
                   [⊢ [pat* (~seq ≫ e-stx
                                  ⇐ τ-pat ; implicit tag
-                                   (~parse tag #',(current-tag)))]]
+                                   (~parse tag (syntax-parameter-value #'current-tag-stx)))]]
                   [⊢ [pat* ≫ e-stx ⇐ tag:id τ-pat]]) ; explicit tag
              #:with stx (generate-temporary 'stx)
              #:with τ (generate-temporary #'τ-pat)
@@ -537,29 +533,29 @@
     ;;   `tag` is an id, that is then used as a (quasi)quoted symbol
     [pattern (left:⇐ tag valpat) 
              #:with tagpat #'(~and stx
-                                   (~bind [val (if (equal? `tag (current-tag))
+                                   (~bind [val (if (equal? 'tag (current-tag))
                                                    (get-expected-type #'stx)
                                                    (detach #'stx `tag))])
                                    (~post
                                     (~post
-                                     (~fail #:unless (or (not (equal? `tag (current-tag)))
+                                     (~fail #:unless (or (not (equal? 'tag (current-tag)))
                                                          (attribute val))
                                                 (no-expected-type-fail-msg))))
                                    (~parse valpat (attribute val)))
              #:attr transform-body
                     (λ (body)
-                      #`(if (equal? `tag (current-tag))
+                      #`(if (equal? 'tag (current-tag))
                             (let* ([b #,body] [ty-b (detach b `tag)])
                               (when (and ty-b (not (check? ty-b #'val)))
                                 (raise-⇐-expected-type-error #'left b #'val ty-b))
-                              (attach b `tag #'val))
+                              (attach b 'tag #'val))
                             #,body))])
   (define-splicing-syntax-class pat #:attributes (pat transform-body)
                                     #:datum-literals (⇐)
     [pattern pat ; no left arrow (⇐)
              #:attr transform-body identity]
     [pattern (~or (~seq pat* left:⇐ tagpat ; single ⇐, no parens, implicit tag
-                        (~parse tag #',(current-tag))) ;; see ⇐pat comments for why unquote
+                        (~parse tag (syntax-parameter-value #'current-tag-stx))) ;; see ⇐pat comments for why unquote
                   (~seq pat* left:⇐ tag:id tagpat)) ; explicit tag
              #:with tmp:⇐pat #`(left tag tagpat)
              #:with pat #'(~and pat* tmp.tagpat)

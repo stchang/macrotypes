@@ -80,7 +80,6 @@
   (define (mk-~ id) (format-id id "~~~a" id))
   (define (mk-#% id) (format-id id "#%~a" id))
   (define (mkx2 id) (format-id id "~a~a" id id))
-  (define (mk-param id) (format-id id "current-~a" id))
   (define-for-syntax (mk-? id) (format-id id "~a?" id))
   (define-for-syntax (mk-~ id) (format-id id "~~~a" id))
   ;; drop-file-ext : String -> String
