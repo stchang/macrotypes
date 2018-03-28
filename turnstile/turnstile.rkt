@@ -30,7 +30,7 @@
   ;;   es*-  ; a nested list a depth given by the depth argument, with the same structure
   ;;         ; as es*, containing the expanded es*, with the types attached
   (define (infer/depth #:ctx ctx #:tvctx tvctx depth es* origs*
-                       #:tag [tag (current-tag)])
+                       #:tag tag)
     (define flat (stx-flatten/depth-lens depth))
     (define es (lens-view flat es*))
     (define origs (lens-view flat origs*))
@@ -40,7 +40,7 @@
     (list #'tvxs- #'xs- es*-))
   ;; infers/depths
   (define (infers/depths clause-depth tc-depth tvctxs/ctxs/ess/origss*
-                         #:tag [tag (current-tag)])
+                         #:tag tag)
     (define flat (stx-flatten/depth-lens clause-depth))
     (define tvctxs/ctxs/ess/origss
       (lens-view flat tvctxs/ctxs/ess/origss*))
@@ -64,13 +64,18 @@
              (type->str existing-type))
      ⇐-stx
      body)))
-(module syntax-classes racket/base
-  (provide (all-defined-out))
-  (require (for-meta 0 (submod ".." typecheck+))
-           (for-meta -1 (submod ".." typecheck+)
-                     (except-in macrotypes/typecheck-core #%module-begin mk-~ mk-?)
-                     "mode.rkt")
-           (for-meta -2 (except-in macrotypes/typecheck-core #%module-begin)))
+;(module syntax-classes racket/base
+(begin-for-syntax (begin-for-syntax
+;  (provide (all-defined-out))
+ ;;  (require (for-meta 0 (submod ".." typecheck+))
+;;  ;          syntax/stx
+;;   ;         macrotypes/stx-utils
+;;    ;        racket/string
+;;            (for-meta -1 (submod ".." typecheck+)
+;; ;                     (only-in macrotypes/typecheck-core mk-param)
+;;                      (except-in macrotypes/typecheck-core #%module-begin mk-~ mk-?)
+;;                      "mode.rkt")
+;;            (for-meta -2 (except-in macrotypes/typecheck-core #%module-begin)))
   (define-syntax-class ---
     [pattern dashes:id
              #:do [(define str-dashes (symbol->string (syntax->datum #'dashes)))]
@@ -291,6 +296,8 @@
                         (~parse ((tvctx.x- tvctx.ctx) ...) #'()))
                   (~seq [(ctx:id-props+≫*) ⊢ . tc:tc*] ooo:elipsis ...
                         (~parse ((tvctx.x- tvctx.ctx) ...) #'()))
+                  ;; TODO: allow arbitrary number of groupings (instead of just one or two)?
+                  ;; but this will add another ellipses depth
                   (~seq [(tvctx:id-props+≫*) (ctx:id-props+≫*) ⊢ . tc:tc*] ooo:elipsis ...))
              #:with clause-depth (stx-length #'[ooo ...])
              #:with tcs-pat
@@ -584,13 +591,18 @@
                 last-clause.stuff ...
                 opt-kws.stuff ...
                 body]])
+  ))
+(module syntax-class-kws racket/base
+  (require syntax/parse)
+  (provide stxparse-kws)
   (define-splicing-syntax-class stxparse-kws
     [pattern (~seq (~or (~seq :keyword _)
                         (~seq :keyword))
-                   ...)])
-  )
-(require (for-meta 1 'syntax-classes)
-         (for-meta 2 'syntax-classes))
+                   ...)]))
+(require (for-meta 1 'syntax-class-kws)
+         (for-meta 2 'syntax-class-kws)
+;         (for-meta 1 'syntax-classes)
+        #; (for-meta 2 'syntax-classes))
 
 (begin-for-syntax
   (define-syntax ~typecheck
@@ -609,7 +621,9 @@
       [(_ stx-expr
           (~and (~seq kw-stuff ...) :stxparse-kws)
           rule:rule ...)
-       #'(syntax-parse stx-expr kw-stuff ... rule.norm ...)])))
+       #'(syntax-parse stx-expr kw-stuff ... rule.norm ...)]))
+
+  (define-syntax-parameter current-tag-stx ':))
 
 ;; macrotypes/typecheck-core.rkt already defines (-define-syntax-category type);
 ;; - just add the "def-named-syntax" part of the def-stx-cat macro below
@@ -629,7 +643,8 @@
          (parameterize ([current-check-relation (current-typecheck-relation)]
                         [current-ev (current-type-eval)]
                         [current-tag (type-key1)])
-           (syntax-parse/typecheck stx kw-stuff ... rule ...)))]))
+           (syntax-parameterize ([current-tag-stx ':])
+             (syntax-parse/typecheck stx kw-stuff ... rule ...))))]))
 
 (define-syntax define-typed-variable-syntax
   (syntax-parser
@@ -637,7 +652,7 @@
     [(_ (name . pats) (~datum ≫) . rst) #'(define-typed-variable-syntax #:name name [(_ . pats) ≫ . rst])]
     [(_ (~optional (~seq #:name name:id) #:defaults ([name (generate-temporary '#%var)]))
         (~and (~seq kw-stuff ...) :stxparse-kws)
-        rule:rule ...+)
+        rule ...+)
      #'(begin
          (define-typed-syntax name kw-stuff ... rule ...)
          (begin-for-syntax
@@ -672,8 +687,9 @@
                                ; Syntax categories like kind want full expansion,
                                ; as types are expected to be fully expanded
                                [current-use-stop-list? #f])
-                  (syntax-parse/typecheck stx kw-stuff (... ...)
-                    rule (... ...))))])))]))
+                  (syntax-parameterize ([current-tag-stx 'key1])
+                    (syntax-parse/typecheck stx kw-stuff (... ...)
+                      rule (... ...)))))])))]))
 
 (define-syntax (define-prop stx)
   (syntax-parse stx
