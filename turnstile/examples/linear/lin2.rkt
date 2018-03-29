@@ -58,7 +58,7 @@
 ;; "divide" (and thus any type rule using it) is undefined if x or y \in Γ
 (define-typed-syntax λ
   [(_ ([x:id (~datum :) τ_in:type] ...) e) ⇐ USED vars-in ≫
-   [[x ≫ x- : τ_in.norm] ... ⊢ e ≫ e- (⇐* USED vars-in) (⇒ : τ_out) (⇒* USED used-vars)]
+   [[x ≫ x- : τ_in.norm] ... ⊢ e ≫ e- (⇐ USED vars-in) (⇒ : τ_out) (⇒ USED used-vars)]
    ;; #:do[(printf "bound vars: ~a\n" (stx->datum #'(x ...)))
    ;;      (printf "used vars: ~a\n" (stx->datum #'used-vars))]
    #:fail-unless (stx-subset? #'(x- ...) #'used-vars)
@@ -82,7 +82,7 @@
    [⊢ (let- ([x- e-] ...) e_body-)]]
   [(_ [x e] body) ≫
    [⊢ e ≫ e- ⇒ : τ_x]
-   [[x ≫ x- : τ_x] ⊢ body ≫ body- (⇒ : τ_body) (⇒* USED used-vars)]
+   [[x ≫ x- : τ_x] ⊢ body ≫ body- (⇒ : τ_body) (⇒ USED used-vars)]
    #:fail-unless (stx-subset? #'(x-) #'used-vars)
                  (unused-err (stx-diff #'(x-) #'used-vars))
    #:with rst (stx-set-sub #'used-vars #'(x-))
@@ -91,9 +91,9 @@
 
 (define-typed-syntax (split e (~datum as) (x y) (~datum in) body) ⇐ USED used-in ≫
 ;  #:do[(printf "split1: ~a\n" #'used-in)]
-  [⊢ e ≫ e- (⇐* USED used-in) (⇒ : (~× τx τy)) (⇒* USED vars1)]
+  [⊢ e ≫ e- (⇐ USED used-in) (⇒ : (~× τx τy)) (⇒ USED vars1)]
 ;  #:do[(printf "split2: ~a\n" #'vars1)]
-  [[x ≫ x- : τx] [y ≫ y- : τy] ⊢ body ≫ body- (⇐* USED vars1) (⇒ : τ) (⇒* USED used-vars)]
+  [[x ≫ x- : τx] [y ≫ y- : τy] ⊢ body ≫ body- (⇐ USED vars1) (⇒ : τ) (⇒ USED used-vars)]
  ; #:do[(printf "split3: ~a\n" #'used-vars)]
    #:fail-unless (stx-subset? #'(x- y-) #'used-vars)
                  (unused-err (stx-diff #'(x- y-) #'used-vars))
@@ -105,7 +105,7 @@
 ;; other forms ------------------------------------------------------
 
 (define-typed-syntax (#%app e_fn e_arg ...) ⇐ USED vars-in ≫
-  [⊢ e_fn ≫ e_fn- (⇐* USED vars-in) (⇒* USED vars1) (⇒ : (~→ τ_in ... τ_out))]
+  [⊢ e_fn ≫ e_fn- (⇐ USED vars-in) (⇒ USED vars1) (⇒ : (~→ τ_in ... τ_out))]
   #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
                 (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
 ;  [⊢ e_arg ≫ e_arg- ⇐ τ_in] (⇐⇒ USED vars1 vars-out) ...
@@ -120,7 +120,7 @@
       (error "type error"))
     (values (cons #'e- es) (detach #'e- 'USED)))])
     (list es vars))
-;  [⊢ e_arg ≫ e_arg- (⇐* USED vars_i) (⇐ : τ_in) (⇒* USED vars_o)] ...
+;  [⊢ e_arg ≫ e_arg- (⇐ USED vars_i) (⇐ : τ_in) (⇒ USED vars_o)] ...
 ;  #:with vars-out (car (stx-reverse #'(vars_o ...)))
   --------
   [⊢ (#%app- e_fn- e_arg- ...) (⇒* USED vars-out) (⇒ : τ_out)])
@@ -131,14 +131,14 @@
   [⊢ e- ⇒ τ.norm])
 
 (define-typed-syntax (pair e1 e2) ⇐ USED vars-in ≫
-  [⊢ e1 ≫ e1- (⇐* USED vars-in) (⇒ : τ1) (⇒* USED vars1)]
-  [⊢ e2 ≫ e2- (⇐* USED vars1) (⇒ : τ2) (⇒* USED vars2)]
+  [⊢ e1 ≫ e1- (⇐ USED vars-in) (⇒ : τ1) (⇒ USED vars1)]
+  [⊢ e2 ≫ e2- (⇐ USED vars1) (⇒ : τ2) (⇒ USED vars2)]
   -----------------
   [⊢ (#%app- cons- e1- e2-) (⇒ : (× τ1 τ2))
                             (⇒* USED vars2)])
 
 (define-typed-syntax (free e) ⇐ USED vars-in ≫
-  [⊢ e ≫ e- (⇐* USED vars-in) (⇒* USED vars-out) (⇒ : τ)]
+  [⊢ e ≫ e- (⇐ USED vars-in) (⇒ USED vars-out) (⇒ : τ)]
   -----------
   [⊢ e- (⇒ : τ) (⇒* USED vars-out)])
 
@@ -175,9 +175,9 @@
    --------
    [⊢ (if- e_tst- e1- e2-)]]
   [(_ e_tst e1 e2) ⇐ USED vars-in ≫
-   [⊢ e_tst ≫ e_tst- (⇐* USED vars-in) (⇒* USED vars*)] ; Any non-false value is truthy.
-   [⊢ e1 ≫ e1- (⇐* USED vars*) (⇒ : τ1) (⇒* USED vars1*)]
-   [⊢ e2 ≫ e2- (⇐* USED vars*) (⇒ : τ2) (⇒* USED vars2*)]
+   [⊢ e_tst ≫ e_tst- (⇐ USED vars-in) (⇒ USED vars*)] ; Any non-false value is truthy.
+   [⊢ e1 ≫ e1- (⇐ USED vars*) (⇒ : τ1) (⇒ USED vars1*)]
+   [⊢ e2 ≫ e2- (⇐ USED vars*) (⇒ : τ2) (⇒ USED vars2*)]
    #:with vars (if (stx-e #'vars*) #'vars* #'())
    #:with vars1 (if (stx-e #'vars1*) #'vars1* #'())
    #:with vars2 (if (stx-e #'vars2*) #'vars2* #'())
