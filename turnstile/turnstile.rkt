@@ -69,7 +69,8 @@
              (type->str expected-type)
              (type->str existing-type))
      ⇐-stx
-     body)))
+     body))
+  )
 
 (begin-for-syntax (begin-for-syntax
   (define-syntax-class ---
@@ -467,18 +468,14 @@
                                  ⇐ τ-pat ; implicit tag
                                    (~parse tag (syntax-parameter-value #'current-tag-stx)))]]
                   [⊢ [pat* ≫ e-stx ⇐ tag:id τ-pat]]) ; explicit tag
-             #:with stx (generate-temporary 'stx)
              #:with τ (generate-temporary #'τ-pat)
              #:with pat
-             #'(~and stx
-                     pat*
-                     (~parse τ (get-expected-type #'stx))
-                     (~post (~post (~fail #:unless (syntax-e #'τ)
-                                          (no-expected-type-fail-msg))))
+             #'(~and pat*
+                     (~expected-type τ)
                      (~parse τ-pat #'τ))
              #:with [stuff ...] #'[]
              #:with body:expr
-                    #'(attach (quasisyntax/loc this-syntax e-stx) `tag #`τ)]
+                    #'(attach (quasisyntax/loc this-syntax e-stx) 'tag #'τ)]
     ;; macro invocations
     [pattern [≻ e-stx]
              #:with :last-clause #'[_ ≻ e-stx]]
@@ -493,44 +490,46 @@
              #'[#:fail-unless #f msg]
              #:with body:expr
              ;; should never get here
-             #'(error msg)])
+             #'(error msg)])))
 
-  
+(begin-for-syntax
+  (define-syntax-class has-expected-type
+    [pattern stx
+             #:attr val (get-expected-type #'stx)
+             #:fail-unless (attribute val) (no-expected-type-fail-msg)])
+
+  (define-syntax ~expected-type
+    (pattern-expander
+      (syntax-parser
+        [(_ pat)
+         #'(~and tmp:has-expected-type (~parse pat #'tmp.val))])))
+
+  (define-syntax ~tag
+    (pattern-expander
+      (syntax-parser
+        [(_ tag pat)
+         #'(~and tmp (~parse pat (detach #'tmp 'tag)))])))
+
+  (define-syntax ~⇐pat
+    (pattern-expander
+      (syntax-parser
+        [(_ tag valpat)
+         (if (equal? (syntax-e #'tag) (syntax-parameter-value #'current-tag-stx))
+           #'(~expected-type valpat)
+           #'(~tag tag valpat))]))))
+
+(begin-for-syntax
+  (begin-for-syntax
   ;; turnstile rule input PATTERN stx class -----------------------------------
-  (define-syntax-class ⇐pat #:attributes (tagpat transform-body)
-                            #:datum-literals (⇐)
-    [pattern (left:⇐ tag valpat)
-             #:with tagpat #'(~and stx
-                                   (~bind [val (if (equal? 'tag (current-tag))
-                                                   (get-expected-type #'stx)
-                                                   (detach #'stx `tag))])
-                                   (~post
-                                    (~post
-                                     (~fail #:unless (or (not (equal? 'tag (current-tag)))
-                                                         (attribute val))
-                                                (no-expected-type-fail-msg))))
-                                   (~parse valpat (attribute val)))
-             #:attr transform-body
-                    (λ (body)
-                       (if (equal? (syntax-e #'tag) (syntax-parameter-value #'current-tag-stx))
-                         #`(let* ([b #,body] [ty-b (detach b 'tag)])
-                              (when (and ty-b (not (check? ty-b #'val)))
-                                (raise-⇐-expected-type-error #'left b #'val ty-b))
-                              (attach b 'tag #'val))
-                         body))])
-  (define-splicing-syntax-class pat #:attributes (pat transform-body)
+  (define-splicing-syntax-class pat #:attributes (pat)
                                     #:datum-literals (⇐)
-    [pattern pat ; no left arrow (⇐)
-             #:attr transform-body identity]
-    [pattern (~or (~seq pat* left:⇐ tagpat ; single ⇐, no parens, implicit tag
-                        (~parse tag (syntax-parameter-value #'current-tag-stx))) ;; see ⇐pat comments for why unquote
-                  (~seq pat* left:⇐ tag:id tagpat)) ; explicit tag
-             #:with tmp:⇐pat #`(left tag tagpat)
-             #:with pat #'(~and pat* tmp.tagpat)
-             #:attr transform-body (attribute tmp.transform-body)]
-    [pattern (~seq pat* expected:⇐pat ...)
-             #:with pat #'(~and pat* expected.tagpat ...)
-             #:attr transform-body (apply compose (attribute expected.transform-body))])
+    [pattern (~seq pat* ⇐ tagpat)
+             #:with (:pat) #`(pat* (⇐ #,(syntax-parameter-value #'current-tag-stx) tagpat))]
+    [pattern (~seq pat* ⇐ tag:id tagpat)
+             #:with (:pat) #'(pat* (⇐ tag tagpat))]
+    [pattern (~seq pat* (⇐ tag tagpat) ...)
+             #:with pat #'(~and pat* (~⇐pat tag tagpat) ...)])
+
   (define-splicing-syntax-class conclusion-kw
     [pattern (~seq #:update name:id fn)
              #:with param-name (mk-param #'name)
@@ -539,7 +538,7 @@
     #:attributes ([stuff 1])
     [pattern (~seq kw:conclusion-kw ...)
              #:with [stuff ...] (apply stx-append (stx->list #'(kw.thing ...)))])
-  
+
   ;; --------------------------------------------------------------------------
   ;; turnstile RULE stx class, ie, a clause in define-typed-stx ---------------
   (define-syntax-class rule #:datum-literals (≫)
@@ -547,14 +546,13 @@
               clause:clause ...
               :---
               last-clause:last-clause opt-kws:conclusion-kws]
-             #:with body:expr ((attribute pat.transform-body) #'last-clause.body)
              #:with norm
              #'[(~and pat.pat
                       last-clause.pat
                       clause.pat ...)
                 last-clause.stuff ...
                 opt-kws.stuff ...
-                body]])
+                last-clause.body]])
   ))
 (module syntax-class-kws racket/base
   (require syntax/parse)
