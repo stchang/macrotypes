@@ -97,28 +97,16 @@
 
   (define-splicing-syntax-class props
     [pattern (~and (~seq stuff ...) (~seq (~seq k:id v) ...))])
-  (define-syntax-class ⇒-prop
-    #:datum-literals (⇒)
-    #:attributes (e-pat)
-    ;; must check again for implicit tag here
-    [pattern (~or (⇒ tag-pat (~parse tag (syntax-parameter-value #'current-tag-stx)) tag-prop:⇒-prop ...)
+  (define-syntax-class ⇒-prop #:datum-literals (⇒) #:attributes (e-pat)
+    [pattern (~or (⇒ tag-pat ; implicit tag
+                     (~parse tag (syntax-parameter-value #'current-tag-stx))
+                     tag-prop:⇒-prop ...)
                   (⇒ tag:id tag-pat tag-prop:⇒-prop ...)) ; explicit tag
              #:with e-tmp (generate-temporary)
-             #:with e-pat
-             #'(~and e-tmp
-                     (~parse
-                      (~and tag-prop.e-pat ... tag-pat)
-                      (detach #'e-tmp `tag)))])
-  (define-splicing-syntax-class inline-⇒-prop
-    ; ⇒ and ⇒* the same for now
-    #:datum-literals (⇒)
-    #:attributes (e-pat)
-    [pattern (~or (~seq right:⇒ tag-pat ; implicit tag
-                          (~parse tag (syntax-parameter-value #'current-tag-stx))
-                          rst ...)
-                  (~seq right:⇒ tag:id tag-pat rst ...)) ; explicit tag
-             #:with tmp:⇒-prop #'(right tag tag-pat rst ...)
-             #:with e-pat #'tmp.e-pat])
+             #:with e-pat #'(~and e-tmp
+                                  (~parse
+                                   (~and tag-prop.e-pat ... tag-pat)
+                                   (detach #'e-tmp `tag)))])
   (define-splicing-syntax-class ⇒-prop/conclusion
     #:datum-literals (⇒ ⇒*) ; ⇒* = dont ty-eval
     #:attributes (tag tag-expr)
@@ -136,83 +124,30 @@
                  #'(attach tag-expr `k ((current-ev) v)))))]
     ;; ⇒* = dont ty-eval
     [pattern (~seq ⇒* tag:id tag-stx) #:with tag-expr #'#`tag-stx])
-#;  (define-splicing-syntax-class ⇐-prop
-    #:datum-literals (⇐)
-    #:attributes (τ-stx e-pat)
-    [pattern (~or (~seq ⇐ τ-stx (~parse tag (syntax-parameter-value #'current-tag-stx)))
-                  (~seq ⇐ tag:id τ-stx))
-             #:with e-tmp (generate-temporary)
-             #:with τ-tmp (generate-temporary)
-             #:with τ-exp (generate-temporary)
-             #:with e-pat
-             #`(~and e-tmp
-                     (~parse τ-exp (get-expected-type #'e-tmp))
-                     (~parse τ-tmp (detach #'e-tmp `tag))
-                     ;; TODO: the `~parse ... get-orig` sets the context
-                     ;; for stx-parse when the failure occurs
-                     ;; but why does removing it produce "bad syntax" in some cases?
-                     (~parse
-                      (~post
-                       (~fail #:when (and (not (check? #'τ-tmp #'τ-exp))
-                                          #;(get-orig #'e-tmp))
-                              (typecheck-fail-msg/1 #'τ-exp #'τ-tmp #'e-tmp)))
-                      (get-orig #'e-tmp)))])
-  (define-syntax-class ⇐-prop
-    #:datum-literals (⇐)
-    #:attributes (tag τ-stx e-pat)
-    [pattern (⇐ tag:id τ-stx)
+  (define-syntax-class ⇐-prop #:datum-literals (⇐) #:attributes (tag tag-stx e-pat)
+    [pattern (~or (⇐ tag-stx ; implicit tag
+                     (~parse tag (syntax-parameter-value #'current-tag-stx)))
+                  (⇐ tag:id tag-stx)) ; explicit tag
+             ;; must generate temporaries bc this class may get matched multiple times
+             ;; and the results may be combined into one pattern
              #:with e-tmp (generate-temporary)
              #:with τ-tmp (generate-temporary)
              #:with τ-exp (generate-temporary)
              #:with e-pat
              (if (equal? (syntax->datum #'tag) (syntax-parameter-value #'current-tag-stx))
-             #`(~and e-tmp
-                     (~parse τ-exp (get-expected-type #'e-tmp))
-                     (~parse τ-tmp (detach #'e-tmp `tag))
-                     ;; TODO: the `~parse ... get-orig` sets the context
-                     ;; for stx-parse when the failure occurs
-                     ;; but why does removing it produce "bad syntax" in some cases?
-                     (~parse
-                      (~post
-                       (~fail #:when (and (not (check? #'τ-tmp #'τ-exp))
-                                          #;(get-orig #'e-tmp))
-                              (typecheck-fail-msg/1 #'τ-exp #'τ-tmp #'e-tmp)))
-                      (get-orig #'e-tmp)))
-             #'e-tmp)])
-  (define-splicing-syntax-class inline-⇐-prop
-    #:datum-literals (⇐)
-    #:attributes (tag τ-stx e-pat)
-    [pattern (~or (~seq left:⇐ τ-stx* (~parse tag (syntax-parameter-value #'current-tag-stx)))
-                  (~seq left:⇐ tag:id τ-stx*))
-             #:with tmp:⇐-prop #'(left tag τ-stx*)
-             #:with τ-stx #'tmp.τ-stx
-             #:with e-pat #'tmp.e-pat])
-  #;(define-splicing-syntax-class ⇐*-prop
-    #:datum-literals (⇐*)
-    #:attributes (τ-stx e-pat tag)
-    [pattern (~seq ⇐* tag:id τ-stx)
-             #:with e-tmp (generate-temporary)
-             #:with e-pat #'e-tmp])
-  #;(define-splicing-syntax-class ⇒-props
-    #:attributes (e-pat)
-    [pattern (~seq :⇒-prop)]
-    [pattern (~seq (p:⇒-prop) ...)
-             #:with e-pat #'(~and p.e-pat ...)])
-  #;(define-splicing-syntax-class ⇐-props
-    #:attributes (τ-stx e-pat)
-    [pattern (~seq :⇐-prop)]
-    [pattern (~seq (p:⇐-prop) (p2:⇒-prop) ...)
-             #:with τ-stx #'p.τ-stx
-             #:with e-pat #'(~and p.e-pat p2.e-pat ...)])
-  ;; TODO: what should follow p?
-  ;; - current cant do both ⇐ and ⇐*,
-  ;; - ie, cant do both expected-ty and other prop
-  #;(define-splicing-syntax-class ⇐*-props
-    #:attributes (τ-stx e-pat tag)
-    [pattern (~seq (p:⇐*-prop) (p2:⇒-prop) ...)
-             #:with τ-stx #'p.τ-stx
-             #:with tag #'p.tag
-             #:with e-pat #'(~and p.e-pat p2.e-pat ...)])
+                 #`(~and e-tmp
+                         (~parse τ-exp (get-expected-type #'e-tmp))
+                         (~parse τ-tmp (detach #'e-tmp `tag))
+                         ;; TODO: the `~parse ... get-orig` sets the context
+                         ;; for stx-parse when the failure occurs?
+                         ;; but why does removing it produce "bad syntax" in some cases?
+                         (~parse
+                          (~post
+                           (~fail #:when (and (not (check? #'τ-tmp #'τ-exp))
+                                              #;(get-orig #'e-tmp))
+                                  (typecheck-fail-msg/1 #'τ-exp #'τ-tmp #'e-tmp)))
+                          (get-orig #'e-tmp)))
+                 #'e-tmp)])
   (define-splicing-syntax-class ⇒-props/conclusion
     #:attributes ([tag 1] [tag-expr 1])
     [pattern (~seq p:⇒-prop/conclusion)
@@ -239,44 +174,19 @@
     [pattern (~seq ctx1:id+props+≫ ...)
              #:with [x- ...] #'[ctx1.x- ... ...]
              #:with [ctx ...] #'[ctx1.ctx ... ...]])
-  (define-syntax-class tc-elem
-    #:datum-literals (⊢ ⇒ ⇐ ≫)
-    #:attributes (e-stx e-stx-orig e-pat)
-    ;; new
-    [pattern [e-stx ≫ e-pat* prop:inline-⇒-prop]
-             #:with e-stx-orig #'e-stx
-             #:with e-pat #'(~and prop.e-pat e-pat*)]
-    [pattern [e-stx* ≫ e-pat* prop:inline-⇐-prop]
-             #:with e-stx (if (equal? (syntax->datum #'prop.tag) (syntax-parameter-value #'current-tag-stx))
-                              #'(add-expected e-stx* prop.τ-stx)
-                              #'(attach/m e-stx* prop.tag prop.τ-stx))
-             #:with e-stx-orig #'e-stx*
-             #:with e-pat #'(~and prop.e-pat e-pat*)]
+  (define-syntax-class tc-elem #:datum-literals (≫ ⇒ ⇐) #:attributes (e-stx e-stx-orig e-pat)
+    [pattern [e-stx* ≫ e-pat* (~and (~or ⇐ ⇒) arr) rst ...] ; inline, single arrow
+             ;; attrs implicitly propagated
+             #:with :tc-elem #'[e-stx* ≫ e-pat* (arr rst ...)]] ; defer to noninline clause
     [pattern [e-stx* ≫ e-pat* (~alt lprop:⇐-prop rprop:⇒-prop) ...]
              #:with e-stx (for/fold ([e-stx/acc #'e-stx*])
                                     ([tag (in-stx-list #'(lprop.tag ...))]
-                                     [τ-stx (in-stx-list #'(lprop.τ-stx ...))])
+                                     [tag-stx (in-stx-list #'(lprop.tag-stx ...))])
                             (if (equal? (syntax->datum tag) (syntax-parameter-value #'current-tag-stx))
-                                #`(add-expected #,e-stx/acc #,τ-stx)
-                                #`(attach/m #,e-stx/acc #,tag #,τ-stx)))
+                                #`(add-expected #,e-stx/acc #,tag-stx)
+                                #`(attach/m #,e-stx/acc #,tag #,tag-stx)))
              #:with e-stx-orig #'e-stx*
-             #:with e-pat #'(~and lprop.e-pat ... rprop.e-pat ... e-pat*)]
-    ;; previous ---------------------------------------------------------------
-    #;[pattern [e-stx ≫ e-pat* props:⇒-props] 
-             #:with e-stx-orig #'e-stx
-             #:with e-pat #'(~and props.e-pat e-pat*)]
-    #;[pattern [e-stx* ≫ e-pat* props:⇐-props]
-             ;; #:with e-tmp (generate-temporary #'e-pat*)
-             ;; #:with τ-tmp (generate-temporary 'τ)
-             #:with e-stx #'(add-expected e-stx* props.τ-stx)
-             #:with e-stx-orig #'e-stx*
-             #:with e-pat #'(~and props.e-pat e-pat*)]
-    #;[pattern [e-stx* ≫ e-pat* props:⇐*-props]
-             ;; #:with e-tmp (generate-temporary #'e-pat*)
-             ;; #:with τ-tmp (generate-temporary 'τ)
-             #:with e-stx #'(attach/m e-stx* props.tag props.τ-stx)
-             #:with e-stx-orig #'e-stx*
-             #:with e-pat #'(~and props.e-pat e-pat*)])
+             #:with e-pat #'(~and lprop.e-pat ... rprop.e-pat ... e-pat*)])
   (define-splicing-syntax-class tc
     #:attributes (depth es-stx es-stx-orig es-pat)
     [pattern (~seq tc:tc-elem ooo:elipsis ...)
@@ -589,10 +499,7 @@
   ;; turnstile rule input PATTERN stx class -----------------------------------
   (define-syntax-class ⇐pat #:attributes (tagpat transform-body)
                             #:datum-literals (⇐)
-    ;; `tag` cannot be `id` stx-class because it might be ,(current-tag)
-    ;; - ,(current-tag) needs the unquote because in the typical case,
-    ;;   `tag` is an id, that is then used as a (quasi)quoted symbol
-    [pattern (left:⇐ tag valpat) 
+    [pattern (left:⇐ tag valpat)
              #:with tagpat #'(~and stx
                                    (~bind [val (if (equal? 'tag (current-tag))
                                                    (get-expected-type #'stx)
@@ -657,9 +564,7 @@
                         (~seq :keyword))
                    ...)]))
 (require (for-meta 1 'syntax-class-kws)
-         (for-meta 2 'syntax-class-kws)
-;         (for-meta 1 'syntax-classes)
-        #; (for-meta 2 'syntax-classes))
+         (for-meta 2 'syntax-class-kws))
 
 (begin-for-syntax
   (define-syntax ~typecheck
