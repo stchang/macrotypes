@@ -448,52 +448,30 @@
     )
   (define-syntax-class last-clause
     #:datum-literals (⊢ ≫ ≻ ⇒ ⇐)
-    #:attributes ([pat 0] [stuff 1] [body 0])
+    #:attributes ([pat 0] [body 0])
     ;; ⇒ conclusion
-    [pattern (~or [⊢ pat ≫ e-stx props:⇒-props/conclusion]
-                  [⊢ [pat ≫ e-stx props:⇒-props/conclusion]])
-             #:with [stuff ...] #'[]
+    [pattern [⊢ e-stx props:⇒-props/conclusion]
+             #:with pat #'_
              #:with body:expr
              (for/fold ([body #'(quasisyntax/loc this-syntax e-stx)])
                        ([k (in-stx-list #'[props.tag ...])]
                         [v (in-stx-list #'[props.tag-expr ...])])
-               (with-syntax ([body body] [k k] [v v])
-                 #`(attach body `k v)))]
-    ;; ⇒ conclusion, implicit pat
-    [pattern (~or [⊢ e-stx props:⇒-props/conclusion]
-                  [⊢ [e-stx props:⇒-props/conclusion]])
-             #:with :last-clause #'[⊢ [_ ≫ e-stx . props]]]
+                       (with-syntax ([body body] [k k] [v v])
+                         #`(attach body `k v)))]
     ;; ⇐ conclusion
-    [pattern [⊢ (~and e-stx (~not [_ ≫ . rst]))] ;; TODO: this current tag isnt right?
-             #:with :last-clause #`[⊢ [_ ≫ e-stx ⇐ #,(datum->stx #'h (syntax-parameter-value #'current-tag-stx)) _]]]
-    [pattern (~or [⊢ pat* (~seq ≫ e-stx
-                                ⇐ τ-pat ; implicit tag
-                                  (~parse tag (syntax-parameter-value #'current-tag-stx)))]
-                  [⊢ pat* ≫ e-stx ⇐ tag:id τ-pat] ; explicit tag
-                  [⊢ [pat* (~seq ≫ e-stx
-                                 ⇐ τ-pat ; implicit tag
-                                   (~parse tag (syntax-parameter-value #'current-tag-stx)))]]
-                  [⊢ [pat* ≫ e-stx ⇐ tag:id τ-pat]]) ; explicit tag
-             #:with τ (generate-temporary #'τ-pat)
-             #:with pat
-             #'(~and pat*
-                     (~expected-type τ)
-                     (~parse τ-pat #'τ))
-             #:with [stuff ...] #'[]
-             #:with body:expr
-                    #'(attach (quasisyntax/loc this-syntax e-stx) 'tag #'τ)]
+    [pattern [⊢ e-stx]
+             ; explicit tag
+             #:with τ (generate-temporary #'τ)
+             #:with tag (syntax-parameter-value #'current-tag-stx)
+             #:with pat #'(~expected-type τ)
+             #:with body:expr #'(attach (quasisyntax/loc this-syntax e-stx) 'tag #'τ)]
     ;; macro invocations
     [pattern [≻ e-stx]
-             #:with :last-clause #'[_ ≻ e-stx]]
-    [pattern [pat ≻ e-stx]
-             #:with [stuff ...] #'[]
+             #:with pat #'_
              #:with body:expr
              #'(quasisyntax/loc this-syntax e-stx)]
     [pattern [#:error msg:expr]
-             #:with :last-clause #'[_ #:error msg]]
-    [pattern [pat #:error msg:expr]
-             #:with [stuff ...]
-             #'[#:fail-unless #f msg]
+             #:with pat #'(~post (~fail msg))
              #:with body:expr
              ;; should never get here
              #'(error msg)])))
@@ -556,7 +534,6 @@
              #'[(~and pat.pat
                       last-clause.pat
                       clause.pat ...)
-                last-clause.stuff ...
                 opt-kws.stuff ...
                 last-clause.body]])
   ))

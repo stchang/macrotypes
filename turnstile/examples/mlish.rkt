@@ -1030,28 +1030,28 @@
   [(make-channel (~and tys {ty})) ≫
    #:when (brace? #'tys)
    --------
-   [⊢ [_ ≫ (make-channel-) ⇒ : (Channel ty)]]])
+   [⊢ (make-channel-) ⇒ : (Channel ty)]])
 
 (define-base-type Thread)
 
 (define-typed-syntax number->string
   [number->string:id ≫
    --------
-   [⊢ [_ ≫ number->string- ⇒ : (→ Int String)]]]
+   [⊢ number->string- ⇒ : (→ Int String)]]
   [(number->string n) ≫
    --------
-   [_ ≻ (number->string n (ext-stlc:#%datum . 10))]]
+   [≻ (number->string n (ext-stlc:#%datum . 10))]]
   [(number->string n rad) ≫
    [⊢ [n ≫ n- ⇐ : Int]]
    [⊢ [rad ≫ rad- ⇐ : Int]]
    --------
-   [⊢ [_ ≫ (number->string- n- rad-) ⇒ : String]]])
+   [⊢ (number->string- n- rad-) ⇒ : String]])
 
 (define-typed-syntax string-append
   [(string-append str ...) ≫
    [⊢ [str ≫ str- ⇐ : String] ...]
    --------
-   [⊢ [_ ≫ (string-append- str- ...) ⇒ : String]]])
+   [⊢ (string-append- str- ...) ⇒ : String]])
 
 ;; vectors
 (define-type-constructor Vector)
@@ -1060,26 +1060,26 @@
   [(vector (~and tys {ty})) ≫
    #:when (brace? #'tys)
    --------
-   [⊢ [_ ≫ (vector-) ⇒ : (Vector ty)]]]
+   [⊢ (vector-) ⇒ : (Vector ty)]]
   [(vector v ...) ⇐ : (Vector ty) ≫
    [⊢ [v ≫ v- ⇐ : ty] ...]
    --------
-   [⊢ [_ ≫ (vector- v- ...) ⇐ : _]]]
+   [⊢ (vector- v- ...)]]
   [(vector v ...) ≫
    [⊢ [v ≫ v- ⇒ : ty] ...]
    #:when (same-types? #'(ty ...))
    #:with one-ty (stx-car #'(ty ...))
    --------
-   [⊢ [_ ≫ (vector- v- ...) ⇒ : (Vector one-ty)]]])
+   [⊢ (vector- v- ...) ⇒ : (Vector one-ty)]])
 (define-typed-syntax make-vector
   [(make-vector n) ≫
    --------
-   [_ ≻ (make-vector n (ext-stlc:#%datum . 0))]]
+   [≻ (make-vector n (ext-stlc:#%datum . 0))]]
   [(make-vector n e) ≫
    [⊢ [n ≫ n- ⇐ : Int]]
    [⊢ [e ≫ e- ⇒ : ty]]
    --------
-   [⊢ [_ ≫ (make-vector- n- e-) ⇒ : (Vector ty)]]])
+   [⊢ (make-vector- n- e-) ⇒ : (Vector ty)]])
 
 ;; sequences and for loops
 
@@ -1088,31 +1088,31 @@
 (define-typed-syntax in-range
   [(in-range end) ≫
    --------
-   [_ ≻ (in-range (ext-stlc:#%datum . 0) end (ext-stlc:#%datum . 1))]]
+   [≻ (in-range (ext-stlc:#%datum . 0) end (ext-stlc:#%datum . 1))]]
   [(in-range start end) ≫
    --------
-   [_ ≻ (in-range start end (ext-stlc:#%datum . 1))]]
+   [≻ (in-range start end (ext-stlc:#%datum . 1))]]
   [(in-range start end step) ≫
    [⊢ [start ≫ start- ⇐ : Int]]
    [⊢ [end ≫ end- ⇐ : Int]]
    [⊢ [step ≫ step- ⇐ : Int]]
    --------
-   [⊢ [_ ≫ (in-range- start- end- step-) ⇒ : (Sequence Int)]]])
+   [⊢ (in-range- start- end- step-) ⇒ : (Sequence Int)]])
 
 (define-typed-syntax in-naturals
  [(in-naturals) ≫
   --------
-  [_ ≻ (in-naturals (ext-stlc:#%datum . 0))]]
+  [≻ (in-naturals (ext-stlc:#%datum . 0))]]
  [(in-naturals start) ≫
   [⊢ [start ≫ start- ⇐ : Int]]
   --------
-  [⊢ [_ ≫ (in-naturals- start-) ⇒ : (Sequence Int)]]])
+  [⊢ (in-naturals- start-) ⇒ : (Sequence Int)]])
 
 (define-typed-syntax in-lines
   [(in-lines e) ≫
    [⊢ [e ≫ e- ⇐ : String]]
    --------
-   [⊢ [_ ≫ (in-lines- (open-input-string- e-)) ⇒ : (Sequence String)]]])
+   [⊢ (in-lines- (open-input-string- e-)) ⇒ : (Sequence String)]])
 
 (define-typed-syntax for
   [(for ([x:id e]...) b ... body) ≫
@@ -1120,39 +1120,39 @@
    [() ([x ≫ x- : ty] ...)
     ⊢ [b ≫ b- ⇒ : _] ... [body ≫ body- ⇒ : _]]
    --------
-   [⊢ [_ ≫ (for- ([x- e-] ...) b- ... body-) ⇒ : Unit]]])
+   [⊢ (for- ([x- e-] ...) b- ... body-) ⇒ : Unit]])
 (define-typed-syntax for*
   [(for* ([x:id e]...) b ... body) ≫
    [⊢ [e ≫ e- ⇒ : (~Sequence ty)] ...]
    [() ([x ≫ x- : ty] ...)
     ⊢ [b ≫ b- ⇒ : _] ... [body ≫ body- ⇒ : _]]
    --------
-   [⊢ [_ ≫ (for*- ([x- e-] ...) b- ... body-) ⇒ : Unit]]])
+   [⊢ (for*- ([x- e-] ...) b- ... body-) ⇒ : Unit]])
 
 (define-typed-syntax for/list
   [(for/list ([x:id e]...) body) ≫
    [⊢ [e ≫ e- ⇒ : (~Sequence ty)] ...]
    [() ([x ≫ x- : ty] ...) ⊢ [body ≫ body- ⇒ : ty_body]]
    --------
-   [⊢ [_ ≫ (for/list- ([x- e-] ...) body-) ⇒ : (List ty_body)]]])
+   [⊢ (for/list- ([x- e-] ...) body-) ⇒ : (List ty_body)]])
 (define-typed-syntax for/vector
   [(for/vector ([x:id e]...) body) ≫
    [⊢ [e ≫ e- ⇒ : (~Sequence ty)] ...]
    [() ([x ≫ x- : ty] ...) ⊢ [body ≫ body- ⇒ : ty_body]]
    --------
-   [⊢ [_ ≫ (for/vector- ([x- e-] ...) body-) ⇒ : (Vector ty_body)]]])
+   [⊢ (for/vector- ([x- e-] ...) body-) ⇒ : (Vector ty_body)]])
 (define-typed-syntax for*/vector
   [(for*/vector ([x:id e]...) body) ≫
    [⊢ [e ≫ e- ⇒ : (~Sequence ty)] ...]
    [() ([x ≫ x- : ty] ...) ⊢ [body ≫ body- ⇒ : ty_body]]
    --------
-   [⊢ [_ ≫ (for*/vector- ([x- e-] ...) body-) ⇒ : (Vector ty_body)]]])
+   [⊢ (for*/vector- ([x- e-] ...) body-) ⇒ : (Vector ty_body)]])
 (define-typed-syntax for*/list
   [(for*/list ([x:id e]...) body) ≫
    [⊢ [e ≫ e- ⇒ : (~Sequence ty)] ...]
    [() ([x ≫ x- : ty] ...) ⊢ [body ≫ body- ⇒ : ty_body]]
    --------
-   [⊢ [_ ≫ (for*/list- ([x- e-] ...) body-) ⇒ : (List ty_body)]]])
+   [⊢ (for*/list- ([x- e-] ...) body-) ⇒ : (List ty_body)]])
 (define-typed-syntax for/fold
   [(for/fold ([acc init]) ([x:id e] ...) body) ⇐ : τ_expected ≫
    [⊢ [init ≫ init- ⇐ : τ_expected]]
@@ -1160,24 +1160,24 @@
    [() ([acc ≫ acc- : τ_expected] [x ≫ x- : ty] ...)
     ⊢ [body ≫ body- ⇐ : τ_expected]]
    --------
-   [⊢ [_ ≫ (for/fold- ([acc- init-]) ([x- e-] ...) body-) ⇐ : _]]]
+   [⊢ (for/fold- ([acc- init-]) ([x- e-] ...) body-)]]
   [(for/fold ([acc init]) ([x:id e] ...) body) ≫
    [⊢ [init ≫ init- ⇒ : τ_init]]
    [⊢ [e ≫ e- ⇒ : (~Sequence ty)] ...]
    [() ([acc ≫ acc- : τ_init] [x ≫ x- : ty] ...)
     ⊢ [body ≫ body- ⇐ : τ_init]]
    --------
-   [⊢ [_ ≫ (for/fold- ([acc- init-]) ([x- e-] ...) body-) ⇒ : τ_init]]])
+   [⊢ (for/fold- ([acc- init-]) ([x- e-] ...) body-) ⇒ : τ_init]])
 
 (define-typed-syntax for/hash
   [(for/hash ([x:id e]...) body) ≫
    [⊢ [e ≫ e- ⇒ : (~Sequence ty)] ...]
    [() ([x ≫ x- : ty] ...) ⊢ [body ≫ body- ⇒ : (~× ty_k ty_v)]]
    --------
-   [⊢ [_ ≫ (for/hash- ([x- e-] ...)
+   [⊢ (for/hash- ([x- e-] ...)
              (let- ([t body-])
                (values- (car- t) (cadr- t))))
-       ⇒ : (Hash ty_k ty_v)]]])
+       ⇒ : (Hash ty_k ty_v)]])
 
 (define-typed-syntax for/sum
   [(for/sum ([x:id e]... 
@@ -1187,7 +1187,7 @@
    [() ([x ≫ x- : ty] ...)
     ⊢ [guard ≫ guard- ⇒ : _] [body ≫ body- ⇐ : Int]]
    --------
-   [⊢ [_ ≫ (for/sum- ([x- e-] ... #:when guard-) body-) ⇒ : Int]]])
+   [⊢ (for/sum- ([x- e-] ... #:when guard-) body-) ⇒ : Int]])
 
 ; printing and displaying
 (define-typed-syntax printf
@@ -1195,13 +1195,13 @@
    [⊢ [str ≫ s- ⇐ : String]]
    [⊢ [e ≫ e- ⇒ : ty] ...]
    --------
-   [⊢ [_ ≫ (printf- s- e- ...) ⇒ : Unit]]])
+   [⊢ (printf- s- e- ...) ⇒ : Unit]])
 (define-typed-syntax format
   [(format str e ...) ≫
    [⊢ [str ≫ s- ⇐ : String]]
    [⊢ [e ≫ e- ⇒ : ty] ...]
    --------
-   [⊢ [_ ≫ (format- s- e- ...) ⇒ : String]]])
+   [⊢ (format- s- e- ...) ⇒ : String]])
 
 (define-typed-syntax let
   [(let name:id (~datum :) ty:type ~! ([x:id e] ...) b ... body) ≫
@@ -1209,28 +1209,28 @@
    [() ([name ≫ name- : (→ ty_e ... ty.norm)] [x ≫ x- : ty_e] ...)
     ⊢ [b ≫ b- ⇒ : _] ... [body ≫ body- ⇐ : ty.norm]]
    --------
-   [⊢ [_ ≫ (letrec- ([name- (λ- (x- ...) b- ... body-)])
+   [⊢ (letrec- ([name- (λ- (x- ...) b- ... body-)])
              (name- e- ...))
-       ⇒ : ty.norm]]]
+       ⇒ : ty.norm]]
   [(let ([x:id e] ...) body ...) ≫
    --------
-   [_ ≻ (ext-stlc:let ([x e] ...) (begin body ...))]])
+   [≻ (ext-stlc:let ([x e] ...) (begin body ...))]])
 (define-typed-syntax let*
   [(let* ([x:id e] ...) body ...) ≫
    --------
-   [_ ≻ (ext-stlc:let* ([x e] ...) (begin body ...))]])
+   [≻ (ext-stlc:let* ([x e] ...) (begin body ...))]])
 
 (define-typed-syntax begin
   [(begin body ... b) ⇐ : τ_expected ≫
    [⊢ [body ≫ body- ⇒ : _] ...]
    [⊢ [b ≫ b- ⇐ : τ_expected]]
    --------
-   [⊢ [_ ≫ (begin- body- ... b-) ⇐ : _]]]
+   [⊢ (begin- body- ... b-)]]
   [(begin body ... b) ≫
    [⊢ [body ≫ body- ⇒ : _] ...]
    [⊢ [b ≫ b- ⇒ : τ]]
    --------
-   [⊢ [_ ≫ (begin- body- ... b-) ⇒ : τ]]])
+   [⊢ (begin- body- ... b-) ⇒ : τ]])
 
 ;; hash
 (define-type-constructor Hash #:arity = 2)
@@ -1240,7 +1240,7 @@
   [(hash (~and tys {ty_key ty_val})) ≫
    #:when (brace? #'tys)
    --------
-   [⊢ [_ ≫ (make-hash-) ⇒ : (Hash ty_key ty_val)]]]
+   [⊢ (make-hash-) ⇒ : (Hash ty_key ty_val)]]
   [(hash (~seq k v) ...) ≫
    [⊢ [k ≫ k- ⇒ : ty_k] ...]
    [⊢ [v ≫ v- ⇒ : ty_v] ...]
@@ -1249,19 +1249,19 @@
    #:with ty_key (stx-car #'(ty_k ...))
    #:with ty_val (stx-car #'(ty_v ...))
    --------
-   [⊢ [_ ≫ (make-hash- (list- (cons- k- v-) ...)) ⇒ : (Hash ty_key ty_val)]]])
+   [⊢ (make-hash- (list- (cons- k- v-) ...)) ⇒ : (Hash ty_key ty_val)]])
 (define-typed-syntax hash-ref
   [(hash-ref h k) ≫
    [⊢ [h ≫ h- ⇒ : (~Hash ty_k ty_v)]]
    [⊢ [k ≫ k- ⇐ : ty_k]]
    --------
-   [⊢ [_ ≫ (hash-ref- h- k-) ⇒ : ty_v]]]
+   [⊢ (hash-ref- h- k-) ⇒ : ty_v]]
   [(hash-ref h k fail) ≫
    [⊢ [h ≫ h- ⇒ : (~Hash ty_k ty_v)]]
    [⊢ [k ≫ k- ⇐ : ty_k]]
    [⊢ [fail ≫ fail- ⇐ : (→ ty_v)]]
    --------
-   [⊢ [_ ≫ (hash-ref- h- k- fail-) ⇒ : ty_val]]])
+   [⊢ (hash-ref- h- k- fail-) ⇒ : ty_val]])
 
 (define-base-type String-Port)
 (define-base-type Input-Port)
@@ -1271,19 +1271,19 @@
 (define-typed-syntax write-string
  [(write-string str out) ≫
   --------
-  [_ ≻ (write-string str out (ext-stlc:#%datum . 0) (mlish:#%app string-length str))]]
+  [≻ (write-string str out (ext-stlc:#%datum . 0) (mlish:#%app string-length str))]]
  [(write-string str out start end) ≫
   [⊢ [str ≫ str- ⇐ : String]]
   [⊢ [out ≫ out- ⇐ : String-Port]]
   [⊢ [start ≫ start- ⇐ : Int]]
   [⊢ [end ≫ end- ⇐ : Int]]
   --------
-  [⊢ [_ ≫ (begin- (write-string- str- out- start- end-) (void-)) ⇒ : Unit]]])
+  [⊢ (begin- (write-string- str- out- start- end-) (void-)) ⇒ : Unit]])
 
 (define-typed-syntax string-copy!
   [(string-copy! dest dest-start src) ≫
    --------
-   [_ ≻ (string-copy!
+   [≻ (string-copy!
          dest dest-start src (ext-stlc:#%datum . 0) (mlish:#%app string-length src))]]
   [(string-copy! dest dest-start src src-start src-end) ≫
    [⊢ [dest ≫ dest- ⇐ : String]]
@@ -1292,28 +1292,28 @@
    [⊢ [src-start ≫ src-start- ⇐ : Int]]
    [⊢ [src-end ≫ src-end- ⇐ : Int]]
    --------
-   [⊢ [_ ≫ (string-copy!- dest- dest-start- src- src-start- src-end-) ⇒ : Unit]]])
+   [⊢ (string-copy!- dest- dest-start- src- src-start- src-end-) ⇒ : Unit]])
 
 (define-typed-syntax quotient+remainder
   [(quotient+remainder x y) ≫
    [⊢ [x ≫ x- ⇐ : Int]]
    [⊢ [y ≫ y- ⇐ : Int]]
    --------
-   [⊢ [_ ≫ (let-values- ([[a b] (quotient/remainder- x- y-)])
+   [⊢ (let-values- ([[a b] (quotient/remainder- x- y-)])
              (list- a b))
-       ⇒ : (stlc+rec-iso:× Int Int)]]])
+       ⇒ : (stlc+rec-iso:× Int Int)]])
 
 (define-typed-syntax set!
   [(set! x:id e) ≫
    [⊢ [x ≫ x- ⇒ : ty_x]]
    [⊢ [e ≫ e- ⇐ : ty_x]]
    --------
-   [⊢ [_ ≫ (set!- x e-) ⇒ : Unit]]])
+   [⊢ (set!- x e-) ⇒ : Unit]])
 
 (define-typed-syntax provide-type
   [(provide-type ty ...) ≫
    --------
-   [_ ≻ (provide- ty ...)]])
+   [≻ (provide- ty ...)]])
 
 (define-typed-syntax mlish-provide
   [(provide x:id ...) ≫
@@ -1321,7 +1321,7 @@
    ; TODO: use hash-code to generate this tmp
    #:with (x-ty ...) (stx-map (lambda (y) (format-id y "~a-ty" y)) #'(x ...))
    --------
-   [_ ≻ (begin-
+   [≻ (begin-
           (provide- x ...)
           (stlc+rec-iso:define-type-alias x-ty ty_x) ...
           (provide- x-ty ...))]])
@@ -1330,7 +1330,7 @@
    #:with (x-ty ...) (stx-map (lambda (y) (format-id y "~a-ty" y)) #'(x ...))
    #:with (x- ...) (generate-temporaries #'(x ...))
    --------
-   [_ ≻ (begin-
+   [≻ (begin-
           (require- (rename-in (only-in mod x ... x-ty ...) [x x-] ...))
           (define-typed-variable-rename x ≫ x- : x-ty) ...)]])
 
@@ -1339,10 +1339,10 @@
 (define-typed-syntax read-int
   [(read-int) ≫
    --------
-   [⊢ [_ ≫ (let- ([x (read-)])
+   [⊢ (let- ([x (read-)])
              (cond- [(exact-integer?- x) x]
                     [else (error- 'read-int "expected an int, given: ~v" x)]))
-       ⇒ : Int]]])
+       ⇒ : Int]])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

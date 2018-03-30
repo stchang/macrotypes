@@ -76,21 +76,21 @@
   [(_ . b:boolean) ≫
    #:with ty_out (if (syntax-e #'b) #'True #'False)
    --------
-   [⊢ [_ ≫ (#%datum- . b) ⇒ : ty_out]]]
+   [⊢ (#%datum- . b) ⇒ : ty_out]]
   [(_ . n:integer) ≫
    #:with ty_out (let ([m (syntax-e #'n)])
                    (cond [(zero? m) #'Zero]
                          [(> m 0) #'PosInt]
                          [else #'NegInt]))
    --------
-   [⊢ [_ ≫ (#%datum- . n) ⇒ : ty_out]]]
+   [⊢ (#%datum- . n) ⇒ : ty_out]]
   [(#%datum . n:number) ≫
    #:when (real? (syntax-e #'n))
    --------
-   [⊢ [_ ≫ (#%datum- . n) ⇒ : Float]]]
+   [⊢ (#%datum- . n) ⇒ : Float]]
   [(_ . x) ≫
    --------
-   [_ ≻ (ext-stlc:#%datum . x)]])
+   [≻ (ext-stlc:#%datum . x)]])
 
 (define-typed-syntax #%app
   [(_ e_fn e_arg ...) ≫
@@ -99,7 +99,7 @@
    (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
    [⊢ [e_arg ≫ e_arg- ⇐ : τ_in] ...]
    --------
-   [⊢ [_ ≫ (#%app- e_fn- e_arg- ...) ⇒ : τ_out]]])
+   [⊢ (#%app- e_fn- e_arg- ...) ⇒ : τ_out]])
 
 (begin-for-syntax
   (define (sub? t1 t2)
