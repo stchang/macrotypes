@@ -3,7 +3,7 @@
 ;; same as lin.rkt, except uses define-prop, #:post, and #:join
 ;; instead of #:mode and #:submode
 
-;; (didn't edit lin.rkt be other langs like fabul use it)
+;; (didn't edit lin.rkt bc other langs like fabul use it)
 
 (extends "../ext-stlc.rkt" #:except define if begin let let* letrec λ #%app)
 
