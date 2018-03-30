@@ -460,7 +460,6 @@
                          #`(attach body `k v)))]
     ;; ⇐ conclusion
     [pattern [⊢ e-stx]
-             ; explicit tag
              #:with τ (generate-temporary #'τ)
              #:with tag (syntax-parameter-value #'current-tag-stx)
              #:with pat #'(~expected-type τ)
