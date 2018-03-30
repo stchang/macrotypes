@@ -11,17 +11,14 @@
 
 (provide Ref #%app λ ref deref :=)
 
-(define-syntax-rule (locs loc ...)
-  '(loc ...))
 (begin-for-syntax
   (define-syntax ~locs
     (pattern-expander
      (syntax-parser
-       [(locs loc:id ...)
+       [(_ loc:id ...)
         #:with tmp (generate-temporary 'locs)
         #'(~and tmp
-                (~parse ((~literal quote) (loc ...))
-                        (stx-or #'tmp #'(quote ()))))])))
+                (~parse (loc ...) (stx-or #'tmp #'())))])))
 
   (define (stx-truth? a)
     (and a (not (and (syntax? a) (false? (syntax-e a))))))
@@ -50,9 +47,9 @@
    --------
    [⊢ (#%app- e_fn- e_arg- ...)
        (⇒ : τ_out)
-       (⇒ ν (locs fns ... tyns ... ns ... ...))
-       (⇒ := (locs fas ... tyas ... as ... ...))
-       (⇒ ! (locs fds ... tyds ... ds ... ...))]])
+       (⇒ ν (fns ... tyns ... ns ... ...))
+       (⇒ := (fas ... tyas ... as ... ...))
+       (⇒ ! (fds ... tyds ... ds ... ...))]])
 
 (define-typed-syntax (λ bvs:type-ctx e) ≫
   [[bvs.x ≫ x- : bvs.type] ... 
@@ -64,9 +61,9 @@
   --------
   [⊢ (λ- (x- ...) e-)
      (⇒ : (→ bvs.type ... τ_res)
-          (⇒ ν (locs ns ...))
-          (⇒ := (locs as ...))
-          (⇒ ! (locs ds ...)))])
+          (⇒ ν (ns ...))
+          (⇒ := (as ...))
+          (⇒ ! (ds ...)))])
 
 (define-type-constructor Ref)
 
@@ -80,9 +77,9 @@
    --------
    [⊢ (#%app- box- e-)
        (⇒ : (Ref τ))
-       (⇒ ν (locs #,(syntax-position this-syntax) ns ...))
-       (⇒ := (locs as ...))
-       (⇒ ! (locs ds ...))]])
+       (⇒ ν (#,(syntax-position this-syntax) ns ...))
+       (⇒ := (as ...))
+       (⇒ ! (ds ...))]])
 (define-typed-syntax deref
   [(_ e) ≫
    [⊢ e ≫ e-
@@ -93,9 +90,9 @@
    --------
    [⊢ (#%app- unbox- e-)
        (⇒ : ty)
-       (⇒ ν (locs ns ...))
-       (⇒ := (locs as ...))
-       (⇒ ! (locs #,(syntax-position this-syntax) ds ...))]])
+       (⇒ ν (ns ...))
+       (⇒ := (as ...))
+       (⇒ ! (#,(syntax-position this-syntax) ds ...))]])
 (define-typed-syntax := #:literals (:=)
   [(_ e_ref e) ≫
    [⊢ e_ref ≫ e_ref-
@@ -111,7 +108,7 @@
    --------
    [⊢ (#%app- set-box!- e_ref- e-)
        (⇒ : Unit)
-       (⇒ ν (locs ns1 ... ns2 ...))
-       (⇒ := (locs #,(syntax-position this-syntax) as1 ... as2 ...))
-       (⇒ ! (locs ds1 ... ds2 ...))]])
+       (⇒ ν (ns1 ... ns2 ...))
+       (⇒ := (#,(syntax-position this-syntax) as1 ... as2 ...))
+       (⇒ ! (ds1 ... ds2 ...))]])
 

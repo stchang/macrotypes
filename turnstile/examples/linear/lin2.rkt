@@ -48,7 +48,7 @@
                (format "attempting to use linear var twice: ~a" (stx->datum #'x-))
    #:with vars-out (stx-cons #'x- #'used-vars)
    ----------
-   [⊢ x- (⇒ : τ) (⇒* USED vars-out)]])
+   [⊢ x- (⇒ : τ) (⇒ USED vars-out)]])
 
 ;; binding forms ----------------------------------------------------
 
@@ -67,7 +67,7 @@
    ;; but it prevents the list from getting too long
    #:with rst (stx-set-sub #'used-vars #'(x- ...))
    -------
-   [⊢ (λ- (x- ...) e-) (⇒ : (→ τ_in.norm ... τ_out)) (⇒* USED rst)]]
+   [⊢ (λ- (x- ...) e-) (⇒ : (→ τ_in.norm ... τ_out)) (⇒ USED rst)]]
   ;; TODO: add used
   #;[(_ (x:id ...) e) ⇐ (~→ τ_in ... τ_out) ≫
    [[x ≫ x- : τ_in] ... ⊢ e ≫ e- ⇐ τ_out]
@@ -87,7 +87,7 @@
                  (unused-err (stx-diff #'(x-) #'used-vars))
    #:with rst (stx-set-sub #'used-vars #'(x-))
    --------
-   [⊢ (let- ([x- e-]) body-) (⇒ : τ_body) (⇒* USED rst)]])
+   [⊢ (let- ([x- e-]) body-) (⇒ : τ_body) (⇒ USED rst)]])
 
 (define-typed-syntax (split e (~datum as) (x y) (~datum in) body) ⇐ USED used-in ≫
 ;  #:do[(printf "split1: ~a\n" #'used-in)]
@@ -99,7 +99,7 @@
                  (unused-err (stx-diff #'(x- y-) #'used-vars))
    #:with rst (stx-set-sub #'used-vars #'(x- y-))
   -------------
-  [⊢ (let*- ([p e-][x- (#%app- car p)][y- (#%app- cdr p)]) body-) (⇒ : τ) (⇒* USED rst)])
+  [⊢ (let*- ([p e-][x- (#%app- car p)][y- (#%app- cdr p)]) body-) (⇒ : τ) (⇒ USED rst)])
 
 
 ;; other forms ------------------------------------------------------
@@ -123,7 +123,7 @@
 ;  [⊢ e_arg ≫ e_arg- (⇐ USED vars_i) (⇐ : τ_in) (⇒ USED vars_o)] ...
 ;  #:with vars-out (car (stx-reverse #'(vars_o ...)))
   --------
-  [⊢ (#%app- e_fn- e_arg- ...) (⇒* USED vars-out) (⇒ : τ_out)])
+  [⊢ (#%app- e_fn- e_arg- ...) (⇒ USED vars-out) (⇒ : τ_out)])
 
 (define-typed-syntax (ann e (~datum :) τ:type) ≫
   [⊢ e ≫ e- ⇐ τ.norm]
@@ -135,12 +135,12 @@
   [⊢ e2 ≫ e2- (⇐ USED vars1) (⇒ : τ2) (⇒ USED vars2)]
   -----------------
   [⊢ (#%app- cons- e1- e2-) (⇒ : (× τ1 τ2))
-                            (⇒* USED vars2)])
+                            (⇒ USED vars2)])
 
 (define-typed-syntax (free e) ⇐ USED vars-in ≫
   [⊢ e ≫ e- (⇐ USED vars-in) (⇒ USED vars-out) (⇒ : τ)]
   -----------
-  [⊢ e- (⇒ : τ) (⇒* USED vars-out)])
+  [⊢ e- (⇒ : τ) (⇒ USED vars-out)])
 
 (define-typed-syntax #%datum
   [(_ . b:boolean) ≫
@@ -187,5 +187,5 @@
            (stx->datum #'vars1) (stx->datum #'vars2))
    #:with vars-out (stx-append #'vars #'vars1)
    --------
-   [⊢ (if- e_tst- e1- e2-) (⇒ : (⊔ τ1 τ2)) (⇒* USED vars-out)]])
+   [⊢ (if- e_tst- e1- e2-) (⇒ : (⊔ τ1 τ2)) (⇒ USED vars-out)]])
 

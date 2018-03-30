@@ -98,7 +98,8 @@
 
   (define-splicing-syntax-class props
     [pattern (~and (~seq stuff ...) (~seq (~seq k:id v) ...))])
-  (define-syntax-class ⇒-prop #:datum-literals (⇒) #:attributes (e-pat)
+  (define-syntax-class ⇒-prop
+    #:datum-literals (⇒) #:attributes (e-pat)
     [pattern (~or (⇒ tag-pat ; implicit tag
                      (~parse tag (syntax-parameter-value #'current-tag-stx))
                      tag-prop:⇒-prop ...)
@@ -109,23 +110,28 @@
                                    (~and tag-prop.e-pat ... tag-pat)
                                    (detach #'e-tmp `tag)))])
   (define-splicing-syntax-class ⇒-prop/conclusion
-    #:datum-literals (⇒ ⇒*) ; ⇒* = dont ty-eval
+    #:datum-literals (⇒)
     #:attributes (tag tag-expr)
     [pattern (~or (~seq ⇒ tag-stx ; implicit tag
                           (~parse tag (syntax-parameter-value #'current-tag-stx))
                           (~parse (tag-prop.tag ...) #'())
                           (~parse (tag-prop.tag-expr ...) #'()))
                   (~seq ⇒ tag:id tag-stx (tag-prop:⇒-prop/conclusion) ...))
-             #:with tag-expr
-             #`((current-ev)
-                #,(for/fold ([tag-expr #'#`tag-stx])
+             #:with tag-expr-body
+             (for/fold ([tag-expr #'#`tag-stx])
                        ([k (in-stx-list #'[tag-prop.tag ...])]
                         [v (in-stx-list #'[tag-prop.tag-expr ...])])
                (with-syntax ([tag-expr tag-expr] [k k] [v v])
-                 #'(attach tag-expr `k ((current-ev) v)))))]
-    ;; ⇒* = dont ty-eval
-    [pattern (~seq ⇒* tag:id tag-stx) #:with tag-expr #'#`tag-stx])
-  (define-syntax-class ⇐-prop #:datum-literals (⇐) #:attributes (tag tag-stx e-pat)
+                 #`(attach tag-expr `k 
+                           #,(if (equal? (syntax->datum #'k) (syntax-parameter-value #'current-tag2-stx))
+                                 #'((current-ev) v)
+                                 #'v))))
+             #:with tag-expr
+                    (if (equal? (syntax->datum #'tag) (syntax-parameter-value #'current-tag-stx))
+                        #'((current-ev) tag-expr-body)
+                        #'tag-expr-body)])
+  (define-syntax-class ⇐-prop
+    #:datum-literals (⇐) #:attributes (tag tag-stx e-pat)
     [pattern (~or (⇐ tag-stx ; implicit tag
                      (~parse tag (syntax-parameter-value #'current-tag-stx)))
                   (⇐ tag:id tag-stx)) ; explicit tag
@@ -441,7 +447,7 @@
                           ((mode-teardown-fn the-mode))))]
     )
   (define-syntax-class last-clause
-    #:datum-literals (⊢ ≫ ≻ ⇒ ⇐ ⇒* ⇐*)
+    #:datum-literals (⊢ ≫ ≻ ⇒ ⇐)
     #:attributes ([pat 0] [stuff 1] [body 0])
     ;; ⇒ conclusion
     [pattern (~or [⊢ pat ≫ e-stx props:⇒-props/conclusion]
@@ -583,7 +589,8 @@
           rule:rule ...)
        #'(syntax-parse stx-expr kw-stuff ... rule.norm ...)]))
 
-  (define-syntax-parameter current-tag-stx ':))
+  (define-syntax-parameter current-tag-stx ':)
+  (define-syntax-parameter current-tag2-stx '::))
 
 ;; macrotypes/typecheck-core.rkt already defines (-define-syntax-category type);
 ;; - just add the "def-named-syntax" part of the def-stx-cat macro below
@@ -599,11 +606,15 @@
     [(_ rulename:id
         (~and (~seq kw-stuff ...) :stxparse-kws)
         rule ...+)
+     #:with tag1 (current-tag)
+     #:with tag2 (current-tag2)
      #'(define-syntax (rulename stx)
          (parameterize ([current-check-relation (current-typecheck-relation)]
                         [current-ev (current-type-eval)]
-                        [current-tag (type-key1)])
-           (syntax-parameterize ([current-tag-stx ':])
+                        [current-tag (type-key1)]
+                        [current-tag2 (type-key2)])
+           (syntax-parameterize ([current-tag-stx 'tag1]
+                                 [current-tag2-stx 'tag2])
              (syntax-parse/typecheck stx kw-stuff ... rule ...))))]))
 
 (define-syntax define-typed-variable-syntax
@@ -644,10 +655,12 @@
                 (parameterize ([current-check-relation (new-check-rel)]
                                [current-ev (new-eval)]
                                [current-tag 'key1]
+                               [current-tag2 'key2]
                                ; Syntax categories like kind want full expansion,
                                ; as types are expected to be fully expanded
                                [current-use-stop-list? #f])
-                  (syntax-parameterize ([current-tag-stx 'key1])
+                  (syntax-parameterize ([current-tag-stx 'key1]
+                                        [current-tag2-stx 'key2])
                     (syntax-parse/typecheck stx kw-stuff (... ...)
                       rule (... ...)))))])))]))
 

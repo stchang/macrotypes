@@ -1,10 +1,10 @@
 #lang s-exp "../stlc+effect.rkt"
 (require "rackunit-typechecking.rkt")
 
-(check-props ν (ref 11) : '(88))
-(check-props ! (deref (ref 11)) : '(121))
-(check-props ν (deref (ref 11)) : '(170))
-(check-props ν ((λ ([x : Int]) (ref x)) 21) : '(221))
+(check-props ν (ref 11) : (88))
+(check-props ! (deref (ref 11)) : (120))
+(check-props ν (deref (ref 11)) : (168))
+(check-props ν ((λ ([x : Int]) (ref x)) 21) : (218))
              
 (define x (ref 10))
 (check-type x : (Ref Int))
