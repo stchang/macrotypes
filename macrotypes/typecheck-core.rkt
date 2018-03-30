@@ -868,6 +868,7 @@
     (and (stx-length=? xs1 xs2) (stx-andmap check? xs1 xs2)))
   (define current-ev (make-parameter (current-type-eval)))
   (define current-tag (make-parameter (type-key1)))
+  (define current-tag2 (make-parameter (type-key2)))
 
   ;; --------------------------------------------------------------------------
   ;; var-assign allows customizing "T-Var" rule
