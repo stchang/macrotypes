@@ -56,7 +56,7 @@
 (typecheck-fail (split (pair #t #f) as (x y) in y)
  #:with-msg "linear vars unused: \\(x\\)")
 (typecheck-fail (split (pair #t #f) as (x y) in #t)
- #:with-msg "linear vars unused: \\(x y\\)")
+ #:with-msg "linear vars unused: \\([xy] [xy]\\)")
 
 ;; ok
 (check-type (split (pair #t #f) as (x y) in (pair y x)) : (× Bool Bool))
@@ -66,12 +66,12 @@
  (split (pair #t #t) as (a b) in
    (λ ([a : Bool] [b : Bool])
      (pair a b)))
- #:with-msg "split: linear vars unused: \\(a b\\)")
+ #:with-msg "split: linear vars unused: \\([ab] [ab]\\)")
 (typecheck-fail
  (λ ([a : Bool] [b : Bool])
    (split (pair #t #t) as (a b) in
      (pair a b)))
- #:with-msg "λ: linear vars unused: \\(a b\\)")
+ #:with-msg "λ: linear vars unused: \\([ab] [ab]\\)")
 
 ;; TODO: this passes due to let* shadowing but should this fail?
 ;(check-type (split (pair #t #t) as (x x) in x) : Bool)
