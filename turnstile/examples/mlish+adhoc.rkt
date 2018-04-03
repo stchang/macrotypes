@@ -877,18 +877,16 @@
    #:with (~and (TC+ ...) (~TCs ([op-sym ty-op] ...) ...))
           (stx-map expand/df #'(TC ...))
    #:with (op* ...)
-   (stx-appendmap
-     (lambda (os tc)
-       (stx-map (lambda (o) (format-id tc "~a" o)) os))
-     #'((op-sym ...) ...) #'(TC ...))
+          (stx-appendmap
+           (lambda (os tc)
+             (stx-map (lambda (o) (format-id tc "~a" o)) os))
+           #'((op-sym ...) ...) #'(TC ...))
    #:with (ty-op* ...) (stx-flatten #'((ty-op ...) ...))
    #:with ty-in-tagsss (stx-map get-fn-ty-in-tags #'(ty-op* ...))
    #:with (mangled-op ...) (stx-map mangle #'(op* ...) #'ty-in-tagsss)
-
-   #:with (mangled-ops- body- t-) (infer/ctx+erase #'([mangled-op : ty-op*] ...)
-                                           #'body)
+   [[mangled-op ≫ mangled-op- : ty-op*] ... ⊢ body ≫ body- ⇒ t-]
    --------
-   [⊢ (λ- mangled-ops- body-) ⇒ (=> TC+ ... t-)]])
+   [⊢ (λ- (mangled-op- ...) body-) ⇒ (=> TC+ ... t-)]])
 
 ; all λs have type (∀ (X ...) (→ τ_in ... τ_out)), even monomorphic fns
 (define-typed-syntax liftedλ #:export-as λ
@@ -1584,35 +1582,39 @@
  (define (lookup-op gen-op tys)
   (define (transfer-gen-op-ctx o) (format-id gen-op "~a" o))
   (define (transfer-gen-op-ctxs os) (stx-map transfer-gen-op-ctx os))
-  (syntax-parse tys
+  (syntax-parse/typecheck tys
    ;; TODO: for now, only handle uniform tys, ie tys must be all
    ;;  tycons or all base types or all tyvars
    ;; tycon --------------------------------------------------
    ;; - recur on ty-args
-   [((~Any tycon ty-arg ...) ...)
+   [((~Any tycon ty-arg ...) ...) ≫
     ;; 1) look up concrete op corresponding to generic op and input tys
-    #:with mangled (mangle gen-op #'(tycon ...))
-    #:with [conc-op ty-conc-op] (infer+erase #'mangled)
-    ;; compute sub-ops based on TC constraints (will include gen-op --- for smaller type)
-    #:with (~∀ Xs (~=> TC ... (~ext-stlc:→ . ty-args))) #'ty-conc-op
+    [⊢ #,(mangle gen-op #'(tycon ...)) ≫ conc-op
+       ⇒ (~∀ Xs (~=> TC ... (~ext-stlc:→ . ty-args)))]
+    ;; 2) compute sub-ops based on TC constraints
+    ;;    (will include gen-op --- for smaller type)
     #:with (~TCs ([op _] ...) ...) #'(TC ...) ; order matters, must match order of arg types
     #:with ((sub-op ...) ...) (stx-map transfer-gen-op-ctxs #'((op ...) ...))
-    ;; drop the TCs in result type, the proper subops are already applied
-    #:with ty-conc-op-noTC #'(∀ Xs (ext-stlc:→ . ty-args))
-    ;; recursively call lookup-op for each subop and input ty-args
-    (assign-type #`(conc-op 
-         #,@(apply stx-appendmap (lambda (ops . tys) (stx-map (lambda (o) (lookup-op o tys)) ops))
-                   #'((sub-op ...) ...)
-                   (syntax->list #'((ty-arg ...) ...))))
-       #'ty-conc-op-noTC)]
+    ----------
+    [⊢ (conc-op 
+        ;; 3) recursively call lookup-op for each subop and input ty-args
+        #,@(apply stx-appendmap
+                  (lambda (ops . tys) (stx-map (lambda (o) (lookup-op o tys)) ops))
+                  #'((sub-op ...) ...)
+                  (syntax->list #'((ty-arg ...) ...))))
+       ;; 4) drop the TCs in result type, the proper subops are already applied
+       ⇒ (∀ Xs (ext-stlc:→ . ty-args))]] ; conc type, TCs dropped
    ;; base type --------------------------------------------------
-   [(((~literal #%plain-app) tag) ...)
-    #:with (op- t-) (infer+erase (mangle gen-op #'(tag ...)))
-    #'op-]
+   [(((~literal #%plain-app) ty-internal) ...) ≫
+    [⊢ #,(mangle gen-op #'(ty-internal ...)) ≫ op- ⇒ t-]
+    -------
+    [⊢ op- ⇒ t-]]
    ;; tyvars --------------------------------------------------
-   [_
-     #:with (op- t-) (infer+erase (mangle gen-op tys))
-     #'op-]))
+   [_ ≫
+    [⊢ #,(mangle gen-op tys) ≫ op- ⇒ t-]
+    -------
+    [⊢ op- ⇒ t-]]))
+
  ;; gets the internal id in a type representation
   (define (get-type-tag t)
     (syntax-parse t
@@ -1641,6 +1643,7 @@
  (define (TCs-exist? TCs #:ctx [ctx TCs])
    (stx-map (lambda (tc) (TC-exists? tc #:ctx ctx)) TCs)))
 
+;; TODO: lift out this syntax-parse
 ;; adhoc polymorphism
 ;; TODO: make this a formal type?
 ;; - or at least define a pattern expander - DONE 2016-05-01
@@ -1725,10 +1728,10 @@
    #:with (Xs+ 
            (TC+ ... 
                 (~=> TCsub ... 
-                     (~TC [generic-op-expected ty-concrete-op-expected] ...)))
-           _)
-           (infers/tyctx+erase #'(X ...) #'(TC ... (Name ty ...)) #:tag ':: #:stop-list? #f)
+                     (~TC [generic-op-expected ty-concrete-op-expected] ...))))
+           (expands/tvctx #'(TC ... (Name ty ...)) #'(X ...) #:stop-list? #f)
    ;; this produces #%app bad stx err, so manually call infer for now
+   ;; 2018-04-02: still wont work bc of stop-list (?)
    ;; [([X ≫ X- :: #%type] ...) () ⊢ (TC ... (Name ty ...)) ≫
    ;;                                (TC+ ... 
    ;;                                 (~=> TCsub ... 

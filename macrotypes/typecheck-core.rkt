@@ -903,8 +903,11 @@
     (intro-if-stx (get-stx-prop/cd*r e 'expected-type)))
 
   ;; --------------------------------------------------------------------------
-  ;; "infer" function for expanding/computing type of an expression
+  ;; "infer" and "expand" fns
+  ;; for expanding/computing type of an expression, with/without type ctxs
 
+  ;; TODO: move this tyvar mechanism into mlish?
+  ;; - would need current-tyvar-assign?
   (define (mk-tyvar X) (attach X 'tyvar #t))
   (define (tyvar? X) (syntax-property X 'tyvar))
 
@@ -928,54 +931,30 @@
        (or (and e (get-orig e))
            (get-orig e+))))
     ty)
-  ;; TODO: remove this, is it redundant now?
-  (define ((typeof/err tag stx-ctx) e+ e)
-    (define ty (detach e+ tag)) 
-    (unless ty
-      (raise-syntax-error #f
-       (case tag
-         [(:) "expected a typed term"]
-         [(::) "expected a kinded type"]
-         [(::::) "expected a valid kind"]
-         [else (format "expected syntax with property ~a" tag)])
-       stx-ctx
-       (get-orig e)))
-    ty)
 
   ;; basic expansion with stop list, no context:
   (define (expand/stop e #:stop-list? [stop-list? #t])
     (local-expand e 'expression (decide-stop-list stop-list?)))
-
-  ;; infers the types and erases types in multiple expressions
   (define (expands/stop es #:stop-list? [stop-list? #t])
     (stx-map (λ (e) (expand/stop e #:stop-list? stop-list?)) es))
 
-  ;; basic infer function, no context:
-  ;; infers the type and erases types in an expression
+  ;; expands and returns "type" according to tag, no context:
   (define (infer+erase e #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
     (define e+ (expand/stop e #:stop-list? stop-list?))
     (list e+ (detach/check e+ tag #:orig e)))
-
-  ;; infers the types and erases types in multiple expressions
   (define (infers+erase es #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
     (stx-map (λ (e) (infer+erase e #:tag tag #:stop-list? stop-list?)) es))
 
-  ;; This is the main "infer" function. Most others are defined in terms of this.
-  ;; It should be named infer+erase but leaving it for now for backward compat.
+  ;; This is the main "expansion" fn, which allows supplying a ctx
   ;; ctx = vars and their types (or or any props, denoted with any "sep")
   ;; - each x in ctx is in scope for subsequent xs
   ;;   - ie, dont need separate ctx and tvctx
   ;; - keep tvctx bc it's often useful to separate the returned Xs-
-  ;; TODO: infer currently tries to be generic over types and kinds
-  ;;       but I'm not sure it properly generalizes
-  ;;       eg, what if I need separate type-eval and kind-eval fns?
-  ;; - should infer be moved into define-syntax-category?
+  ;; TODO: get rid of the kev arg (need to add `current-tyvar-assign`?)
 
   (define (expands/ctxs es #:ctx [ctx null] #:tvctx [tvctx null]
-;                    #:tag [tag (current-tag)] ; the "type" to return from es
-                    #:key [kev #'(current-type-eval)] ; kind-eval (tvk in tvctx)
-                    #:stop-list? [stop-list? #t])
-;     (define old-stx-ctx (current-syntax-context))
+                        #:key [kev #'(current-type-eval)] ; kind-eval (tvk in tvctx)
+                        #:stop-list? [stop-list? #t])
      (syntax-parse ctx
        [((~or X:id [x:id (~seq sep:id τ) ...]) ...) ; dont expand; τ may reference to tv
        #:with (~or (~and (tv:id ...)
@@ -1032,12 +1011,14 @@
 
        (list #'(tv+ ...) #'(X+ ... x+ ...) #'(e+ ...))]
 
-      [([x τ] ...) (expands/ctxs es #:ctx #`([x #,(current-tag) τ] ...) #:tvctx tvctx #:stop-list? stop-list?)]))
+      [([x τ] ...)
+       (expands/ctxs es #:ctx #`([x #,(current-tag) τ] ...)
+                        #:tvctx tvctx
+                        #:stop-list? stop-list?)]))
 
-  ;; fns derived from expands/ctx ---------------------------------------------------
+  ;; "expand" and "infer" fns derived from expands/ctxs -----------------------
   ;; some are syntactic shortcuts, some are for backwards compat
 
-  ;; shorter names
   ; ctx = type env for bound vars in term e, etc
   ; can also use for bound tyvars in type e
   (define (expands/ctx es ctx #:stop-list? [stop-list? #t])
@@ -1046,48 +1027,15 @@
   (define (expand/ctx e ctx #:stop-list? [stop-list? #t])
     (syntax-parse (expands/ctx (list e) ctx #:stop-list? stop-list?)
       [(_ xs (e+)) (list #'xs #'e+)]))
+  (define (expands/tvctx es ctx #:stop-list? [stop-list? #t])
+    (syntax-parse (expands/ctxs es #:tvctx ctx #:stop-list? stop-list?)
+      [(tvs _ es+) (list #'tvs #'es+)]))
   (define (expand/tvctx e tvctx #:stop-list? [stop-list? #t])
     (syntax-parse (expands/ctxs (list e) #:tvctx tvctx #:stop-list? stop-list?)
       [(tvs _ (e+)) (list #'tvs #'e+)]))
 
-  ;; old infer fns
-  ;; any naming oddities/inconsistentices are likely foo backwards compatibility
-  (define (infer es #:ctx [ctx null] #:tvctx [tvctx null]
-                    #:tag [tag (current-tag)] ; the "type" to return from es
-                    #:key [kev #'(current-type-eval)] ; kind-eval (tvk in tvctx)
-                    #:stop-list? [stop-list? #t])
-       (define/syntax-parse
-         (tvs xs (e+ ...))
-         (expands/ctxs es #:ctx ctx #:tvctx tvctx #:key kev #:stop-list? stop-list?))
-       (list #'tvs #'xs #'(e+ ...)
-             (stx-map (typeof/err tag (current-syntax-context)) #'(e+ ...) es)))
-
-  ;; shorter names
-  ; ctx = type env for bound vars in term e, etc
-  ; can also use for bound tyvars in type e
-  (define (infer/ctx+erase ctx e #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
-    (syntax-parse (infer (list e) #:ctx ctx #:tag tag #:stop-list? stop-list?)
-      [(_ xs (e+) (τ)) (list #'xs #'e+ #'τ)]))
-  (define (infers/ctx+erase ctx es #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
-    (stx-cdr (infer es #:ctx ctx #:tag tag #:stop-list? stop-list?)))
-  ; tyctx = kind env for bound type vars in term e
-  (define (infer/tyctx+erase ctx e #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
-    (syntax-parse (infer (list e) #:tvctx ctx #:tag tag #:stop-list? stop-list?)
-      [(tvs _ (e+) (τ)) (list #'tvs #'e+ #'τ)]))
-  (define (infers/tyctx+erase ctx es #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
-    (syntax-parse (infer es #:tvctx ctx #:tag tag #:stop-list? stop-list?)
-      [(tvs+ _ es+ τs) (list #'tvs+ #'es+ #'τs)]))
-  (define infer/tyctx infer/tyctx+erase)
-  (define infer/ctx infer/ctx+erase)
-
-  ;; term expansion
-  ;; expand/df : Syntax -> Syntax
-  ;; Local expands the given syntax object. 
-  ;; The result always has a type (ie, a ': stx-prop).
-  ;; Note: 
-  ;; local-expand must expand all the way down, ie stop-ids == null
-  ;; If stop-ids is #f, then subexpressions won't get expanded and thus won't
-  ;; get assigned a type.
+  ;; full expansion fn
+  ;; NOTE: this is deprecated; probably want to use expand/stop instead
   (define (expand/df e)
     (local-expand e 'expression null))
 

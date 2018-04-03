@@ -57,6 +57,36 @@
   (define (add-env e env) (set-stx-prop/preserved e 'env (intro-if-stx env)))
   (define (get-env e) (intro-if-stx (syntax-property e 'env)))
 
+  ;; old "infer" fns
+  ;; any naming oddities/inconsistentices due to backwards compatibility
+  (define (infer es #:ctx [ctx null] #:tvctx [tvctx null]
+                    #:tag [tag (current-tag)] ; the "type" to return from es
+                    #:key [kev #'(current-type-eval)] ; kind-eval (tvk in tvctx)
+                    #:stop-list? [stop-list? #t])
+       (define/syntax-parse
+         (tvs xs (e+ ...))
+         (expands/ctxs es #:ctx ctx #:tvctx tvctx #:key kev #:stop-list? stop-list?))
+       (list #'tvs #'xs #'(e+ ...)
+             (stx-map (λ (e+ e) (detach/check e+ tag #:orig e)) #'(e+ ...) es)))
+
+  ;; shorter names
+  ; ctx = type env for bound vars in term e, etc
+  ; can also use for bound tyvars in type e
+  (define (infer/ctx+erase ctx e #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
+    (syntax-parse (infer (list e) #:ctx ctx #:tag tag #:stop-list? stop-list?)
+      [(_ xs (e+) (τ)) (list #'xs #'e+ #'τ)]))
+  (define (infers/ctx+erase ctx es #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
+    (stx-cdr (infer es #:ctx ctx #:tag tag #:stop-list? stop-list?)))
+  ; tyctx = kind env for bound type vars in term e
+  (define (infer/tyctx+erase ctx e #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
+    (syntax-parse (infer (list e) #:tvctx ctx #:tag tag #:stop-list? stop-list?)
+      [(tvs _ (e+) (τ)) (list #'tvs #'e+ #'τ)]))
+  (define (infers/tyctx+erase ctx es #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
+    (syntax-parse (infer es #:tvctx ctx #:tag tag #:stop-list? stop-list?)
+      [(tvs+ _ es+ τs) (list #'tvs+ #'es+ #'τs)]))
+  (define infer/tyctx infer/tyctx+erase)
+  (define infer/ctx infer/ctx+erase)
+
   (define type-pat "[A-Za-z]+")
     
   ;; TODO: remove this? only benefit is single control point for current-promote

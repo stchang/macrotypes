@@ -80,10 +80,7 @@
 ;; (via infer fn)
 (define-typed-syntax (inst e τ:any-type ...) ≫
   [⊢ e ≫ e- ⇒ (~∀ tvs τ_body) (⇒ :: (~∀★ k ...))]
-  #:with ((τ- k*) ...) (infers+erase #'(τ ...) #:tag ':: #:stop-list? #f)
-  #:fail-unless (kindchecks? #'(k* ...) #'(k ...))
-                 (typecheck-fail-msg/multi 
-                  #'(k ...) #'(k* ...) #'(τ ...))
+  [⊢ τ ≫ _ ⇐ :: k] ...
   --------
   [⊢ e- ⇒ #,(substs #'(τ.norm ...) #'tvs #'τ_body)])
 

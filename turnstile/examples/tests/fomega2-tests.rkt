@@ -10,8 +10,7 @@
 (typecheck-fail (→ 1))
 (check-type 1 : Int)
 
-;; this should error but it doesnt
-#;(λ ([x :: ★]) 1)
+(typecheck-fail (λ ([x :: ★]) 1) #:with-msg "expected a kinded type.*at: 1")
 
 ;(check-type (∀ ([t :: ★]) (→ t t)) :: ★)
 (check-kind (∀ ([t :: ★]) (→ t t)) :: (∀★ ★))

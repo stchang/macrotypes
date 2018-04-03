@@ -887,19 +887,17 @@
    #:with (~and (TC+ ...) (~TCs ([op-sym ty-op] ...) ...))
           (stx-map expand/df #'(TC ...))
    #:with (op* ...)
-   (stx-appendmap
-     (lambda (os tc)
-       (stx-map (lambda (o) (format-id tc "~a" o)) os))
-     #'((op-sym ...) ...) #'(TC ...))
+          (stx-appendmap
+           (lambda (os tc)
+             (stx-map (lambda (o) (format-id tc "~a" o)) os))
+           #'((op-sym ...) ...) #'(TC ...))
    #:with (ty-op* ...) (stx-flatten #'((ty-op ...) ...))
    #:with ty-in-tagsss (stx-map get-fn-ty-in-tags #'(ty-op* ...))
    #:with (mangled-op ...) (stx-map mangle #'(op* ...) #'ty-in-tagsss)
 
    #:with (mangled-ops- body- t-) (infer/ctx+erase #'([mangled-op : ty-op*] ...)
                                            #'body)
-
-   (⊢ (λ- mangled-ops- body-)
-      : (=> TC+ ... t-))])
+   (⊢ (λ- mangled-ops- body-) : (=> TC+ ... t-))])
 
 ; all λs have type (∀ (X ...) (→ τ_in ... τ_out)), even monomorphic fns
 (define-typed-syntax liftedλ #:export-as λ
@@ -1541,28 +1539,25 @@
    ;; - recur on ty-args
    [((~Any tycon ty-arg ...) ...)
     ;; 1) look up concrete op corresponding to generic op and input tys
-    #:with mangled (mangle gen-op #'(tycon ...))
-    #:with [conc-op ty-conc-op] (infer+erase #'mangled)
-    ;; compute sub-ops based on TC constraints (will include gen-op --- for smaller type)
+    #:with [conc-op ty-conc-op] (infer+erase (mangle gen-op #'(tycon ...)))
+    ;; 2) compute sub-ops based on TC constraints
+    ;;    (will include gen-op --- for smaller type)
     #:with (~∀ Xs (~=> TC ... (~ext-stlc:→ . ty-args))) #'ty-conc-op
     #:with (~TCs ([op _] ...) ...) #'(TC ...) ; order matters, must match order of arg types
     #:with ((sub-op ...) ...) (stx-map transfer-gen-op-ctxs #'((op ...) ...))
-    ;; drop the TCs in result type, the proper subops are already applied
-    #:with ty-conc-op-noTC #'(∀ Xs (ext-stlc:→ . ty-args))
-    ;; recursively call lookup-op for each subop and input ty-args
+    ;; 3) recursively call lookup-op for each subop and input ty-args
     (⊢ (conc-op 
-         #,@(apply stx-appendmap (lambda (ops . tys) (stx-map (lambda (o) (lookup-op o tys)) ops))
+         #,@(apply stx-appendmap
+                   (lambda (ops . tys) (stx-map (lambda (o) (lookup-op o tys)) ops))
                    #'((sub-op ...) ...)
                    (syntax->list #'((ty-arg ...) ...))))
-       : ty-conc-op-noTC)]
+       ; 4) drop the TCs in result type, the proper subops are already applied
+       : (∀ Xs (ext-stlc:→ . ty-args)))]
    ;; base type --------------------------------------------------
-   [(((~literal #%plain-app) tag) ...)
-    #:with (op- t-) (infer+erase (mangle gen-op #'(tag ...)))
-    #'op-]
+   [(((~literal #%plain-app) tag) ...) (expand/stop (mangle gen-op #'(tag ...)))]
    ;; tyvars --------------------------------------------------
-   [_
-     #:with (op- t-) (infer+erase (mangle gen-op tys))
-     #'op-]))
+   [_ (expand/stop (mangle gen-op tys))]))
+
   (define (get-type-tag t)
     (syntax-parse t
       [((~literal #%plain-app) tycons . _) #'tycons]
@@ -1678,9 +1673,9 @@
      #:with (Xs+ 
              (TC+ ... 
               (~=> TCsub ... 
-                   (~TC [generic-op-expected ty-concrete-op-expected] ...)))
-             _)
-            (infers/tyctx+erase #'([X :: #%type] ...) #'(TC ... (Name ty ...)) #:tag ':: #:stop-list? #f)
+                   (~TC [generic-op-expected ty-concrete-op-expected] ...))))
+            (expands/tvctx #'(TC ... (Name ty ...)) #'([X :: #%type] ...)
+                           #:tag ':: #:stop-list? #f)
      #:when (TCs-exist? #'(TCsub ...) #:ctx stx)
      ;; simulate as if the declared concrete-op* has TC ... predicates
      ;; TODO: fix this manual deconstruction and assembly
