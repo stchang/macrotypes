@@ -2,7 +2,27 @@
 
 ;; extends "typecheck-core.rkt" with "macrotypes"-only forms
 
-(require "typecheck-core.rkt"
+(require (except-in "typecheck-core.rkt")
+                    ;infer+erase
+;;                    infers+erase
+                    ;infer)
+                    ;; infer/ctx+erase
+                    ;; infers/ctx+erase
+                    ;; infer/tyctx+erase
+                    ;; infers/tyctx+erase
+                    ;; infer/tyctx
+                    ;; infer/ctx)
+         #;(prefix-in core:
+                    (only-in "typecheck-core.rkt"
+                    infer+erase
+;;                    infers+erase
+                    infer))
+                    ;; infer/ctx+erase
+                    ;; infers/ctx+erase
+                    ;; infer/tyctx+erase
+                    ;; infers/tyctx+erase
+                    ;; infer/tyctx
+                    ;; infer/ctx))
          (for-syntax racket/stxparam))
 (provide (all-from-out "typecheck-core.rkt")
          (all-defined-out)
@@ -36,7 +56,7 @@
   ;; TODO: remove? only used by macrotypes/examples/infer.rkt (and stlc+cons)
   (define (add-env e env) (set-stx-prop/preserved e 'env (intro-if-stx env)))
   (define (get-env e) (intro-if-stx (syntax-property e 'env)))
-  
+
   (define type-pat "[A-Za-z]+")
     
   ;; TODO: remove this? only benefit is single control point for current-promote

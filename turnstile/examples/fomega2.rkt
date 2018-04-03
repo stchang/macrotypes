@@ -42,7 +42,7 @@
 (define-syntax define-type-alias
   (syntax-parser
     [(_ alias:id τ)
-     #:with (τ- _) (infer+erase #'τ #:tag '::)
+     #:with τ- (expand/stop #'τ)
      #'(define-syntax alias
          (syntax-parser [x:id #'τ-][(_ . rst) #'(τ- . rst)]))]))
 

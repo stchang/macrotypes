@@ -628,7 +628,7 @@
            (define (mk-binding-transformer τ-internal τ kind-ctor/#f
                                            bvop bvop-name bvop-rhs
                                            op op-name op-rhs
-                                           infer-fn)
+                                           expand-fn)
              (define un-anno? (not kind-ctor/#f))
              (syntax-parser
                [(_ (~and bvs
@@ -645,7 +645,7 @@
                           op-name op-rhs)
                 #:with bvs+ks (if un-anno? #'([bv key2 #%tag] (... ...)) #'bvs+ann)
                 #:and ~!
-                #:with (bvs- ((~var τ- type) (... ...)) _) (infer-fn #'bvs+ks #'args)
+                #:with (bvs- ((~var τ- type) (... ...))) (expand-fn #'bvs+ks #'args)
                 #:with ([_ (~datum key2) k_arg] (... ...)) #'bvs+ks
                 #:with k_result (if un-anno? #'#%tag #`(#,kind-ctor/#f k_arg (... ...)))
                 (add-orig
@@ -810,10 +810,9 @@
                                                           bvs-op 'bvs-op 'bvs-n
                                                           op 'op 'n
                                                           (λ (ctx es)
-                                                            (infers/ctx+erase
-                                                             ctx es
-                                                             #:tag 'key2
-                                                             #:stop-list? #f)))))])))]))
+                                                             (expands/ctx
+                                                              es ctx
+                                                              #:stop-list? #f)))))])))]))
 
 ;; ----------------------------------------------------------------------------
 ;; ----------------------------------------------------------------------------
@@ -916,23 +915,46 @@
       (list #'erased)
       null))
 
-    (define ((typeof/err tag ctx) e+ e)
-      (define ty (detach e+ tag)) 
-      (unless ty
-        (raise-syntax-error #f
-          (case tag
-            [(:) "expected a typed term"]
-            [(::) "expected a kinded type"]
-            [(::::) "expected a valid kind"]
-            [else (format "expected syntax with property ~a" tag)])
-          ctx
-          (get-orig e)))
-      ty)
-  ;; basic infer function with no context:
+  (define (detach/check e+ tag #:orig [e #f])
+    (define ty (detach e+ tag))
+    (unless ty
+      (raise-syntax-error #f
+       (case tag
+         [(:) "expected a typed term"]
+         [(::) "expected a kinded type"]
+         [(::::) "expected a valid kind"]
+         [else (format "expected syntax with property ~a" tag)])
+       (current-syntax-context)
+       (or (and e (get-orig e))
+           (get-orig e+))))
+    ty)
+  ;; TODO: remove this, is it redundant now?
+  (define ((typeof/err tag stx-ctx) e+ e)
+    (define ty (detach e+ tag)) 
+    (unless ty
+      (raise-syntax-error #f
+       (case tag
+         [(:) "expected a typed term"]
+         [(::) "expected a kinded type"]
+         [(::::) "expected a valid kind"]
+         [else (format "expected syntax with property ~a" tag)])
+       stx-ctx
+       (get-orig e)))
+    ty)
+
+  ;; basic expansion with stop list, no context:
+  (define (expand/stop e #:stop-list? [stop-list? #t])
+    (local-expand e 'expression (decide-stop-list stop-list?)))
+
+  ;; infers the types and erases types in multiple expressions
+  (define (expands/stop es #:stop-list? [stop-list? #t])
+    (stx-map (λ (e) (expand/stop e #:stop-list? stop-list?)) es))
+
+  ;; basic infer function, no context:
   ;; infers the type and erases types in an expression
   (define (infer+erase e #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
-    (define e+ (local-expand e 'expression (decide-stop-list stop-list?)))
-    (list e+ ((typeof/err tag (current-syntax-context)) e+ e)))
+    (define e+ (expand/stop e #:stop-list? stop-list?))
+    (list e+ (detach/check e+ tag #:orig e)))
 
   ;; infers the types and erases types in multiple expressions
   (define (infers+erase es #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
@@ -949,11 +971,11 @@
   ;;       eg, what if I need separate type-eval and kind-eval fns?
   ;; - should infer be moved into define-syntax-category?
 
-  (define (infer es #:ctx [ctx null] #:tvctx [tvctx null]
-                    #:tag [tag (current-tag)] ; the "type" to return from es
+  (define (expands/ctxs es #:ctx [ctx null] #:tvctx [tvctx null]
+;                    #:tag [tag (current-tag)] ; the "type" to return from es
                     #:key [kev #'(current-type-eval)] ; kind-eval (tvk in tvctx)
                     #:stop-list? [stop-list? #t])
-     (define old-stx-ctx (current-syntax-context))
+;     (define old-stx-ctx (current-syntax-context))
      (syntax-parse ctx
        [((~or X:id [x:id (~seq sep:id τ) ...]) ...) ; dont expand; τ may reference to tv
        #:with (~or (~and (tv:id ...)
@@ -1006,16 +1028,39 @@
        (define/syntax-parse
          (e+ ...)
          (for/list ([e (syntax->list #'(e ...))])
-                   (local-expand e 'expression (decide-stop-list stop-list?) ctx)))
+           (local-expand e 'expression (decide-stop-list stop-list?) ctx)))
 
-       (list #'(tv+ ...) #'(X+ ... x+ ...)
-             #'(e+ ...)
-             (stx-map (typeof/err tag old-stx-ctx) #'(e+ ...) #'(e ...)))]
+       (list #'(tv+ ...) #'(X+ ... x+ ...) #'(e+ ...))]
 
-      [([x τ] ...) (infer es #:ctx #`([x #,tag τ] ...) #:tvctx tvctx #:tag tag #:stop-list? stop-list?)]))
+      [([x τ] ...) (expands/ctxs es #:ctx #`([x #,(current-tag) τ] ...) #:tvctx tvctx #:stop-list? stop-list?)]))
 
-  ;; fns derived from infer ---------------------------------------------------
+  ;; fns derived from expands/ctx ---------------------------------------------------
   ;; some are syntactic shortcuts, some are for backwards compat
+
+  ;; shorter names
+  ; ctx = type env for bound vars in term e, etc
+  ; can also use for bound tyvars in type e
+  (define (expands/ctx es ctx #:stop-list? [stop-list? #t])
+    (syntax-parse (expands/ctxs es #:ctx ctx #:stop-list? stop-list?)
+      [(_ xs es+) (list #'xs #'es+)]))
+  (define (expand/ctx e ctx #:stop-list? [stop-list? #t])
+    (syntax-parse (expands/ctx (list e) ctx #:stop-list? stop-list?)
+      [(_ xs (e+)) (list #'xs #'e+)]))
+  (define (expand/tvctx e tvctx #:stop-list? [stop-list? #t])
+    (syntax-parse (expands/ctxs (list e) #:tvctx tvctx #:stop-list? stop-list?)
+      [(tvs _ (e+)) (list #'tvs #'e+)]))
+
+  ;; old infer fns
+  ;; any naming oddities/inconsistentices are likely foo backwards compatibility
+  (define (infer es #:ctx [ctx null] #:tvctx [tvctx null]
+                    #:tag [tag (current-tag)] ; the "type" to return from es
+                    #:key [kev #'(current-type-eval)] ; kind-eval (tvk in tvctx)
+                    #:stop-list? [stop-list? #t])
+       (define/syntax-parse
+         (tvs xs (e+ ...))
+         (expands/ctxs es #:ctx ctx #:tvctx tvctx #:key kev #:stop-list? stop-list?))
+       (list #'tvs #'xs #'(e+ ...)
+             (stx-map (typeof/err tag (current-syntax-context)) #'(e+ ...) es)))
 
   ;; shorter names
   ; ctx = type env for bound vars in term e, etc
@@ -1031,7 +1076,7 @@
       [(tvs _ (e+) (τ)) (list #'tvs #'e+ #'τ)]))
   (define (infers/tyctx+erase ctx es #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
     (syntax-parse (infer es #:tvctx ctx #:tag tag #:stop-list? stop-list?)
-      [(tvs+ _ es+ tys) (list #'tvs+ #'es+ #'tys)]))
+      [(tvs+ _ es+ τs) (list #'tvs+ #'es+ #'τs)]))
   (define infer/tyctx infer/tyctx+erase)
   (define infer/ctx infer/ctx+erase)
 

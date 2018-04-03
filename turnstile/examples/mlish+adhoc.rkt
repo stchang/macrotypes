@@ -351,7 +351,6 @@
 (define-for-syntax (make-type-constructor-transformer
                      name           ; Name of type constructor we're defining
                      internal-name  ; Identifier used for internal rep of type
-                     key2           ; Syntax property to attach kind of type
                      op             ; numeric operator to compare expected arg count
                      n              ; Expected arity, relative to op
                     )
@@ -362,7 +361,7 @@
      (format
        "wrong number of arguments, expected ~a ~a"
        (object-name op) n)
-     #:with ([arg- _] ...) (infers+erase #'args #:tag key2 #:stop-list? #f)
+     #:with (arg- ...) (expands/stop #'args #:stop-list? #f)
      ;; args are validated on the next line rather than above
      ;; to ensure enough stx-parse progress for proper err msg,
      ;; ie, "invalid type" instead of "improper tycon usage"
@@ -413,7 +412,7 @@
                         ; general transformers.
                         [Name
                          (make-type-constructor-transformer
-                           #'Name #'void ':: = (stx-length #'(X ...)))] ...)
+                           #'Name #'void = (stx-length #'(X ...)))] ...)
                      (void ty_flat ...))) ...))
      #:when (stx-map
              (λ (ts+ ts)
