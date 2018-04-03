@@ -1585,7 +1585,37 @@
  (define (TCs-exist? TCs #:ctx [ctx TCs])
    (stx-map (lambda (tc) (TC-exists? tc #:ctx ctx)) TCs)))
 
-;; adhoc polymorphism
+;; adhoc polymorphism ---------------------------------------------------------
+
+;; lifted transformer fns, to avoid stx-parse expansion overhead
+(begin-for-syntax
+  ;; TODO: can this just be variable-like-transformer?
+  (define (make-typeclass-op-transformer)
+    (syntax-parser
+      [(o . es)
+       #:with ([e- ty_e] ...) (infers+erase #'es)
+       #:with out-op
+       (with-handlers
+         ([exn:fail:syntax:unbound?
+           (lambda (e)
+             (type-error #:src #'o
+                         #:msg (format
+                                "~a operation undefined for input types: ~a"
+                                (syntax->datum #'o)
+                                (types->str #'(ty_e ...)))))])
+         (lookup-op #'o #'(ty_e ...)))
+       #:with app (datum->syntax #'o '#%app)
+       (datum->syntax this-syntax (cons #'app (cons #'out-op #'(e- ...))))]))
+  (define (make-typeclass-transformer TCs ops+tys Xs Name-stx)
+    (define/syntax-parse (TC ...) TCs)
+    (define/syntax-parse Name Name-stx)
+    (syntax-parser
+      [(_ . rst)
+       #:when (= (stx-length Xs) (stx-length #'rst))
+       (add-orig
+        (substs #'rst Xs #`(=> TC ... #,(mk-type ops+tys)))
+        #'(Name . rst))])))
+
 ;; TODO: make this a formal type?
 ;; - or at least define a pattern expander - DONE 2016-05-01
 ;; A TC is a #'(=> subclassTC ... ([generic-op gen-op-ty] ...))
@@ -1595,28 +1625,10 @@
           (~and (_ (Name X ...) [op (~datum :) ty] ...) ; no subclass
                 (~parse (TC ...) #'())))
      #'(begin-
-         (define-syntax- (op stx)
-           (syntax-parse stx
-             [(o . es)
-              #:with ([e- ty_e] (... ...)) (infers+erase #'es)
-              #:with out-op 
-                     (with-handlers 
-                       ([exn:fail:syntax:unbound? 
-                         (lambda (e) 
-                           (type-error #:src #'o
-                            #:msg (format 
-                                   "~a operation undefined for input types: ~a"
-                                   (syntax->datum #'o) 
-                                   (types->str #'(ty_e (... ...))))))])
-                       (lookup-op #'o #'(ty_e (... ...))))
-              #:with app (datum->syntax #'o '#%app)
-              (datum->syntax stx (cons #'app (cons #'out-op #'(e- (... ...)))))])) ...
-         (define-syntax- (Name stx)
-           (syntax-parse stx
-             [(_ X ...)
-              (add-orig 
-                #`(=> TC ... #,(mk-type #'(('op ty) ...)))
-                #'(Name X ...))])))]))
+         (define-syntax- op (make-typeclass-op-transformer)) ...
+         (define-syntax- Name
+           (make-typeclass-transformer
+            #'(TC ...) #'(('op ty) ...) #'(X ...) #'Name)))]))
 
 (define-syntax (define-instance stx)
   (syntax-parse stx
@@ -1658,9 +1670,9 @@
      ;; use input types
      #:with (mangled-op ...) (stx-map mangle #'(generic-op ...) #'(ty_in-tags ...))
      #'(begin-
-         (define-syntax- (mangled-op stx) 
-           (syntax-parse stx [_:id (assign-type #'concrete-op+ #'ty-concrete-op-expected)]))
-         ...)]
+         (define-syntax mangled-op
+           (make-variable-like-transformer
+            (assign-type #'concrete-op+ #'ty-concrete-op-expected))) ...)]
     ;; tycon, possibly with subclasses -----------------------------------------
     [(_ TC ... (~datum =>) (Name ty ...) [generic-op concrete-op] ...)
      #:with (X ...) (compute-tyvars #'(ty ...))
@@ -1674,8 +1686,7 @@
              (TC+ ... 
               (~=> TCsub ... 
                    (~TC [generic-op-expected ty-concrete-op-expected] ...))))
-            (expands/tvctx #'(TC ... (Name ty ...)) #'([X :: #%type] ...)
-                           #:tag ':: #:stop-list? #f)
+            (expands/tvctx #'(TC ... (Name ty ...)) #'(X ...) #:stop-list? #f)
      #:when (TCs-exist? #'(TCsub ...) #:ctx stx)
      ;; simulate as if the declared concrete-op* has TC ... predicates
      ;; TODO: fix this manual deconstruction and assembly
@@ -1723,6 +1734,5 @@
      #:with (f ...) (generate-temporaries #'(concrete-op-sorted ...))
      #'(begin-
          (define- f concrete-op-sorted) ...
-         (define-syntax- (mangled-op stx) 
-           (syntax-parse stx [_:id (assign-type #'f #'ty-concrete-op-expected-withTC)]))
-         ...)]))
+         (define-typed-variable-rename mangled-op ≫ f
+           : ty-concrete-op-expected-withTC) ...)]))
