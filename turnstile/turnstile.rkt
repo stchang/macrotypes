@@ -40,8 +40,8 @@
     (define flat (stx-flatten/depth-lens depth))
     (define es (lens-view flat es*))
     (define origs (lens-view flat origs*))
-    (define/with-syntax [tvxs- xs- es- _]
-      (infer #:tvctx tvctx #:ctx ctx (stx-map pass-orig es origs) #:tag tag))
+    (define/with-syntax [tvxs- xs- es-]
+      (expands/ctxs #:tvctx tvctx #:ctx ctx (stx-map pass-orig es origs)))
     (define es*- (lens-set flat es* #`es-))
     (list #'tvxs- #'xs- es*-))
 
@@ -58,7 +58,7 @@
     (define res
       (lens-set flat tvctxs/ctxs/ess/origss* tcs))
     res)
-  (define (raise-⇐-expected-type-error ⇐-stx body expected-type existing-type)
+  #;(define (raise-⇐-expected-type-error ⇐-stx body expected-type existing-type)
     (raise-syntax-error
      '⇐
      (format (string-append "body already has a type other than the expected type\n"
@@ -105,10 +105,13 @@
                      tag-prop:⇒-prop ...)
                   (⇒ tag:id tag-pat tag-prop:⇒-prop ...)) ; explicit tag
              #:with e-tmp (generate-temporary)
-             #:with e-pat #'(~and e-tmp
+             #:with e-pat #`(~and e-tmp
                                   (~parse
                                    (~and tag-prop.e-pat ... tag-pat)
-                                   (detach #'e-tmp `tag)))])
+                                   #,(if (equal? (syntax->datum #'tag)
+                                                 (syntax-parameter-value #'current-tag-stx))
+                                         #'(detach/check #'e-tmp `tag)
+                                         #'(detach #'e-tmp `tag))))])
   (define-splicing-syntax-class ⇒-prop/conclusion
     #:datum-literals (⇒)
     #:attributes (tag tag-expr)
@@ -144,7 +147,7 @@
              (if (equal? (syntax->datum #'tag) (syntax-parameter-value #'current-tag-stx))
                  #`(~and e-tmp
                          (~parse τ-exp (get-expected-type #'e-tmp))
-                         (~parse τ-tmp (detach #'e-tmp `tag))
+                         (~parse τ-tmp (detach/check #'e-tmp `tag))
                          ;; TODO: the `~parse ... get-orig` sets the context
                          ;; for stx-parse when the failure occurs?
                          ;; but why does removing it produce "bad syntax" in some cases?
@@ -491,6 +494,9 @@
     (pattern-expander
       (syntax-parser
         [(_ tag pat)
+         ;; TODO? not using detach/check;
+         ;; should programmers manually deal with #f props
+         ;; - see turnstile/examples/lin2.rkt
          #'(~and tmp (~parse pat (detach #'tmp 'tag)))])))
 
   (define-syntax ~⇐pat

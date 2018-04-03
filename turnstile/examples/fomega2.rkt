@@ -42,7 +42,7 @@
 (define-syntax define-type-alias
   (syntax-parser
     [(_ alias:id τ)
-     #:with (τ- _) (infer+erase #'τ #:tag '::)
+     #:with τ- (expand/stop #'τ)
      #'(define-syntax alias
          (syntax-parser [x:id #'τ-][(_ . rst) #'(τ- . rst)]))]))
 
@@ -106,10 +106,7 @@
 
 (define-typed-syntax (inst e τ:any-type ...) ≫
   [⊢ e ≫ e- ⇒ (~∀ (tv ...) τ_body) (⇒ :: (~∀★ k ...))]
-;  [⊢ τ ≫ τ- ⇐ :: k] ... ; doesnt work since def-typed-s ⇐ not using kindcheck?
-  #:with (k_τ ...) (stx-map kindof #'(τ.norm ...))
-  #:fail-unless (kindchecks? #'(k_τ ...) #'(k ...))
-                (typecheck-fail-msg/multi #'(k ...) #'(k_τ ...) #'(τ ...))
+  [⊢ τ ≫ _ ⇐ :: k] ...
   --------
   [⊢ e- ⇒ #,(substs #'(τ.norm ...) #'(tv ...) #'τ_body)])
 

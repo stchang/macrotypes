@@ -1,5 +1,6 @@
 #lang racket/base
-(require (for-syntax rackunit syntax/srcloc) rackunit macrotypes/typecheck-core)
+(require (for-syntax rackunit syntax/srcloc) rackunit macrotypes/typecheck-core
+         (only-in macrotypes/typecheck infer+erase))
 (provide check-type typecheck-fail check-not-type check-props check-runtime-exn
          check-equal/rand typecheck-fail/definitions print-type
          (rename-out [typecheck-fail check-stx-err]))
@@ -43,7 +44,7 @@
 (define-syntax (check-props stx)
   (syntax-parse stx #:datum-literals (: ⇒ ->)
     [(_ prop e : v (~optional (~seq (~or ⇒ ->) v2) #:defaults ([v2 #'e])))
-     #:with (e+ _) (infer+erase #'e)
+     #:with e+ (expand/stop #'e)
      #:with props (or (syntax-property #'e+ (syntax->datum #'prop))
                       #'())
      #:fail-unless (equal? (syntax->datum #'v)
@@ -105,7 +106,7 @@
 (define-syntax (check-runtime-exn stx)
   (syntax-parse stx
     [(_ e)
-     #:with (e- _) (infer+erase #'e)
+     #:with e- (expand/stop #'e)
      (syntax/loc stx (check-exn exn:fail? (lambda () e-)))]))
 
 (define-simple-macro (check-equal/rand f (~optional (~seq #:process p)

@@ -448,8 +448,7 @@
 (define-for-syntax (make-type-constructor-transformer
                      name           ; Name of type constructor we're defining
                      internal-name  ; Identifier used for internal rep of type
-                     key2           ; Syntax property to attach kind of type
-                     op             ; numeric operator to compare expected arg count
+                    op             ; numeric operator to compare expected arg count
                      n              ; Expected arity, relative to op
                     )
   (define/syntax-parse τ- internal-name)
@@ -459,7 +458,7 @@
      (format
        "wrong number of arguments, expected ~a ~a"
        (object-name op) n)
-     #:with ([arg- _] ...) (infers+erase #'args #:tag key2 #:stop-list? #f)
+     #:with (arg- ...) (expands/stop #'args #:stop-list? #f)
      ;; args are validated on the next line rather than above
      ;; to ensure enough stx-parse progress for proper err msg,
      ;; ie, "invalid type" instead of "improper tycon usage"
@@ -510,7 +509,7 @@
                         ; general transformers.
                         [Name
                          (make-type-constructor-transformer
-                           #'Name #'void ':: = (stx-length #'(X ...)))] ...)
+                           #'Name #'void = (stx-length #'(X ...)))] ...)
                      (void ty_flat ...))) ...))
      #:when (stx-map
              (λ (ts+ ts)
@@ -943,7 +942,7 @@
    [⊢ (λ- (x- ...) body-)]]
   [(λ ([x : τ_x] ...) body) ⇐ (~?∀ (V ...) (~ext-stlc:→ τ_in ... τ_out)) ≫
    #:with [X ...] (compute-tyvars #'(τ_x ...))
-   #:with ((X- ...) (τ_x-:type ...) _) (infers/ctx+erase #'(X ...) #'(τ_x ...) #:tag '::)
+   #:with ((X- ...) (τ_x-:type ...)) (expands/ctx #'(τ_x ...) #'(X ...))
 ;   [[X ≫ X- :: #%type] ... ⊢ [τ_x ≫ τ_x- ⇐ :: #%type] ...]
    [τ_in τ⊑ τ_x- #:for x] ...
    ;; TODO is there a way to have λs that refer to ids defined after them?
