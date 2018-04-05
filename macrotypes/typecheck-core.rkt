@@ -849,7 +849,7 @@
      ; rename-transformer doesnt seem to expand at the right time
      ; - op still has no type in #%app
      #'(define-syntax op/tc
-         (make-variable-like-transformer (assign-type #'op #'τ #:wrap? #t)))]))
+         (make-variable-like-transformer (assign-type #'op #'τ #:wrap? #f)))]))
 
 (begin-for-syntax
   ;; --------------------------------------------------------------------------
