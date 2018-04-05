@@ -2,8 +2,8 @@
 (require (for-syntax rackunit syntax/srcloc) rackunit macrotypes/typecheck-core
          (only-in macrotypes/typecheck infer+erase))
 (provide check-type typecheck-fail check-not-type check-props check-runtime-exn
-         check-equal/rand typecheck-fail/definitions print-type
-         (rename-out [typecheck-fail check-stx-err]))
+         check-equal/rand typecheck-fail/toplvl typecheck-fail/definitions
+         print-type (rename-out [typecheck-fail check-stx-err]))
 
 (begin-for-syntax
   (define (add-esc s) (string-append "\\" s))
@@ -102,6 +102,11 @@
            ...
            (void))
          . kws))]))
+
+(define-syntax typecheck-fail/toplvl
+  (syntax-parser
+    [(_ def . kws)
+     (syntax/loc this-syntax (typecheck-fail/definitions [def] . kws))]))
 
 (define-syntax (check-runtime-exn stx)
   (syntax-parse stx
