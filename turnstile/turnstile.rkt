@@ -188,7 +188,7 @@
     [pattern [e-stx* ≫ e-pat* (~and (~or ⇐ ⇒) arr) rst ...] ; inline, single arrow
              ;; attrs implicitly propagated
              #:with :tc-elem #'[e-stx* ≫ e-pat* (arr rst ...)]] ; defer to noninline clause
-    [pattern [e-stx* ≫ e-pat* (~alt lprop:⇐-prop rprop:⇒-prop) ...]
+    [pattern [e-stx* ≫ e-pat* (~or lprop:⇐-prop rprop:⇒-prop) ...]
              #:with e-stx (for/fold ([e-stx/acc #'e-stx*])
                                     ([tag (in-stx-list #'(lprop.tag ...))]
                                      [tag-stx (in-stx-list #'(lprop.tag-stx ...))])
@@ -456,7 +456,7 @@
     [pattern [⊢ e-stx props:⇒-props/conclusion]
              #:with pat #'_
              #:with body:expr
-             (for/fold ([body #'(quasisyntax/loc this-syntax e-stx)])
+             (for/fold ([body #'(quasisyntax/loc this-syntax (erased e-stx))])
                        ([k (in-stx-list #'[props.tag ...])]
                         [v (in-stx-list #'[props.tag-expr ...])])
                        (with-syntax ([body body] [k k] [v v])
@@ -466,7 +466,7 @@
              #:with τ (generate-temporary #'τ)
              #:with tag (syntax-parameter-value #'current-tag-stx)
              #:with pat #'(~expected-type τ)
-             #:with body:expr #'(attach (quasisyntax/loc this-syntax e-stx) 'tag #'τ)]
+             #:with body:expr #'(attach (quasisyntax/loc this-syntax (erased e-stx)) 'tag #'τ)]
     ;; macro invocations
     [pattern [≻ e-stx]
              #:with pat #'_
