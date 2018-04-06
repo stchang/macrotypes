@@ -47,9 +47,10 @@
   [(_) ≫
    --------
    [≻ nil]]
-  [(_ x . rst) ⇐ (~List τ) ≫ ; has expected type
+  [(_ e ...) ⇐ (~List τ) ≫ ; has expected type
+   [⊢ e ≫ e- ⇐ τ] ...
    --------
-   [⊢ (cons (add-expected x τ) (list . rst))]]
+   [⊢ (list- e- ...) ⇒ (List τ)]]
   [(_ x . rst) ≫ ; no expected type
    --------
    [≻ (cons x (list . rst))]])

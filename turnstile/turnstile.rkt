@@ -35,15 +35,15 @@
   ;;   xs-   ; a stx-list of the expanded versions of variables in the ctx
   ;;   es*-  ; a nested list a depth given by the depth argument, with the same structure
   ;;         ; as es*, containing the expanded es*, with the types attached
-  (define (infer/depth #:ctx ctx #:tvctx tvctx depth es* origs*
+  (define (infer/depth #:ctx ctx #:tvctx tvctx #:tvctx2 tvctx2 depth es* origs*
                        #:tag tag)
     (define flat (stx-flatten/depth-lens depth))
     (define es (lens-view flat es*))
     (define origs (lens-view flat origs*))
-    (define/with-syntax [tvxs- xs- es-]
-      (expands/ctxs #:tvctx tvctx #:ctx ctx (stx-map pass-orig es origs)))
+    (define/with-syntax [tvxs- tv2xs- xs- es-]
+      (expands/ctxs/turn #:tvctx tvctx #:tvctx2 tvctx2 #:ctx ctx (stx-map pass-orig es origs)))
     (define es*- (lens-set flat es* #`es-))
-    (list #'tvxs- #'xs- es*-))
+    (list #'tvxs- #'tv2xs- #'xs- es*-))
 
   (define (infers/depths clause-depth tc-depth tvctxs/ctxs/ess/origss*
                          #:tag tag)
@@ -52,9 +52,9 @@
       (lens-view flat tvctxs/ctxs/ess/origss*))
     (define tcs
       (for/list ([tvctx/ctx/es/origs (in-list (stx->list tvctxs/ctxs/ess/origss))])
-        (match-define (list tvctx ctx es origs)
+        (match-define (list tvctx tvctx2 ctx es origs)
           (stx->list tvctx/ctx/es/origs))
-        (infer/depth #:tvctx tvctx #:ctx ctx tc-depth es origs #:tag tag)))
+        (infer/depth #:tvctx tvctx #:tvctx2 tvctx2 #:ctx ctx tc-depth es origs #:tag tag)))
     (define res
       (lens-set flat tvctxs/ctxs/ess/origss* tcs))
     res)
@@ -268,22 +268,26 @@
     #:attributes (pat)
     #:datum-literals (⊢)
     [pattern (~or (~seq [⊢ . tc:tc*] ooo:elipsis ...
-                        (~parse ((ctx.x- ctx.ctx tvctx.x- tvctx.ctx) ...) #'()))
+                        (~parse ((ctx.x- ctx.ctx tvctx.x- tvctx.ctx tvctx2.x- tvctx2.ctx) ...) #'()))
                   (~seq [ctx:id-props+≫* ⊢ . tc:tc*] ooo:elipsis ...
-                        (~parse ((tvctx.x- tvctx.ctx) ...) #'()))
+                        (~parse ((tvctx.x- tvctx.ctx tvctx2.x- tvctx2.ctx) ...) #'()))
                   (~seq [(ctx:id-props+≫*) ⊢ . tc:tc*] ooo:elipsis ...
-                        (~parse ((tvctx.x- tvctx.ctx) ...) #'()))
+                        (~parse ((tvctx.x- tvctx.ctx tvctx2.x- tvctx2.ctx) ...) #'()))
                   ;; TODO: allow arbitrary number of groupings (instead of just one or two)?
                   ;; but this will add another ellipses depth
-                  (~seq [(tvctx:id-props+≫*) (ctx:id-props+≫*) ⊢ . tc:tc*] ooo:elipsis ...))
+                  (~seq [(tvctx:id-props+≫*) (ctx:id-props+≫*) ⊢ . tc:tc*] ooo:elipsis ...
+                        (~parse ((tvctx2.x- tvctx2.ctx) ...) #'()))
+                  (~seq [(tvctx:id-props+≫*)
+                         (tvctx2:id-props+≫*)
+                         (ctx:id-props+≫*) ⊢ . tc:tc*] ooo:elipsis ...))
              #:with clause-depth (stx-length #'[ooo ...])
              #:with tcs-pat
              (with-depth
-              #'[(tvctx.x- ...) (ctx.x- ...) tc.es-pat]
+              #'[(tvctx.x- ...) (tvctx2.x- ...) (ctx.x- ...) tc.es-pat]
               #'[ooo ...])
              #:with tvctxs/ctxs/ess/origs
              (with-depth
-              #`[(tvctx.ctx ...) (ctx.ctx ...) tc.es-stx tc.es-stx-orig]
+              #`[(tvctx.ctx ...) (tvctx2.ctx ...) (ctx.ctx ...) tc.es-stx tc.es-stx-orig]
               #'[ooo ...])
              #:with inf #`(infers/depths 'clause-depth
                                          'tc.depth
