@@ -21,7 +21,8 @@
   (syntax-parser #:datum-literals (:)
     [(_ [label:id : τ:type] ...)
      #:with (valid-τ ...) (stx-map mk-type #'(('label τ.norm) ...))
-     #`(stlc+tup:× valid-τ ...)]))
+;     #`(stlc+tup:× valid-τ ...)]))
+     (mk-×- #'(valid-τ ...))]))
 (begin-for-syntax
   (define-syntax ~×
     (pattern-expander
@@ -67,7 +68,7 @@
    (format "Expected expression ~s to have × type, got: ~a"
            (syntax->datum #'e_rec) (type->str #'τ_e))
    #:with τ_l (×-ref #'τ_e #'l)
-   (⊢ (cadr- (assoc- 'l e_rec-)) : τ_l)])
+   (⊢/no-teval (cadr- (assoc- 'l e_rec-)) : τ_l)])
 
 (define-type-constructor ∨/internal #:arity >= 0)
 
@@ -77,7 +78,7 @@
     [(_ (~and [label:id : τ:type] x) ...)
      #:when (> (stx-length #'(x ...)) 0)
      #:with (valid-τ ...) (stx-map mk-type #'(('label τ.norm) ...))
-     #'(∨/internal valid-τ ...)]
+     (mk-∨/internal- #'(valid-τ ...))]
     [any
      (type-error #:src #'any
                  #:msg (string-append
@@ -128,7 +129,7 @@
    #:with [e- τ_e] (infer+erase #'e)
    #:fail-unless (typecheck? #'τ_e #'τ_match)
                  (typecheck-fail-msg/1 #'τ_match #'τ_e #'e)
-   (⊢ (list- 'l e-) : τ.norm)])
+   (⊢/no-teval (list- 'l e-) : τ.norm)])
 (define-typed-syntax case
   #:datum-literals (of =>)
   [(_ e [l:id x:id => e_l] ...)

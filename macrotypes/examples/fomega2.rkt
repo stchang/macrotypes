@@ -41,6 +41,7 @@
   (syntax-parse stx
     [(_ k:kind ...)                ; kind
      (add-orig (mk-kind #'(sysf:→- k.norm ...)) stx)]
+;     (add-orig (mk-kind (sysf:mk-→- #'(k.norm ...))) stx)]
     [(_ . tys) #'(sysf:→ . tys)])) ; type
 
 (define-base-kind ★)
@@ -103,7 +104,7 @@
                  (typecheck-fail-msg/multi 
                   #'(k ...) #'(k_τ ...) #'(τ ...))
    #:with τ_inst (substs #'(τ.norm ...) #'(tv ...) #'τ_body)
-   (⊢ e- : τ_inst)])
+   (⊢ e- : τ_inst)]) ; must tyeval bc subst may create redexes
 
 ;; extend λ to also work as a type
 (define-typed-syntax λ
@@ -138,5 +139,5 @@
                   (format "Expected: ~a arguments with type(s): "
                           (stx-length #'(k_in ...)))
                   (string-join (stx-map type->str #'(k_in ...)) ", "))
-   (assign-kind #'(#%app- τ_fn.norm τ_arg.norm ...) #'k_out)]
+   (assign-kind #'(#%app- τ_fn.norm τ_arg.norm ...) #'k_out #:eval? #f)]
   [(_ . rst) #'(sysf:#%app . rst)]) ; term

@@ -9,7 +9,7 @@
 ;; - terms from ext-stlc.rkt
 ;; - tup and proj
 
-(provide (type-out ×) tup proj)
+(provide (type-out ×) tup proj (for-syntax mk-×-))
 
 (define-type-constructor × #:arity >= 0
   #:arg-variances (λ (stx)
@@ -25,10 +25,10 @@
                 [_ #'(e ...)])
               #'(e ...))
    #:with ([e- τ] ...) (infers+erase #'(e_ann ...))
-   (⊢ (list- e- ...) : (× τ ...))])
+   (⊢/no-teval (list- e- ...) : #,(mk-×- #'(τ ...)))])
 (define-typed-syntax proj
   [(_ e_tup n:nat)
    #:with [e_tup- (~× . τs_tup)] (infer+erase #'e_tup)
    #:fail-unless (< (syntax-e #'n) (stx-length #'τs_tup)) "index too large"
-   (⊢ (list-ref- e_tup- n) : #,(stx-list-ref #'τs_tup (syntax-e #'n)))])
+   (⊢/no-teval (list-ref- e_tup- n) : #,(stx-list-ref #'τs_tup (syntax-e #'n)))])
    

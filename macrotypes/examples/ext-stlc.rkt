@@ -22,6 +22,7 @@
 (provide define-type-alias
          (for-syntax current-join) ⊔
          (type-out Bool String Float Char Unit)
+         (for-syntax Bool+ String+ Float+ Char+ Unit+)
          zero? =
          (rename-out [typed- -] [typed* *])
          ;; test all variations of typed-out
@@ -63,11 +64,11 @@
        (define- x- e-))])
 
 (define-typed-syntax #%datum
-  [(_ . b:boolean) (⊢ #,(syntax/loc stx (#%datum- . b)) : Bool)]
-  [(_ . s:str) (⊢ #,(syntax/loc stx (#%datum- . s)) : String)]
+  [(_ . b:boolean) (assign-type (syntax/loc stx (#%datum- . b)) Bool+ #:eval? #f)]
+  [(_ . s:str) (assign-type (syntax/loc stx (#%datum- . s)) String+ #:eval? #f)]
   [(_ . f) #:when (flonum? (syntax-e #'f)) 
-   (⊢ #,(syntax/loc stx (#%datum- . f)) : Float)]
-  [(_ . c:char) (⊢ #,(syntax/loc stx (#%datum- . c)) : Char)]
+   (assign-type (syntax/loc stx (#%datum- . f)) Float+ #:eval? #f)]
+  [(_ . c:char) (assign-type (syntax/loc stx (#%datum- . c)) Char+ #:eval? #f)]
   [(_ . x) (syntax/loc stx (stlc+lit:#%datum . x))])
 
 (define-typed-syntax and
@@ -79,7 +80,7 @@
                  (typecheck-fail-msg/1 #'Bool* #'τ_e1 #'e1)
    #:fail-unless (typecheck? #'τ_e2 #'Bool*)
                  (typecheck-fail-msg/1 #'Bool* #'τ_e2 #'e2)
-   (⊢ (and- e1- e2-) : Bool)])
+   (⊢/no-teval (and- e1- e2-) : #,Bool+)])
   
 (define-typed-syntax or
   [(_ e ...)
@@ -88,7 +89,7 @@
    #:fail-unless (typechecks? #'(τ_e ...) #'(Bool* ...))
                  (typecheck-fail-msg/multi 
                   #'(Bool* ...) #'(τ_e ...) #'(e ...))
-   (⊢ (or- e- ...) : Bool)])
+   (⊢/no-teval (or- e- ...) : #,Bool+)])
 
 (begin-for-syntax 
   (define current-join 
@@ -115,7 +116,7 @@
    #:with e2_ann #'(add-expected e2 τ-expected)
    #:with (e1- τ1) (infer+erase #'e1_ann)
    #:with (e2- τ2) (infer+erase #'e2_ann)
-   (⊢ (if- e_tst- e1- e2-) : (⊔ τ1 τ2))])
+   (assign-type #'(if- e_tst- e1- e2-) ((current-join) #'τ1 #'τ2) #:eval? #f)])
 
 (define-typed-syntax begin
   [(_ e_unit ... e)

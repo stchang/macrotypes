@@ -78,20 +78,29 @@
           (stlc+lit:λ ([x : ty] ...)
             (stlc+lit:ann (begin e ...) : ty_out))))]])
 
+;; (define-for-syntax Bool+ ((current-type-eval) #'Bool))
+;; (define-for-syntax String+ ((current-type-eval) #'String))
+;; (define-for-syntax Float+ ((current-type-eval) #'Float))
+;; (define-for-syntax Char+ ((current-type-eval) #'Char))
+
 (define-typed-syntax #%datum
   [(_ . b:boolean) ≫
    --------
-   [⊢ (#%datum- . b) ⇒ Bool]]
+   ;   [⊢ (#%datum- . b) ⇒ Bool]]
+   [≻ #,(assign-type #'(#%datum- . b) Bool+ #:eval? #f)]]
   [(_ . s:str) ≫
    --------
-   [⊢ (#%datum- . s) ⇒ String]]
+;   [⊢ (#%datum- . s) ⇒ String]]
+   [≻ #,(assign-type #'(#%datum- . s) String+ #:eval? #f)]]
   [(_ . f) ≫
    #:when (flonum? (syntax-e #'f))
    --------
-   [⊢ (#%datum- . f) ⇒ Float]]
+;   [⊢ (#%datum- . f) ⇒ Float]]
+   [≻ #,(assign-type #'(#%datum- . f) Float+ #:eval? #f)]]
   [(_ . c:char) ≫
    --------
-   [⊢ (#%datum- . c) ⇒ Char]]
+;   [⊢ (#%datum- . c) ⇒ Char]]
+   [≻ #,(assign-type #'(#%datum- . c) Char+ #:eval? #f)]]
   [(_ . x) ≫
    --------
    [≻ (stlc+lit:#%datum . x)]])
@@ -99,12 +108,14 @@
 (define-typed-syntax (and e ...) ≫
   [⊢ e ≫ e- ⇐ Bool] ...
   --------
-  [⊢ (and- e- ...) ⇒ Bool])
+;  [⊢ (and- e- ...) ⇒ Bool])
+  [≻ #,(assign-type #'(and- e- ...) Bool+ #:eval? #f)])
 
 (define-typed-syntax (or e ...) ≫
   [⊢ e ≫ e- ⇐ Bool] ...
   --------
-  [⊢ (or- e- ...) ⇒ Bool])
+;  [⊢ (or- e- ...) ⇒ Bool])
+ [≻ #,(assign-type #'(or- e- ...) Bool+ #:eval? #f)])
 
 (begin-for-syntax 
   (define current-join 
@@ -147,7 +158,8 @@
    [⊢ e_unit ≫ e_unit- ⇒ _] ...
    [⊢ e ≫ e- ⇒ τ_e]
    --------
-   [⊢ (begin- e_unit- ... e-) ⇒ τ_e]])
+;   [⊢ (begin- e_unit- ... e-) ⇒ τ_e]])
+   [≻ #,(assign-type #'(begin- e_unit- ... e-) #'τ_e #:eval? #f)]])
 
 (define-typed-syntax let
   [(_ ([x e] ...) e_body ...) ⇐ τ_expected ≫
@@ -159,7 +171,8 @@
    [⊢ e ≫ e- ⇒ : τ_x] ...
    [[x ≫ x- : τ_x] ... ⊢ (begin e_body ...) ≫ e_body- ⇒ τ_body]
    --------
-   [⊢ (let- ([x- e-] ...) e_body-) ⇒ τ_body]])
+   [≻ #,(assign-type #'(let- ([x- e-] ...) e_body-) #'τ_body #:eval? #f)]])
+;   [⊢ (let- ([x- e-] ...) e_body-) ⇒ τ_body]])
 
 ; dont need to manually transfer expected type
 ; result template automatically propagates properties
@@ -183,6 +196,7 @@
    [[b.x ≫ x- : b.type] ...
     ⊢ [e ≫ e- ⇐ b.type] ... [(begin e_body ...) ≫ e_body- ⇒ τ_body]]
    --------
-   [⊢ (letrec- ([x- e-] ...) e_body-) ⇒ τ_body]])
+;   [⊢ (letrec- ([x- e-] ...) e_body-) ⇒ τ_body]])
+   [≻ #,(assign-type #'(letrec- ([x- e-] ...) e_body-) #'τ_body #:eval? #f)]])
 
 

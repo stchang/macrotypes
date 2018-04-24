@@ -20,9 +20,9 @@
      (string-join (map add-escs (string-split givens ", ")) ".*"))))
 
 (define-syntax (check-type stx)
-  (syntax-parse stx #:datum-literals (⇒ ->)
+  (syntax-parse stx ;#:datum-literals (⇒ ->)
     ;; duplicate code to avoid redundant expansions
-    [(_ e tag:id τ-expected (~or ⇒ ->) v)
+    [(_ e tag τ-expected arr #;(~or ⇒ ->) v)
      #:with (e+ τ) (infer+erase #'(add-expected e τ-expected) #:tag (stx->datum #'tag))
      #:fail-unless (typecheck? #'τ ((current-type-eval) #'τ-expected))
                    (format
@@ -30,7 +30,7 @@
                     (syntax->datum #'e) (syntax-line #'e) (syntax-column #'e)
                     (type->str #'τ) (type->str #'τ-expected))
      (syntax/loc stx (check-equal? e+ (add-expected v τ-expected)))]
-    [(_ e tag:id τ-expected)
+    [(_ e tag τ-expected)
      #:with (e+ τ) (infer+erase #'(add-expected e τ-expected) #:tag (stx->datum #'tag))
      #:fail-unless
      (typecheck? #'τ ((current-type-eval) #'τ-expected))
@@ -42,8 +42,8 @@
 
 ;; for checking properties other than types
 (define-syntax (check-props stx)
-  (syntax-parse stx #:datum-literals (: ⇒ ->)
-    [(_ prop e : v (~optional (~seq (~or ⇒ ->) v2) #:defaults ([v2 #'e])))
+  (syntax-parse stx ;#:datum-literals (: ⇒ ->)
+    [(_ prop e : v (~optional (~seq arr #;(~or ⇒ ->) v2) #:defaults ([v2 #'e])))
      #:with e+ (expand/stop #'e)
      #:with props (or (syntax-property #'e+ (syntax->datum #'prop))
                       #'())
@@ -56,7 +56,7 @@
      (syntax/loc stx (check-equal? e v2))]))
 
 (define-syntax (check-not-type stx)
-  (syntax-parse stx #:datum-literals (:)
+  (syntax-parse stx ;#:datum-literals (:)
     [(_ e : not-τ)
      #:with (_ τ) (infer+erase #'e)
      #:fail-when
@@ -68,11 +68,11 @@
      #'(void)]))
 
 (define-syntax (typecheck-fail stx)
-  (syntax-parse stx #:datum-literals (:)
+  (syntax-parse stx ;#:datum-literals (:)
     [(_ e (~or
            (~optional (~seq #:with-msg msg-pat) #:defaults ([msg-pat #'""]))
            (~optional (~seq #:verb-msg vmsg) #:defaults ([vmsg #'""]))))
-     #:with msg:str
+     #:with msg;:str
             (if (attribute msg-pat)
                 (eval-syntax (datum->stx #'h (stx->datum #'msg-pat)))
                 (eval-syntax (datum->stx #'h `(add-escs ,(stx->datum #'vmsg)))))

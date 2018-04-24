@@ -16,7 +16,7 @@
 (define-typed-syntax ref
   [(_ e)
    #:with [e- τ] (infer+erase #'e)
-   (⊢ (box- e-) : (Ref τ))])
+   (assign-type #'(box- e-) (mk-Ref- #'(τ)) #:eval? #f)])
 (define-typed-syntax deref
   [(_ e)
    #:with [e- (~Ref τ)] (infer+erase #'e)
@@ -27,4 +27,4 @@
    #:with [e- τ2] (infer+erase #'e)
    #:fail-unless (typecheck? #'τ1 #'τ2)
                  (typecheck-fail-msg/1 #'τ1 #'τ2 #'e)
-   (⊢ (set-box!- e_ref- e-) : Unit)])
+   (⊢/no-teval (set-box!- e_ref- e-) : #,Unit+)])

@@ -11,7 +11,7 @@
 (define-base-types Bot Str)
 
 (define-typed-syntax #%datum
-  [(_ . n:str) (⊢ (#%datum- . n) : Str)]
+  [(_ . n:str) (⊢/no-teval (#%datum- . n) : #,Str+)]
   [(_ . x) #'(stlc+sub:#%datum . x)])
 
 (define-for-syntax xerox syntax->datum)
@@ -157,7 +157,7 @@
                                           )]))
    ;; Should we use syntax instead of e+ ?
    (ℜ-add! ℜ #'τ #'e+)
-   (⊢ (void-) : Bot)]
+   (⊢/no-teval (void-) : #,Bot+)]
   [_
    (error 'instance "Expected (instance (id τ) e).")])
        

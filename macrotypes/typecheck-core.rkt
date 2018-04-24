@@ -79,6 +79,7 @@
   (define (mk-- id) (format-id id "~a-" id))
   (define (mk-~ id) (format-id id "~~~a" id))
   (define (mk-#% id) (format-id id "#%~a" id))
+  (define (mk-mk id) (format-id id "mk-~a" id))
   (define (mkx2 id) (format-id id "~a~a" id id))
   (define-for-syntax (mk-? id) (format-id id "~a?" id))
   (define-for-syntax (mk-~ id) (format-id id "~~~a" id))
@@ -645,7 +646,11 @@
                           op-name op-rhs)
                 #:with bvs+ks (if un-anno? #'([bv key2 #%tag] (... ...)) #'bvs+ann)
                 #:and ~!
-                #:with (bvs- ((~var τ- type) (... ...))) (expand-fn #'bvs+ks #'args)
+;                #:with (bvs- ((~var τ- type) (... ...))) (expand-fn #'bvs+ks #'args)
+                ;; faster to not use type stx class (redundant expansions)
+                #:with (bvs- (τ- (... ...))) (expand-fn #'bvs+ks #'args)
+                #:fail-unless (stx-andmap (current-type?) #'(τ- (... ...)))
+                "not a well-formed type"
                 #:with ([_ (~datum key2) k_arg] (... ...)) #'bvs+ks
                 #:with k_result (if un-anno? #'#%tag #`(#,kind-ctor/#f k_arg (... ...)))
                 (add-orig
@@ -671,6 +676,7 @@
              #:with τ? (mk-? #'τ)
              #:with τ-expander (mk-~ #'τ)
              #:with τ-internal (generate-temporary #'τ)
+             #:with τ+ (format-id #'τ "~a+" #'τ)
              #`(begin
                 (begin-for-syntax
                  (define τ? (mk-type-recognizer #'τ-internal))
@@ -682,7 +688,8 @@
                            (exn:fail:type:runtime
                             (format "~a: Cannot use ~a at run time" 'τ 'tag)
                             (current-continuation-marks)))))
-                (define-syntax τ (mk-base-transformer #'τ-internal 'new-key2 #'new-#%tag)))]))
+                (define-syntax τ (mk-base-transformer #'τ-internal 'new-key2 #'new-#%tag))
+                (define-for-syntax τ+ ((current-type-eval) #'τ)))]))
          (define-syntax define-base-types
            (syntax-parser
              [(_ (~var x id) (... ...))
@@ -717,6 +724,7 @@
              #:with τ- (mk-- #'τ)
              #:with τ-expander (mk-~ #'τ)
              #:with τ-internal (generate-temporary #'τ)
+             #:with mk-τ- (mk-mk #'τ-)
              #`(begin
                 (begin-for-syntax
                   (define τ? (mk-type-recognizer #'τ-internal))
@@ -732,7 +740,15 @@
                 ; It does not validate inputs and does not attach a kind,
                 ; ie, it won't be recognized as a valid type, the programmer
                 ; must implement their own kind system on top
-                (define-syntax τ- (mk-internal-ctor-transformer #'τ-internal #'extra-info arg-var-fn)))]))
+                (define-syntax τ- (mk-internal-ctor-transformer #'τ-internal #'extra-info arg-var-fn))
+                (define-for-syntax (mk-τ- args) ; TODO: add arg-variances?
+                  (mk-type
+                   (add-orig
+                    #`(#%plain-app
+                       τ-internal
+;                       #,(add-arg-variances #'τ-internal (arg-var-fn (cons #'τ-internal args)))
+                       (#%plain-lambda () (#%expression extra-info) (#%plain-app list . #,args)))
+                    #`(τ . #,args)))))]))
          (define-syntax define-type-constructor
            (syntax-parser
             [(_ (~var τ id)
@@ -763,6 +779,7 @@
                   #:defaults ([extra-info #'void]))) (... ...))
              #:with τ? (mk-? #'τ)
              #:with τ- (mk-- #'τ)
+             #:with mk-τ- (mk-mk #'τ-)
              #:with τ-expander (mk-~ #'τ)
              #:with τ-internal (generate-temporary #'τ)
              #`(begin
@@ -783,7 +800,12 @@
                 ; ie, it won't be recognized as a valid type, the programmer
                 ; must implement their own kind system
                 (define-syntax τ-
-                  (mk-internal-binding-transformer #'τ-internal #'extra-info arg-vars-fn)))]))
+                  (mk-internal-binding-transformer #'τ-internal #'extra-info arg-vars-fn))
+                (define-for-syntax (mk-τ- Xs arg) ; TODO: add arg-variances?
+                  (mk-type
+                   (add-orig
+                    #`(#%plain-app τ-internal (#%plain-lambda #,Xs (#%expression extra-info) (#%plain-app list #,arg)))
+                    #`(τ #,Xs #,arg)))))]))
          (define-syntax define-binding-type
            (syntax-parser
              [(_ (~var τ id)
@@ -845,7 +867,7 @@
     [(define-primop op:id (~optional :) τ)
      #:with op- ((current-host-lang) #'op)
      #'(define-primop op op- τ)]
-    [(define-primop op/tc:id (~optional #:as) op:id (~optional :) τ:type)
+    [(define-primop op/tc:id (~optional #:as) op:id (~optional :) τ)
      ; rename-transformer doesnt seem to expand at the right time
      ; - op still has no type in #%app
      #'(define-syntax op/tc

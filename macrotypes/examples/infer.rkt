@@ -6,7 +6,7 @@
        #:from "stlc+cons.rkt")
 (reuse tup × proj
        #:from "stlc+tup.rkt")
-(require (only-in "sysf.rkt" ∀ ~∀ ∀? Λ))
+(require (only-in "sysf.rkt" ∀ ~∀ ∀? Λ mk-∀-))
 (require (for-syntax "../type-constraints.rkt"))
 
 ;; a language with local type inference using bidirectional type checking
@@ -28,7 +28,9 @@
     [(_ (~and Xs {X:id ...}) . rst)
      #:when (brace? #'Xs)
      (add-orig #'(∀ (X ...) (ext-stlc:→ . rst)) (get-orig this-syntax))]
-    [(_ . rst) (add-orig #'(∀ () (ext-stlc:→ . rst)) (get-orig this-syntax))]))
+;     (add-orig (mk-∀- #'(X ...) (mk-→- #'rst)) (get-orig this-syntax))]
+;    [(_ . rst) (add-orig #'(∀ () (ext-stlc:→ . rst)) (get-orig this-syntax))]))
+    [(_ . rst) (add-orig (mk-∀- #'() (mk-→- #'rst)) (get-orig this-syntax))]))
 
 (define-syntax #%type-variable (lambda stx (raise-syntax-error #f "should never be expanded" stx)))
 
@@ -122,7 +124,7 @@
                   (syntax->datum stx))
    #:with (τ_arg ...) #'given-τ-args
    #:with [fn- τ_fn] (infer+erase #'(ext-stlc:λ ([x : τ_arg] ...) e))
-   (⊢ fn- : #,(add-orig #'(∀ () τ_fn) (get-orig #'τ_fn)))]
+   (⊢/no-teval fn- : #,(add-orig (mk-∀- #'() #'τ_fn) (get-orig #'τ_fn)))]
   [(_ (x:id ...) ~! e) ; no annotations, couldnt infer from ctx (eg, unapplied lam), try to infer from body
    #:with (xs- e- τ_res) (infer/ctx+erase #'([x : #%type-variable] ...) #'e)
    #:with env (get-env #'e-)
@@ -139,13 +141,13 @@
    #:with res #'(λ- xs- e-)
 ;   #:with [fn- τ_fn] (infer+erase #'(ext-stlc:λ ([x : x] ...) e))
    (add-env
-     (⊢ res : #,(add-orig #'(∀ () (ext-stlc:→ τ_arg ... τ_res))
+     (⊢/no-teval res : #,(add-orig (mk-∀- #'() (mk-→- #'(τ_arg ... τ_res)))
                         #`(→ #,@(stx-map get-orig #'(τ_arg ... τ_res)))))
      #'env)]
    ;(⊢ (λ- xs- e-) : (∀ () (ext-stlc:→ τ_arg ... τ_res)))]
   [(_ . rst)
    #:with [fn- τ_fn] (infer+erase #'(ext-stlc:λ . rst))
-   (⊢ fn- : #,(add-orig #'(∀ () τ_fn) (get-orig #'τ_fn)))])
+   (⊢/no-teval fn- : #,(add-orig (mk-∀- #'() #'τ_fn) (get-orig #'τ_fn)))])
 
 (define-typed-syntax #%app
   [(_ e_fn e_arg ...) ; infer args first
@@ -194,7 +196,7 @@
    #:with env (stx-flatten (filter (λ (x) x) (stx-map get-env #'(e_arg- ...))))
    #:with result-app #'(#%app- e_fn- e_arg- ...)
    ;(⊢ (#%app- e_fn- e_arg- ...) : τ_out)]
-   (add-env (⊢ result-app : τ_out) #'env)]
+   (add-env (⊢/no-teval result-app : τ_out) #'env)]
   [(_ e_fn e_arg ...) ; infer fn first ------------------------- ; TODO: remove code dup
 ;   #:when (printf "fn first ~a\n" (syntax->datum stx))
    #:with [e_fn- ((X ...) ((~ext-stlc:→ τ_inX ... τ_outX)))] (⇑ e_fn as ∀)
@@ -231,4 +233,4 @@
                   (string-join (stx-map type->str #'(τ_in ...)) ", "))
   #:with result-app #'(#%app- e_fn- e_arg- ...)
   ;(⊢ (#%app- e_fn- e_arg- ...) : τ_out)])
-  (add-env (⊢ result-app : τ_out) #'env)])
+  (add-env (⊢/no-teval result-app : τ_out) #'env)])

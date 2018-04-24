@@ -28,9 +28,9 @@
 (define-base-types Top Num Nat)
 
 (define-typed-syntax #%datum
-  [(_ . n:nat) (⊢ (#%datum- . n) : Nat)]
-  [(_ . n:integer) (⊢ (#%datum- . n) : Int)]
-  [(_ . n:number) (⊢ (#%datum- . n) : Num)]
+  [(_ . n:nat) (⊢/no-teval (#%datum- . n) : #,Nat+)]
+  [(_ . n:integer) (⊢/no-teval (#%datum- . n) : #,Int+)]
+  [(_ . n:number) (⊢/no-teval (#%datum- . n) : #,Num+)]
   [(_ . x) #'(ext:#%datum . x)])
 
 (begin-for-syntax

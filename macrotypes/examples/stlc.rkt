@@ -8,7 +8,7 @@
 ;; - multi-arg λ (0+)
 ;; - multi-arg #%app (0+)
 
-(provide (type-out →) λ #%app)
+(provide (type-out →) λ #%app (for-syntax mk-→-))
 
 (define-type-constructor → #:arity >= 1
   #:arg-variances (λ (stx)
@@ -21,7 +21,7 @@
 (define-typed-syntax λ
   [(_ bvs:type-ctx e)
    #:with (xs- e- τ_res) (infer/ctx+erase #'bvs #'e)
-   (⊢ (λ- xs- e-) : (→ bvs.type ... τ_res))])
+   (assign-type #'(λ- xs- e-) (mk-→- #'(bvs.type ... τ_res)) #:eval? #f)])
 
 (define-typed-syntax #%app
   [(_ e_fn e_arg ...)
@@ -32,4 +32,4 @@
    #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
                  (typecheck-fail-msg/multi 
                   #'(τ_in ...) #'(τ_arg ...) #'(e_arg ...))
-   (⊢/no-teval (#%app- e_fn- e_arg- ...) : τ_out)])
+   (assign-type #'(#%app- e_fn- e_arg- ...) #'τ_out #:eval? #f)])

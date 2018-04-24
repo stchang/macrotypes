@@ -85,7 +85,7 @@
                  (typecheck-fail-msg/multi 
                   #'(k ...) #'(k_τ ...) #'(τ ...))
    #:with τ_inst (substs #'(τ.norm ...) #'(tv ...) #'τ_body)
-   (⊢ e- : τ_inst)])
+   (⊢ e- : τ_inst)]) ; must tyeval bc subst could produce redexes
 
 ;; TODO: merge with regular λ and app?
 ;; - see fomega2.rkt
@@ -117,4 +117,4 @@
                   (format "Expected: ~a arguments with type(s): "
                           (stx-length #'(k_in ...)))
                   (string-join (stx-map type->str #'(k_in ...)) ", "))
-   (assign-kind #'(#%app- τ_fn- τ_arg- ...) #'k_out)])
+   (assign-kind #'(#%app- τ_fn- τ_arg- ...) #'k_out #:eval? #f)])

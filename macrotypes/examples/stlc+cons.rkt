@@ -11,6 +11,7 @@
 ;; TODO: enable HO use of list primitives
 
 (provide (type-out List)
+         (for-syntax mk-List-)
          nil isnil cons list head tail
          reverse length list-ref member)
 
@@ -18,7 +19,8 @@
 
 (define-typed-syntax nil
   [(_ ~! τi:type-ann)
-   (⊢ null- : (List τi.norm))]
+;   (⊢ null- : (List τi.norm))]
+   (assign-type #'null- (mk-List- #'(τi.norm)) #:eval? #f)]
   ; minimal type inference
   [nil:id
    #:with expected-τ (get-expected-type #'nil)
@@ -37,13 +39,16 @@
        (format
         "~a (~a:~a): Inferred ~a type for nil, which is not a List."
         (syntax-source stx) (syntax-line stx) (syntax-column stx)
-        (type->str #'ty_lst))
+        (type->str #'expected-τ))
        (current-continuation-marks)))
-     (⊢ null- : expected-τ)])
+;     (⊢ null- : expected-τ)])
+     (assign-type #'null- #'expected-τ #:eval? #f)])
 (define-typed-syntax cons
   [(_ e1 e2)
    #:with [e1- τ_e1] (infer+erase #'e1)
-   #:with τ_list ((current-type-eval) #'(List τ_e1))
+   ;   #:with τ_list ((current-type-eval) #'(List τ_e1))
+      #:with τ_list (mk-List- #'(τ_e1))
+;   #:do[(pretty-print (stx->datum #'τ_list))]
    #:with [e2- τ_e2] (infer+erase (add-expected-ty #'e2 #'τ_list))
    #:fail-unless (typecheck? #'τ_e2 #'τ_list)
                  (typecheck-fail-msg/1 #'τ_list #'τ_e2 #'e2)
@@ -54,7 +59,7 @@
 (define-typed-syntax isnil
   [(_ e)
    #:with [e- (~List _)] (infer+erase #'e)
-   (⊢ (null?- e-) : Bool)])
+   (⊢/no-teval (null?- e-) : #,Bool+)])
 (define-typed-syntax head
   [(_ e)
    #:with [e- (~List τ)] (infer+erase #'e)
@@ -93,4 +98,4 @@
    #:with (e- (ty)) (⇑ e as List)
    #:with [v- ty_v] (infer+erase #'(add-expected v ty))
    #:when (typecheck? #'ty_v #'ty)
-   (⊢ (member- v- e-) : Bool)])
+   (⊢/no-teval (member- v- e-) : #,Bool+)])

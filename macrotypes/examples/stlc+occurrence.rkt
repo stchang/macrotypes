@@ -28,8 +28,8 @@
 (define-base-type Str)
 
 (define-typed-syntax #%datum
-  [(_ . n:boolean) (⊢ (#%datum- . n) : Boolean)]
-  [(_ . n:str) (⊢ (#%datum- . n) : Str)]
+  [(_ . n:boolean) (⊢/no-teval (#%datum- . n) : #,Boolean+)]
+  [(_ . n:str) (⊢/no-teval (#%datum- . n) : #,Str+)]
   [(_ . x) #'(stlc+sub:#%datum . x)])
 
 (define-type-constructor ∪ #:arity >= 1)

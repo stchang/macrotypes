@@ -1,6 +1,7 @@
 #lang s-exp macrotypes/typecheck
 (extends "stlc+reco+sub.rkt" #:except + #%app proj)
-(require (rename-in (only-in "sysf.rkt" ∀? ∀ ~∀) [~∀ ~sysf:∀] [∀ sysf:∀]))
+(require (rename-in (only-in "sysf.rkt" ∀? ∀ ~∀) [~∀ ~sysf:∀] [∀ sysf:∀])
+         (only-in "sysf.rkt" mk-∀-))
 
 ;; System F<:
 ;; Types:
@@ -49,6 +50,13 @@
   [(_ ([tv:id <: τ:type] ...) τ_body)
    ; eval first to overwrite the old #%type
    (⊢ #,((current-type-eval) #'(sysf:∀ (tv ...) τ_body)) : (<: τ.norm ...))])
+;   (⊢/no-teval #,((current-type-eval) #'(sysf:∀ (tv ...) τ_body)) : #,(mk-<:- #'(τ.norm ...)))])
+;   (assign-type (mk-∀- #'(tv ...) #'τ_body) (mk-<:- #'(τ.norm ...)) #:eval? #f)])
+
+;; fn version of the macro above
+(define-for-syntax (mk-fsub∀- Xs arg boundtys)
+  (assign-type (mk-∀- Xs arg) (mk-<:- boundtys) #:eval? #f #:wrap? #f))
+
 (begin-for-syntax
   (define-syntax ~∀
     (pattern-expander
@@ -80,12 +88,13 @@
    ;; The "expose" function looks for this tag to enforce the bound,
    ;; as in TaPL (fig 28-1)
    #:with ((X- ...) e- τ_e) (infer/ctx #'([X :: #%type <: τsub] ...) #'e)
-   (⊢ e- : (∀ ([X- <: τsub] ...) τ_e))])
+   (⊢/no-teval e- : #,(mk-fsub∀- #'(X- ...) #'τ_e #'(τsub.norm ...)))])
+;   (⊢ e- : (∀ ([X- <: τsub] ...) τ_e))])
 (define-typed-syntax inst
   [(_ e τ:type ...)
    #:with (e- (([tv τ_sub] ...) τ_body)) (⇑ e as ∀)
    #:when (typechecks? #'(τ.norm ...) #'(τ_sub ...))
-   (⊢ e- : #,(substs #'(τ.norm ...) #'(tv ...) #'τ_body))])
+   (⊢/no-teval e- : #,(substs #'(τ.norm ...) #'(tv ...) #'τ_body))])
 
 ;; ------------------------------------------------------------
 ;; must override the following rules, to insert expose

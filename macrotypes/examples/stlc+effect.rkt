@@ -71,7 +71,8 @@
   [(_ bvs:type-ctx e)
    #:with [xs- e- τ_res ns as ds] (infer/ctx+erase/eff #'bvs #'e)
    (assign-type #'(λ- xs- e-)
-                (add-effects #'(→ bvs.type ... τ_res) #'ns #'as #'ds))])
+                (add-effects (mk-→- #'(bvs.type ... τ_res)) #'ns #'as #'ds)
+                #:eval? #f)])
 
 (define-type-constructor Ref)
 
@@ -92,12 +93,12 @@
           (get-assign-effects #'e-)
           (get-deref-effects #'e-)))
   (define (assign-type/eff e ty news assigns derefs)
-    (add-effects (assign-type e ty) news assigns derefs)))
+    (add-effects (assign-type e ty #:eval? #f) news assigns derefs)))
 
 (define-typed-syntax ref
   [(_ e)
    #:with [e- τ ns as ds] (infer+erase/eff #'e)
-   (assign-type/eff #'(#%app- box- e-) #'(Ref τ)
+   (assign-type/eff #'(#%app- box- e-) (mk-Ref- #'(τ))
                     (cons (syntax-position stx) #'ns) #'as #'ds)])
 (define-typed-syntax deref
   [(_ e)
@@ -110,7 +111,7 @@
    #:with [e- ty2 ns2 as2 ds2] (infer+erase/eff #'e)
    #:fail-unless (typecheck? #'ty1 #'ty2)
                  (typecheck-fail-msg/1 #'ty1 #'ty2 #'e)
-   (assign-type/eff #'(#%app- set-box!- e_ref- e-) #'Unit
+   (assign-type/eff #'(#%app- set-box!- e_ref- e-) Unit+
                     (stx-append #'ns1 #'ns2)
                     (cons (syntax-position stx) (stx-append #'as1 #'as2))
                     (stx-append #'ds1 #'ds2))])
