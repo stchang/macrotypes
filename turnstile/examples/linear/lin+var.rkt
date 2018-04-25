@@ -115,4 +115,4 @@
           [(V) destr] ...
           [else (printf "~a\n" tmp)
                 (error '"unhandled case: " (car tmp))]))
-      ⇒ (⊔ σ_bra ...)]])
+      ⇒ #,(apply (current-join) (stx->list #'(σ_bra ...)))]])

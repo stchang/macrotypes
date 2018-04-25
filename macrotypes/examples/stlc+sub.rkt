@@ -34,10 +34,10 @@
   [(_ . x) #'(ext:#%datum . x)])
 
 (begin-for-syntax
-  (define (sub? t1 t2)
-    ; need this because recursive calls made with unexpanded types
-    (define τ1 ((current-type-eval) t1))
-    (define τ2 ((current-type-eval) t2))
+  (define (sub? τ1 τ2)
+    ; need this because recursive calls made with unexpanded types (?)
+    ;; (define τ1 ((current-type-eval) t1))
+    ;; (define τ2 ((current-type-eval) t2))
 ;    (printf "t1 = ~a\n" (syntax->datum τ1))
 ;    (printf "t2 = ~a\n" (syntax->datum τ2))
     (or (type=? τ1 τ2)
@@ -50,19 +50,21 @@
   
   (define-syntax (define-sub-relation stx)
     (syntax-parse stx #:datum-literals (<: =>)
-      [(_ τ1:id <: τ2:id)
+      [(_ τ1:id <: τ2:id) ; both base types
        #:with τ1-expander (mk-~ #'τ1)
        #:with τ2-expander (mk-~ #'τ2)
+       #:with τ1+ (mk-+ #'τ1)
+       #:with τ2+ (mk-+ #'τ2)
        #:with fn (generate-temporary)
        #:with old-sub? (generate-temporary)
        #'(begin
            (define old-sub? (current-sub?))
-           (define (fn t1 t2)
-             (define τ1 ((current-type-eval) t1))
-             (define τ2 ((current-type-eval) t2))
+           (define (fn τ1 τ2)
+             ;; (define τ1 ((current-type-eval) t1))
+             ;; (define τ2 ((current-type-eval) t2))
              (syntax-parse (list τ1 τ2)
-               [(τ1-expander τ) ((current-sub?) #'τ2 #'τ)]
-               [(τ τ2-expander) ((current-sub?) #'τ #'τ1)]
+               [(τ1-expander τ) ((current-sub?) τ2+ #'τ)]
+               [(τ τ2-expander) ((current-sub?) #'τ τ1+)]
                [_ #f]))
            (current-sub? (λ (t1 t2) (or (old-sub? t1 t2) (fn t1 t2))))
            (current-typecheck-relation (current-sub?)))]
@@ -76,9 +78,9 @@
        #:with old-sub? (generate-temporary)
        #'(begin
            (define old-sub? (current-sub?))
-           (define (fn t1 t2)
-             (define τ1 ((current-type-eval) t1))
-             (define τ2 ((current-type-eval) t2))
+           (define (fn τ1 τ2)
+             ;; (define τ1 ((current-type-eval) t1))
+             ;; (define τ2 ((current-type-eval) t2))
              (syntax-parse (list τ1 τ2)
                [((tycon1-expander . rst1) (tycon2-expander . rst2))
                 (and (subs? #'(τ1 ddd) #'(τ2 ddd))
@@ -95,5 +97,5 @@
     (cond
       [((current-sub?) t1 t2) t2]
       [((current-sub?) t2 t1) t1]
-      [else #'Top]))
+      [else Top+]))
   (current-join join))

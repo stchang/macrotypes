@@ -1494,7 +1494,7 @@
    #:with (x- ...) (generate-temporaries #'(x ...))
    #'(begin-
        (require- (rename-in- (only-in- mod x ... x-ty ...) [x x-] ...))
-       (define-typed-variable-rename x ≫ x- : x-ty) ...)])
+       (define-typed-variable-rename x ≫ x- : x-ty #:eval? #t) ...)])
 
 (define-base-type Regexp)
 (provide (typed-out [regexp-match : (→ Regexp String (List String))]

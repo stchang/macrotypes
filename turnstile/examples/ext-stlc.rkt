@@ -73,34 +73,29 @@
    #:with f- (add-orig (generate-temporary #'f) #'f)
    --------
    [≻ (begin-
-        (define-typed-variable-rename f ≫ f- : (→ ty ... ty_out))
+        (define-typed-variable-rename f ≫ f- : #,(mk-→- #'(ty ... ty_out)))
         (define- f-
           (stlc+lit:λ ([x : ty] ...)
             (stlc+lit:ann (begin e ...) : ty_out))))]])
 
-;; (define-for-syntax Bool+ ((current-type-eval) #'Bool))
-;; (define-for-syntax String+ ((current-type-eval) #'String))
-;; (define-for-syntax Float+ ((current-type-eval) #'Float))
-;; (define-for-syntax Char+ ((current-type-eval) #'Char))
-
 (define-typed-syntax #%datum
   [(_ . b:boolean) ≫
    --------
-   ;   [⊢ (#%datum- . b) ⇒ Bool]]
-   [≻ #,(assign-type #'(#%datum- . b) Bool+ #:eval? #f)]]
+   [⊢ (#%datum- . b) ⇒ #,Bool+]]
+;   [≻ #,(assign-type #'(#%datum- . b) Bool+ #:eval? #f)]]
   [(_ . s:str) ≫
    --------
-;   [⊢ (#%datum- . s) ⇒ String]]
-   [≻ #,(assign-type #'(#%datum- . s) String+ #:eval? #f)]]
+   [⊢ (#%datum- . s) ⇒ #,String+]]
+;   [≻ #,(assign-type #'(#%datum- . s) String+ #:eval? #f)]]
   [(_ . f) ≫
    #:when (flonum? (syntax-e #'f))
    --------
-;   [⊢ (#%datum- . f) ⇒ Float]]
-   [≻ #,(assign-type #'(#%datum- . f) Float+ #:eval? #f)]]
+   [⊢ (#%datum- . f) ⇒ #,Float+]]
+;   [≻ #,(assign-type #'(#%datum- . f) Float+ #:eval? #f)]]
   [(_ . c:char) ≫
    --------
-;   [⊢ (#%datum- . c) ⇒ Char]]
-   [≻ #,(assign-type #'(#%datum- . c) Char+ #:eval? #f)]]
+   [⊢ (#%datum- . c) ⇒ #,Char+]]
+  ;   [≻ #,(assign-type #'(#%datum- . c) Char+ #:eval? #f)]]
   [(_ . x) ≫
    --------
    [≻ (stlc+lit:#%datum . x)]])
@@ -108,24 +103,23 @@
 (define-typed-syntax (and e ...) ≫
   [⊢ e ≫ e- ⇐ Bool] ...
   --------
-;  [⊢ (and- e- ...) ⇒ Bool])
-  [≻ #,(assign-type #'(and- e- ...) Bool+ #:eval? #f)])
+  [⊢ (and- e- ...) ⇒ #,Bool+])
 
 (define-typed-syntax (or e ...) ≫
   [⊢ e ≫ e- ⇐ Bool] ...
   --------
-;  [⊢ (or- e- ...) ⇒ Bool])
- [≻ #,(assign-type #'(or- e- ...) Bool+ #:eval? #f)])
+  [⊢ (or- e- ...) ⇒ #,Bool+])
 
 (begin-for-syntax 
   (define current-join 
     (make-parameter 
-      (λ (x y) 
-        (unless (typecheck? x y)
+     (λ (t . tys)
+       (for/fold ([t0 t]) ([t tys])
+        (unless (typecheck? t0 t)
           (type-error
-            #:src x
-            #:msg  "branches have incompatible types: ~a and ~a" x y))
-        x))))
+            #:src t0
+            #:msg  "branches have incompatible types: ~a and ~a" t0 t))
+         t0)))))
 
 (define-syntax ⊔
   (syntax-parser
@@ -146,7 +140,7 @@
    [⊢ e1 ≫ e1- ⇒ τ1]
    [⊢ e2 ≫ e2- ⇒ τ2]
    --------
-   [⊢ (if- e_tst- e1- e2-) ⇒ (⊔ τ1 τ2)]])
+   [⊢ (if- e_tst- e1- e2-) ⇒ #,((current-join) #'τ1 #'τ2)]])
 
 (define-typed-syntax begin
   [(_ e_unit ... e) ⇐ τ_expected ≫
@@ -158,8 +152,7 @@
    [⊢ e_unit ≫ e_unit- ⇒ _] ...
    [⊢ e ≫ e- ⇒ τ_e]
    --------
-;   [⊢ (begin- e_unit- ... e-) ⇒ τ_e]])
-   [≻ #,(assign-type #'(begin- e_unit- ... e-) #'τ_e #:eval? #f)]])
+   [⊢ (begin- e_unit- ... e-) ⇒ τ_e]])
 
 (define-typed-syntax let
   [(_ ([x e] ...) e_body ...) ⇐ τ_expected ≫
@@ -171,8 +164,7 @@
    [⊢ e ≫ e- ⇒ : τ_x] ...
    [[x ≫ x- : τ_x] ... ⊢ (begin e_body ...) ≫ e_body- ⇒ τ_body]
    --------
-   [≻ #,(assign-type #'(let- ([x- e-] ...) e_body-) #'τ_body #:eval? #f)]])
-;   [⊢ (let- ([x- e-] ...) e_body-) ⇒ τ_body]])
+   [⊢ (let- ([x- e-] ...) e_body-) ⇒ τ_body]])
 
 ; dont need to manually transfer expected type
 ; result template automatically propagates properties
@@ -196,7 +188,6 @@
    [[b.x ≫ x- : b.type] ...
     ⊢ [e ≫ e- ⇐ b.type] ... [(begin e_body ...) ≫ e_body- ⇒ τ_body]]
    --------
-;   [⊢ (letrec- ([x- e-] ...) e_body-) ⇒ τ_body]])
-   [≻ #,(assign-type #'(letrec- ([x- e-] ...) e_body-) #'τ_body #:eval? #f)]])
+   [⊢ (letrec- ([x- e-] ...) e_body-) ⇒ τ_body]])
 
 

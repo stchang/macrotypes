@@ -67,7 +67,7 @@
    ;; but it prevents the list from getting too long
    #:with rst (stx-set-sub #'used-vars #'(x- ...))
    -------
-   [⊢ (λ- (x- ...) e-) (⇒ : (→ τ_in.norm ... τ_out)) (⇒ USED rst)]]
+   [⊢ (λ- (x- ...) e-) (⇒ : #,(mk-→- #'(τ_in.norm ... τ_out))) (⇒ USED rst)]]
   ;; TODO: add used
   #;[(_ (x:id ...) e) ⇐ (~→ τ_in ... τ_out) ≫
    [[x ≫ x- : τ_in] ... ⊢ e ≫ e- ⇐ τ_out]
@@ -134,7 +134,7 @@
   [⊢ e1 ≫ e1- (⇐ USED vars-in) (⇒ : τ1) (⇒ USED vars1)]
   [⊢ e2 ≫ e2- (⇐ USED vars1) (⇒ : τ2) (⇒ USED vars2)]
   -----------------
-  [⊢ (#%app- cons- e1- e2-) (⇒ : (× τ1 τ2))
+  [⊢ (#%app- cons- e1- e2-) (⇒ : #,(mk-×- #'(τ1 τ2)))
                             (⇒ USED vars2)])
 
 (define-typed-syntax (free e) ⇐ USED vars-in ≫
@@ -145,7 +145,7 @@
 (define-typed-syntax #%datum
   [(_ . b:boolean) ≫
    --------
-   [⊢ (#%datum- . b) ⇒ Bool]]
+   [⊢ (#%datum- . b) ⇒ #,Bool+]]
   [(_ . x) ≫
    --------
    [#:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])
@@ -187,5 +187,5 @@
            (stx->datum #'vars1) (stx->datum #'vars2))
    #:with vars-out (stx-append #'vars #'vars1)
    --------
-   [⊢ (if- e_tst- e1- e2-) (⇒ : (⊔ τ1 τ2)) (⇒ USED vars-out)]])
+   [⊢ (if- e_tst- e1- e2-) (⇒ : #,((current-join) #'τ1 #'τ2)) (⇒ USED vars-out)]])
 

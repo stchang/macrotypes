@@ -427,7 +427,7 @@
             'orig
             (list #'(→ τ+orig ...)))
    #`(begin-
-       (define-typed-variable-rename f ≫ f- : ty_fn_expected)
+       (define-typed-variable-rename f ≫ f- : ty_fn_expected #:eval? #t)
        (define- f-
                 (Λ Ys (ext-stlc:λ ([x : τ] ...) (ext-stlc:begin e_body ... e_ann)))))]
   ;; alternate type sig syntax, after parameter names
@@ -1243,7 +1243,7 @@
    #:with (x- ...) (generate-temporaries #'(x ...))
    #'(begin-
        (require- (rename-in- (only-in- mod x ... x-ty ...) [x x-] ...))
-       (define-typed-variable-rename x ≫ x- : x-ty) ...)])
+       (define-typed-variable-rename x ≫ x- : x-ty #:eval? #t) ...)])
 
 (define-base-type Regexp)
 

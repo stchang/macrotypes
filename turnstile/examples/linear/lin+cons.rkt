@@ -19,7 +19,7 @@
    [⊢ e ≫ e- ⇒ σ]
    [⊢ e_rest ≫ e_rest- ⇐ (MList σ)]
    --------
-   [⊢ (#%app- mcons- e- e_rest-) ⇒ (MList σ)]]
+   [⊢ (#%app- mcons- e- e_rest-) ⇒ #,(mk-MList- #'(σ))]]
 
   ; with memory location given
   [(_ e e_rest @ e_loc) ≫
@@ -32,13 +32,13 @@
             (set-mcar!- tmp e-)
             (set-mcdr!- tmp e_rest-)
             tmp)
-      ⇒ (MList σ)]])
+      ⇒ #,(mk-MList- #'(σ))]])
 
 
 (define-typed-syntax nil
   [(_ {ty:type}) ≫
    --------
-   [⊢ '() ⇒ (MList ty.norm)]]
+   [⊢ '() ⇒ #,(mk-MList- #'(ty.norm))]]
   [(_) ⇐ (~MList σ) ≫
    --------
    [⊢ '()]])
@@ -54,8 +54,8 @@
 
    ; list
    [⊢ e_list ≫ e_list- ⇒ (~MList σ)]
-   #:with σ_xs ((current-type-eval) #'(MList σ))
-   #:with σ_l ((current-type-eval) #'MList0)
+   #:with σ_xs (mk-MList- #'(σ))
+   #:with σ_l MList0+
 
    #:mode (make-linear-branch-mode 2)
      (; cons branch

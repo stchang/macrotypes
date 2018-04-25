@@ -1,6 +1,6 @@
 #lang turnstile/lang
 (extends "stlc+reco+sub.rkt" #:except + #%app proj)
-(require (rename-in (only-in "sysf.rkt" ∀? ∀ ~∀) [~∀ ~sysf:∀] [∀ sysf:∀]))
+(require (rename-in (only-in "sysf.rkt" ∀? ∀ ~∀ mk-∀-) [~∀ ~sysf:∀] [∀ sysf:∀]))
  
 ;; System F<:
 ;; Types:
@@ -49,6 +49,10 @@
   --------
   ; eval first to overwrite the old #%type
   [⊢ #,((current-type-eval) #'(sysf:∀ (tv ...) τ_body)) ⇒ (<: τ.norm ...)])
+(define-for-syntax (mk-∀ binds τ_body)
+  (syntax-parse binds
+    [([tv:id (~datum <:) τ] ...)
+     (assign-type (mk-∀- #'(tv ...) τ_body) (mk-<:- #'(τ ...)) #:eval? #f #:wrap? #f)]))
 (begin-for-syntax
   (define-syntax ~∀
     (pattern-expander
@@ -80,7 +84,7 @@
   ;; as in TaPL (fig 28-1)
   [[tv ≫ tv- :: #%type <: τsub] ... ⊢ e ≫ e- ⇒ τ_e]
   --------
-  [⊢ e- ⇒ (∀ ([tv- <: τsub] ...) τ_e)])
+  [⊢ e- ⇒ #,(mk-∀ #'([tv- <: τsub.norm] ...) #'τ_e)])
 (define-typed-syntax (inst e τ:type ...) ≫
   [⊢ e ≫ e- ⇒ (~∀ ([tv <: τ_sub] ...) τ_body)]
   [τ.norm τ⊑ τ_sub #:for τ] ...

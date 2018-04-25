@@ -19,7 +19,7 @@
    --------
    [⊢ (let ([tmp (#%app- make-channel-)])
             (list tmp tmp))
-      ⇒ (⊗ (InChan σ) (OutChan σ))]])
+      ⇒ #,(mk-⊗- (list (mk-InChan- #'(σ)) (mk-OutChan- #'(σ))))]])
 
 
 (define-typed-syntax channel-put
@@ -27,7 +27,7 @@
    [⊢ ch ≫ ch- ⇒ (~OutChan σ)]
    [⊢ e ≫ e- ⇐ σ]
    --------
-   [⊢ (channel-put- ch- e-) ⇒ Unit]])
+   [⊢ (channel-put- ch- e-) ⇒ #,Unit+]])
 
 
 (define-typed-syntax channel-get
@@ -37,14 +37,14 @@
    --------
    [⊢ (let ([tmp ch-])
             (list tmp (channel-get- tmp)))
-      ⇒ (⊗ (InChan σ) σ)]])
+      ⇒ #,(mk-⊗- (list (mk-InChan- #'(σ)) #'σ))]])
 
 
 (define-typed-syntax thread
   [(_ f) ≫
    [⊢ f ≫ f- ⇒ (~-o _)]
    --------
-   [⊢ (void (thread- f-)) ⇒ Unit]])
+   [⊢ (void (thread- f-)) ⇒ #,Unit+]])
 
 
 (define-typed-syntax sleep
@@ -58,4 +58,4 @@
                      (Float? #'σ))
    "invalid sleep time, expected Int or Float"
    --------
-   [⊢ (sleep- e-) ⇒ Unit]])
+   [⊢ (sleep- e-) ⇒ #,Unit+]])

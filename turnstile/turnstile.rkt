@@ -126,11 +126,11 @@
                         [v (in-stx-list #'[tag-prop.tag-expr ...])])
                (with-syntax ([tag-expr tag-expr] [k k] [v v])
                  #`(attach tag-expr `k 
-                           #,(if (equal? (syntax->datum #'k) (syntax-parameter-value #'current-tag2-stx))
+                           #,(if #f #;(equal? (syntax->datum #'k) (syntax-parameter-value #'current-tag2-stx))
                                  #'((current-ev) v)
                                  #'v))))
              #:with tag-expr
-                    (if (equal? (syntax->datum #'tag) (syntax-parameter-value #'current-tag-stx))
+                    (if #f #;(equal? (syntax->datum #'tag) (syntax-parameter-value #'current-tag-stx))
                         #'((current-ev) tag-expr-body)
                         #'tag-expr-body)])
   (define-syntax-class ⇐-prop

@@ -71,23 +71,32 @@
    (add-orig #'(U NegInt Nat) #'Int)))
 (define-syntax Num 
   (make-variable-like-transformer (add-orig #'(U Float Int) #'Num)))
+(begin-for-syntax ; must be sorted
+  (define Bool+
+    (add-orig (mk-U*- (list False+ True+)) #'Bool))
+  (define Nat+
+    (add-orig (mk-U*- (list PosInt+ Zero+)) #'Nat))
+  (define Int+
+    (add-orig (mk-U*- (list NegInt+ PosInt+ Zero+)) #'Int))
+  (define Num+
+    (add-orig (mk-U*- (list Float+ NegInt+ PosInt+ Zero+)) #'Num+)))
 
 (define-typed-syntax #%datum
   [(_ . b:boolean) ≫
-   #:with ty_out (if (syntax-e #'b) #'True #'False)
+   #:with ty_out (if (syntax-e #'b) True+ False+)
    --------
    [⊢ (#%datum- . b) ⇒ : ty_out]]
   [(_ . n:integer) ≫
    #:with ty_out (let ([m (syntax-e #'n)])
-                   (cond [(zero? m) #'Zero]
-                         [(> m 0) #'PosInt]
-                         [else #'NegInt]))
+                   (cond [(zero? m) Zero+]
+                         [(> m 0) PosInt+]
+                         [else NegInt+]))
    --------
    [⊢ (#%datum- . n) ⇒ : ty_out]]
   [(#%datum . n:number) ≫
    #:when (real? (syntax-e #'n))
    --------
-   [⊢ (#%datum- . n) ⇒ : Float]]
+   [⊢ (#%datum- . n) ⇒ : #,Float+]]
   [(_ . x) ≫
    --------
    [≻ (ext-stlc:#%datum . x)]])

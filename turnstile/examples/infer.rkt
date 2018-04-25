@@ -1,7 +1,7 @@
 #lang turnstile/lang
 (extends "ext-stlc.rkt" #:except define #%app λ ann)
 (reuse inst #:from "sysf.rkt")
-(require (only-in "sysf.rkt" ∀ ~∀ ∀? Λ))
+(require (only-in "sysf.rkt" ∀ ~∀ ∀? mk-∀- Λ))
 (reuse cons [head hd] [tail tl] nil [isnil nil?] List list #:from "stlc+cons.rkt")
 ;(require (only-in "stlc+cons.rkt" ~List))
 (reuse tup × proj #:from "stlc+tup.rkt")
@@ -23,21 +23,25 @@
   (define (?∀ Xs τ)
     (if (stx-null? Xs)
         τ
-        #`(∀ #,Xs #,τ)))
+;        #`(∀ #,Xs #,τ)))
+        (mk-∀- Xs τ)))
   (define (?Some Xs τ cs)
     (if (and (stx-null? Xs) (stx-null? cs))
         τ
-        #`(Some #,Xs #,τ (Cs #,@cs))))
+;        #`(Some #,Xs #,τ (Cs #,@cs))))
+        (mk-Some- Xs τ (Cs cs))))
   (define (Cs cs)
-    (syntax-parse cs
-      [([a b] ...)
-       #'(Constraints (Constraint a b) ...)]))
+    ;; (syntax-parse cs
+    ;;   [([a b] ...)
+    (mk-Constraints-
+     (stx-map (lambda (c) (mk-Constraint- c)) cs)))
   (define-syntax-class ?Some-form
     #:attributes (Xs τ Cs)
     [pattern (~Some Xs τ Cs)]
     [pattern (~and τ (~not (~Some _ _ _)))
              #:with Xs #'[]
-             #:with Cs ((current-type-eval) #'(Cs))])
+;             #:with Cs ((current-type-eval) #'(Cs))])
+             #:with Cs (Cs #'())])
   (define-syntax ~?∀
     (pattern-expander
      (syntax-parser
@@ -67,7 +71,8 @@
                 (~parse (~Constraints (~Constraint a b) ooo)
                         (if (syntax-e #'cs)
                             #'cs
-                            ((current-type-eval) #'(Cs)))))]))))
+                            (Cs #'()))))]))))
+;                            ((current-type-eval) #'(Cs)))))]))))
 
 (begin-for-syntax
   ;; find-free-Xs : (Stx-Listof Id) Type -> (Listof Id)
@@ -163,7 +168,7 @@
     ⊢ [body ≫ body- ⇒ : τ_body*]]
    #:with (~?Some [V ...] τ_body (~Cs [id_2 τ_2] ...)) #'τ_body*
    #:with τ_fn (some/inst/generalize #'[X- ... V ...]
-                                     #'(→ X- ... τ_body)
+                                     (mk-→- #'(X- ... τ_body))
                                      #'([id_2 τ_2] ...))
    --------
    [⊢ (λ- (x- ...) body-) ⇒ : τ_fn]])

@@ -19,7 +19,7 @@
 (define-typed-syntax nil
   [(_ ~! τi:type-ann) ≫
    --------
-   [⊢ null- ⇒ (List τi.norm)]]
+   [⊢ null- ⇒ #,(mk-List- #'(τi.norm))]]
   ; minimal type inference
   [:id ⇐ (~List τ) ≫
    --------
@@ -28,11 +28,11 @@
   [⊢ e1 ≫ e1- ⇒ τ1]
   [⊢ e2 ≫ e2- ⇐ (List τ1)]
   --------
-  [⊢ (cons- e1- e2-) ⇒ (List τ1)])
+  [⊢ (cons- e1- e2-) ⇒ #,(mk-List- #'(τ1))])
 (define-typed-syntax (isnil e) ≫
   [⊢ e ≫ e- ⇒ (~List _)]
   --------
-  [⊢ (null?- e-) ⇒ Bool])
+  [⊢ (null?- e-) ⇒ #,Bool+])
 (define-typed-syntax (head e) ≫
   [⊢ e ≫ e- ⇒ (~List τ)]
   --------
@@ -64,7 +64,7 @@
   #:fail-unless (List? #'τ-lst)
   (format "Expected a list type, got: ~a" (type->str #'τ-lst))
   --------
-  [⊢ (length- e-) ⇒ Int])
+  [⊢ (length- e-) ⇒ #,Int+])
 (define-typed-syntax (list-ref e n) ≫
   [⊢ e ≫ e- ⇒ (~List τ)]
   [⊢ n ≫ n- ⇐ Int]
@@ -74,4 +74,4 @@
   [⊢ e ≫ e- ⇒ (~List τ)]
   [⊢ v ≫ v- ⇐ τ]
   --------
-  [⊢ (member- v- e-) ⇒ Bool])
+  [⊢ (member- v- e-) ⇒ #,Bool+])

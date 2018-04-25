@@ -101,21 +101,23 @@
 
 (define-typed-syntax (Λ bvs:kind-ctx e) ≫
   [[bvs.x ≫ tv- :: bvs.kind] ... ⊢ e ≫ e- ⇒ τ_e]
+  #:with tyout ((current-type-eval) #'(∀ ([tv- :: bvs.kind] ...) τ_e))
   --------
-  [⊢ e- ⇒ (∀ ([tv- :: bvs.kind] ...) τ_e)])
+  [⊢ e- ⇒ tyout])
 
 (define-typed-syntax (inst e τ:any-type ...) ≫
   [⊢ e ≫ e- ⇒ (~∀ (tv ...) τ_body) (⇒ :: (~∀★ k ...))]
   [⊢ τ ≫ _ ⇐ :: k] ...
+  #:with tyout ((current-type-eval) (substs #'(τ.norm ...) #'(tv ...) #'τ_body))
   --------
-  [⊢ e- ⇒ #,(substs #'(τ.norm ...) #'(tv ...) #'τ_body)])
+  [⊢ e- ⇒ tyout])
 
 ;; extend λ to also work as a type
 (define-kinded-syntax λ
   [(_ bvs:kind-ctx τ) ≫                 ; type
    [[bvs.x ≫ X- :: bvs.kind] ... ⊢ τ ≫ τ- ⇒ k_res]
    ------------
-   [⊢ (λ- (X- ...) τ-) ⇒ (→ bvs.kind ... k_res)]]
+   [⊢ (λ- (X- ...) τ-) ⇒ #,(mk-kind (mk-→- #'(bvs.kind ... k_res)))]]
   [(_ . rst) ≫ --- [≻ (sysf:λ . rst)]]) ; term
 
 ;; extend #%app to also work as a type

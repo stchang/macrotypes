@@ -85,78 +85,78 @@
    --------
    [⊢ (for/list- (clauses.clause- ...)
         (let- ([x- clauses.env.x] ...) body-))
-      ⇒ (Listof τ)]])
+      ⇒ #,(mk-Listof- #'(τ))]])
 
 (define-typed-syntax in-range
   [(_ n:expr) ≫
    [⊢ n ≫ n- ⇐ Int]
    --------
-   [⊢ (in-range- n-) ⇒ (Sequenceof Int)]])
+   [⊢ (in-range- n-) ⇒ #,(mk-Sequenceof- (list Int+))]])
 
 (define-typed-syntax in-naturals
-  [(_) ≫ --- [⊢ (in-naturals-) ⇒ (Sequenceof Int)]]
+  [(_) ≫ --- [⊢ (in-naturals-) ⇒ #,(mk-Sequenceof- (list Int+))]]
   [(_ n:expr) ≫
    [⊢ n ≫ n- ⇐ Int]
    --------
-   [⊢ (in-naturals- n-) ⇒ (Sequenceof Int)]])
+   [⊢ (in-naturals- n-) ⇒ #,(mk-Sequenceof- (list Int+))]])
 
 (define-typed-syntax in-list
   [(_ lst:expr) ≫
    [⊢ lst ≫ lst- ⇒ (~Listof τ)]
    --------
-   [⊢ (in-list- lst-) ⇒ (Sequenceof τ)]])
+   [⊢ (in-list- lst-) ⇒ #,(mk-Sequenceof- (list #'τ))]])
 
 (define-typed-syntax in-indexed
   [(_ seq:expr) ≫
    [⊢ seq ≫ seq- ⇒ (~Sequenceof τ)]
    --------
-   [⊢ (in-indexed- seq-) ⇒ (Sequenceof τ Int)]])
+   [⊢ (in-indexed- seq-) ⇒ #,(mk-Sequenceof- (list #'τ Int+))]])
 
 ;; ------------------------------------------------------------------------
 
 ;; Constructing Literals, Tuples, and Lists
 
 (define-typed-syntax #%datum
-  [(_ . b:boolean) ≫ --- [⊢ (quote- b) ⇒ Bool]]
-  [(_ . i:integer) ≫ --- [⊢ (quote- i) ⇒ Int]]
-  [(_ . s:str) ≫ --- [⊢ (quote- s) ⇒ String]])
+  [(_ . b:boolean) ≫ --- [⊢ (quote- b) ⇒ #,Bool+]]
+  [(_ . i:integer) ≫ --- [⊢ (quote- i) ⇒ #,Int+]]
+  [(_ . s:str) ≫ --- [⊢ (quote- s) ⇒ #,String+]])
 
 (define-typed-syntax tuple
   [(_ e:expr ...) ≫
    [⊢ [e ≫ e- ⇒ τ] ...]
    --------
-   [⊢ (vector-immutable- e- ...) ⇒ (Tuple τ ...)]])
+   [⊢ (vector-immutable- e- ...) ⇒ #,(mk-Tuple- #'(τ ...))]])
 
 (define-typed-syntax list
-  [(_) ≫ --- [⊢ (quote- ()) ⇒ (Listof Nothing)]]
+  [(_) ≫ --- [⊢ (quote- ()) ⇒ #,(mk-Listof- (list Nothing+))]]
   [(_ e0:expr e:expr ...) ≫
    [⊢ e0 ≫ e0- ⇒ τ]
    [⊢ [e ≫ e- ⇐ τ] ...]
    --------
-   [⊢ (list- e0- e- ...) ⇒ (Listof τ)]])
+   [⊢ (list- e0- e- ...) ⇒ #,(mk-Listof- #'(τ))]])
 
 ;; ------------------------------------------------------------------------
 
 ;; Basic Bool Forms
 
 (define-typed-syntax not
-  [(_ b:expr) ≫ [⊢ b ≫ b- ⇐ Bool] --- [⊢ (not- b-) ⇒ Bool]])
+  [(_ b:expr) ≫ [⊢ b ≫ b- ⇐ Bool] --- [⊢ (not- b-) ⇒ #,Bool+]])
 
 (define-typed-syntax and
   [(_ b:expr ...) ≫
    [⊢ [b ≫ b- ⇐ Bool] ...]
    --------
-   [⊢ (and- b- ...) ⇒ Bool]])
+   [⊢ (and- b- ...) ⇒ #,Bool+]])
 
 ;; ------------------------------------------------------------------------
 
 ;; Basic Int Forms
 
 (define-typed-syntax even?
-  [(_ i:expr) ≫ [⊢ i ≫ i- ⇐ Int] --- [⊢ (even?- i-) ⇒ Bool]])
+  [(_ i:expr) ≫ [⊢ i ≫ i- ⇐ Int] --- [⊢ (even?- i-) ⇒ #,Bool+]])
 
 (define-typed-syntax odd?
-  [(_ i:expr) ≫ [⊢ i ≫ i- ⇐ Int] --- [⊢ (odd?- i-) ⇒ Bool]])
+  [(_ i:expr) ≫ [⊢ i ≫ i- ⇐ Int] --- [⊢ (odd?- i-) ⇒ #,Bool+]])
 
 ;; ------------------------------------------------------------------------
 
@@ -167,5 +167,5 @@
    [⊢ a ≫ a- ⇐ String]
    [⊢ b ≫ b- ⇐ String]
    --------
-   [⊢ (string=?- a- b-) ⇒ Bool]])
+   [⊢ (string=?- a- b-) ⇒ #,Bool+]])
 

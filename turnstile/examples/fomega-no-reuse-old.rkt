@@ -55,6 +55,8 @@
   (define old-typecheck (current-typecheck-relation))
   ; ty=? == syntax eq and syntax prop eq
   (define (new-typecheck? t1 t2)
+    ;; (displayln (stx->datum t1))
+    ;; (displayln (stx->datum t2))
     (let ([k1 (kindof t1)][k2 (kindof t2)])
       ; the extra `and` and `or` clauses are bc type=? is a structural
       ; traversal on stx objs, so not all sub stx objs will have a "type"-stx
@@ -69,6 +71,8 @@
   (syntax-parse stx
     [:id (mk-kind #'(★-))]
     [(_ k:kind ...) (mk-kind #'(★- k.norm ...))]))
+(define-for-syntax ★+ (mk-kind (mk-★- null)))
+(define-for-syntax (mk-★ . ks) (mk-kind (mk-★- ks)))
 
 (define-kind-constructor ⇒ #:arity >= 1)
 
@@ -88,21 +92,25 @@
 (define-kinded-syntax (→ ty ...+) ≫
   [⊢ ty ≫ ty- ⇒ (~★ . _)] ...
   --------
-  [⊢ (→- ty- ...) ⇒ ★])
+  [⊢ (→- ty- ...) ⇒ #,★+])
+(define-for-syntax mk-→
+  (syntax-parser
+    [(τ_in ... τ_out)
+     (attach (mk-→- #'(τ_in ... τ_out)) ': ★+)]))
 
 (define-internal-binding-type ∀) ; defines ∀-
 (define-kinded-syntax ∀ #:datum-literals (:)
   [(_ ([tv:id : k_in:kind] ...) ty) ≫
    [[tv ≫ tv- : k_in.norm] ... ⊢ ty ≫ ty- ⇒ (~★ . _)]
    -------
-   [⊢ (∀- (tv- ...) ty-) ⇒ (★ k_in.norm ...)]])
+   [⊢ (∀- (tv- ...) ty-) ⇒ #,(mk-★- #'(k_in.norm ...))]])
 
 (define-kinded-syntax (tyλ bvs:kind-ctx τ_body) ≫
   [[bvs.x ≫ tv- : bvs.kind] ... ⊢ τ_body ≫ τ_body- ⇒ k_body]
   #:fail-unless ((current-kind?) #'k_body)
-                (format "not a valid type: ~a\n" (type->str #'τ_body))
+  (format "not a valid type: ~a\n" (type->str #'τ_body))
   --------
-  [⊢ (λ- (tv- ...) τ_body-) ⇒ (⇒ bvs.kind ... k_body)])
+  [⊢ (λ- (tv- ...) τ_body-) ⇒ #,(mk-⇒- #'(bvs.kind ... k_body))])
 
 (define-kinded-syntax (tyapp τ_fn τ_arg ...) ≫
   [⊢ τ_fn ≫ τ_fn- ⇒ (~⇒ k_in ... k_out)]
@@ -116,8 +124,9 @@
 (define-typed-syntax λ #:datum-literals (:)
   [(_ ([x:id : τ_in:type] ...) e) ≫
    [[x ≫ x- : τ_in.norm] ... ⊢ e ≫ e- ⇒ τ_out]
+   #:with tyout ((current-type-eval) #'(→ τ_in.norm ... τ_out))
    -------
-   [⊢ (λ- (x- ...) e-) ⇒ (→ τ_in.norm ... τ_out)]]
+   [⊢ (λ- (x- ...) e-) ⇒ #,(mk-→ #'(τ_in.norm ... τ_out))]]
   [(_ (x:id ...) e) ⇐ (~→ τ_in ... τ_out) ≫
    [[x ≫ x- : τ_in] ... ⊢ e ≫ e- ⇐ τ_out]
    ---------
@@ -139,28 +148,29 @@
 (define-typed-syntax #%datum
   [(_ . b:boolean) ≫
    --------
-   [⊢ (#%datum- . b) ⇒ Bool]]
+   [⊢ (#%datum- . b) ⇒ #,Bool+]]
   [(_ . s:str) ≫
    --------
-   [⊢ (#%datum- . s) ⇒ String]]
+   [⊢ (#%datum- . s) ⇒ #,String+]]
   [(_ . f) ≫
    #:when (flonum? (syntax-e #'f))
    --------
-   [⊢ (#%datum- . f) ⇒ Float]]
+   [⊢ (#%datum- . f) ⇒ #,Float+]]
   [(_ . c:char) ≫
    --------
-   [⊢ (#%datum- . c) ⇒ Char]]
+   [⊢ (#%datum- . c) ⇒ #,Char+]]
   [(_ . n:integer) ≫
    --------
-   [⊢ (#%datum- . n) ⇒ Int]]
+   [⊢ (#%datum- . n) ⇒ #,Int+]]
   [(_ . x) ≫
    --------
    [#:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])
 
 (define-typed-syntax (Λ bvs:kind-ctx e) ≫
   [([bvs.x ≫ tv- : bvs.kind] ...) () ⊢ e ≫ e- ⇒ τ_e]
+  #:with tyout ((current-type-eval) #'(∀ ([tv- : bvs.kind] ...) τ_e))
   --------
-  [⊢ e- ⇒ (∀ ([tv- : bvs.kind] ...) τ_e)])
+  [⊢ e- ⇒ tyout])
 
 (define-typed-syntax (inst e τ ...) ≫
   [⊢ e ≫ e- ⇒ (~∀ (tv ...) τ_body) (⇒ (~★ k ...))]
@@ -168,7 +178,7 @@
   [⊢ τ ≫ τ- ⇒ k_τ] ... ; so use ⇒ and kindchecks?
   #:fail-unless (kindchecks? #'(k_τ ...) #'(k ...))
                 (typecheck-fail-msg/multi #'(k ...) #'(k_τ ...) #'(τ ...))
-  #:with τ-inst (substs #'(τ- ...) #'(tv ...) #'τ_body)
+  #:with τ-inst ((current-type-eval) (substs #'(τ- ...) #'(tv ...) #'τ_body))
   --------
   [⊢ e- ⇒ τ-inst])
 

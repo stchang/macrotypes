@@ -24,7 +24,7 @@
   [(_ e ...) ≫
    [⊢ e ≫ e- ⇒ τ] ...
    --------
-   [⊢ (list- e- ...) ⇒ (× τ ...)]])
+   [⊢ (list- e- ...) ⇒ #,(mk-×- #'(τ ...))]])
 
 (define-typed-syntax (proj e_tup n:nat) ≫
   [⊢ e_tup ≫ e_tup- ⇒ (~× τ ...)]

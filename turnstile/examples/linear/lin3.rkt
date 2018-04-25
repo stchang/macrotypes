@@ -103,7 +103,7 @@
    #:fail-unless/used-vars (useds? #'(x- ...)) (unused-err2 #'(x- ...))
 ;   #:do[(POST (check-used 'λ #'(x- ...)))]
    -------
-   [⊢ (λ- (x- ...) e-) ⇒ (→ τ_in.norm ... τ_out)] #:update used-vars (remove-used #'(x- ...))])
+   [⊢ (λ- (x- ...) e-) ⇒ #,(mk-→- #'(τ_in.norm ... τ_out))] #:update used-vars (remove-used #'(x- ...))])
 
 (define-typed-syntax let
   [(_ [x e] body) ≫
@@ -144,7 +144,7 @@
   [⊢ e1 ≫ e1- ⇒ τ1]
   [⊢ e2 ≫ e2- ⇒ τ2]
   -----------------
-  [⊢ (#%app- cons- e1- e2-) ⇒ (× τ1 τ2)])
+  [⊢ (#%app- cons- e1- e2-) ⇒ #,(mk-×- #'(τ1 τ2))])
 
 (define-typed-syntax (free e) ≫
   [⊢ e ≫ e- ⇒ τ]
@@ -154,7 +154,7 @@
 (define-typed-syntax #%datum
   [(_ . b:boolean) ≫
    --------
-   [⊢ (#%datum- . b) ⇒ Bool]]
+   [⊢ (#%datum- . b) ⇒ #,Bool+]]
   [(_ . x) ≫
    --------
    [#:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])

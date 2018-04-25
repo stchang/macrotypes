@@ -76,6 +76,7 @@
 
 (begin-for-syntax
   (define (mk-? id) (format-id id "~a?" id))
+  (define (mk-+ id) (format-id id "~a+" id))
   (define (mk-- id) (format-id id "~a-" id))
   (define (mk-~ id) (format-id id "~~~a" id))
   (define (mk-#% id) (format-id id "#%~a" id))
@@ -83,6 +84,7 @@
   (define (mkx2 id) (format-id id "~a~a" id id))
   (define-for-syntax (mk-? id) (format-id id "~a?" id))
   (define-for-syntax (mk-~ id) (format-id id "~~~a" id))
+  (define-for-syntax (mk-+ id) (format-id id "~a+" id))
   ;; drop-file-ext : String -> String
   (define (drop-file-ext filename)
     (car (string-split filename ".")))
@@ -96,10 +98,12 @@
 
 (define-syntax define-typed-variable-rename
   (syntax-parser
-    [(_ v:id (~datum ≫) v-:id (~datum :) τ)
+    [(_ v:id (~datum ≫) v-:id (~datum :) τ #:eval? eval?)
      #'(define-syntax v
          (make-rename-transformer
-           (add-orig (assign-type #'v- #`τ #:wrap? #f) #'v)))]))
+          (add-orig (assign-type #'v- #`τ #:wrap? #f #:eval? eval?) #'v)))]
+    [(_ v:id (~datum ≫) v-:id (~datum :) τ)
+     #'(define-typed-variable-rename v ≫ v- : τ #:eval? #f)]))
 
 ;; need options for
 ;; - pass through
@@ -513,10 +517,17 @@
                  #:with t-expanders (stx-map mk-~ #'ts)
                  #:with t?s (stx-map mk-? #'ts)
                  #:with t-s (filter identifier-binding (stx-map mk-- #'ts))
+                 #:do[(define (id-binding1 t) (identifier-binding t 1))] ; phase 1
+                 #:with mk-fns (filter id-binding1  (stx-map (compose mk-- mk-mk) #'ts))
+                 #:with t+s (filter id-binding1 (stx-map mk-+ #'ts))
                  (expand-export
                   (syntax/loc stx (combine-out
-                                   (combine-out . ts) (combine-out . t-s)
-                                   (for-syntax (combine-out . t-expanders) . t?s)))
+                                   (combine-out . ts)
+                                   (combine-out . t-s)
+                                   (for-syntax (combine-out . t-expanders)
+                                               (combine-out . mk-fns)
+                                               (combine-out . t+s)
+                                               . t?s)))
                   modes)]))))
 
          ;; transformer functions, for defining types
@@ -676,7 +687,7 @@
              #:with τ? (mk-? #'τ)
              #:with τ-expander (mk-~ #'τ)
              #:with τ-internal (generate-temporary #'τ)
-             #:with τ+ (format-id #'τ "~a+" #'τ)
+             #:with τ+ (mk-+ #'τ)
              #`(begin
                 (begin-for-syntax
                  (define τ? (mk-type-recognizer #'τ-internal))
@@ -689,7 +700,8 @@
                             (format "~a: Cannot use ~a at run time" 'τ 'tag)
                             (current-continuation-marks)))))
                 (define-syntax τ (mk-base-transformer #'τ-internal 'new-key2 #'new-#%tag))
-                (define-for-syntax τ+ ((current-type-eval) #'τ)))]))
+                (begin-for-syntax
+                  (define τ+ ((current-type-eval) #'τ))))]))
          (define-syntax define-base-types
            (syntax-parser
              [(_ (~var x id) (... ...))
@@ -801,11 +813,11 @@
                 ; must implement their own kind system
                 (define-syntax τ-
                   (mk-internal-binding-transformer #'τ-internal #'extra-info arg-vars-fn))
-                (define-for-syntax (mk-τ- Xs arg) ; TODO: add arg-variances?
+                (define-for-syntax (mk-τ- Xs . args) ; TODO: add arg-variances?
                   (mk-type
                    (add-orig
-                    #`(#%plain-app τ-internal (#%plain-lambda #,Xs (#%expression extra-info) (#%plain-app list #,arg)))
-                    #`(τ #,Xs #,arg)))))]))
+                    #`(#%plain-app τ-internal (#%plain-lambda #,Xs (#%expression extra-info) (#%plain-app list #,@args)))
+                    #`(τ #,Xs #,@args)))))]))
          (define-syntax define-binding-type
            (syntax-parser
              [(_ (~var τ id)

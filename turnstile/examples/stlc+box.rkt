@@ -16,7 +16,7 @@
 (define-typed-syntax (ref e) ≫
   [⊢ e ≫ e- ⇒ τ]
   --------
-  [⊢ (box- e-) ⇒ (Ref τ)])
+  [⊢ (box- e-) ⇒ #,(mk-Ref- #'(τ))])
 
 (define-typed-syntax (deref e) ≫
   [⊢ e ≫ e- ⇒ (~Ref τ)]
@@ -27,5 +27,5 @@
   [⊢ e_ref ≫ e_ref- ⇒ (~Ref τ)]
   [⊢ e ≫ e- ⇐ τ]
   --------
-  [⊢ (set-box!- e_ref- e-) ⇒ Unit])
+  [⊢ (set-box!- e_ref- e-) ⇒ #,Unit+])
 

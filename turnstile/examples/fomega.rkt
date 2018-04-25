@@ -73,16 +73,20 @@
 
 (define-typed-syntax (Λ bvs:kind-ctx e) ≫
   [[bvs.x ≫ tv- :: bvs.kind] ... ⊢ e ≫ e- ⇒ τ_e]
+;  #:with tyout ((current-type-eval) #'(∀ ([tv- :: bvs.kind] ...) τ_e))
+  #:with tyout ((current-type-eval) #'(∀ ([tv- :: bvs.kind] ...) τ_e))
   --------
-  [⊢ e- ⇒ (∀ ([tv- :: bvs.kind] ...) τ_e)])
+  [⊢ e- ⇒ tyout])
 
 ;; τ.norm invokes current-type-eval while "≫ τ-" uses only local-expand
 ;; (via infer fn)
 (define-typed-syntax (inst e τ:any-type ...) ≫
   [⊢ e ≫ e- ⇒ (~∀ tvs τ_body) (⇒ :: (~∀★ k ...))]
   [⊢ τ ≫ _ ⇐ :: k] ...
+  ;; must still call tyout bc subst may create redexes
+  #:with tyout ((current-type-eval) (substs #'(τ.norm ...) #'tvs #'τ_body))
   --------
-  [⊢ e- ⇒ #,(substs #'(τ.norm ...) #'tvs #'τ_body)])
+  [⊢ e- ⇒ tyout])
 
 ;; - see fomega2.rkt for example with no explicit tyλ and tyapp
 (define-kinded-syntax (tyλ bvs:kind-ctx τ_body) ≫
@@ -91,7 +95,7 @@
   #:fail-unless ((current-kind?) #'k_body) ; better err, in terms of τ_body
                 (format "not a valid type: ~a\n" (type->str #'τ_body))
   --------
-  [⊢ (λ- (tv- ...) τ_body-) ⇒ (⇒ bvs.kind ... k/tagged)])
+  [⊢ (λ- (tv- ...) τ_body-) ⇒ #,(mk-⇒- #'(bvs.kind ... k/tagged))])
 
 (define-kinded-syntax (tyapp τ_fn τ_arg ...) ≫
   [⊢ τ_fn ≫ τ_fn- ⇒ (~⇒ k_in ... k_out)]

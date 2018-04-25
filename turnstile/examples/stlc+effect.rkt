@@ -60,7 +60,7 @@
       (⇒ ! (~locs ds ...))]
   --------
   [⊢ (λ- (x- ...) e-)
-     (⇒ : (→ bvs.type ... τ_res)
+     (⇒ : #,(mk-→- #'(bvs.type ... τ_res))
           (⇒ ν (ns ...))
           (⇒ := (as ...))
           (⇒ ! (ds ...)))])
@@ -76,7 +76,7 @@
        (⇒ ! (~locs ds ...))]
    --------
    [⊢ (#%app- box- e-)
-       (⇒ : (Ref τ))
+       (⇒ : #,(mk-Ref- #'(τ)))
        (⇒ ν (#,(syntax-position this-syntax) ns ...))
        (⇒ := (as ...))
        (⇒ ! (ds ...))]])
@@ -107,7 +107,7 @@
        (⇒ ! (~locs ds2 ...))]
    --------
    [⊢ (#%app- set-box!- e_ref- e-)
-       (⇒ : Unit)
+       (⇒ : #,Unit+)
        (⇒ ν (ns1 ... ns2 ...))
        (⇒ := (#,(syntax-position this-syntax) as1 ... as2 ...))
        (⇒ ! (ds1 ... ds2 ...))]])

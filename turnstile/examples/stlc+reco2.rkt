@@ -19,6 +19,10 @@
 (define-simple-macro (×/user [label:id (~datum :) τ:type] ...)
   #:with out (mk-type #'(×- ('label τ.norm) ...))
   out)
+(define-for-syntax mk-×/user
+  (syntax-parser
+    [([label:id (~datum :) τ] ...)
+     (mk-type (mk-×- #'((#%plain-app 'label τ) ...)))]))
 
 (begin-for-syntax
   (define-syntax ~×/user
@@ -30,7 +34,7 @@
 (define-typed-syntax (rec [l:id (~datum =) e] ...) ≫
   [⊢ e ≫ e- ⇒ τ] ...
   --------
-  [⊢ (list- (list- 'l e-) ...) ⇒ (×/user [l : τ] ...)])
+  [⊢ (list- (list- 'l e-) ...) ⇒ #,(mk-×/user #'([l : τ] ...))])
 
 (define-typed-syntax (proj e_rec l0:id) ≫
   [⊢ e_rec ≫ e_rec- ⇒ (~×/user [l : τ_l] ...)]

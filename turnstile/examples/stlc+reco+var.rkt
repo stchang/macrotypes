@@ -21,7 +21,12 @@
   (syntax-parser #:datum-literals (:)
     [(_ [label:id : τ:type] ...)
      #:with (valid-τ ...) (stx-map mk-type #'(('label τ.norm) ...))
-     #`(stlc+tup:× valid-τ ...)]))
+     (mk-×- #'(valid-τ ...))]))
+(define-for-syntax mk-×
+  (syntax-parser #:datum-literals (:)
+    [([label:id : τ] ...)
+     #:with (valid-τ ...) (stx-map mk-type #'((#%plain-app 'label τ) ...))
+     (mk-×- #'(valid-τ ...))]))
 (begin-for-syntax
   (define-syntax ~×
     (pattern-expander
@@ -59,7 +64,7 @@
 (define-typed-syntax (tup [l:id (~datum =) e] ...) ≫
   [⊢ e ≫ e- ⇒ τ] ...
   --------
-  [⊢ (list- (list- 'l e-) ...) ⇒ (× [l : τ] ...)])
+  [⊢ (list- (list- 'l e-) ...) ⇒ #,(mk-× #'([l : τ] ...))])
 (define-typed-syntax (proj e_rec l:id) ≫
   [⊢ e_rec ≫ e_rec- ⇒ τ_e]
   #:fail-unless (×? #'τ_e)
@@ -77,7 +82,7 @@
     [(∨ (~and [label:id : τ:type] x) ...)
      #:when (> (stx-length #'(x ...)) 0)
      #:with (valid-τ ...) (stx-map mk-type #'(('label τ.norm) ...))
-     #'(∨/internal valid-τ ...)]
+     (mk-∨/internal- #'(valid-τ ...))]
     [any
      (type-error #:src #'any
                  #:msg (string-append
@@ -137,4 +142,4 @@
   --------
   [⊢ (let- ([l_e (car- e-)])
            (cond- [(symbol=?- l_e 'l) (let- ([x- (cadr- e-)]) e_l-)] ...))
-     ⇒ (⊔ τ_el ...)])
+     ⇒ #,(apply (current-join) (stx->list #'(τ_el ...)))])

@@ -217,14 +217,14 @@
   [(drop e) ≫
    [⊢ e ≫ e- ⇒ _]
    --------
-   [⊢ (#%app- void- e-) ⇒ Unit]])
+   [⊢ (#%app- void- e-) ⇒ #,Unit+]])
 
 
 
 (define-typed-syntax #%app
   [(_) ≫
    --------
-   [⊢ (#%app- void-) ⇒ Unit]]
+   [⊢ (#%app- void-) ⇒ #,Unit+]]
 
   [(#%app fun arg ...) ≫
    [⊢ fun ≫ fun- ⇒ σ_fun]
@@ -254,7 +254,7 @@
    [[x ≫ x- : σ] ... ⊢ b ≫ b- ⇒ σ_out]
    #:do [(linear-out-of-scope! #'([x- : σ] ...))]
    --------
-   [⊢ (λ- (x- ...) b-) ⇒ (-o σ ... σ_out)]]
+   [⊢ (λ- (x- ...) b-) ⇒ #,(mk--o- #'(σ ... σ_out))]]
 
   ;; unrestricted lambda; annotations
   [(λ ! ([x:id : T:type] ...) b) ≫
@@ -263,7 +263,7 @@
      ([[x ≫ x- : σ] ... ⊢ b ≫ b- ⇒ σ_out]
       #:do [(linear-out-of-scope! #'([x- : σ] ...))])
    --------
-   [⊢ (λ- (x- ...) b-) ⇒ (→ σ ... σ_out)]]
+   [⊢ (λ- (x- ...) b-) ⇒ #,(mk-→- #'(σ ... σ_out))]]
 
   ;; linear lambda; inferred
   [(λ (x:id ...) b) ⇐ (~-o σ ... σ_out) ≫
@@ -325,7 +325,7 @@
      ([⊢ [e1 ≫ e1- ⇒ σ1] #:submode branch-then]
       [⊢ [e2 ≫ e2- ⇒ σ2] #:submode branch-else])
    --------
-   [⊢ (if- c- e1- e2-) ⇒ (⊔ σ1 σ2)]])
+   [⊢ (if- c- e1- e2-) ⇒ #,((current-join) #'σ1 #'σ2)]])
 
 
 

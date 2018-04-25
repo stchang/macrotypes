@@ -20,11 +20,13 @@
 (define-syntax *
   (make-variable-like-transformer
    (assign-type #'#%type #'#%type)))
+(define-for-syntax *+ (assign-type #'#%type #'#%type #:eval? #f #:wrap? #f))
+
 ;; TODO: how to do Type : Type
 (define-typed-syntax (Π ([X:id (~datum :) τ_in] ...) τ_out) ≫
   [[X ≫ X- : τ_in] ... ⊢ [τ_out ≫ τ_out- ⇒ _][τ_in ≫ τ_in- ⇒ _] ...]
   -------
-  [⊢ (∀- (X- ...) (→- τ_in- ... τ_out-)) ⇒ #,(expand/df #'*)])
+  [⊢ (∀- (X- ...) (→- τ_in- ... τ_out-)) ⇒ #,*+])
 ;; abbrevs for Π
 (define-simple-macro (→ τ_in ... τ_out)
   #:with (X ...) (generate-temporaries #'(τ_in ...))
@@ -46,8 +48,9 @@
 (define-typed-syntax λ
   [(_ ([x:id : τ_in] ...) e) ≫
    [[x ≫ x- : τ_in] ... ⊢ [e ≫ e- ⇒ τ_out][τ_in ≫ τ_in- ⇒ _] ...]
+   #:with tyout ((current-type-eval) #'(Π ([x- : τ_in-] ...) τ_out))
    -------
-   [⊢ (λ- (x- ...) e-) ⇒ (Π ([x- : τ_in-] ...) τ_out)]]
+   [⊢ (λ- (x- ...) e-) ⇒ tyout]]
   [(_ (y:id ...) e) ⇐ (~Π ([x:id : τ_in] ...) τ_out) ≫
    [[x ≫ x- : τ_in] ... ⊢ #,(substs #'(x ...) #'(y ...) #'e) ≫ e- ⇐ τ_out]
    ---------
@@ -72,10 +75,10 @@
    [⊢ (#%app- e_fn- e_arg- ...) ⇒
       #,(substs #'(e_arg- ...) #'(X ...) #'τ_out)]])
 
-(define-typed-syntax (ann e (~datum :) τ) ≫
+(define-typed-syntax (ann e (~datum :) τ:type) ≫
   [⊢ e ≫ e- ⇐ τ]
   --------
-  [⊢ e- ⇒ τ])
+  [⊢ e- ⇒ τ.norm])
 
 (define-syntax define-type-alias
   (syntax-parser

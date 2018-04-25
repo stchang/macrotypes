@@ -105,13 +105,14 @@
    #'(begin-
        (define-typed-variable-rename
          f ≫ f- : #,(add-orig #'(∀ (X ...) (ext-stlc:→ τ ... τ_out))
-                              #'(→ τ ... τ_out)))
+                              #'(→ τ ... τ_out))
+         #:eval? #t)
        (define- f- (Λ (X ...) (ext-stlc:λ ([x : τ] ...) e_ann))))]
   [(_ (f:id [x:id (~datum :) τ] ... (~datum →) τ_out) e)
    #:with f- (generate-temporary #'f)
    #:with e_ann #'(add-expected e τ_out)
    #'(begin-
-       (define-typed-variable-rename f ≫ f- : (→ τ ... τ_out))
+       (define-typed-variable-rename f ≫ f- : (→ τ ... τ_out) #:eval? #t)
        (define- f- (ext-stlc:λ ([x : τ] ...) e_ann)))])
 
 ; all λs have type (∀ (X ...) (→ τ_in ... τ_out))
