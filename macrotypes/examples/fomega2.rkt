@@ -91,6 +91,7 @@
   [(_ bvs:kind-ctx e)
    #:with ((tv- ...) e- τ_e) (infer/ctx+erase #'bvs #'e)
    (⊢ e- : (∀ ([tv- :: bvs.kind] ...) τ_e))])
+;   (⊢/no-teval e- : #,(assign-kind (mk-∀- #'(tv- ...) #'τ_e) (mk-∀★- #'(bvs.kind ...)) #:eval? #f))])
 
 (define-typed-syntax inst
   [(_ e τ:any-type ...)

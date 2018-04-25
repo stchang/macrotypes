@@ -310,7 +310,8 @@
    ;; - currently cannot do it here; to do the check here, need all types of
    ;;  top-lvl fns, since they can call each other
    #:with ty_fn_expected
-          (set-stx-prop/preserved 
+          (set-stx-prop/preserved
+           ;; want to expand here bc τ+orig comes from programmer
            ((current-type-eval) #'(∀ Ys (ext-stlc:→ τ+orig ...)))
            'orig
            (list #'(→ τ+orig ...)))
@@ -433,6 +434,7 @@
     [(_ (Name:id X:id ...)
         c:constructor ...)
      #:with Name? (mk-? #'Name)
+     #:with mk-Name- (mk-- (mk-mk #'Name))
      #:with NameExtraInfo (format-id #'Name "~a-extra-info" #'Name)
      #:with (StructName ...) (generate-temporaries #'(c.Cons ...))
      #:with ((exposed-acc ...) ...)
@@ -457,7 +459,7 @@
            (make-variable-like-transformer
              (assign-type #'Cons? #'(∀ (X ...) (ext-stlc:→ (Name X ...) Bool))))) ...
          (define-syntax c.Cons
-           (make-constructor-transformer #'(X ...) #'(c.τ ...) #'Name #'StructName Name?))
+           (make-constructor-transformer #'(X ...) #'(c.τ ...) #'Name #'StructName Name? mk-Name-))
          ...)]))
 
 ;; defines a single datatype; dispatches to define-types
@@ -477,7 +479,7 @@
       [(_ Y ...)
        (substs #'(Y ...) Xs stuff)]))
 
-  (define (make-constructor-transformer Xs τs Name-arg StructName-arg Name?)
+  (define (make-constructor-transformer Xs τs Name-arg StructName-arg Name? mk-Name-)
     (define/syntax-parse (X ...) Xs)
     (define/syntax-parse (τ ...) τs)
     (define/syntax-parse Name Name-arg)
@@ -503,14 +505,14 @@
                 (syntax-e #'Name) (type->str #'τ-expected+))
         #:with (~Any _ τ-expected-arg ...) #'τ-expected+
         #'(C {τ-expected-arg ...})]
-      [_:id (⊢ StructName (∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))] ; HO fn
+      [_:id (⊢ StructName (∀ #'(X ...) (ext-stlc:→ τ ... (Name X ...))))] ; HO fn
       [(C τs e_arg ...)
        #:when (brace? #'τs) ; commit to this clause
        #:with {~! τ_X:type ...} #'τs
        #:with (τ_in:type ...) ; instantiated types
-       (stx-map
-         (λ (t) (substs #'(τ_X.norm ...) #'(X ...) t))
-         #'(τ ...))
+              (stx-map
+               (λ (t) (substs #'(τ_X.norm ...) #'(X ...) t))
+               #'(τ ...))
        #:with ([e_arg- τ_arg] ...)
        (stx-map
          (λ (e τ_e)
@@ -518,7 +520,7 @@
          #'(e_arg ...) #'(τ_in.norm ...))
        #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in.norm ...))
        (typecheck-fail-msg/multi #'(τ_in.norm ...) #'(τ_arg ...) #'(e_arg ...))
-       (⊢ (StructName e_arg- ...) : (Name τ_X ...))]
+       (⊢/no-teval (StructName e_arg- ...) : #,(mk-Name- #'(τ_X.norm ...)))]
       [(C . args) ; no type annotations, must infer instantiation
        #:with StructName/ty 
        (set-stx-prop/preserved
@@ -840,7 +842,8 @@
      #:when (brace? #'Xs)
      #:with (X ...) #'Xs
      (syntax-property 
-       #'(∀ (X ...)  (ext-stlc:→ . rst))
+;       #'(∀ (X ...)  (ext-stlc:→ . rst))
+      (mk-∀- #'(X ...) (mk-→- #'rst))
        'orig (list #'(→ . rst)))]
     [(_ . rst) (set-stx-prop/preserved (mk-∀- #'() (mk-→- #'rst)) 'orig (list #'(→ . rst)))]))
 ; special arrow that computes free vars; for use with tests
@@ -951,7 +954,7 @@
         #:fail-unless (stx-length=? #'(e_arg ...) #'(τ_inX ...))
                       (mk-app-err-msg stx #:expected #'(τ_inX ...) 
                                       #:note "Wrong number of arguments.")
-        #:with e_fn/ty (⊢ e_fn- : (ext-stlc:→ . tyX_args))
+        #:with e_fn/ty (⊢/no-teval e_fn- : #,(mk-→- #'tyX_args))
         #'(ext-stlc:#%app e_fn/ty (add-expected e_arg τ_inX) ...)])]
     [else
      (syntax-parse #'ty_fnX
@@ -1549,13 +1552,13 @@
     #:with (~TCs ([op _] ...) ...) #'(TC ...) ; order matters, must match order of arg types
     #:with ((sub-op ...) ...) (stx-map transfer-gen-op-ctxs #'((op ...) ...))
     ;; 3) recursively call lookup-op for each subop and input ty-args
-    (⊢ (conc-op 
+    (⊢/no-teval (conc-op 
          #,@(apply stx-appendmap
                    (lambda (ops . tys) (stx-map (lambda (o) (lookup-op o tys)) ops))
                    #'((sub-op ...) ...)
                    (syntax->list #'((ty-arg ...) ...))))
        ; 4) drop the TCs in result type, the proper subops are already applied
-       : (∀ Xs (ext-stlc:→ . ty-args)))]
+       : #,(mk-∀- #'Xs (mk-→- #'ty-args)))]
    ;; base type --------------------------------------------------
    [(((~literal #%plain-app) tag) ...) (expand/stop (mangle gen-op #'(tag ...)))]
    ;; tyvars --------------------------------------------------
@@ -1695,7 +1698,8 @@
      ;; TODO: fix this manual deconstruction and assembly
      #:with ((app fa (lam _ ei (app2 lst ty_fn))) ...) #'(ty-concrete-op-expected ...)
      #:with (ty-concrete-op-expected-withTC ...) 
-            (stx-map (current-type-eval) #'((app fa (lam Xs+ ei (app2 lst (=> TC+ ... ty_fn)))) ...))
+     ;        (stx-map (current-type-eval) #'((app fa (lam Xs+ ei (app2 lst (=> TC+ ... ty_fn)))) ...))
+             (stx-map (lambda (t) (mk-∀- #'Xs+ (mk-=>- #`(TC+ ... #,t)))) #'(ty_fn ...))
      #:fail-unless (set=? (syntax->datum #'(generic-op ...)) 
                           (syntax->datum #'(generic-op-expected ...)))
                    (type-error #:src stx
