@@ -285,7 +285,7 @@
    #:when (brace? #'Ys)
    ;; TODO; remove this code duplication
    #:with f- (add-orig (generate-temporary #'f) #'f)
-   #:with e_ann (syntax/loc #'e (add-expected e τ_out))
+   #:with e_ann (syntax/loc #'e (add-expected e τ_out #:eval))
    #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
    ;; TODO: check that specified return type is correct
    ;; - currently cannot do it here; to do the check here, need all types of
@@ -304,7 +304,7 @@
       e_body ... e)
    #:with (~and Ys (Y ...)) (compute-tyvars #'(τ ... τ_out))
    #:with f- (add-orig (generate-temporary #'f) #'f)
-   #:with e_ann (syntax/loc #'e (add-expected e τ_out)) ; must be macro bc t_out may have unbound tvs
+   #:with e_ann (syntax/loc #'e (add-expected e τ_out #:eval)) ; must be macro bc t_out may have unbound tvs
    #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
    ;; TODO: check that specified return type is correct
    ;; - currently cannot do it here; to do the check here, need all types of
@@ -325,7 +325,7 @@
       e_body ... e)
    #:with (~and Ys (Y ...)) (compute-tyvars #'(τ ... τ_out))
    #:with f- (add-orig (generate-temporary #'f) #'f)
-   #:with e_ann (syntax/loc #'e (add-expected e τ_out)) ; must be macro bc t_out may have unbound tvs
+   #:with e_ann (syntax/loc #'e (add-expected e τ_out #:eval)) ; must be macro bc t_out may have unbound tvs
    #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
    ;; TODO: check that specified return type is correct
    ;; - currently cannot do it here; to do the check here, need all types of

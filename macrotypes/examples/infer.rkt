@@ -101,7 +101,7 @@
   [(_ (~and Xs {X:id ...}) (f:id [x:id (~datum :) τ] ... (~datum →) τ_out) e)
    #:when (brace? #'Xs)
    #:with f- (generate-temporary #'f)
-   #:with e_ann #'(add-expected e τ_out)
+   #:with e_ann #'(add-expected e τ_out #:eval)
    #'(begin-
        (define-typed-variable-rename
          f ≫ f- : #,(add-orig #'(∀ (X ...) (ext-stlc:→ τ ... τ_out))
@@ -110,7 +110,7 @@
        (define- f- (Λ (X ...) (ext-stlc:λ ([x : τ] ...) e_ann))))]
   [(_ (f:id [x:id (~datum :) τ] ... (~datum →) τ_out) e)
    #:with f- (generate-temporary #'f)
-   #:with e_ann #'(add-expected e τ_out)
+   #:with e_ann #'(add-expected e τ_out #:eval)
    #'(begin-
        (define-typed-variable-rename f ≫ f- : (→ τ ... τ_out) #:eval? #t)
        (define- f- (ext-stlc:λ ([x : τ] ...) e_ann)))])

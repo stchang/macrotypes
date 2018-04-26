@@ -8,11 +8,14 @@
 (provide * Π → ∀ λ #%app ann define define-type-alias)
 
 #;(begin-for-syntax
+  (require debug-scopes)
   (define old-ty= (current-type=?))
   (current-type=?
    (λ (t1 t2 env1 env2)
-     (displayln (stx->datum t1))
-     (displayln (stx->datum t2))
+     ;; (displayln (stx->datum t1))
+     ;; (displayln (stx->datum t2))
+     (displayln (+scopes t1))
+     (displayln (+scopes t2))
      (old-ty= t1 t2 env1 env2))))
 
 (define-internal-type-constructor →)
@@ -20,7 +23,7 @@
 (define-syntax *
   (make-variable-like-transformer
    (assign-type #'#%type #'#%type)))
-(define-for-syntax *+ (assign-type #'#%type #'#%type #:eval? #f #:wrap? #f))
+(define-for-syntax *+ (assign-type ((current-type-eval) #'#%type) #'#%type #:eval? #t #:wrap? #f))
 
 ;; TODO: how to do Type : Type
 (define-typed-syntax (Π ([X:id (~datum :) τ_in] ...) τ_out) ≫
@@ -52,7 +55,10 @@
    -------
    [⊢ (λ- (x- ...) e-) ⇒ tyout]]
   [(_ (y:id ...) e) ⇐ (~Π ([x:id : τ_in] ...) τ_out) ≫
-   [[x ≫ x- : τ_in] ... ⊢ #,(substs #'(x ...) #'(y ...) #'e) ≫ e- ⇐ τ_out]
+   ;; 2018-04-26: after changing add-expected-ty (ie ⇐) to not teval by default,
+   ;; must expand τ_out again, to match τ_in, which gets re-expanded by var-assign
+   ;; var-assign must always expand bc "τ_in" may reference surface X (see exist.rkt)
+   [[x ≫ x- : τ_in] ... ⊢ #,(substs #'(x ...) #'(y ...) #'e) ≫ e- ⇐ τ_out #:eval]
    ---------
    [⊢ (λ- (x- ...) e-)]])
 
@@ -76,7 +82,7 @@
       #,(substs #'(e_arg- ...) #'(X ...) #'τ_out)]])
 
 (define-typed-syntax (ann e (~datum :) τ:type) ≫
-  [⊢ e ≫ e- ⇐ τ]
+  [⊢ e ≫ e- ⇐ τ.norm]
   --------
   [⊢ e- ⇒ τ.norm])
 

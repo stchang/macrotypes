@@ -138,6 +138,10 @@
        #'body]
       [(?∀ (X ...) body)
        #'(∀ (X ...) body)])))
+(define-for-syntax (mk-?∀ Xs body)
+  (if (stx-null? #'Xs)
+      body
+      (mk-∀- Xs body)))
 
 ;; ?Λ only wraps an expression in a Λ if there's at least one type variable
 (define-syntax ?Λ
@@ -183,7 +187,8 @@
        ;; generate initial constraints with expected type and τ_outX
        #:with (~?∀ Vs expected-ty)
               (and (get-expected-type stx)
-                   ((current-type-eval) (get-expected-type stx)))
+;                   ((current-type-eval) (get-expected-type stx)))
+                   (get-expected-type stx))
        (define initial-cs
          (if (and (syntax-e #'expected-ty) (stx-null? #'Vs))
              (add-constraints Xs '() (list (list #'expected-ty #'τ_outX)))
@@ -419,7 +424,7 @@
    #:when (brace? #'Ys)
    ;; TODO; remove this code duplication
    #:with f- (add-orig (generate-temporary #'f) #'f)
-   #:with e_ann #'(add-expected e τ_out)
+   #:with e_ann #'(add-expected e τ_out #:eval)
    #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
    #:with (~and ty_fn_expected (~?∀ _ (~ext-stlc:→ _ ... out_expected)))
           (set-stx-prop/preserved
@@ -909,7 +914,7 @@
    ;;                            #`(lambda (s) (unsafe-struct*-ref s #,(datum->syntax #'here i)))))
    ;;                         #'((acc-fn ...) ...))
    #:with (e_c ...+) (stx-map (lambda (ec) (add-expected-ty ec #'t_expect)) #'(e_c_un ...))
-   [[x ≫ x- : τ] ... ⊢ [e_guard ≫ e_guard- ⇐ Bool] [e_c ≫ e_c- ⇒ τ_ec]] ...
+   [[x ≫ x- : τ] ... ⊢ [e_guard ≫ e_guard- ⇐ #,Bool+] [e_c ≫ e_c- ⇒ τ_ec]] ...
    #:with z (generate-temporary) ; dont duplicate eval of test expr
    --------
    [⊢ (let- ([z e-])
@@ -936,7 +941,10 @@
    #:fail-unless (stx-length=? #'[x ...] #'[τ_in ...])
    (format "expected a function of ~a arguments, got one with ~a arguments"
            (stx-length #'[τ_in ...]) (stx-length #'[x ...]))
-   [(X ...) ([x ≫ x- : τ_in] ...) ⊢ [body ≫ body- ⇐ τ_out]]
+   ;; 2018-04-26: after changing add-expected-ty (ie ⇐) to not teval by default,
+   ;; must expand τ_out again, to match τ_in, which gets re-expanded by var-assign (see dep.rkt)
+   ;; var-assign must always expand bc "τ_in" may reference surface X (see exist.rkt)
+   [(X ...) ([x ≫ x- : τ_in] ...) ⊢ [body ≫ body- ⇐ τ_out #:eval]]
    --------
    [⊢ (λ- (x- ...) body-)]]
   [(λ ([x : τ_x] ...) body) ⇐ (~?∀ (V ...) (~ext-stlc:→ τ_in ... τ_out)) ≫
@@ -1004,14 +1012,14 @@
   [(_ [(~or (~and (~datum else) (~parse test #'(ext-stlc:#%datum . #t)))
                test)
           b ... body] ...+) ⇐ τ_expected ≫
-   [⊢ test ≫ test- ⇐ Bool] ...
+   [⊢ test ≫ test- ⇐ #,Bool+] ...
    [⊢ (begin b ... body) ≫ body- ⇐ τ_expected] ...
    --------
    [⊢ (cond- [test- body-] ...)]]
   [(_ [(~or (~and (~datum else) (~parse test #'(ext-stlc:#%datum . #t)))
                test)
           b ... body] ...+) ≫
-   [⊢ test ≫ test- ⇐ Bool] ...
+   [⊢ test ≫ test- ⇐ #,Bool+] ...
    [⊢ (begin b ... body) ≫ body- ⇒ τ_body] ...
    --------
    [⊢ (cond- [test- body-] ...) ⇒ #,(apply (current-join) (stx->list #'(τ_body ...)))]])
@@ -1042,14 +1050,15 @@
    --------
    [≻ (number->string n (ext-stlc:#%datum . 10))]]
   [(number->string n rad) ≫
-   [⊢ [n ≫ n- ⇐ : Int]]
-   [⊢ [rad ≫ rad- ⇐ : Int]]
+   [⊢ [n ≫ n- ⇐ : #,Int+]]
+   [⊢ [rad ≫ rad- ⇐ : #,Int+]]
    --------
    [⊢ (number->string- n- rad-) ⇒ : #,String+]])
 
 (define-typed-syntax string-append
   [(string-append str ...) ≫
-   [⊢ [str ≫ str- ⇐ : String] ...]
+   #:with (Str+ ...) (stx-map (lambda _ String+) #'(str ...))
+   [⊢ [str ≫ str- ⇐ : Str+] ...]
    --------
    [⊢ (string-append- str- ...) ⇒ : #,String+]])
 
@@ -1076,7 +1085,7 @@
    --------
    [≻ (make-vector n (ext-stlc:#%datum . 0))]]
   [(make-vector n e) ≫
-   [⊢ [n ≫ n- ⇐ : Int]]
+   [⊢ [n ≫ n- ⇐ : #,Int+]]
    [⊢ [e ≫ e- ⇒ : ty]]
    --------
    [⊢ (make-vector- n- e-) ⇒ : #,(mk-Vector- #'(ty))]])
@@ -1093,9 +1102,9 @@
    --------
    [≻ (in-range start end (ext-stlc:#%datum . 1))]]
   [(in-range start end step) ≫
-   [⊢ [start ≫ start- ⇐ : Int]]
-   [⊢ [end ≫ end- ⇐ : Int]]
-   [⊢ [step ≫ step- ⇐ : Int]]
+   [⊢ [start ≫ start- ⇐ : #,Int+]]
+   [⊢ [end ≫ end- ⇐ : #,Int+]]
+   [⊢ [step ≫ step- ⇐ : #,Int+]]
    --------
    [⊢ (in-range- start- end- step-) ⇒ : #,(mk-Sequence- (list Int+))]])
 
@@ -1104,13 +1113,13 @@
   --------
   [≻ (in-naturals (ext-stlc:#%datum . 0))]]
  [(in-naturals start) ≫
-  [⊢ [start ≫ start- ⇐ : Int]]
+  [⊢ [start ≫ start- ⇐ : #,Int+]]
   --------
   [⊢ (in-naturals- start-) ⇒ : #,(mk-Sequence- (list Int+))]])
 
 (define-typed-syntax in-lines
   [(in-lines e) ≫
-   [⊢ [e ≫ e- ⇐ : String]]
+   [⊢ [e ≫ e- ⇐ : #,String+]]
    --------
    [⊢ (in-lines- (open-input-string- e-)) ⇒ : #,(mk-Sequence- (list String+))]])
 
@@ -1185,20 +1194,20 @@
      body) ≫
    [⊢ [e ≫ e- ⇒ : (~Sequence ty)] ...]
    [() ([x ≫ x- : ty] ...)
-    ⊢ [guard ≫ guard- ⇒ : _] [body ≫ body- ⇐ : Int]]
+    ⊢ [guard ≫ guard- ⇒ : _] [body ≫ body- ⇐ : #,Int+]]
    --------
    [⊢ (for/sum- ([x- e-] ... #:when guard-) body-) ⇒ : #,Int+]])
 
 ; printing and displaying
 (define-typed-syntax printf
   [(printf str e ...) ≫
-   [⊢ [str ≫ s- ⇐ : String]]
+   [⊢ [str ≫ s- ⇐ : #,String+]]
    [⊢ [e ≫ e- ⇒ : ty] ...]
    --------
    [⊢ (printf- s- e- ...) ⇒ : #,Unit+]])
 (define-typed-syntax format
   [(format str e ...) ≫
-   [⊢ [str ≫ s- ⇐ : String]]
+   [⊢ [str ≫ s- ⇐ : #,String+]]
    [⊢ [e ≫ e- ⇒ : ty] ...]
    --------
    [⊢ (format- s- e- ...) ⇒ : #,String+]])
@@ -1259,7 +1268,7 @@
   [(hash-ref h k fail) ≫
    [⊢ [h ≫ h- ⇒ : (~Hash ty_k ty_v)]]
    [⊢ [k ≫ k- ⇐ : ty_k]]
-   [⊢ [fail ≫ fail- ⇐ : (→ ty_v)]]
+   [⊢ [fail ≫ fail- ⇐ : #,(mk-→- #'(ty_v))]]
    --------
    [⊢ (hash-ref- h- k- fail-) ⇒ : ty_val]])
 
@@ -1273,10 +1282,10 @@
   --------
   [≻ (write-string str out (ext-stlc:#%datum . 0) (mlish:#%app string-length str))]]
  [(write-string str out start end) ≫
-  [⊢ [str ≫ str- ⇐ : String]]
-  [⊢ [out ≫ out- ⇐ : String-Port]]
-  [⊢ [start ≫ start- ⇐ : Int]]
-  [⊢ [end ≫ end- ⇐ : Int]]
+  [⊢ [str ≫ str- ⇐ : #,String+]]
+  [⊢ [out ≫ out- ⇐ : #,String-Port+]]
+  [⊢ [start ≫ start- ⇐ : #,Int+]]
+  [⊢ [end ≫ end- ⇐ : #,Int+]]
   --------
   [⊢ (begin- (write-string- str- out- start- end-) (void-)) ⇒ : #,Unit+]])
 
@@ -1286,18 +1295,18 @@
    [≻ (string-copy!
          dest dest-start src (ext-stlc:#%datum . 0) (mlish:#%app string-length src))]]
   [(string-copy! dest dest-start src src-start src-end) ≫
-   [⊢ [dest ≫ dest- ⇐ : String]]
-   [⊢ [src ≫ src- ⇐ : String]]
-   [⊢ [dest-start ≫ dest-start- ⇐ : Int]]
-   [⊢ [src-start ≫ src-start- ⇐ : Int]]
-   [⊢ [src-end ≫ src-end- ⇐ : Int]]
+   [⊢ [dest ≫ dest- ⇐ : #,String+]]
+   [⊢ [src ≫ src- ⇐ : #,String+]]
+   [⊢ [dest-start ≫ dest-start- ⇐ : #,Int+]]
+   [⊢ [src-start ≫ src-start- ⇐ : #,Int+]]
+   [⊢ [src-end ≫ src-end- ⇐ : #,Int+]]
    --------
    [⊢ (string-copy!- dest- dest-start- src- src-start- src-end-) ⇒ : #,Unit+]])
 
 (define-typed-syntax quotient+remainder
   [(quotient+remainder x y) ≫
-   [⊢ [x ≫ x- ⇐ : Int]]
-   [⊢ [y ≫ y- ⇐ : Int]]
+   [⊢ [x ≫ x- ⇐ : #,Int+]]
+   [⊢ [y ≫ y- ⇐ : #,Int+]]
    --------
    [⊢ (let-values- ([[a b] (quotient/remainder- x- y-)])
              (list- a b))

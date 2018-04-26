@@ -23,22 +23,22 @@
     [pattern (~and (~seq #:when bool:expr)
                    (~typecheck
                     #:with [[x τ_x] ...] env
-                    [[x ≫ x- : τ_x] ... ⊢ bool ≫ bool- ⇐ Bool]))
+                    [[x ≫ x- : τ_x] ... ⊢ bool ≫ bool- ⇐ #,Bool+]))
       #:with [clause- ...] #`[#:when (let- ([x- x] ...) bool-)]]
     [pattern (~and (~seq #:unless bool:expr)
                    (~typecheck
                     #:with [[x τ_x] ...] env
-                    [[x ≫ x- : τ_x] ... ⊢ bool ≫ bool- ⇐ Bool]))
+                    [[x ≫ x- : τ_x] ... ⊢ bool ≫ bool- ⇐ #,Bool+]))
       #:with [clause- ...] #`[#:unless (let- ([x- x] ...) bool-)]]
     [pattern (~and (~seq #:break bool:expr)
                    (~typecheck
                     #:with [[x τ_x] ...] env
-                    [[x ≫ x- : τ_x] ... ⊢ bool ≫ bool- ⇐ Bool]))
+                    [[x ≫ x- : τ_x] ... ⊢ bool ≫ bool- ⇐ #,Bool+]))
       #:with [clause- ...] #`[#:break (let- ([x- x] ...) bool-)]]
     [pattern (~and (~seq #:final bool:expr)
                    (~typecheck
                     #:with [[x τ_x] ...] env
-                    [[x ≫ x- : τ_x] ... ⊢ bool ≫ bool- ⇐ Bool]))
+                    [[x ≫ x- : τ_x] ... ⊢ bool ≫ bool- ⇐ #,Bool+]))
       #:with [clause- ...] #`[#:final (let- ([x- x] ...) bool-)]])
 
   (define-splicing-syntax-class (for-clause env)
@@ -89,14 +89,14 @@
 
 (define-typed-syntax in-range
   [(_ n:expr) ≫
-   [⊢ n ≫ n- ⇐ Int]
+   [⊢ n ≫ n- ⇐ #,Int+]
    --------
    [⊢ (in-range- n-) ⇒ #,(mk-Sequenceof- (list Int+))]])
 
 (define-typed-syntax in-naturals
   [(_) ≫ --- [⊢ (in-naturals-) ⇒ #,(mk-Sequenceof- (list Int+))]]
   [(_ n:expr) ≫
-   [⊢ n ≫ n- ⇐ Int]
+   [⊢ n ≫ n- ⇐ #,Int+]
    --------
    [⊢ (in-naturals- n-) ⇒ #,(mk-Sequenceof- (list Int+))]])
 
@@ -140,11 +140,11 @@
 ;; Basic Bool Forms
 
 (define-typed-syntax not
-  [(_ b:expr) ≫ [⊢ b ≫ b- ⇐ Bool] --- [⊢ (not- b-) ⇒ #,Bool+]])
+  [(_ b:expr) ≫ [⊢ b ≫ b- ⇐ #,Bool+] --- [⊢ (not- b-) ⇒ #,Bool+]])
 
 (define-typed-syntax and
   [(_ b:expr ...) ≫
-   [⊢ [b ≫ b- ⇐ Bool] ...]
+   [⊢ [b ≫ b- ⇐ #,Bool+] ...]
    --------
    [⊢ (and- b- ...) ⇒ #,Bool+]])
 
@@ -153,10 +153,10 @@
 ;; Basic Int Forms
 
 (define-typed-syntax even?
-  [(_ i:expr) ≫ [⊢ i ≫ i- ⇐ Int] --- [⊢ (even?- i-) ⇒ #,Bool+]])
+  [(_ i:expr) ≫ [⊢ i ≫ i- ⇐ #,Int+] --- [⊢ (even?- i-) ⇒ #,Bool+]])
 
 (define-typed-syntax odd?
-  [(_ i:expr) ≫ [⊢ i ≫ i- ⇐ Int] --- [⊢ (odd?- i-) ⇒ #,Bool+]])
+  [(_ i:expr) ≫ [⊢ i ≫ i- ⇐ #,Int+] --- [⊢ (odd?- i-) ⇒ #,Bool+]])
 
 ;; ------------------------------------------------------------------------
 
@@ -164,8 +164,8 @@
 
 (define-typed-syntax string=?
   [(_ a:expr b:expr) ≫
-   [⊢ a ≫ a- ⇐ String]
-   [⊢ b ≫ b- ⇐ String]
+   [⊢ a ≫ a- ⇐ #,String+]
+   [⊢ b ≫ b- ⇐ #,String+]
    --------
    [⊢ (string=?- a- b-) ⇒ #,Bool+]])
 

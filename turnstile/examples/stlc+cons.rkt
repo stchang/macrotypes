@@ -26,7 +26,7 @@
    [⊢ null-]])
 (define-typed-syntax (cons e1 e2) ≫
   [⊢ e1 ≫ e1- ⇒ τ1]
-  [⊢ e2 ≫ e2- ⇐ (List τ1)]
+  [⊢ e2 ≫ e2- ⇐ #,(mk-List- #'(τ1))]
   --------
   [⊢ (cons- e1- e2-) ⇒ #,(mk-List- #'(τ1))])
 (define-typed-syntax (isnil e) ≫

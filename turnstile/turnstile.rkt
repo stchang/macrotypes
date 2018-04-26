@@ -134,10 +134,16 @@
                         #'((current-ev) tag-expr-body)
                         #'tag-expr-body)])
   (define-syntax-class ⇐-prop
-    #:datum-literals (⇐) #:attributes (tag tag-stx e-pat)
+    #:datum-literals (⇐) #:attributes (tag tag-stx e-pat eval?)
     [pattern (~or (⇐ tag-stx ; implicit tag
-                     (~parse tag (syntax-parameter-value #'current-tag-stx)))
-                  (⇐ tag:id tag-stx)) ; explicit tag
+                     (~parse tag (syntax-parameter-value #'current-tag-stx))
+                     (~parse eval? #'#f))
+                  (⇐ tag-stx ; implicit tag, with eval
+                     #:eval
+                     (~parse tag (syntax-parameter-value #'current-tag-stx))
+                     (~parse eval? #'#t))
+                  (⇐ tag:id tag-stx (~parse eval? #'#f)) ; explicit tag
+                  (⇐ tag:id tag-stx #:eval (~parse eval? #'#t)))
              ;; must generate temporaries bc this class may get matched multiple times
              ;; and the results may be combined into one pattern
              #:with e-tmp (generate-temporary)
@@ -191,9 +197,12 @@
     [pattern [e-stx* ≫ e-pat* (~alt lprop:⇐-prop rprop:⇒-prop) ...]
              #:with e-stx (for/fold ([e-stx/acc #'e-stx*])
                                     ([tag (in-stx-list #'(lprop.tag ...))]
-                                     [tag-stx (in-stx-list #'(lprop.tag-stx ...))])
+                                     [tag-stx (in-stx-list #'(lprop.tag-stx ...))]
+                                     [eval? (in-stx-list #'(lprop.eval? ...))])
                             (if (equal? (syntax->datum tag) (syntax-parameter-value #'current-tag-stx))
-                                #`(add-expected #,e-stx/acc #,tag-stx)
+                                (if (stx-e eval?)
+                                    #`(add-expected #,e-stx/acc #,tag-stx #:eval)
+                                    #`(add-expected #,e-stx/acc #,tag-stx))
                                 #`(attach/m #,e-stx/acc #,tag #,tag-stx)))
              #:with e-stx-orig #'e-stx*
              #:with e-pat #'(~and lprop.e-pat ... rprop.e-pat ... e-pat*)])

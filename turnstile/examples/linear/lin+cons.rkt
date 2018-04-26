@@ -17,15 +17,15 @@
   ; implicit memory location created
   [(_ e e_rest) ≫
    [⊢ e ≫ e- ⇒ σ]
-   [⊢ e_rest ≫ e_rest- ⇐ (MList σ)]
+   [⊢ e_rest ≫ e_rest- ⇐ #,(mk-MList- #'(σ))]
    --------
    [⊢ (#%app- mcons- e- e_rest-) ⇒ #,(mk-MList- #'(σ))]]
 
   ; with memory location given
   [(_ e e_rest @ e_loc) ≫
    [⊢ e ≫ e- ⇒ σ]
-   [⊢ e_rest ≫ e_rest- ⇐ (MList σ)]
-   [⊢ e_loc ≫ e_loc- ⇐ MList0]
+   [⊢ e_rest ≫ e_rest- ⇐ #,(mk-MList- #'(σ))]
+   [⊢ e_loc ≫ e_loc- ⇐ #,MList0+]
    #:with tmp (generate-temporary #'e_loc)
    --------
    [⊢ (let- ([tmp e_loc-])

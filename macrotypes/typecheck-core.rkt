@@ -203,16 +203,20 @@
 
 (define-syntax add-expected
   (syntax-parser
-    [(_ e τ) (add-orig (add-expected-ty #'e #'τ) (get-orig #'e))]))
+    [(_ e τ) (add-orig (add-expected-ty #'e #'τ) (get-orig #'e))]
+    [(_ e τ #:eval) (add-orig (add-expected-ty #'e #'τ #:eval? #t) (get-orig #'e))]))
 (define-syntax attach/m
   (syntax-parser
     [(_ e tag τ) (attach #'e (stx->datum #'tag) #'τ)]))
 (define-syntax pass-expected
   (syntax-parser
     [(_ e stx) (add-expected-ty #'e (get-expected-type #'stx))]))
-(define-for-syntax (add-expected-ty e ty)
+(define-for-syntax (add-expected-ty e ty #:eval? [eval? #f])
   (if (and (syntax? ty) (syntax-e ty))
-      (set-stx-prop/preserved e 'expected-type (intro-if-stx ((current-type-eval) ty)))
+      (set-stx-prop/preserved
+       e 'expected-type
+       (intro-if-stx
+        (if eval? ((current-type-eval) ty) ty)))
       e))
 
 (begin-for-syntax
@@ -929,7 +933,7 @@
   ;; --------------------------------------------------------------------------
   ;; functions for manipulating "expected type"
   ;; "expected type" implements the "check" (left) arrow in bidirectional systems
-   (define (add-expected-type e τ)
+  #;(define (add-expected-type e τ)
     (if (and (syntax? τ) (syntax-e τ))
         (set-stx-prop/preserved e 'expected-type (intro-if-stx τ)) ; dont type-eval?, ie expand?
         e))

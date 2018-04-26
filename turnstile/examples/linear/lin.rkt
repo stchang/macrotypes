@@ -202,12 +202,12 @@
 
 (define-typed-syntax begin
   [(begin e ... e0) ≫
-   [⊢ [e ≫ e- ⇐ Unit] ... [e0 ≫ e0- ⇒ σ]]
+   [⊢ [e ≫ e- ⇐ #,Unit+] ... [e0 ≫ e0- ⇒ σ]]
    --------
    [⊢ (begin- e- ... e0-) ⇒ σ]]
 
   [(begin e ... e0) ⇐ σ ≫
-   [⊢ [e ≫ e- ⇐ Unit] ... [e0 ≫ e0- ⇐ σ]]
+   [⊢ [e ≫ e- ⇐ #,Unit+] ... [e0 ≫ e0- ⇐ σ]]
    --------
    [⊢ (begin- e- ... e0-)]])
 
@@ -312,7 +312,7 @@
 
 (define-typed-syntax if
   [(_ c e1 e2) ⇐ σ ≫
-   [⊢ c ≫ c- ⇐ Bool]
+   [⊢ c ≫ c- ⇐ #,Bool+]
    #:mode (make-linear-branch-mode 2)
      ([⊢ [e1 ≫ e1- ⇐ σ] #:submode branch-then]
       [⊢ [e2 ≫ e2- ⇐ σ] #:submode branch-else])
@@ -320,7 +320,7 @@
    [⊢ (if- c- e1- e2-)]]
 
   [(_ c e1 e2) ≫
-   [⊢ c ≫ c- ⇐ Bool]
+   [⊢ c ≫ c- ⇐ #,Bool+]
    #:mode (make-linear-branch-mode 2)
      ([⊢ [e1 ≫ e1- ⇒ σ1] #:submode branch-then]
       [⊢ [e2 ≫ e2- ⇒ σ2] #:submode branch-else])

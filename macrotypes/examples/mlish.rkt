@@ -419,7 +419,7 @@
    #:when (brace? #'Ys)
    ;; TODO; remove this code duplication
    #:with f- (add-orig (generate-temporary #'f) #'f)
-   #:with e_ann #'(add-expected e τ_out)
+   #:with e_ann #'(add-expected e τ_out #:eval)
    #:with (τ+orig ...) (stx-map (λ (t) (add-orig t t)) #'(τ ... τ_out))
    #:with (~and ty_fn_expected (~?∀ _ (~ext-stlc:→ _ ... out_expected)))
           (set-stx-prop/preserved

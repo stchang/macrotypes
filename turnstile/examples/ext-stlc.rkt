@@ -101,12 +101,12 @@
    [≻ (stlc+lit:#%datum . x)]])
 
 (define-typed-syntax (and e ...) ≫
-  [⊢ e ≫ e- ⇐ Bool] ...
+  [⊢ e ≫ e- ⇐ #,Bool+] ...
   --------
   [⊢ (and- e- ...) ⇒ #,Bool+])
 
 (define-typed-syntax (or e ...) ≫
-  [⊢ e ≫ e- ⇐ Bool] ...
+  [⊢ e ≫ e- ⇐ #,Bool+] ...
   --------
   [⊢ (or- e- ...) ⇒ #,Bool+])
 
