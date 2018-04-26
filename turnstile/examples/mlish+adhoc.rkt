@@ -209,7 +209,8 @@
        #:with expected-ty (get-expected-type stx)
        (define initial-cs
          (if (syntax-e #'expected-ty)
-             (compute-constraint (list #'τ_outX ((current-type-eval) #'expected-ty)))
+;             (compute-constraint (list #'τ_outX ((current-type-eval) #'expected-ty)))
+             (compute-constraint (list #'τ_outX #'expected-ty))
              #'()))
        (syntax-parse stx
          [(_ e_fn . args)
@@ -437,6 +438,7 @@
     [(_ (Name:id X:id ...)
         c:constructor ...)
      #:with Name? (mk-? #'Name)
+     #:with mk-Name- (mk-- (mk-mk #'Name))
      #:with NameExtraInfo (format-id #'Name "~a-extra-info" #'Name)
      #:with (StructName ...) (generate-temporaries #'(c.Cons ...))
      #:with ((exposed-acc ...) ...)
@@ -461,7 +463,7 @@
            (make-variable-like-transformer
              (assign-type #'Cons? #'(∀ (X ...) (ext-stlc:→ (Name X ...) Bool))))) ...
          (define-syntax c.Cons
-           (make-constructor-transformer #'(X ...) #'(c.τ ...) #'Name #'StructName Name?))
+           (make-constructor-transformer #'(X ...) #'(c.τ ...) #'Name #'StructName Name? mk-Name-))
          ...)]))
 
 ;; defines a single datatype; dispatches to define-types
@@ -481,7 +483,7 @@
       [(_ Y ...)
        (substs #'(Y ...) Xs stuff)]))
 
-  (define (make-constructor-transformer Xs τs Name-arg StructName-arg Name?)
+  (define (make-constructor-transformer Xs τs Name-arg StructName-arg Name? mk-Name-)
     (define/syntax-parse (X ...) Xs)
     (define/syntax-parse (τ ...) τs)
     (define/syntax-parse Name Name-arg)
@@ -517,7 +519,8 @@
          ;; e_arg* helps align ellipses
          [⊢ e_arg* ≫ e_arg*- ⇐ τ_in.norm] ...
          #:with [e_arg- ...] #'[e_arg*- ...]
-         #:with tyout ((current-type-eval) #'(Name τ_X.norm ...))
+;         #:with tyout ((current-type-eval) #'(Name τ_X.norm ...))
+         #:with tyout (mk-Name- #'(τ_X.norm ...))
          --------
          [⊢ (StructName e_arg- ...) ⇒ tyout]]
         [(C . args) ≫ ; no type annotations, must infer instantiation
@@ -1758,7 +1761,8 @@
    ;; TODO: fix this manual deconstruction and assembly
    #:with ((app fa (lam _ ei (app2 lst ty_fn))) ...) #'(ty-concrete-op-expected ...)
    #:with (ty-concrete-op-expected-withTC ...) 
-          (stx-map (current-type-eval) #'((app fa (lam Xs+ ei (app2 lst (=> TC+ ... ty_fn)))) ...))
+;          (stx-map (current-type-eval) #'((app fa (lam Xs+ ei (app2 lst (=> TC+ ... ty_fn)))) ...))
+          (stx-map (lambda (t) (mk-∀- #'Xs+ (mk-=>- #`(TC+ ... #,t)))) #'(ty_fn ...))
    #:fail-unless (set=? (syntax->datum #'(generic-op ...)) 
                         (syntax->datum #'(generic-op-expected ...)))
                  (type-error #:src this-syntax

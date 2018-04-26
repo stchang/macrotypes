@@ -210,7 +210,8 @@
        #:with expected-ty (get-expected-type stx)
        (define initial-cs
          (if (syntax-e #'expected-ty)
-             (compute-constraint (list #'τ_outX ((current-type-eval) #'expected-ty)))
+;             (compute-constraint (list #'τ_outX ((current-type-eval) #'expected-ty)))
+             (compute-constraint (list #'τ_outX #'expected-ty))
              #'()))
        (syntax-parse stx
          [(_ e_fn . args)
@@ -499,7 +500,8 @@
                     (syntax-e #'C)
                     (no-expected-type-fail-msg))
             (current-continuation-marks)))
-        #:with τ-expected+ ((current-type-eval) #'τ-expected)
+;        #:with τ-expected+ ((current-type-eval) #'τ-expected)
+        #:with τ-expected+ #'τ-expected
         #:fail-unless (Name? #'τ-expected+)
         (format "Expected ~a type, got: ~a"
                 (syntax-e #'Name) (type->str #'τ-expected+))

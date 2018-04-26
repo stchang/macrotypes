@@ -180,6 +180,10 @@
       [(τ_inX ... τ_outX)
        ;; generate initial constraints with expected type and τ_outX
        #:with (~?∀ Vs expected-ty)
+              ;; I think this type-eval is the same reason as dep.rkt lambda
+              ;; (bc var-assigned are still eval'ed)
+              ;; the teval is needed here but not in the turnstile version
+              ;; bc the turnstile version tevals the expected type in the lam rule
               (and (get-expected-type stx)
                    ((current-type-eval) (get-expected-type stx)))
        (define initial-cs
@@ -223,7 +227,7 @@
   ;; type variables are in covariant positions within the type, false
   ;; otherwise.
   (define (covariant-Xs? ty)
-    (syntax-parse ((current-type-eval) ty)
+    (syntax-parse ty ;((current-type-eval) ty)
       [(~?∀ Xs ty)
        (for/and ([X (in-stx-list #'Xs)])
          (covariant-X? X #'ty))]))
@@ -324,8 +328,9 @@
              ;; constructors provide with-variance-vars-okay so that within
              ;; this call they declare variance-vars for their variances.
              (with-variance-vars-okay
-              (λ () ((current-type-eval) #`(∀ #,Xs #,τ)))))
-;              (λ () (mk-∀- Xs τ))))
+               ;; this type-eval is needed since τ may come from the user
+               ;; (from define-type)
+               (λ () ((current-type-eval) #`(∀ #,Xs #,τ)))))
            (map variance-join/expr
                 exprs
                 (find-variances/exprs (syntax->list #'Xs*) #'τ* covariant))))
@@ -1258,25 +1263,26 @@
 
 (module+ test
   (begin-for-syntax
-    (check-true  (covariant-Xs? #'Int))
-    (check-true  (covariant-Xs? #'(stlc+box:Ref Int)))
-    (check-true  (covariant-Xs? #'(→ Int Int)))
-    (check-true  (covariant-Xs? #'(∀ (X) X)))
-    (check-false (covariant-Xs? #'(∀ (X) (stlc+box:Ref X))))
-    (check-false (covariant-Xs? #'(∀ (X) (→ X X))))
-    (check-false (covariant-Xs? #'(∀ (X) (→ X Int))))
-    (check-true  (covariant-Xs? #'(∀ (X) (→ Int X))))
-    (check-true  (covariant-Xs? #'(∀ (X) (→ (→ X Int) X))))
-    (check-false (covariant-Xs? #'(∀ (X) (→ (→ (→ X Int) Int) X))))
-    (check-false (covariant-Xs? #'(∀ (X) (→ (stlc+box:Ref X) Int))))
-    (check-false (covariant-Xs? #'(∀ (X Y) (→ X Y))))
-    (check-true  (covariant-Xs? #'(∀ (X Y) (→ (→ X Int) Y))))
-    (check-false (covariant-Xs? #'(∀ (X Y) (→ (→ X Int) (→ Y Int)))))
-    (check-true  (covariant-Xs? #'(∀ (X Y) (→ (→ X Int) (→ Int Y)))))
-    (check-false (covariant-Xs? #'(∀ (A B) (→ (→ Int (stlc+rec-iso:× A B))
+    (define (covariant-Xs?* t) (covariant-Xs? ((current-type-eval) t)))
+    (check-true  (covariant-Xs?* #'Int))
+    (check-true  (covariant-Xs?* #'(stlc+box:Ref Int)))
+    (check-true  (covariant-Xs?* #'(→ Int Int)))
+    (check-true  (covariant-Xs?* #'(∀ (X) X)))
+    (check-false (covariant-Xs?* #'(∀ (X) (stlc+box:Ref X))))
+    (check-false (covariant-Xs?* #'(∀ (X) (→ X X))))
+    (check-false (covariant-Xs?* #'(∀ (X) (→ X Int))))
+    (check-true  (covariant-Xs?* #'(∀ (X) (→ Int X))))
+    (check-true  (covariant-Xs?* #'(∀ (X) (→ (→ X Int) X))))
+    (check-false (covariant-Xs?* #'(∀ (X) (→ (→ (→ X Int) Int) X))))
+    (check-false (covariant-Xs?* #'(∀ (X) (→ (stlc+box:Ref X) Int))))
+    (check-false (covariant-Xs?* #'(∀ (X Y) (→ X Y))))
+    (check-true  (covariant-Xs?* #'(∀ (X Y) (→ (→ X Int) Y))))
+    (check-false (covariant-Xs?* #'(∀ (X Y) (→ (→ X Int) (→ Y Int)))))
+    (check-true  (covariant-Xs?* #'(∀ (X Y) (→ (→ X Int) (→ Int Y)))))
+    (check-false (covariant-Xs?* #'(∀ (A B) (→ (→ Int (stlc+rec-iso:× A B))
                                               (→ String (stlc+rec-iso:× A B))
                                               (stlc+rec-iso:× A B)))))
-    (check-true  (covariant-Xs? #'(∀ (A B) (→ (→ (stlc+rec-iso:× A B) Int)
+    (check-true  (covariant-Xs?* #'(∀ (A B) (→ (→ (stlc+rec-iso:× A B) Int)
                                               (→ (stlc+rec-iso:× A B) String)
                                               (stlc+rec-iso:× A B)))))
     ))

@@ -284,6 +284,7 @@
      #:with type-ann (format-id #'name "~a-ann" #'name)
      ;; type well-formedness
      #:with #%tag (mk-#% #'name) ; default "type" for this metadata, e.g. #%type
+     #:with #%tag+ (mk-+ #'#%tag) ; cached expanded version of #%type
      #:with #%tag? (mk-? #'#%tag)
      #:with mk-type (format-id #'name "mk-~a" #'name)
      #:with type? (mk-? #'name)
@@ -761,7 +762,7 @@
                   (mk-type
                    (add-orig
                     #`(#%plain-app
-                       τ-internal
+                      τ-internal
 ;                       #,(add-arg-variances #'τ-internal (arg-var-fn (cons #'τ-internal args)))
                        (#%plain-lambda () (#%expression extra-info) (#%plain-app list . #,args)))
                     #`(τ . #,args)))))]))
@@ -820,7 +821,10 @@
                 (define-for-syntax (mk-τ- Xs . args) ; TODO: add arg-variances?
                   (mk-type
                    (add-orig
-                    #`(#%plain-app τ-internal (#%plain-lambda #,Xs (#%expression extra-info) (#%plain-app list #,@args)))
+                    #`(#%plain-app
+;                       #,(add-arg-variances #'τ-internal (arg-vars-fn (cons #'τ-internal args)))
+                       τ-internal
+                       (#%plain-lambda #,Xs (#%expression extra-info) (#%plain-app list #,@args)))
                     #`(τ #,Xs #,@args)))))]))
          (define-syntax define-binding-type
            (syntax-parser
@@ -970,6 +974,12 @@
            (get-orig e+))))
     ty)
 
+  ;; full expansion fn
+  ;; NOTE: this is deprecated; probably want to use expand/stop instead
+  (define (expand/df e)
+    (local-expand e 'expression null))
+  (define #%type+ (expand/df #'#%type))
+  
   ;; basic expansion with stop list, no context:
   (define (expand/stop e #:stop-list? [stop-list? #t])
     (local-expand e 'expression (decide-stop-list stop-list?)))
@@ -1028,7 +1038,7 @@
        (syntax-local-bind-syntaxes
          (syntax->list #'(X ...))
          #`(values (make-variable-like-transformer
-                              (mk-tyvar (attach #'X+ ':: (#,kev #'#%type))))
+                              (mk-tyvar (attach #'X+ ':: #%type+ #;(#,kev #'#%type))))
                             ...)
          ctx)
 
@@ -1072,10 +1082,7 @@
     (syntax-parse (expands/ctxs (list e) #:tvctx tvctx #:stop-list? stop-list?)
       [(tvs _ (e+)) (list #'tvs #'e+)]))
 
-  ;; full expansion fn
-  ;; NOTE: this is deprecated; probably want to use expand/stop instead
-  (define (expand/df e)
-    (local-expand e 'expression null))
+
 
   ;; --------------------------------------------------------------------------
   ;; err msg helper fns

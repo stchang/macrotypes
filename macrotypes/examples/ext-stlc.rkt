@@ -73,22 +73,21 @@
 
 (define-typed-syntax and
   [(_ e1 e2)
-   #:with Bool* ((current-type-eval) #'Bool)
    #:with [e1- τ_e1] (infer+erase #'e1)
    #:with [e2- τ_e2] (infer+erase #'e2)
-   #:fail-unless (typecheck? #'τ_e1 #'Bool*)
-                 (typecheck-fail-msg/1 #'Bool* #'τ_e1 #'e1)
-   #:fail-unless (typecheck? #'τ_e2 #'Bool*)
-                 (typecheck-fail-msg/1 #'Bool* #'τ_e2 #'e2)
+   #:fail-unless (typecheck? #'τ_e1 Bool+)
+                 (typecheck-fail-msg/1 Bool+ #'τ_e1 #'e1)
+   #:fail-unless (typecheck? #'τ_e2 Bool+)
+                 (typecheck-fail-msg/1 Bool+ #'τ_e2 #'e2)
    (⊢/no-teval (and- e1- e2-) : #,Bool+)])
   
 (define-typed-syntax or
   [(_ e ...)
-   #:with ([_ Bool*] ...) #`([e #,((current-type-eval) #'Bool)] ...)
+   #:with (B+ ...) (stx-map (lambda _ Bool+) #'(e ...))
    #:with ([e- τ_e] ...) (infers+erase #'(e ...))
-   #:fail-unless (typechecks? #'(τ_e ...) #'(Bool* ...))
+   #:fail-unless (typechecks? #'(τ_e ...) #'(B+ ...))
                  (typecheck-fail-msg/multi 
-                  #'(Bool* ...) #'(τ_e ...) #'(e ...))
+                  #'(B+ ...) #'(τ_e ...) #'(e ...))
    (⊢/no-teval (or- e- ...) : #,Bool+)])
 
 (begin-for-syntax 
