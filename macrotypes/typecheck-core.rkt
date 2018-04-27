@@ -402,8 +402,15 @@
              ;; (printf "(τ=) t1 = ~a\n" #;τ1 (stx->datum t1))
              ;; (printf "(τ=) t2 = ~a\n" #;τ2 (stx->datum t2))
              (or (and (id? t1) (id? t2)
-                      (let ([r1 (bound-id-table-ref env1 t1 #f)]
-                            [r2 (bound-id-table-ref env2 t2 #f)])
+                      ;; 1) must use free-id table, in order to remove tyeval
+                      ;;    in var-assigns
+                      ;;    o.w., tyeval of tyvars with `type` stxclass in lambda
+                      ;;          is not equivalent to tyeval on var-assign
+                      ;; 2) The stx-local-introduce is essential,
+                      ;; due to extra macro-introduce scopes from local-expand.
+                      ;; See tests in fomega.rkt for more details.
+                      (let ([r1 (free-id-table-ref env1 (syntax-local-introduce t1) #f)]
+                            [r2 (free-id-table-ref env2 (syntax-local-introduce t2) #f)])
                         (or (and r1 r2 (eq? r1 r2))
                             (free-id=? t1 t2))))
                  (and (stx-null? t1) (stx-null? t2))
@@ -433,12 +440,12 @@
              (for/fold ([env env])
                        ([key keys]
                         [value values])
-               (bound-id-table-set env key value)))
+               (free-id-table-set env (syntax-local-introduce key) value)))
 
            (define (type=? t1 t2)
              ((current-type=?) t1 t2
-                               (make-immutable-bound-id-table)
-                               (make-immutable-bound-id-table)))
+                               (make-immutable-free-id-table)
+                               (make-immutable-free-id-table)))
 
            ; Reconstruct syntax with fresh binding names without scopes from
            ; previous expansions, to avoid build-up of scopes resulting from
@@ -1269,25 +1276,27 @@
 
   ;; --------------------------------------------------------------------------
   ;; substitution function
-  (define (merge-type-tags stx) ;; TODO: merge other tags?
+  (define (merge-type-tags stx [cmp bound-id=?]) ;; TODO: merge other tags?
     (define t (syntax-property stx ':))
     (or (and (pair? t)
              (identifier? (car t)) (identifier? (cdr t))
-             (free-identifier=? (car t) (cdr t))
+             (cmp (car t) (cdr t))
              (set-stx-prop/preserved stx ': (car t)))
         stx))
+  ;; TODO: should this be free-id=? (as in type=?)
+  ;; - doesnt seem to matter right now
   ; subst τ for y in e, if (bound-id=? x y)
-  (define (subst τ x e [cmp bound-identifier=?])
+  (define (subst τ x e [cmp bound-id=?])
     (syntax-parse e
       [y:id
        #:when (cmp e x)
-       (transfer-stx-props τ (merge-type-tags (syntax-track-origin τ e e)))]
+       (transfer-stx-props τ (merge-type-tags (syntax-track-origin τ e e) cmp))]
       [(esub ...)
        #:with res (stx-map (λ (e1) (subst τ x e1 cmp)) #'(esub ...))
        (transfer-stx-props #'res e #:ctx e)]
       [_ e]))
 
-  (define (substs τs xs e [cmp bound-identifier=?])
+  (define (substs τs xs e [cmp bound-id=?])
     (stx-fold (lambda (ty x res) (subst ty x res cmp)) e τs xs)))
 ;; (end begin-for-syntax)
 

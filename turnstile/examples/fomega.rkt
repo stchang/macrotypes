@@ -73,7 +73,6 @@
 
 (define-typed-syntax (Λ bvs:kind-ctx e) ≫
   [[bvs.x ≫ tv- :: bvs.kind] ... ⊢ e ≫ e- ⇒ τ_e]
-;  #:with tyout ((current-type-eval) #'(∀ ([tv- :: bvs.kind] ...) τ_e))
   #:with tyout ((current-type-eval) #'(∀ ([tv- :: bvs.kind] ...) τ_e))
   --------
   [⊢ e- ⇒ tyout])
@@ -104,3 +103,49 @@
   [⊢ τ_arg ≫ τ_arg- ⇐ k_in] ...
   --------
   [⊢ (#%app- τ_fn- τ_arg- ...) ⇒ k_out])
+
+(module+ test
+  (require (for-syntax rackunit syntax/parse))
+
+  (define-syntax test-macro
+    (syntax-parser
+      [(_ e ty)
+      (check-true
+       (new-typecheck?
+        (typeof (expand/stop #'e))
+        ((current-type-eval) #'ty)))
+      #'(void)]))
+
+  ;; This test fails when type=? uses free-id tables that do not
+  ;; stx-local-introduce its keys.
+  ;; (The `test-macro` causes the failure, due to an
+  ;;  an extra macro introduction scope.)
+  ;; (All the tests pass with bound-id tables.)
+  (test-macro
+   (Λ ([X :: ★]) (Λ ([Y :: ★]) (sysf:λ ([x : X][y : Y]) y)))
+   (∀ ([X :: ★])
+      (tyapp (tyλ ([Z :: ★])
+                  (∀ ([X :: ★]) (sysf:→ Z X X)))
+             X)))
+
+  ;; These similar tests (they produce an identical type=? call) pass both
+  ;; with and without the stx-local-introduce call to free-id-table keys,
+  ;; bc there is no extra macro-introduce scope.
+  (begin-for-syntax
+    (check-true
+     (new-typecheck?
+      ((current-type-eval) #'(∀ ([X :: ★])
+                               (∀ ([Y :: ★])
+                                 (sysf:→ X Y Y))))
+      ((current-type-eval) #'(∀ ([X :: ★])
+                                (tyapp (tyλ ([Z :: ★])
+                                         (∀ ([X :: ★])
+                                           (sysf:→ Z X X)))
+                                       X)))))
+    (check-true
+     (new-typecheck?
+      (typeof (expand/stop #'(Λ ([X :: ★]) (Λ ([Y :: ★]) (sysf:λ ([x : X][y : Y]) y)))))
+      ((current-type-eval) #'(∀ ([X :: ★])
+                                (tyapp (tyλ ([Z :: ★])
+                                         (∀ ([X :: ★]) (sysf:→ Z X X)))
+                                      X)))))))

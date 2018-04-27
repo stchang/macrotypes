@@ -6,7 +6,12 @@
 
 ;; shorthands
 (define id? identifier?)
+;; TODO: free-id=? should also stx-local-introduce (as in type=?)
+;; but it doesnt seem to need it right now
+#;(define (free-id=? x y)
+    (free-identifier=? (syntax-local-introduce x) (syntax-local-introduce y)))
 (define free-id=? free-identifier=?)
+(define bound-id=? bound-identifier=?)
 (define fmt format)
 (define stx-e syntax-e)
 
