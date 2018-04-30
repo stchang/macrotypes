@@ -36,12 +36,12 @@
 
 (begin-for-syntax
   (current-var-assign
-    (lambda (x x+ seps τs)
+    (lambda (x x+ seps τs #:eval? [eval? #t])
       (syntax-parse τs
         #:literals (#%type-variable)
         [(#%type-variable)
          #`(infer-ref #,x #,x+ #,τs)]
-        [_ (var-assign x x+ seps τs)])))
+        [_ (var-assign x x+ seps τs #:eval? eval?)])))
 
   (define (raise-infer-error stx)
     (raise

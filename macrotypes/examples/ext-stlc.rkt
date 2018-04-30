@@ -138,7 +138,7 @@
    #:with ((x- ...) e_body- τ_body)
           (infer/ctx+erase #'([x τ] ...) #'(add-expected e_body τ-expected))
    #:fail-unless (or (not (syntax-e #'τ-expected)) ; no expected type
-                     (typecheck? #'τ_body ((current-type-eval) #'τ-expected)))
+                     (typecheck? #'τ_body #'τ-expected))
    (typecheck-fail-msg/1 #'τ-expected #'τ_body #'e_body)
    (⊢/no-teval (let- ([x- e-] ...) e_body-) : τ_body)])
 
@@ -155,9 +155,9 @@
    #'(let ([x e]) (let* ([x_rst e_rst] ...) e_body))])
 
 (define-typed-syntax letrec
-  [(_ ([b:type-bind e] ...) e_body)
+  [(_ ([[x:id (~datum :) t:type] e] ...) e_body)
    #:with ((x- ...) (e- ... e_body-) (τ ... τ_body))
-          (infers/ctx+erase #'(b ...) #'((add-expected e b.type) ... e_body))
-   #:fail-unless (typechecks? #'(b.type ...) #'(τ ...))
-   (typecheck-fail-msg/multi #'(b.type ...) #'(τ ...) #'(e ...))
+          (infers/ctx+erase #'([x : t.norm] ...) #'((add-expected e t.norm) ... e_body))
+   #:fail-unless (typechecks? #'(t.norm ...) #'(τ ...))
+   (typecheck-fail-msg/multi #'(t.norm ...) #'(τ ...) #'(e ...))
    (⊢/no-teval (letrec- ([x- e-] ...) e_body-) : τ_body)])

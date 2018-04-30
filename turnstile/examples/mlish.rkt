@@ -855,7 +855,7 @@
                            (= 1 (stx-length #'(xs ...)))))
                  "match: missing non-empty list case"
    #:with (~List ty) #'τ_e
-   [[x ≫ x- : ty] ... [rst ≫ rst- : (List ty)]
+   [[x ≫ x- : ty] ... [rst ≫ rst- : τ_e #;(List ty)]
     ⊢ (add-expected e_body t_expect) ≫ e_body- ⇒ ty_body] ...
    #:with (len ...) (stx-map (lambda (p) #`#,(stx-length p)) #'((x ...) ...))
    #:with (lenop ...) (stx-map (lambda (p) (if (brack? p) #'=- #'>=-)) #'(xs ...))
@@ -943,7 +943,8 @@
    ;; 2018-04-26: after changing add-expected-ty (ie ⇐) to not teval by default,
    ;; must expand τ_out again, to match τ_in, which gets re-expanded by var-assign (see dep.rkt)
    ;; var-assign must always expand bc "τ_in" may reference surface X (see exist.rkt)
-   [(X ...) ([x ≫ x- : τ_in] ...) ⊢ [body ≫ body- ⇐ τ_out #:eval]]
+   ;; 2018-04-30: disabled eval of varassign, so removed the eval of the expected-ty again
+   [(X ...) ([x ≫ x- : τ_in] ...) ⊢ [body ≫ body- ⇐ τ_out]]
    --------
    [⊢ (λ- (x- ...) body-)]]
   [(λ ([x : τ_x] ...) body) ⇐ (~?∀ (V ...) (~ext-stlc:→ τ_in ... τ_out)) ≫
@@ -958,7 +959,9 @@
   [(λ ([x : τ_x] ...) body) ≫
    #:with [X ...] (compute-tyvars #'(τ_x ...))
    ;; TODO is there a way to have λs that refer to ids defined after them?
+   #:do[(eval-varassign? #t)]
    [([X ≫ X- :: #%type] ...) ([x ≫ x- : τ_x] ...) ⊢ body ≫ body- ⇒ τ_body]
+   #:do[(eval-varassign? #f)]
    #:with [τ_x* ...] (inst-types/cs #'[X ...] #'([X X-] ...) #'[τ_x ...])
    #:with τ_fn ((current-type-eval)
                 (add-orig #'(?∀ (X- ...) (ext-stlc:→ τ_x* ... τ_body))
@@ -1214,7 +1217,7 @@
 (define-typed-syntax let
   [(let name:id (~datum :) ty:type ~! ([x:id e] ...) b ... body) ≫
    [⊢ [e ≫ e- ⇒ : ty_e] ...]
-   [() ([name ≫ name- : (→ ty_e ... ty.norm)] [x ≫ x- : ty_e] ...)
+   [() ([name ≫ name- : #,(mk-→- #'(ty_e ... ty.norm))] [x ≫ x- : ty_e] ...)
     ⊢ [b ≫ b- ⇒ : _] ... [body ≫ body- ⇐ : ty.norm]]
    --------
    [⊢ (letrec- ([name- (λ- (x- ...) b- ... body-)])

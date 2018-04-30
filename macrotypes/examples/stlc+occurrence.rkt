@@ -248,8 +248,8 @@
    #:with τ+ #`(stlc+tup:× #,@(replace-at (syntax->list #'(τi* ...)) (syntax-e #'n-stx) #'τ0+))
    #:with τ- #`(stlc+tup:× #,@(replace-at (syntax->list #'(τi* ...)) (syntax-e #'n-stx) #'τ0-))
    ;; 5. Check the branches with the refined types
-   #:with [x1 e1+ τ1] (infer/ctx+erase #'([x-stx : τ+]) #'e1)
-   #:with [x2 e2+ τ2] (infer/ctx+erase #'([x-stx : τ-]) #'e2)
+   #:with [x1 e1+ τ1] (infer/ctx+erase #'([x-stx : τ+]) #'e1 #:eval? #t)
+   #:with [x2 e2+ τ2] (infer/ctx+erase #'([x-stx : τ-]) #'e2 #:eval? #t)
    ;; 6. Desugar, replacing the filtered identifier
    (⊢  (if- (f e0+)
             ((lambda- x1 e1+) x)
@@ -262,8 +262,8 @@
    #:with f (type->filter #'τ0+)
    #:with (x τ0) (infer+erase #'x-stx)
    #:with τ0- (∖ #'τ0 #'τ0+)
-   #:with [x1 e1+ τ1] (infer/ctx+erase #'([x-stx : τ0+]) #'e1)
-   #:with [x2 e2+ τ2] (infer/ctx+erase #'([x-stx : τ0-]) #'e2)
+   #:with [x1 e1+ τ1] (infer/ctx+erase #'([x-stx : τ0+]) #'e1 #:eval? #t)
+   #:with [x2 e2+ τ2] (infer/ctx+erase #'([x-stx : τ0-]) #'e2 #:eval? #t)
    ;; Expand to a conditional, using the runtime predicate
    (⊢ (if- (f x)
            ((lambda- x1 e1+) x)

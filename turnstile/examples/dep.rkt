@@ -22,14 +22,18 @@
 (define-internal-binding-type ∀)
 (define-syntax *
   (make-variable-like-transformer
-   (assign-type #'#%type #'#%type)))
-(define-for-syntax *+ (assign-type ((current-type-eval) #'#%type) #'#%type #:eval? #t #:wrap? #f))
+   ;; satisfies both type and term predicates
+   (mk-type (assign-type #'#%type #'#%type))))
+(define-for-syntax *+
+  (mk-type (assign-type ((current-type-eval) #'#%type) #'#%type #:eval? #t #:wrap? #f)))
 
 ;; TODO: how to do Type : Type
 (define-typed-syntax (Π ([X:id (~datum :) τ_in] ...) τ_out) ≫
-  [[X ≫ X- : τ_in] ... ⊢ [τ_out ≫ τ_out- ⇒ _][τ_in ≫ τ_in- ⇒ _] ...]
+  [⊢ [τ_in ≫ τ_in- ⇒ _] ...]
+;  [[X ≫ X- : τ_in] ... ⊢ [τ_out ≫ τ_out- ⇒ _][τ_in ≫ τ_in- ⇒ _] ...]
+  [[X ≫ X- : τ_in-] ... ⊢ [τ_out ≫ τ_out- ⇒ _]]
   -------
-  [⊢ (∀- (X- ...) (→- τ_in- ... τ_out-)) ⇒ #,*+])
+  [⊢ (∀- (X- ...) (→- τ_in- ... τ_out-)) (⇒ : #,*+) (⇒ :: #,*+)])
 ;; abbrevs for Π
 (define-simple-macro (→ τ_in ... τ_out)
   #:with (X ...) (generate-temporaries #'(τ_in ...))
@@ -50,7 +54,9 @@
 ;; - check that annotations match expected types
 (define-typed-syntax λ
   [(_ ([x:id : τ_in] ...) e) ≫
-   [[x ≫ x- : τ_in] ... ⊢ [e ≫ e- ⇒ τ_out][τ_in ≫ τ_in- ⇒ _] ...]
+   [⊢ [τ_in ≫ τ_in- ⇒ _] ...]
+;   [[x ≫ x- : τ_in] ... ⊢ [e ≫ e- ⇒ τ_out][τ_in ≫ τ_in- ⇒ _] ...]
+   [[x ≫ x- : τ_in-] ... ⊢ [e ≫ e- ⇒ τ_out]]
    #:with tyout ((current-type-eval) #'(Π ([x- : τ_in-] ...) τ_out))
    -------
    [⊢ (λ- (x- ...) e-) ⇒ tyout]]
@@ -58,7 +64,8 @@
    ;; 2018-04-26: after changing add-expected-ty (ie ⇐) to not teval by default,
    ;; must expand τ_out again, to match τ_in, which gets re-expanded by var-assign
    ;; var-assign must always expand bc "τ_in" may reference surface X (see exist.rkt)
-   [[x ≫ x- : τ_in] ... ⊢ #,(substs #'(x ...) #'(y ...) #'e) ≫ e- ⇐ τ_out #:eval]
+   ;; 2018-04-30: disabled eval of varassign, so removed the eval of the expected-ty again
+   [[x ≫ x- : τ_in] ... ⊢ #,(substs #'(x ...) #'(y ...) #'e) ≫ e- ⇐ τ_out]
    ---------
    [⊢ (λ- (x- ...) e-)]])
 

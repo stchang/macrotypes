@@ -88,9 +88,9 @@
   (current-kind=? new-kind=?))
 
 (define-typed-syntax Λ
-  [(_ bvs:kind-ctx e)
-   #:with ((tv- ...) e- τ_e) (infer/ctx+erase #'bvs #'e)
-   (⊢ e- : (∀ ([tv- :: bvs.kind] ...) τ_e))])
+  [(_ ([tv (~datum ::) k:kind] ...) e)
+   #:with ((tv- ...) e- τ_e) (infer/ctx+erase #'([tv :: k.norm] ...) #'e)
+   (⊢/no-teval e- : #,(attach (mk-∀- #'(tv- ...) #'τ_e) ':: (mk-∀★- #'(k.norm ...))))])
 ;   (⊢/no-teval e- : #,(assign-kind (mk-∀- #'(tv- ...) #'τ_e) (mk-∀★- #'(bvs.kind ...)) #:eval? #f))])
 
 (define-typed-syntax inst
@@ -104,14 +104,14 @@
    #:fail-unless (kindchecks? #'(k_τ ...) #'(k ...))
                  (typecheck-fail-msg/multi 
                   #'(k ...) #'(k_τ ...) #'(τ ...))
-   #:with τ_inst (substs #'(τ.norm ...) #'(tv ...) #'τ_body)
-   (⊢ e- : τ_inst)]) ; must tyeval bc subst may create redexes
+   #:with τ_inst ((current-type-eval) (substs #'(τ.norm ...) #'(tv ...) #'τ_body))
+   (⊢/no-teval e- : τ_inst)]) ; must tyeval bc subst may create redexes
 
 ;; extend λ to also work as a type
 (define-typed-syntax λ
-  [(_ bvs:kind-ctx τ)           ; type
-   #:with (Xs- τ- k_res) (infer/ctx+erase #'bvs #'τ #:tag ':: #:stop-list? #f)
-   (assign-kind #'(λ- Xs- τ-) #'(→ bvs.kind ... k_res))]
+  [(_ ([X:id (~datum ::) k:kind] ...) τ)           ; type
+   #:with (Xs- τ- k_res) (infer/ctx+erase #'([X :: k.norm] ...) #'τ #:tag ':: #:stop-list? #f)
+   (assign-kind #'(λ- Xs- τ-) #'(→ k.norm ... k_res))]
   [(_ . rst)
    #'(sysf:λ . rst)]) ; term
 

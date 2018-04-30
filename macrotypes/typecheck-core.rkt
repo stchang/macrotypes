@@ -861,7 +861,8 @@
                                                           (λ (ctx es)
                                                              (expands/ctx
                                                               es ctx
-                                                              #:stop-list? #f)))))])))]))
+                                                              #:stop-list? #f
+                                                              #:eval? #t)))))])))]))
 
 ;; ----------------------------------------------------------------------------
 ;; ----------------------------------------------------------------------------
@@ -923,8 +924,10 @@
 
   ;; var-assign :
   ;; Id (Listof Sym) (StxListof TypeStx) -> Stx
-  (define (var-assign x x+ seps τs)
-    (attachs x+ seps τs #:ev (current-type-eval)))
+  (define (var-assign x x+ seps τs #:eval? [eval? #f])
+    (if eval?
+        (attachs x+ seps τs #:ev (current-type-eval))
+        (attachs x+ seps τs)))
 
   ;; macro-var-assign : Id -> (Id (Listof Sym) (StxListof TypeStx) -> Stx)
   ;; generate a function for current-var-assign that expands
@@ -933,7 +936,7 @@
   ;;   > (current-var-assign (macro-var-assign #'foo))
   ;;   > ((current-var-assign) #'x '(:) #'(τ))
   ;;   #'(foo x : τ)
-  (define ((macro-var-assign mac-id) x x+ seps τs)
+  (define ((macro-var-assign mac-id) x x+ seps τs #:eval? [eval? #f])
     (datum->syntax x `(,mac-id ,x+ . ,(stx-appendmap list seps τs))))
 
   ;; current-var-assign :
@@ -1008,8 +1011,9 @@
   ;; TODO: get rid of the kev arg (need to add `current-tyvar-assign`?)
 
   (define (expands/ctxs es #:ctx [ctx null] #:tvctx [tvctx null]
-                        #:key [kev #'(current-type-eval)] ; kind-eval (tvk in tvctx)
-                        #:stop-list? [stop-list? #t])
+                        #:kev [kev #'(current-type-eval)] ; kind-eval (tvk in tvctx)
+                        #:stop-list? [stop-list? #t]
+                        #:eval? [eval? #f])
      (syntax-parse ctx
        [((~or X:id [x:id (~seq sep:id τ) ...]) ...) ; dont expand; τ may reference to tv
        #:with (~or (~and (tv:id ...)
@@ -1038,14 +1042,15 @@
          #`(values (make-rename-transformer
                                (mk-tyvar
                                  (attachs #'tv+ '(tvsep ...) #'(tvk ...)
-                                          #:ev #,kev)))
+;                                          #:ev #,kev)))
+                                          )))
                              ...)
          ctx)
 
        (syntax-local-bind-syntaxes
          (syntax->list #'(X ...))
          #`(values (make-variable-like-transformer
-                              (mk-tyvar (attach #'X+ ':: #%type+ #;(#,kev #'#%type))))
+                              (mk-tyvar (attach #'X+ ':: #'#%type #;(#,kev #'#%type))))
                             ...)
          ctx)
 
@@ -1053,9 +1058,10 @@
        ; can depend on type variables bound earlier. Really, these should
        ; also be in nested scopes such that they can only see earlier xs.
        (for ([x (syntax->list #'(x ...))]
-             [rhs (syntax->list #'((make-variable-like-transformer
+             [rhs (syntax->list #`((make-variable-like-transformer
                                      ((current-var-assign)
-                                      #'x #'x+ '(sep ...) #'(τ ...)))
+                                      #'x #'x+ '(sep ...) #'(τ ...)
+                                     #:eval? #,eval?))
                                    ...))])
          (syntax-local-bind-syntaxes (list x) rhs ctx))
 
@@ -1069,24 +1075,26 @@
       [([x τ] ...)
        (expands/ctxs es #:ctx #`([x #,(current-tag) τ] ...)
                         #:tvctx tvctx
-                        #:stop-list? stop-list?)]))
+                        #:kev kev
+                        #:stop-list? stop-list?
+                        #:eval? eval?)]))
 
   ;; "expand" and "infer" fns derived from expands/ctxs -----------------------
   ;; some are syntactic shortcuts, some are for backwards compat
 
   ; ctx = type env for bound vars in term e, etc
   ; can also use for bound tyvars in type e
-  (define (expands/ctx es ctx #:stop-list? [stop-list? #t])
-    (syntax-parse (expands/ctxs es #:ctx ctx #:stop-list? stop-list?)
+  (define (expands/ctx es ctx #:stop-list? [stop-list? #t] #:eval? [eval? #f])
+    (syntax-parse (expands/ctxs es #:ctx ctx #:stop-list? stop-list? #:eval? eval?)
       [(_ xs es+) (list #'xs #'es+)]))
-  (define (expand/ctx e ctx #:stop-list? [stop-list? #t])
-    (syntax-parse (expands/ctx (list e) ctx #:stop-list? stop-list?)
+  (define (expand/ctx e ctx #:stop-list? [stop-list? #t] #:eval? [eval? #f])
+    (syntax-parse (expands/ctx (list e) ctx #:stop-list? stop-list? #:eval? eval?)
       [(_ xs (e+)) (list #'xs #'e+)]))
-  (define (expands/tvctx es ctx #:stop-list? [stop-list? #t])
-    (syntax-parse (expands/ctxs es #:tvctx ctx #:stop-list? stop-list?)
+  (define (expands/tvctx es ctx #:stop-list? [stop-list? #t] #:eval? [eval? #f])
+    (syntax-parse (expands/ctxs es #:tvctx ctx #:stop-list? stop-list? #:eval? eval?)
       [(tvs _ es+) (list #'tvs #'es+)]))
-  (define (expand/tvctx e tvctx #:stop-list? [stop-list? #t])
-    (syntax-parse (expands/ctxs (list e) #:tvctx tvctx #:stop-list? stop-list?)
+  (define (expand/tvctx e tvctx #:stop-list? [stop-list? #t] #:eval? [eval? #f])
+    (syntax-parse (expands/ctxs (list e) #:tvctx tvctx #:stop-list? stop-list? #:eval? eval?)
       [(tvs _ (e+)) (list #'tvs #'e+)]))
 
 
@@ -1276,7 +1284,7 @@
 
   ;; --------------------------------------------------------------------------
   ;; substitution function
-  (define (merge-type-tags stx [cmp bound-id=?]) ;; TODO: merge other tags?
+  (define (merge-type-tags stx [cmp free-id=?]) ;; TODO: merge other tags?
     (define t (syntax-property stx ':))
     (or (and (pair? t)
              (identifier? (car t)) (identifier? (cdr t))
@@ -1285,8 +1293,8 @@
         stx))
   ;; TODO: should this be free-id=? (as in type=?)
   ;; - doesnt seem to matter right now
-  ; subst τ for y in e, if (bound-id=? x y)
-  (define (subst τ x e [cmp bound-id=?])
+  ; subst τ for y in e, if (free-id=? x y)
+  (define (subst τ x e [cmp free-id=?])
     (syntax-parse e
       [y:id
        #:when (cmp e x)
@@ -1296,7 +1304,7 @@
        (transfer-stx-props #'res e #:ctx e)]
       [_ e]))
 
-  (define (substs τs xs e [cmp bound-id=?])
+  (define (substs τs xs e [cmp free-id=?])
     (stx-fold (lambda (ty x res) (subst ty x res cmp)) e τs xs)))
 ;; (end begin-for-syntax)
 

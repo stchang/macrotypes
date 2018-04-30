@@ -70,9 +70,10 @@
   (current-typecheck-relation new-type=?))
 
 (define-typed-syntax Λ
-  [(_ bvs:kind-ctx e)
-   #:with ((tv- ...) e- τ_e) (infer/ctx+erase #'bvs #'e)
-   (⊢ e- : (∀ ([tv- :: bvs.kind] ...) τ_e))])
+  [(_ ([tv (~datum ::) k:kind] ...) e)
+   #:with ((tv- ...) e- τ_e) (infer/ctx+erase #'([tv :: k.norm] ...) #'e)
+;   (⊢ e- : (∀ ([tv- :: k.norm] ...) τ_e))])
+   (⊢/no-teval e- : #,(attach (mk-∀- #'(tv- ...) #'τ_e) ':: (mk-∀★- #'(k.norm ...))))])
 
 (define-typed-syntax inst
   [(_ e τ:any-type ...)
@@ -84,18 +85,19 @@
    #:fail-unless (kindchecks? #'(k_τ ...) #'(k ...))
                  (typecheck-fail-msg/multi 
                   #'(k ...) #'(k_τ ...) #'(τ ...))
-   #:with τ_inst (substs #'(τ.norm ...) #'(tv ...) #'τ_body)
-   (⊢ e- : τ_inst)]) ; must tyeval bc subst could produce redexes
+   ; must tyeval bc subst could produce redexes
+   #:with τ_inst ((current-type-eval) (substs #'(τ.norm ...) #'(tv ...) #'τ_body))
+   (⊢/no-teval e- : τ_inst)])
 
 ;; TODO: merge with regular λ and app?
 ;; - see fomega2.rkt
 (define-typed-syntax tyλ
-  [(_ bvs:kind-ctx τ_body)
-   #:with (tvs- τ_body- k_body) (infer/ctx+erase #'bvs #'τ_body #:tag ':: #:stop-list? #f)
+  [(_ ([tv:id (~datum ::) k:kind] ...)  τ_body)
+   #:with (tvs- τ_body- k_body) (infer/ctx+erase #'([tv :: k.norm] ...) #'τ_body #:tag ':: #:stop-list? #f)
    #:with k/tagged (mk-kind #'k_body) ; lift from sysf #%type to fomega ★
    #:fail-unless ((current-kind?) #'k_body)
                  (format "not a valid type: ~a\n" (type->str #'τ_body))
-   (assign-kind #'(λ- tvs- τ_body-) #'(⇒ bvs.kind ... k/tagged))])
+   (assign-kind #'(λ- tvs- τ_body-) #'(⇒ k.norm ... k/tagged))])
 
 (define-typed-syntax tyapp
   [(_ τ_fn τ_arg ...)
@@ -108,7 +110,7 @@
                    "~a (~a:~a) Arguments to function ~a have wrong kinds(s), "
                    (syntax-source stx) (syntax-line stx) (syntax-column stx)
                    (syntax->datum #'τ_fn))
-                  "or wrong number of arguments:\nGiven:\n"
+                  "or wrong number of arguments:\nGive0n:\n"
                   (string-join
                    (map (λ (e t) (format "  ~a : ~a" e t)) ; indent each line
                         (syntax->datum #'(τ_arg ...))

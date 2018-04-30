@@ -66,7 +66,9 @@
    ;;
 
   [⊢ e_packed ≫ e_packed- ⇒ (~∃ (Y) τ_body)]
+  #:do[(eval-varassign? #t)]
   [[X ≫ X- :: #%type] [x ≫ x- : #,(subst #'X #'Y #'τ_body)] ⊢ e ≫ e- ⇒ τ_e]
+  #:do[(eval-varassign? #f)]
   #:with τ_e_checked
   (let ([ctx (syntax-local-make-definition-context)])
     (syntax-local-bind-syntaxes

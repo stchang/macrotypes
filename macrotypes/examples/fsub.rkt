@@ -32,7 +32,10 @@
            (if sub (expose sub) t)]
           [else t]))
   (define stlc:sub? (current-sub?))
-  (define (sub? t1 t2) (stlc:sub? (expose t1) t2))
+  (define (sub? t1 t2)
+    ;; (displayln (stx->datum t1))
+    ;; (displayln (stx->datum t2))
+    (stlc:sub? (expose t1) t2))
   (current-sub? sub?)
   (current-typecheck-relation (current-sub?)))
 
@@ -87,7 +90,7 @@
    ;; "environment", ie, a syntax property with another tag: '<:
    ;; The "expose" function looks for this tag to enforce the bound,
    ;; as in TaPL (fig 28-1)
-   #:with ((X- ...) e- τ_e) (infer/ctx #'([X :: #%type <: τsub] ...) #'e)
+   #:with ((X- ...) e- τ_e) (infer/ctx #'([X :: #%type <: τsub.norm] ...) #'e)
    (⊢/no-teval e- : #,(mk-fsub∀- #'(X- ...) #'τ_e #'(τsub.norm ...)))])
 ;   (⊢ e- : (∀ ([X- <: τsub] ...) τ_e))])
 (define-typed-syntax inst

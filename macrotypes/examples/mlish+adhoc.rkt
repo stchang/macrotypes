@@ -768,7 +768,7 @@
         #:with (~List ty) #'τ_e
         #:with ([(x- ... rst-) e_body- ty_body] ...)
                (stx-map (lambda (ctx e) (infer/ctx+erase ctx e)) 
-                 #'(([x ty] ... [rst (List ty)]) ...) #'((add-expected e_body t_expect) ...))
+                 #'(([x ty] ... [rst τ_e #;(List ty)]) ...) #'((add-expected e_body t_expect) ...))
         #:with τ_out (stx-foldr (current-join) (stx-car #'(ty_body ...)) (stx-cdr #'(ty_body ...)))
         #:with (len ...) (stx-map (lambda (p) #`#,(stx-length p)) #'((x ...) ...))
         #:with (lenop ...) (stx-map (lambda (p) (if (brack? p) #'=- #'>=-)) #'(xs ...))

@@ -68,10 +68,10 @@
                     (stx-flatten #'(fds tyds . (ds ...))))])
 
 (define-typed-syntax λ
-  [(_ bvs:type-ctx e)
-   #:with [xs- e- τ_res ns as ds] (infer/ctx+erase/eff #'bvs #'e)
+  [(_ ([x:id (~datum :) t:type] ...) e)
+   #:with [xs- e- τ_res ns as ds] (infer/ctx+erase/eff #'([x : t.norm] ...) #'e)
    (assign-type #'(λ- xs- e-)
-                (add-effects (mk-→- #'(bvs.type ... τ_res)) #'ns #'as #'ds)
+                (add-effects (mk-→- #'(t.norm ... τ_res)) #'ns #'as #'ds)
                 #:eval? #f)])
 
 (define-type-constructor Ref)

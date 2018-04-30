@@ -840,7 +840,7 @@
         #:with (~List ty) #'τ_e
         #:with ([(x- ... rst-) e_body- ty_body] ...)
                (stx-map (lambda (ctx e) (infer/ctx+erase ctx e)) 
-                 #'(([x ty] ... [rst (List ty)]) ...) #'((add-expected e_body t_expect) ...))
+                 #'(([x ty] ... [rst τ_e #;(List ty)]) ...) #'((add-expected e_body t_expect) ...))
         #:with (len ...) (stx-map (lambda (p) #`#,(stx-length p)) #'((x ...) ...))
         #:with (lenop ...) (stx-map (lambda (p) (if (brack? p) #'=- #'>=-)) #'(xs ...))
         #:with (pred? ...) (stx-map
@@ -1134,7 +1134,7 @@
   [(let name:id (~datum :) ty:type ~! ([x:id e] ...) b ... body)
    #:with ([e- ty_e] ...) (infers+erase #'(e ...))
    #:with [(name- . xs-) (body- ...) (_ ... ty_body)] 
-          (infers/ctx+erase #'([name : (→ ty_e ... ty.norm)][x : ty_e] ...) 
+          (infers/ctx+erase #`([name : #,(mk-→- #'(ty_e ... ty.norm))][x : ty_e] ...) 
                             #'(b ... body))
    #:fail-unless (typecheck? #'ty_body #'ty.norm)
                  (format "type of let body ~a does not match expected typed ~a"

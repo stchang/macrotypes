@@ -10,6 +10,7 @@
                      [define-typed-syntax define-syntax/typecheck])
          (for-syntax syntax-parse/typecheck
                      ~typecheck ~⊢
+                     eval-varassign?
                      (rename-out
                       [syntax-parse/typecheck syntax-parse/typed-syntax])))
 
@@ -29,7 +30,8 @@
                    macrotypes/stx-utils))
 
 (begin-for-syntax
-
+  (define eval-varassign? (make-parameter #f))
+  
   ;; infer/depth returns a list of three values:
   ;;   tvxs- ; a stx-list of the expanded versions of type variables in the tvctx
   ;;   xs-   ; a stx-list of the expanded versions of variables in the ctx
@@ -41,7 +43,7 @@
     (define es (lens-view flat es*))
     (define origs (lens-view flat origs*))
     (define/with-syntax [tvxs- xs- es-]
-      (expands/ctxs #:tvctx tvctx #:ctx ctx (stx-map pass-orig es origs)))
+      (expands/ctxs #:tvctx tvctx #:ctx ctx (stx-map pass-orig es origs) #:eval? (eval-varassign?)))
     (define es*- (lens-set flat es* #`es-))
     (list #'tvxs- #'xs- es*-))
 

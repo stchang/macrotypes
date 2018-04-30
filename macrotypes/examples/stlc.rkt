@@ -19,9 +19,9 @@
                         (list covariant))])))
 
 (define-typed-syntax λ
-  [(_ bvs:type-ctx e)
-   #:with (xs- e- τ_res) (infer/ctx+erase #'bvs #'e)
-   (assign-type #'(λ- xs- e-) (mk-→- #'(bvs.type ... τ_res)) #:eval? #f)])
+  [(_ ([x:id (~datum :) t:type] ...) e)
+   #:with (xs- e- τ_res) (infer/ctx+erase #'([x : t.norm] ...) #'e)
+   (assign-type #'(λ- xs- e-) (mk-→- #'(t.norm ... τ_res)) #:eval? #f)])
 
 (define-typed-syntax #%app
   [(_ e_fn e_arg ...)

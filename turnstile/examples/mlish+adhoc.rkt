@@ -761,7 +761,7 @@
                          (= 1 (stx-length #'(xs ...))))
                     "match: missing non-empty list case"
         #:with (~List ty) #'τ_e
-        [[x ≫ x- : ty] ... [rst ≫ rst- : (List ty)]
+        [[x ≫ x- : ty] ... [rst ≫ rst- : τ_e]
          ⊢ (add-expected e_body t_expect) ≫ e_body- ⇒ ty_body]  ...
         #:with (len ...) (stx-map (lambda (p) #`#,(stx-length p)) #'((x ...) ...))
         #:with (lenop ...) (stx-map (lambda (p) (if (brack? p) #'=- #'>=-)) #'(xs ...))
@@ -1386,7 +1386,7 @@
 (define-typed-syntax let
   [(_ name:id (~datum :) ty:type ~! ([x:id e] ...) b ... body) ≫
    [⊢ e ≫ e- ⇒ ty_e] ...
-   [[name ≫ name- : (→ ty_e ... ty.norm)] [x ≫ x- : ty_e] ...
+   [[name ≫ name- : #,(mk-→- #'(ty_e ... ty.norm))] [x ≫ x- : ty_e] ...
     ⊢ [b ≫ b- ⇒ _] ... [body ≫ body- ⇐ ty.norm]]
    --------
    [⊢ (letrec- ([name- (λ- (x- ...) b- ... body-)])
