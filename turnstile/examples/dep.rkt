@@ -23,9 +23,10 @@
 (define-syntax *
   (make-variable-like-transformer
    ;; satisfies both type and term predicates
-   (mk-type (assign-type #'#%type #'#%type))))
+   (assign-type #'#%type #'#%type #:wrap? #f #:eval? #f)))
 (define-for-syntax *+
-  (mk-type (assign-type ((current-type-eval) #'#%type) #'#%type #:eval? #t #:wrap? #f)))
+;  (assign-type ((current-type-eval) #'#%type) #'#%type #:eval? #t #:wrap? #f))
+  (assign-type #'#%type #'#%type #:eval? #f #:wrap? #f))
 
 ;; TODO: how to do Type : Type
 (define-typed-syntax (Π ([X:id (~datum :) τ_in] ...) τ_out) ≫
@@ -33,7 +34,10 @@
 ;  [[X ≫ X- : τ_in] ... ⊢ [τ_out ≫ τ_out- ⇒ _][τ_in ≫ τ_in- ⇒ _] ...]
   [[X ≫ X- : τ_in-] ... ⊢ [τ_out ≫ τ_out- ⇒ _]]
   -------
-  [⊢ (∀- (X- ...) (→- τ_in- ... τ_out-)) (⇒ : #,*+) (⇒ :: #,*+)])
+  [⊢ (∀- (X- ...) (→- τ_in- ... τ_out-)) ⇒ #,*+])
+;; fn version of Π
+(define-for-syntax (mk-Π Xs tys)
+  (attach (mk-∀- Xs (mk-→- tys)) ': *+))
 ;; abbrevs for Π
 (define-simple-macro (→ τ_in ... τ_out)
   #:with (X ...) (generate-temporaries #'(τ_in ...))
@@ -58,6 +62,7 @@
 ;   [[x ≫ x- : τ_in] ... ⊢ [e ≫ e- ⇒ τ_out][τ_in ≫ τ_in- ⇒ _] ...]
    [[x ≫ x- : τ_in-] ... ⊢ [e ≫ e- ⇒ τ_out]]
    #:with tyout ((current-type-eval) #'(Π ([x- : τ_in-] ...) τ_out))
+;   #:with tyout (mk-Π #'(x- ...) #'(τ_in- ... τ_out))
    -------
    [⊢ (λ- (x- ...) e-) ⇒ tyout]]
   [(_ (y:id ...) e) ⇐ (~Π ([x:id : τ_in] ...) τ_out) ≫

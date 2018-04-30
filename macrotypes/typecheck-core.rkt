@@ -671,7 +671,8 @@
                 #:and ~!
 ;                #:with (bvs- ((~var τ- type) (... ...))) (expand-fn #'bvs+ks #'args)
                 ;; faster to not use type stx class (redundant expansions)
-                #:with (bvs- (τ- (... ...))) (expand-fn #'bvs+ks #'args)
+                #:with (bvs- (τ- (... ...))) (parameterize ([eval-varassign? #t])
+                                               (expand-fn #'bvs+ks #'args))
                 #:fail-unless (stx-andmap (current-type?) #'(τ- (... ...)))
                 "not a well-formed type"
                 #:with ([_ (~datum key2) k_arg] (... ...)) #'bvs+ks
@@ -861,8 +862,7 @@
                                                           (λ (ctx es)
                                                              (expands/ctx
                                                               es ctx
-                                                              #:stop-list? #f
-                                                              #:eval? #t)))))])))]))
+                                                              #:stop-list? #f)))))])))]))
 
 ;; ----------------------------------------------------------------------------
 ;; ----------------------------------------------------------------------------
@@ -922,10 +922,12 @@
   ;; --------------------------------------------------------------------------
   ;; var-assign allows customizing "T-Var" rule
 
+  (define eval-varassign? (make-parameter #f))
+
   ;; var-assign :
   ;; Id (Listof Sym) (StxListof TypeStx) -> Stx
-  (define (var-assign x x+ seps τs #:eval? [eval? #f])
-    (if eval?
+  (define (var-assign x x+ seps τs)
+    (if (eval-varassign?)
         (attachs x+ seps τs #:ev (current-type-eval))
         (attachs x+ seps τs)))
 
@@ -936,7 +938,7 @@
   ;;   > (current-var-assign (macro-var-assign #'foo))
   ;;   > ((current-var-assign) #'x '(:) #'(τ))
   ;;   #'(foo x : τ)
-  (define ((macro-var-assign mac-id) x x+ seps τs #:eval? [eval? #f])
+  (define ((macro-var-assign mac-id) x x+ seps τs)
     (datum->syntax x `(,mac-id ,x+ . ,(stx-appendmap list seps τs))))
 
   ;; current-var-assign :
@@ -1012,8 +1014,7 @@
 
   (define (expands/ctxs es #:ctx [ctx null] #:tvctx [tvctx null]
                         #:kev [kev #'(current-type-eval)] ; kind-eval (tvk in tvctx)
-                        #:stop-list? [stop-list? #t]
-                        #:eval? [eval? #f])
+                        #:stop-list? [stop-list? #t])
      (syntax-parse ctx
        [((~or X:id [x:id (~seq sep:id τ) ...]) ...) ; dont expand; τ may reference to tv
        #:with (~or (~and (tv:id ...)
@@ -1060,8 +1061,7 @@
        (for ([x (syntax->list #'(x ...))]
              [rhs (syntax->list #`((make-variable-like-transformer
                                      ((current-var-assign)
-                                      #'x #'x+ '(sep ...) #'(τ ...)
-                                     #:eval? #,eval?))
+                                      #'x #'x+ '(sep ...) #'(τ ...)))
                                    ...))])
          (syntax-local-bind-syntaxes (list x) rhs ctx))
 
@@ -1076,25 +1076,24 @@
        (expands/ctxs es #:ctx #`([x #,(current-tag) τ] ...)
                         #:tvctx tvctx
                         #:kev kev
-                        #:stop-list? stop-list?
-                        #:eval? eval?)]))
+                        #:stop-list? stop-list?)]))
 
   ;; "expand" and "infer" fns derived from expands/ctxs -----------------------
   ;; some are syntactic shortcuts, some are for backwards compat
 
   ; ctx = type env for bound vars in term e, etc
   ; can also use for bound tyvars in type e
-  (define (expands/ctx es ctx #:stop-list? [stop-list? #t] #:eval? [eval? #f])
-    (syntax-parse (expands/ctxs es #:ctx ctx #:stop-list? stop-list? #:eval? eval?)
+  (define (expands/ctx es ctx #:stop-list? [stop-list? #t])
+    (syntax-parse (expands/ctxs es #:ctx ctx #:stop-list? stop-list?)
       [(_ xs es+) (list #'xs #'es+)]))
-  (define (expand/ctx e ctx #:stop-list? [stop-list? #t] #:eval? [eval? #f])
-    (syntax-parse (expands/ctx (list e) ctx #:stop-list? stop-list? #:eval? eval?)
+  (define (expand/ctx e ctx #:stop-list? [stop-list? #t])
+    (syntax-parse (expands/ctx (list e) ctx #:stop-list? stop-list?)
       [(_ xs (e+)) (list #'xs #'e+)]))
-  (define (expands/tvctx es ctx #:stop-list? [stop-list? #t] #:eval? [eval? #f])
-    (syntax-parse (expands/ctxs es #:tvctx ctx #:stop-list? stop-list? #:eval? eval?)
+  (define (expands/tvctx es ctx #:stop-list? [stop-list? #t])
+    (syntax-parse (expands/ctxs es #:tvctx ctx #:stop-list? stop-list?)
       [(tvs _ es+) (list #'tvs #'es+)]))
-  (define (expand/tvctx e tvctx #:stop-list? [stop-list? #t] #:eval? [eval? #f])
-    (syntax-parse (expands/ctxs (list e) #:tvctx tvctx #:stop-list? stop-list? #:eval? eval?)
+  (define (expand/tvctx e tvctx #:stop-list? [stop-list? #t])
+    (syntax-parse (expands/ctxs (list e) #:tvctx tvctx #:stop-list? stop-list?)
       [(tvs _ (e+)) (list #'tvs #'e+)]))
 
 

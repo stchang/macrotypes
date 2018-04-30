@@ -62,28 +62,27 @@
   (define (infer es #:ctx [ctx null] #:tvctx [tvctx null]
                     #:tag [tag (current-tag)] ; the "type" to return from es
                     #:kev [kev #'(current-type-eval)] ; kind-eval (tvk in tvctx)
-                    #:stop-list? [stop-list? #t]
-                    #:eval? [eval? #f])
+                    #:stop-list? [stop-list? #t])
        (define/syntax-parse
          (tvs xs (e+ ...))
-         (expands/ctxs es #:ctx ctx #:tvctx tvctx #:kev kev #:stop-list? stop-list? #:eval? eval?))
+         (expands/ctxs es #:ctx ctx #:tvctx tvctx #:kev kev #:stop-list? stop-list?))
        (list #'tvs #'xs #'(e+ ...)
              (stx-map (λ (e+ e) (detach/check e+ tag #:orig e)) #'(e+ ...) es)))
 
   ;; shorter names
   ; ctx = type env for bound vars in term e, etc
   ; can also use for bound tyvars in type e
-  (define (infer/ctx+erase ctx e #:tag [tag (current-tag)] #:stop-list? [stop-list? #t] #:eval? [eval? #f])
-    (syntax-parse (infer (list e) #:ctx ctx #:tag tag #:stop-list? stop-list? #:eval? eval?)
+  (define (infer/ctx+erase ctx e #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
+    (syntax-parse (infer (list e) #:ctx ctx #:tag tag #:stop-list? stop-list?)
       [(_ xs (e+) (τ)) (list #'xs #'e+ #'τ)]))
-  (define (infers/ctx+erase ctx es #:tag [tag (current-tag)] #:stop-list? [stop-list? #t] #:eval? [eval? #f])
-    (stx-cdr (infer es #:ctx ctx #:tag tag #:stop-list? stop-list? #:eval? eval?)))
+  (define (infers/ctx+erase ctx es #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
+    (stx-cdr (infer es #:ctx ctx #:tag tag #:stop-list? stop-list?)))
   ; tyctx = kind env for bound type vars in term e
-  (define (infer/tyctx+erase ctx e #:tag [tag (current-tag)] #:stop-list? [stop-list? #t] #:eval? [eval? #f])
-    (syntax-parse (infer (list e) #:tvctx ctx #:tag tag #:stop-list? stop-list? #:eval? eval?)
+  (define (infer/tyctx+erase ctx e #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
+    (syntax-parse (infer (list e) #:tvctx ctx #:tag tag #:stop-list? stop-list?)
       [(tvs _ (e+) (τ)) (list #'tvs #'e+ #'τ)]))
-  (define (infers/tyctx+erase ctx es #:tag [tag (current-tag)] #:stop-list? [stop-list? #t] #:eval? [eval? #f])
-    (syntax-parse (infer es #:tvctx ctx #:tag tag #:stop-list? stop-list? #:eval? eval?)
+  (define (infers/tyctx+erase ctx es #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
+    (syntax-parse (infer es #:tvctx ctx #:tag tag #:stop-list? stop-list?)
       [(tvs+ _ es+ τs) (list #'tvs+ #'es+ #'τs)]))
   (define infer/tyctx infer/tyctx+erase)
   (define infer/ctx infer/ctx+erase)
