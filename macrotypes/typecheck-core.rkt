@@ -1013,7 +1013,6 @@
   ;; TODO: get rid of the kev arg (need to add `current-tyvar-assign`?)
 
   (define (expands/ctxs es #:ctx [ctx null] #:tvctx [tvctx null]
-                        #:kev [kev #'(current-type-eval)] ; kind-eval (tvk in tvctx)
                         #:stop-list? [stop-list? #t])
      (syntax-parse ctx
        [((~or X:id [x:id (~seq sep:id τ) ...]) ...) ; dont expand; τ may reference to tv
@@ -1051,7 +1050,7 @@
        (syntax-local-bind-syntaxes
          (syntax->list #'(X ...))
          #`(values (make-variable-like-transformer
-                              (mk-tyvar (attach #'X+ ':: #'#%type #;(#,kev #'#%type))))
+                              (mk-tyvar (attach #'X+ ':: #'#%type)))
                             ...)
          ctx)
 
@@ -1075,7 +1074,6 @@
       [([x τ] ...)
        (expands/ctxs es #:ctx #`([x #,(current-tag) τ] ...)
                         #:tvctx tvctx
-                        #:kev kev
                         #:stop-list? stop-list?)]))
 
   ;; "expand" and "infer" fns derived from expands/ctxs -----------------------

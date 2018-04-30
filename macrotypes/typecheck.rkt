@@ -61,11 +61,10 @@
   ;; any naming oddities/inconsistentices due to backwards compatibility
   (define (infer es #:ctx [ctx null] #:tvctx [tvctx null]
                     #:tag [tag (current-tag)] ; the "type" to return from es
-                    #:kev [kev #'(current-type-eval)] ; kind-eval (tvk in tvctx)
                     #:stop-list? [stop-list? #t])
        (define/syntax-parse
          (tvs xs (e+ ...))
-         (expands/ctxs es #:ctx ctx #:tvctx tvctx #:kev kev #:stop-list? stop-list?))
+         (expands/ctxs es #:ctx ctx #:tvctx tvctx #:stop-list? stop-list?))
        (list #'tvs #'xs #'(e+ ...)
              (stx-map (λ (e+ e) (detach/check e+ tag #:orig e)) #'(e+ ...) es)))
 
