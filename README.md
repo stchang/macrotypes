@@ -16,15 +16,28 @@ Specifically, we made the following changes:
   - add explicit `#:eval` option for rules that must eval
     - see `dep.rkt` and `mlish.rkt`
 
-
-#### TODO
-
-- dont `current-type-eval` in `var-assign`
-  - this one is trickier in langs with tyvars
-    - rules have shape `[(X ...) ([x ≫ x- : tyin] ...) ⊢ e ≫ e- ⇒ tyout]`
+- dont `current-type-eval` (or `current-kind-eval`) by default in `var-assign`
+  - allow explicit tyeval of varassign type's with `eval-varassign?` parameter
+    - initially added an optional `#:eval?` arg to `var-assign` but it seemed
+      to affect performance a lot
+  - calling `current-type-eval` on var-assign types was mostly redundant
+  - exception: langs with rules of shape `[(X ...) ([x ≫ x- : tyin] ...) ⊢ e ≫ e- ⇒ tyout]`
       - where `X` \in `tyin`, so `tyin` must be expanded
     - eg, `exist`
+  - NOTE: this change requires changing `bound-id-table` in `type=` to use `free-id-table`
+    - and must wrap `free-id-table` adds with extra `syntax-local-introduce`
+    - without this, `type-eval`ing tyvars with varassign and `type-eval`ing them beforehand (eg, with `type` stx class) are not equivalent
 
+### Gains (rough estimate)
+
+As measured on `galicia` (8 cores), Racket 6.12, using `raco test` running in parallel
+
+- *Start*: 1m35s
+- *dont `type-eval` conclusions*: 1m20s
+- *dont `type-eval` expected types*: 1m14s
+- *switch to `free-id-table` in `type=`*: 1m15s
+- *dont `type-eval` var-assigns*: 1m17s
+- *replace `#:eval?` arg for `expands/ctxs` with parameter*: 1m13s
 
 ---------
 A Racket language for creating typed embedded DSLs
