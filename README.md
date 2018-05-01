@@ -5,6 +5,8 @@
 This branch experiments with eliminating redundant expansions by removing calls
 to `current-type-eval`.
 
+(This branch splits from `split-infer` after commit https://github.com/stchang/macrotypes/commit/9fe7c37b788585752c382a6a08d03ae710a15ffb)
+
 Specifically, we made the following changes:
 
 - dont `current-type-eval` in rule conclusions
