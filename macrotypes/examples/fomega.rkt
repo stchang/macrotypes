@@ -110,7 +110,7 @@
                    "~a (~a:~a) Arguments to function ~a have wrong kinds(s), "
                    (syntax-source stx) (syntax-line stx) (syntax-column stx)
                    (syntax->datum #'τ_fn))
-                  "or wrong number of arguments:\nGive0n:\n"
+                  "or wrong number of arguments:\nGiven:\n"
                   (string-join
                    (map (λ (e t) (format "  ~a : ~a" e t)) ; indent each line
                         (syntax->datum #'(τ_arg ...))
