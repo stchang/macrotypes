@@ -222,9 +222,9 @@
   ;; e.g., Stx = expression, Tag = ':, Val = Type stx
   (define (attach stx tag v)
     (set-stx-prop/preserved stx tag (intro-if-stx v)))
-  (define (attachs stx tags vs #:ev [ev (λ (x) x)])
+  (define (attachs stx tags vs)
     (for/fold ([stx stx]) ([t (in-list tags)] [v (in-stx-list vs)])
-      (attach stx t (ev v))))
+      (attach stx t v)))
   ;; detach : Stx Tag -> Val
   ;; Retrieves Val at Tag stx prop on Stx.
   ;; If Val is a non-empty list, return first element, otherwise return Val.
@@ -875,7 +875,7 @@
   ;; var-assign :
   ;; Id (Listof Sym) (StxListof TypeStx) -> Stx
   (define (var-assign x x+ seps τs)
-    (attachs x+ seps τs #:ev (current-type-eval)))
+    (attachs x+ seps (stx-map (current-type-eval) τs)))
 
   ;; macro-var-assign : Id -> (Id (Listof Sym) (StxListof TypeStx) -> Stx)
   ;; generate a function for current-var-assign that expands
@@ -950,19 +950,16 @@
   ;; - each x in ctx is in scope for subsequent xs
   ;;   - ie, dont need separate ctx and tvctx
   ;; - keep tvctx bc it's often useful to separate the returned Xs-
-  ;; TODO: get rid of the kev arg (need to add `current-tyvar-assign`?)
 
   (define (expands/ctxs es #:ctx [ctx null] #:tvctx [tvctx null]
-                        #:key [kev #'(current-type-eval)] ; kind-eval (tvk in tvctx)
                         #:stop-list? [stop-list? #t])
     (with-syntax
       ([(tvs+ _ xs+ es+)
         (expands/ctxs/turn es #:ctx ctx #:tvctx tvctx #:tvctx2 null
-                           #:key kev #:stop-list? stop-list?)])
+                           #:stop-list? stop-list?)])
       (list #'tvs+ #'xs+ #'es+)))
 
   (define (expands/ctxs/turn es #:ctx [ctx null] #:tvctx [tvctx null] #:tvctx2 [tvctx2 null]
-                        #:key [kev #'(current-type-eval)] ; kind-eval (tvk in tvctx)
                         #:stop-list? [stop-list? #t])
      (syntax-parse ctx
        [((~or X:id [x:id (~seq sep:id τ) ...]) ...) ; dont expand; τ may reference to tv
@@ -993,8 +990,7 @@
          (syntax->list #'(tv ...))
          #`(values (make-rename-transformer
                                (mk-tyvar
-                                 (attachs #'tv+ '(tvsep ...) #'(tvk ...)
-                                          #:ev #,kev)))
+                                 (attachs #'tv+ '(tvsep ...) #'(tvk ...))))
                              ...)
          ctx)
 
@@ -1002,15 +998,14 @@
          (syntax->list #'(tv2 ...))
          #`(values (make-rename-transformer
                                (mk-tyvar
-                                 (attachs #'tv2+ '(tvsep2 ...) #'(tvk2 ...)
-                                          #:ev #,kev)))
+                                 (attachs #'tv2+ '(tvsep2 ...) #'(tvk2 ...))))
                              ...)
          ctx)
 
        (syntax-local-bind-syntaxes
          (syntax->list #'(X ...))
          #`(values (make-variable-like-transformer
-                              (mk-tyvar (attach #'X+ ':: (#,kev #'#%type))))
+                              (mk-tyvar (attach #'X+ ':: #'#%type)))
                             ...)
          ctx)
 
