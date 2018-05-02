@@ -507,7 +507,7 @@
                 (syntax-e #'Name) (type->str #'τ-expected+))
         #:with (~Any _ τ-expected-arg ...) #'τ-expected+
         #'(C {τ-expected-arg ...})]
-      [_:id (⊢ StructName (∀ #'(X ...) (ext-stlc:→ τ ... (Name X ...))))] ; HO fn
+      [_:id (⊢ StructName (∀ (X ...) (ext-stlc:→ τ ... (Name X ...))))] ; HO fn
       [(C τs e_arg ...)
        #:when (brace? #'τs) ; commit to this clause
        #:with {~! τ_X:type ...} #'τs
