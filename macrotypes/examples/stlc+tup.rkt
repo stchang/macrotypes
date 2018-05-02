@@ -21,7 +21,7 @@
    #:with (e_ann ...)
           (if (syntax-e #'ty-expected)
               (syntax-parse (local-expand #'ty-expected 'expression null)
-                [(~× ty_exp ...) #'((add-expected/noeval e ty_exp) ...)]
+                [(~× ty_exp ...) #'((add-expected e ty_exp) ...)]
                 [_ #'(e ...)])
               #'(e ...))
    #:with ([e- τ] ...) (infers+erase #'(e_ann ...))
@@ -30,5 +30,5 @@
   [(_ e_tup n:nat)
    #:with [e_tup- (~× . τs_tup)] (infer+erase #'e_tup)
    #:fail-unless (< (syntax-e #'n) (stx-length #'τs_tup)) "index too large"
-   (⊢/no-teval (list-ref- e_tup- n) : #,(stx-list-ref #'τs_tup (syntax-e #'n)))])
+   (⊢ (list-ref- e_tup- n) : #,(stx-list-ref #'τs_tup (syntax-e #'n)))])
    

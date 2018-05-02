@@ -63,11 +63,11 @@
        (define- x- e-))])
 
 (define-typed-syntax #%datum
-  [(_ . b:boolean) (⊢/no-teval #,(syntax/loc stx (#%datum- . b)) : #,Bool+)]
-  [(_ . s:str) (⊢/no-teval #,(syntax/loc stx (#%datum- . s)) : #,String+)]
+  [(_ . b:boolean) (⊢ #,(syntax/loc stx (#%datum- . b)) : #,Bool+)]
+  [(_ . s:str) (⊢ #,(syntax/loc stx (#%datum- . s)) : #,String+)]
   [(_ . f) #:when (flonum? (syntax-e #'f)) 
-   (⊢/no-teval #,(syntax/loc stx (#%datum- . f)) : #,Float+)]
-  [(_ . c:char) (⊢/no-teval #,(syntax/loc stx (#%datum- . c)) : #,Char+)]
+   (⊢ #,(syntax/loc stx (#%datum- . f)) : #,Float+)]
+  [(_ . c:char) (⊢ #,(syntax/loc stx (#%datum- . c)) : #,Char+)]
   [(_ . x) (syntax/loc stx (stlc+lit:#%datum . x))])
 
 (define-typed-syntax and
@@ -78,7 +78,7 @@
                  (typecheck-fail-msg/1 Bool+ #'τ_e1 #'e1)
    #:fail-unless (typecheck? #'τ_e2 Bool+)
                  (typecheck-fail-msg/1 Bool+ #'τ_e2 #'e2)
-   (⊢/no-teval (and- e1- e2-) : #,Bool+)])
+   (⊢ (and- e1- e2-) : #,Bool+)])
   
 (define-typed-syntax or
   [(_ e ...)
@@ -86,7 +86,7 @@
    #:fail-unless (stx-andmap Bool? #'(τ_e ...))
                  (typecheck-fail-msg/multi 
                   (stx-map (λ _ Bool+) #'(e ...)) #'(τ_e ...) #'(e ...))
-   (⊢/no-teval (or- e- ...) : #,Bool+)])
+   (⊢ (or- e- ...) : #,Bool+)])
 
 (begin-for-syntax 
   (define current-join 
@@ -118,15 +118,15 @@
   [(_ e_unit ... e)
    #:with ([e_unit- _] ...) (infers+erase #'(e_unit ...))
    #:with (e- τ) (infer+erase #'e)
-   (⊢/no-teval (begin- e_unit- ... e-) : τ)])
+   (⊢ (begin- e_unit- ... e-) : τ)])
 
 (define-typed-syntax ann #:datum-literals (:)
   [(_ e : ascribed-τ:type)
-   #:with e/expected (add-expected-type/noeval #'e #'ascribed-τ.norm)
+   #:with e/expected (add-expected-type #'e #'ascribed-τ.norm)
    #:with (e- τ) (infer+erase #'e/expected)
    #:fail-unless (typecheck? #'τ #'ascribed-τ.norm)
    (typecheck-fail-msg/1 #'ascribed-τ.norm #'τ #'e)
-   (⊢/no-teval e- : ascribed-τ.norm)])
+   (⊢ e- : ascribed-τ.norm)])
 
 (define-typed-syntax let
   [(_ ([x e] ...) e_body)
@@ -137,7 +137,7 @@
    #:fail-unless (or (not (syntax-e #'τ-expected)) ; no expected type
                      (typecheck? #'τ_body #'τ-expected))
    (typecheck-fail-msg/1 #'τ-expected #'τ_body #'e_body)
-   (⊢/no-teval (let- ([x- e-] ...) e_body-) : τ_body)])
+   (⊢ (let- ([x- e-] ...) e_body-) : τ_body)])
 
 ; dont need to manually transfer expected type
 ; result template automatically propagates properties
@@ -152,7 +152,7 @@
 (define-typed-syntax letrec
   [(_ ([b:type-bind e] ...) e_body)
    #:with ((x- ...) (e- ... e_body-) (τ ... τ_body))
-          (infers/ctx+erase #'(b ...) #'((add-expected/noeval e b.type) ... e_body))
+          (infers/ctx+erase #'(b ...) #'((add-expected e b.type) ... e_body))
    #:fail-unless (typechecks? #'(b.type ...) #'(τ ...))
    (typecheck-fail-msg/multi #'(b.type ...) #'(τ ...) #'(e ...))
-   (⊢/no-teval (letrec- ([x- e-] ...) e_body-) : τ_body)])
+   (⊢ (letrec- ([x- e-] ...) e_body-) : τ_body)])

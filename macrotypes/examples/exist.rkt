@@ -18,7 +18,7 @@
    #:with (~∃ (τ_abstract) τ_body) #'∃τ.norm
    #:with [e- τ_e] (infer+erase #'e)
    #:when (typecheck? #'τ_e  (subst #'τ.norm #'τ_abstract #'τ_body))
-   (⊢/no-teval e- : ∃τ.norm)])
+   (⊢ e- : ∃τ.norm)])
 
 (define-typed-syntax open #:datum-literals (<=)
   [(_ [x:id <= e_packed with X:id] e)
@@ -77,4 +77,4 @@
            (type-error #:src #'stx #:msg "existential type ~a is not in scope" #'X-))
        ctx)
      (local-expand #'τ_e 'expression '() ctx))
-   (⊢/no-teval (let- ([x- e_packed-]) e-) : τ_e_checked)])
+   (⊢ (let- ([x- e_packed-]) e-) : τ_e_checked)])

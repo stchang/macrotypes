@@ -198,7 +198,7 @@
                 (define ty_in (inst-type/cs/orig Xs cs tyXin datum=?))
                 (define/with-syntax [a- ty_a]
                   (infer+erase (if (empty? (find-free-Xs Xs ty_in))
-                                   (add-expected-type/noeval a ty_in)
+                                   (add-expected-type a ty_in)
                                    a)))
                 (values
                  (cons #'a- as-)

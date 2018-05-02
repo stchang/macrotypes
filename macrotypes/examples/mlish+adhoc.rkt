@@ -725,7 +725,7 @@
                #'(ctx ...) #`((pass-expected e_body #,stx) ...))
       #:when (check-exhaust #'(pat- ...) #'τ_e)
       #:with τ_out (stx-foldr (current-join) (stx-car #'(ty_body ...)) (stx-cdr #'(ty_body ...)))
-      (⊢/no-teval (match- e- [pat- (let- ([x- x] ...) e_body-)] ...) : τ_out)
+      (⊢ (match- e- [pat- (let- ([x- x] ...) e_body-)] ...) : τ_out)
       ])]))
 
 (define-typed-syntax match #:datum-literals (with)
@@ -744,7 +744,7 @@
         #:with (acc ...) (for/list ([(a i) (in-indexed (syntax->list #'(x ...)))])
                            #`(lambda (s) (list-ref s #,(datum->syntax #'here i))))
         #:with z (generate-temporary)
-        (⊢/no-teval (let- ([z e-])
+        (⊢ (let- ([z e-])
              (let- ([x- (acc z)] ...) e_body-))
            : ty_body)])]
      [(List? #'τ_e) ;; e is List
@@ -775,7 +775,7 @@
                                         #`(lambda (lst) (list-ref lst #,(datum->syntax #'here i)))))
                                   #'((x ...) ...))
         #:with (acc2 ...) (stx-map (lambda (l) #`(lambda (lst) (list-tail lst #,l))) #'(len ...))
-        (⊢/no-teval (let- ([z e-])
+        (⊢ (let- ([z e-])
              (cond- 
               [(pred? z)
                (let- ([x- (acc1 z)] ... [rst- (acc2 z)]) e_body-)] ...))
@@ -823,7 +823,7 @@
                       "guard expression(s) must have type bool"
         #:with τ_out (stx-foldr (current-join) (stx-car #'(τ_ec ...)) (stx-cdr #'(τ_ec ...)))
         #:with z (generate-temporary) ; dont duplicate eval of test expr
-        (⊢/no-teval (let- ([z e-])
+        (⊢ (let- ([z e-])
              (cond- 
               [(and- (Cons? z) 
                      (let- ([x- (acc z)] ...) e_guard-))
@@ -908,7 +908,7 @@
   [(_ ([x:id (~datum :) ty] ...) body) ; no TC
    #:with (X ...) (compute-tyvars #'(ty ...))
    #:with (~∀ () (~ext-stlc:→ _ ... body-ty)) (get-expected-type stx)
-   #'(Λ (X ...) (ext-stlc:λ ([x : ty] ...) (add-expected/noeval body body-ty)))]
+   #'(Λ (X ...) (ext-stlc:λ ([x : ty] ...) (add-expected body body-ty)))]
   [(_ ([x:id (~datum :) ty] ...) body) ; no TC, ignoring expected-type
    #:with (X ...) (compute-tyvars #'(ty ...))
    #'(Λ (X ...) (ext-stlc:λ ([x : ty] ...) body))]
@@ -921,10 +921,10 @@
            (type-error #:src stx #:msg
                        (format "expected a function of ~a arguments, got one with ~a arguments"
                                (stx-length #'[arg-ty ...] #'[x ...]))))]
-   #`(Λ Xs (ext-stlc:λ ([x : arg-ty] ...) (add-expected/noeval body body-ty)))]
+   #`(Λ Xs (ext-stlc:λ ([x : arg-ty] ...) (add-expected body body-ty)))]
   #;[(_ args body)
    #:with (~∀ () (~ext-stlc:→ arg-ty ... body-ty)) (get-expected-type stx)
-   #`(Λ () (ext-stlc:λ args #,(add-expected-type/noeval #'body #'body-ty)))]
+   #`(Λ () (ext-stlc:λ args #,(add-expected-type #'body #'body-ty)))]
   #;[(_ (~and x+tys ([_ (~datum :) ty] ...)) . body)
    #:with Xs (compute-tyvars #'(ty ...))
    ;; TODO is there a way to have λs that refer to ids defined after them?
@@ -947,8 +947,8 @@
         #:fail-unless (stx-length=? #'(e_arg ...) #'(τ_inX ...))
                       (mk-app-err-msg stx #:expected #'(τ_inX ...) 
                                       #:note "Wrong number of arguments.")
-        #:with e_fn/ty (⊢/no-teval e_fn- : #,(mk-→- #'tyX_args))
-        #'(ext-stlc:#%app e_fn/ty (add-expected/noeval e_arg τ_inX) ...)])]
+        #:with e_fn/ty (⊢ e_fn- : #,(mk-→- #'tyX_args))
+        #'(ext-stlc:#%app e_fn/ty (add-expected e_arg τ_inX) ...)])]
     [else
      (syntax-parse #'ty_fnX
       ;; TODO: combine these two clauses
@@ -966,7 +966,7 @@
          ;; ) compute argument types; re-use args expanded during solve
          #:with ([e_arg2- τ_arg2] ...) (let ([n (stx-length #'(e_arg1- ...))])
                                         (infers+erase 
-                                        (stx-map add-expected-type/noeval 
+                                        (stx-map add-expected-type 
                                           (stx-drop #'e_args n) (stx-drop #'(τ_in ...) n))))
          #:with (τ_arg1 ...) (stx-map typeof #'(e_arg1- ...))
          #:with (τ_arg ...) #'(τ_arg1 ... τ_arg2 ...)
@@ -1049,7 +1049,7 @@
           ;; ) compute argument types; re-use args expanded during solve
           #:with ([e_arg2- τ_arg2] ...) (let ([n (stx-length #'(e_arg1- ...))])
                                           (infers+erase 
-                                              (stx-map add-expected-type/noeval 
+                                              (stx-map add-expected-type 
                                                 (stx-drop #'e_args n) (stx-drop #'(τ_in ...) n))))
           #:with (τ_arg1 ...) (stx-map typeof #'(e_arg1- ...))
           #:with (τ_arg ...) #'(τ_arg1 ... τ_arg2 ...)
@@ -1094,18 +1094,18 @@
    #:with ([body- ty_body] ...) (infers+erase #`((pass-expected body #,this-syntax) ...))
    #:with (([b- ty_b] ...) ...) (stx-map infers+erase #'((b ...) ...))
    #:with τ_out (stx-foldr (current-join) (stx-car #'(ty_body ...)) (stx-cdr #'(ty_body ...)))
-   (⊢/no-teval (cond- [test- b- ... body-] ...) : τ_out)])
+   (⊢ (cond- [test- b- ... body-] ...) : τ_out)])
 (define-typed-syntax when
   [(_ test body ...)
    #:with [test- _] (infer+erase #'test)
    #:with [(body- _) ...] (infers+erase #'(body ...))
-   (⊢/no-teval (when- test- body- ...) : #,Unit+)])
+   (⊢ (when- test- body- ...) : #,Unit+)])
 (define-typed-syntax unless
   [(_ test body ...)
 ;   #:with test- (⇑ test as Bool)
    #:with [test- _] (infer+erase #'test)
    #:with [(body- _) ...] (infers+erase #'(body ...))
-   (⊢/no-teval (unless- test- body- ...) : #,Unit+)])
+   (⊢ (unless- test- body- ...) : #,Unit+)])
 
 ;; sync channels and threads
 (define-type-constructor Channel)
@@ -1113,11 +1113,11 @@
 (define-typed-syntax make-channel
   [(_ (~and tys {ty}))
    #:when (brace? #'tys)
-   (⊢/no-teval (make-channel-) : #,(mk-Channel- #'(ty)))])
+   (⊢ (make-channel-) : #,(mk-Channel- #'(ty)))])
 (define-typed-syntax channel-get
   [(_ c)
    #:with (c- (ty)) (⇑ c as Channel)
-   (⊢/no-teval (channel-get- c-) : ty)])
+   (⊢ (channel-get- c-) : ty)])
 (define-typed-syntax channel-put
   [(_ c v)
    #:with (c- (ty)) (⇑ c as Channel)
@@ -1125,7 +1125,7 @@
    #:fail-unless (typechecks? #'ty_v #'ty)
                  (format "Cannot send ~a value on ~a channel."
                          (type->str #'ty_v) (type->str #'ty))
-   (⊢/no-teval (channel-put- c- v-) : #,Unit+)])
+   (⊢ (channel-put- c- v-) : #,Unit+)])
 
 (define-base-type Thread)
 
@@ -1133,7 +1133,7 @@
 (define-typed-syntax thread
   [(_ th)
    #:with (th- (~∀ () (~ext-stlc:→ τ_out))) (infer+erase #'th)
-   (⊢/no-teval (thread- th-) : #,Thread+)])
+   (⊢ (thread- th-) : #,Thread+)])
 
 (provide (typed-out [random : (→ Int Int)]
                     [integer->char : (→ Int Char)]
@@ -1190,7 +1190,7 @@
   [(_ e n)
    #:with n- (⇑ n as Int)
    #:with [e- (ty)] (⇑ e as Vector)
-   (⊢/no-teval (vector-ref- e- n-) : ty)])
+   (⊢ (vector-ref- e- n-) : ty)])
 (define-typed-syntax vector-set!
   [(_ e n v)
    #:with n- (⇑ n as Int)
@@ -1340,7 +1340,7 @@
    #:fail-unless (typecheck? #'ty_body #'ty.norm)
                  (format "type of let body ~a does not match expected typed ~a"
                          (type->str #'ty_body) (type->str #'ty))
-   (⊢/no-teval (letrec- ([name- (λ- xs- body- ...)]) 
+   (⊢ (letrec- ([name- (λ- xs- body- ...)]) 
         (name- e- ...))
       : ty_body)]
   [(_ ([x:id e] ...) body ...) 
@@ -1392,7 +1392,7 @@
    #:with [k- ty_k] (infer+erase #'k)
    #:when (typecheck? #'ty_k #'ty_key)
    #:with (fail- _) (infer+erase #'fail) ; default val can be any
-   (⊢/no-teval (hash-ref- h- k- fail-) : ty_val)])
+   (⊢ (hash-ref- h- k- fail-) : ty_val)])
 (define-typed-syntax hash-has-key?
   [(_ h k)
    #:with [h- (ty_key _)] (⇑ h as Hash)
@@ -1493,7 +1493,7 @@
 (define-typed-syntax equal?
   [(_ e1 e2)
    #:with [e1- ty1] (infer+erase #'e1)
-   #:with [e2- ty2] (infer+erase #'(add-expected/noeval e2 ty1))
+   #:with [e2- ty2] (infer+erase #'(add-expected e2 ty1))
    #:fail-unless (typecheck? #'ty1 #'ty2) "arguments to equal? have different types"
    (⊢ (equal?- e1- e2-) : Bool)])
 

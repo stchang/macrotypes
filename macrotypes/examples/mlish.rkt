@@ -195,7 +195,7 @@
                 (define ty_in (inst-type/cs/orig Xs cs tyXin datum=?))
                 (define/with-syntax [a- ty_a]
                   (infer+erase (if (empty? (find-free-Xs Xs ty_in))
-                                   (add-expected-type/noeval a ty_in)
+                                   (add-expected-type a ty_in)
                                    a)))
                 (values
                  (cons #'a- as-)
@@ -814,7 +814,7 @@
         #:with (acc ...) (for/list ([(a i) (in-indexed (syntax->list #'(x ...)))])
                            #`(lambda- (s) (list-ref- s #,(datum->syntax #'here i))))
         #:with z (generate-temporary)
-        (⊢/no-teval (let- ([z e-])
+        (⊢ (let- ([z e-])
              (let- ([x- (acc z)] ...) e_body-))
            : ty_body)])]
      [(List? #'τ_e) ;; e is List
@@ -918,10 +918,10 @@
    #:fail-unless (stx-length=? #'[x ...] #'[arg-ty ...])
    (format "expected a function of ~a arguments, got one with ~a arguments"
            (stx-length #'[arg-ty ...]) (stx-length #'[x ...]))
-   #`(?Λ Xs (ext-stlc:λ ([x : arg-ty] ...) (add-expected/noeval body body-ty)))]
+   #`(?Λ Xs (ext-stlc:λ ([x : arg-ty] ...) (add-expected body body-ty)))]
   [(_ (~and args ([_ (~datum :) ty] ...)) body)
    #:with (~?∀ () (~ext-stlc:→ arg-ty ... body-ty)) (get-expected-type stx)
-   #`(?Λ () (ext-stlc:λ args (add-expected/noeval body body-ty)))]
+   #`(?Λ () (ext-stlc:λ args (add-expected body body-ty)))]
   [(_ (~and x+tys ([_ (~datum :) ty] ...)) . body)
    #:with Xs (compute-tyvars #'(ty ...))
    ;; TODO is there a way to have λs that refer to ids defined after them?
@@ -1085,7 +1085,7 @@
           (infer/ctx+erase #'([acc : ty_init][x : ty] ...) #'body)
    #:fail-unless (typecheck? #'ty_body #'ty_init)
    (typecheck-fail-msg/1 #'ty_init #'ty_body #'body)
-   (⊢/no-teval (for/fold- ([acc- init-]) ([x- e-] ...) body-) : ty_body)])
+   (⊢ (for/fold- ([acc- init-]) ([x- e-] ...) body-) : ty_body)])
 
 (define-typed-syntax for/hash
   [(for/hash ([x:id e]...) body)
@@ -1128,7 +1128,7 @@
    #:fail-unless (typecheck? #'ty_body #'ty.norm)
                  (format "type of let body ~a does not match expected typed ~a"
                          (type->str #'ty_body) (type->str #'ty))
-   (⊢/no-teval (letrec- ([name- (λ- xs- body- ...)]) 
+   (⊢ (letrec- ([name- (λ- xs- body- ...)]) 
         (name- e- ...))
       : ty_body)]
   [(let ([x:id e] ...) body ...) 
@@ -1165,7 +1165,7 @@
    #:with [k- ty_k] (infer+erase #'k)
    #:fail-unless (typecheck? #'ty_k #'ty_key)
    (typecheck-fail-msg/1 #'ty_key #'ty_k #'k)
-   (⊢/no-teval (hash-ref- h- k-) : ty_val)]
+   (⊢ (hash-ref- h- k-) : ty_val)]
   [(hash-ref h k fail)
    #:with [h- (~Hash ty_key ty_val)] (infer+erase #'h)
    #:with [k- ty_k] (infer+erase #'k)
@@ -1174,7 +1174,7 @@
    #:with [fail- (~?∀ () (~ext-stlc:→ ty_fail))] (infer+erase #'fail)
    #:fail-unless (typecheck? #'ty_fail #'ty_val)
    (typecheck-fail-msg/1 #'(→ ty_val) #'(→ ty_fail) #'fail)
-   (⊢/no-teval (hash-ref- h- k- fail-) : ty_val)])
+   (⊢ (hash-ref- h- k- fail-) : ty_val)])
 
 (define-base-type String-Port)
 (define-base-type Input-Port)

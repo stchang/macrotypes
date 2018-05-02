@@ -20,7 +20,7 @@
 (define-typed-syntax deref
   [(_ e)
    #:with [e- (~Ref τ)] (infer+erase #'e)
-   (⊢/no-teval (unbox- e-) : τ)])
+   (⊢ (unbox- e-) : τ)])
 (define-typed-syntax := #:literals (:=)
   [(_ e_ref e)
    #:with [e_ref- (~Ref τ1)] (infer+erase #'e_ref)

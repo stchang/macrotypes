@@ -48,11 +48,6 @@
       [(_ e tag τ) #'(assign-type #`e #`τ)]
       [(_ e τ) #'(⊢ e : τ)]))
 
-  (define-syntax (⊢/no-teval stx)
-    (syntax-parse stx
-      [(_ e tag τ) #'(assign-type #`e #`τ #:eval? #f)]
-      [(_ e τ) #'(⊢/no-teval e : τ)]))
-
   ;; TODO: remove? only used by macrotypes/examples/infer.rkt (and stlc+cons)
   (define (add-env e env) (set-stx-prop/preserved e 'env (intro-if-stx env)))
   (define (get-env e) (intro-if-stx (syntax-property e 'env)))

@@ -115,7 +115,7 @@
          [(n e)
           #:with [e+ τ+] (infer+erase #'e)
           #:with n+ (#,ℜ #'τ+)
-          (⊢/no-teval (#%app- n+ e+)
+          (⊢ (#%app- n+ e+)
              : τ-cod)]
          [(_ e* (... ...))
           #'(raise-arity-error- (syntax->datum- name) 1 e* (... ...))]))

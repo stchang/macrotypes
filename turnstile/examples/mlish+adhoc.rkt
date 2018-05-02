@@ -734,7 +734,7 @@
         #:with (~× ty ...) #'τ_e
         #:fail-unless (stx-length=? #'(ty ...) #'(x ...))
                       "match clause pattern not compatible with given tuple"
-        [[x ≫ x- : ty] ... ⊢ (pass-expected/noeval e_body #,stx) ≫ e_body- ⇒ ty_body]
+        [[x ≫ x- : ty] ... ⊢ (pass-expected e_body #,stx) ≫ e_body- ⇒ ty_body]
         #:with (acc ...) (for/list ([(a i) (in-indexed (syntax->list #'(x ...)))])
                            #`(lambda (s) (list-ref s #,(datum->syntax #'here i))))
         #:with z (generate-temporary)
@@ -901,7 +901,7 @@
    #:with (X ...) (compute-tyvars #'(ty ...))
    #:with (~∀ () (~ext-stlc:→ _ ... body-ty)) (get-expected-type this-syntax)
    --------
-   [≻ (Λ (X ...) (ext-stlc:λ ([x : ty] ...) (add-expected/noeval body body-ty)))]]
+   [≻ (Λ (X ...) (ext-stlc:λ ([x : ty] ...) (add-expected body body-ty)))]]
   [(_ ([x:id (~datum :) ty] ...) body) ≫ ; no TC, ignoring expected-type
    #:with (X ...) (compute-tyvars #'(ty ...))
    --------
@@ -916,10 +916,10 @@
                        (format "expected a function of ~a arguments, got one with ~a arguments"
                                (stx-length #'[arg-ty ...] #'[x ...]))))]
    --------
-   [≻ (Λ Xs (ext-stlc:λ ([x : arg-ty] ...) #,(add-expected-type/noeval #'body #'body-ty)))]]
+   [≻ (Λ Xs (ext-stlc:λ ([x : arg-ty] ...) #,(add-expected-type #'body #'body-ty)))]]
   #;[(_ args body)
    #:with (~∀ () (~ext-stlc:→ arg-ty ... body-ty)) (get-expected-type stx)
-   #`(Λ () (ext-stlc:λ args #,(add-expected-type/noeval #'body #'body-ty)))]
+   #`(Λ () (ext-stlc:λ args #,(add-expected-type #'body #'body-ty)))]
   #;[(_ (~and x+tys ([_ (~datum :) ty] ...)) . body)
    #:with Xs (compute-tyvars #'(ty ...))
    ;; TODO is there a way to have λs that refer to ids defined after them?
@@ -962,7 +962,7 @@
          ;; ) compute argument types; re-use args expanded during solve
          #:with ([e_arg2- τ_arg2] ...) (let ([n (stx-length #'(e_arg1- ...))])
                                         (infers+erase 
-                                        (stx-map add-expected-type/noeval
+                                        (stx-map add-expected-type
                                           (stx-drop #'e_args n) (stx-drop #'(τ_in ...) n))))
          #:with (τ_arg1 ...) (stx-map typeof #'(e_arg1- ...))
          #:with (τ_arg ...) #'(τ_arg1 ... τ_arg2 ...)
@@ -1048,7 +1048,7 @@
           ;; ) compute argument types; re-use args expanded during solve
           #:with ([e_arg2- τ_arg2] ...) (let ([n (stx-length #'(e_arg1- ...))])
                                           (infers+erase 
-                                              (stx-map add-expected-type/noeval
+                                              (stx-map add-expected-type
                                                 (stx-drop #'e_args n) (stx-drop #'(τ_in ...) n))))
           #:with (τ_arg1 ...) (stx-map typeof #'(e_arg1- ...))
           #:with (τ_arg ...) #'(τ_arg1 ... τ_arg2 ...)

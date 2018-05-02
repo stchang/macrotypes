@@ -210,9 +210,6 @@
 (define-syntax add-expected
   (syntax-parser
     [(_ e τ) (add-orig (add-expected-type #'e #'τ) (get-orig #'e))]))
-(define-syntax add-expected/noeval
-  (syntax-parser
-    [(_ e τ) (add-orig (add-expected-type/noeval #'e #'τ) (get-orig #'e))]))
 (define-syntax pass-expected
   (syntax-parser
     [(_ to from) (add-expected-type/raw #'to (get-expected-type/raw #'from))]))
@@ -227,8 +224,6 @@
     (intro-if-stx (get-expected-type/raw e)))
   (define (add-expected-type/raw e τ)
     (set-stx-prop/preserved e 'expected-type τ))
-  (define (add-expected-type/noeval e τ)
-    (add-expected-type/raw e (intro-if-stx τ)))
   (define (add-expected-type e ty)
     (if (and (syntax? ty) (syntax-e ty))
         ;; using checked-type-eval affects turnstile
