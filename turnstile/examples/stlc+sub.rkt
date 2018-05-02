@@ -30,13 +30,13 @@
 (define-typed-syntax #%datum
   [(_ . n:nat) ≫
    --------
-   [⊢ (#%datum- . n) ⇒ Nat]]
+   [⊢ (#%datum- . n) ⇒ #,Nat+]]
   [(_ . n:integer) ≫
    --------
-   [⊢ (#%datum- . n) ⇒ Int]]
+   [⊢ (#%datum- . n) ⇒ Int]] ; instantiate linklet err with Int+
   [(_ . n:number) ≫
    --------
-   [⊢ (#%datum- . n) ⇒ Num]]
+   [⊢ (#%datum- . n) ⇒ #,Num+]]
   [(_ . x) ≫
    --------
    [≻ (ext:#%datum . x)]])
@@ -104,5 +104,5 @@
     (cond
       [((current-sub?) t1 t2) t2]
       [((current-sub?) t2 t1) t1]
-      [else #'Top]))
+      [else Top+]))
   (current-join join))

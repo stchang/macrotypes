@@ -28,9 +28,9 @@
 (define-base-types Top Num Nat)
 
 (define-typed-syntax #%datum
-  [(_ . n:nat) (⊢ (#%datum- . n) : Nat)]
-  [(_ . n:integer) (⊢ (#%datum- . n) : Int)]
-  [(_ . n:number) (⊢ (#%datum- . n) : Num)]
+  [(_ . n:nat) (⊢ (#%datum- . n) : #,Nat+)]
+  [(_ . n:integer) (⊢ (#%datum- . n) : #,Int+)]
+  [(_ . n:number) (⊢ (#%datum- . n) : #,Num+)]
   [(_ . x) #'(ext:#%datum . x)])
 
 (begin-for-syntax
@@ -95,5 +95,5 @@
     (cond
       [((current-sub?) t1 t2) t2]
       [((current-sub?) t2 t1) t1]
-      [else #'Top]))
+      [else Top+]))
   (current-join join))

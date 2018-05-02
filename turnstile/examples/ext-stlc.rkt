@@ -81,17 +81,17 @@
 (define-typed-syntax #%datum
   [(_ . b:boolean) ≫
    --------
-   [⊢ (#%datum- . b) ⇒ Bool]]
+   [⊢ (#%datum- . b) ⇒ #,Bool+]]
   [(_ . s:str) ≫
    --------
-   [⊢ (#%datum- . s) ⇒ String]]
+   [⊢ (#%datum- . s) ⇒ #,String+]]
   [(_ . f) ≫
    #:when (flonum? (syntax-e #'f))
    --------
-   [⊢ (#%datum- . f) ⇒ Float]]
+   [⊢ (#%datum- . f) ⇒ #,Float+]]
   [(_ . c:char) ≫
    --------
-   [⊢ (#%datum- . c) ⇒ Char]]
+   [⊢ (#%datum- . c) ⇒ #,Char+]]
   [(_ . x) ≫
    --------
    [≻ (stlc+lit:#%datum . x)]])
@@ -99,12 +99,12 @@
 (define-typed-syntax (and e ...) ≫
   [⊢ e ≫ e- ⇐ Bool] ...
   --------
-  [⊢ (and- e- ...) ⇒ Bool])
+  [⊢ (and- e- ...) ⇒ #,Bool+])
 
 (define-typed-syntax (or e ...) ≫
-  [⊢ e ≫ e- ⇐ Bool] ...
+  [⊢ e ≫ e- ⇐ #,Bool+] ...
   --------
-  [⊢ (or- e- ...) ⇒ Bool])
+  [⊢ (or- e- ...) ⇒ #,Bool+])
 
 (begin-for-syntax 
   (define current-join 

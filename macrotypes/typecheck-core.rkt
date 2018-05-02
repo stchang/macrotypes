@@ -811,6 +811,7 @@
                   #:defaults ([extra-info #'void]))) (... ...))
              #:with τ? (mk-? #'τ)
              #:with τ- (mk-- #'τ)
+             #:with mk-τ- (mk-mk #'τ-)
              #:with τ-expander (mk-~ #'τ)
              #:with τ-internal (generate-temporary #'τ)
              #`(begin

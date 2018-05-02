@@ -19,20 +19,20 @@
 (define-typed-syntax nil
   [(_ ~! τi:type-ann) ≫
    --------
-   [⊢ null- ⇒ (List τi.norm)]]
+   [⊢ null- ⇒ #,(mk-List- #'(τi.norm))]]
   ; minimal type inference
   [:id ⇐ (~List τ) ≫
    --------
    [⊢ null-]])
 (define-typed-syntax (cons e1 e2) ≫
   [⊢ e1 ≫ e1- ⇒ τ1]
-  [⊢ e2 ≫ e2- ⇐ (List τ1)]
+  [⊢ e2 ≫ e2- ⇐ #,(mk-List- #'(τ1))]
   --------
-  [⊢ (cons- e1- e2-) ⇒ (List τ1)])
+  [⊢ (cons- e1- e2-) ⇒ #,(mk-List- #'(τ1))])
 (define-typed-syntax (isnil e) ≫
   [⊢ e ≫ e- ⇒ (~List _)]
   --------
-  [⊢ (null?- e-) ⇒ Bool])
+  [⊢ (null?- e-) ⇒ #,Bool+])
 (define-typed-syntax (head e) ≫
   [⊢ e ≫ e- ⇒ (~List τ)]
   --------
@@ -50,7 +50,7 @@
   [(_ e ...) ⇐ (~List τ) ≫ ; has expected type
    [⊢ e ≫ e- ⇐ τ] ...
    --------
-   [⊢ (list- e- ...) ⇒ (List τ)]]
+   [⊢ (list- e- ...) ⇒ #,(mk-List- #'(τ))]]
   [(_ x . rst) ≫ ; no expected type
    --------
    [≻ (cons x (list . rst))]])
@@ -68,11 +68,11 @@
   [⊢ (length- e-) ⇒ Int])
 (define-typed-syntax (list-ref e n) ≫
   [⊢ e ≫ e- ⇒ (~List τ)]
-  [⊢ n ≫ n- ⇐ Int]
+  [⊢ n ≫ n- ⇐ #,Int+]
   --------
   [⊢ (list-ref- e- n-) ⇒ τ])
 (define-typed-syntax (member v e) ≫
   [⊢ e ≫ e- ⇒ (~List τ)]
   [⊢ v ≫ v- ⇐ τ]
   --------
-  [⊢ (member- v- e-) ⇒ Bool])
+  [⊢ (member- v- e-) ⇒ #,Bool+])
