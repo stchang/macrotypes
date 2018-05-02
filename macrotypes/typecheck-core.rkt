@@ -77,9 +77,11 @@
 (begin-for-syntax
   (define (mk-? id) (format-id id "~a?" id))
   (define (mk-- id) (format-id id "~a-" id))
+  (define (mk-+ id) (format-id id "~a+" id))
   (define (mk-~ id) (format-id id "~~~a" id))
   (define (mk-#% id) (format-id id "#%~a" id))
   (define (mkx2 id) (format-id id "~a~a" id id))
+  (define (mk-mk id) (format-id id "mk-~a" id))
   (define-for-syntax (mk-? id) (format-id id "~a?" id))
   (define-for-syntax (mk-~ id) (format-id id "~~~a" id))
   ;; drop-file-ext : String -> String
@@ -196,6 +198,12 @@
                             out-name)))
                    (all-from-out base-lang)))))]))
 
+;; macro version of current-type-eval
+;; sometimes needed to delay eval until in some scope, eg see exist.rkt
+(define-syntax ev/m ; macro version of current-type-eval\
+  (syntax-parser
+    [(_ t) ((current-type-eval) #'t)]))  
+
 (define-syntax attach/m
   (syntax-parser
     [(_ e tag τ) (attach #'e (stx->datum #'tag) #'τ)]))
@@ -223,7 +231,9 @@
     (add-expected-type/raw e (intro-if-stx τ)))
   (define (add-expected-type e ty)
     (if (and (syntax? ty) (syntax-e ty))
-        (add-expected-type/raw e (syntax-local-introduce ((current-type-eval) ty)))
+        ;; using checked-type-eval affects turnstile
+        ;; - so far only need 1 manual expand annotation (mlish unannotated lambda)
+        (add-expected-type/raw e (syntax-local-introduce (checked-type-eval ty)))
         e))
 
 
@@ -313,6 +323,7 @@
      #:with same-types? (format-id #'name "same-~as?" #'name)
      #:with current-type-eval (format-id #'name "current-~a-eval" #'name)
      #:with default-type-eval (format-id #'name "default-~a-eval" #'name)
+     #:with checked-type-eval (format-id #'name "checked-~a-eval" #'name)
      #:with type-evals (format-id #'name "~a-evals" #'name)
      ;; defining types
      #:with define-base-type (format-id #'name "define-base-~a" #'name)
@@ -342,7 +353,7 @@
            (define (assign-type e τ #:eval? [eval? #t] #:wrap? [wrap? #t])
              (attach (if wrap? #`(erased #,e) e)
                      'key1
-                     (if eval? ((current-type-eval) τ) τ)))
+                     (if eval? (checked-type-eval τ) τ)))
            ;; helper stx classes ----------------------------------------------
            (define-syntax-class type ;; e.g., well-formed types
              #:attributes (norm)
@@ -352,7 +363,7 @@
                                           (not (exn:fail:syntax:unbound? e))))
                               ;; return exn-msg
                               (λ (e) (exn-message e))])
-                            ((current-type-eval) #'τ))
+                            (checked-type-eval #'τ))
               #:fail-unless (and (not (string? (stx-e #'norm)))
                                  ((current-type?) #'norm))
               ;; append above exn msg, if possible
@@ -517,7 +528,15 @@
              (add-orig reconstructed τ))
 
            (define current-type-eval (make-parameter default-type-eval))
-           (define (type-evals τs) #`#,(stx-map (current-type-eval) τs)))
+           (define (type-evals τs) #`#,(stx-map (current-type-eval) τs))
+           ;; checked-type-eval is an optimization that attempts to reduce double-expansions
+           ;; NOTE: this wont work with expanded types that's been tampered with,
+           ;; eg, with subst, where some subterms still need expansion
+           ;; eg, in for varassign in exist.rkt
+           (define (checked-type-eval τ)
+             (if (syntax-property τ 'key2) ; already expanded
+                 τ
+                 ((current-type-eval) τ)))) 
          ;; defining types ----------------------------------------------------
          (define-syntax type-out ;; helps with providing defined types
            (make-provide-transformer
@@ -528,10 +547,16 @@
                  #:with t-expanders (stx-map mk-~ #'ts)
                  #:with t?s (stx-map mk-? #'ts)
                  #:with t-s (filter identifier-binding (stx-map mk-- #'ts))
+                 #:do[(define (id-binding1 t) (identifier-binding t 1))] ; phase 1
+                 #:with mk-fns (filter id-binding1  (stx-map (compose mk-- mk-mk) #'ts))
+                 #:with t+s (filter id-binding1 (stx-map mk-+ #'ts))
                  (expand-export
                   (syntax/loc stx (combine-out
                                    (combine-out . ts) (combine-out . t-s)
-                                   (for-syntax (combine-out . t-expanders) . t?s)))
+                                   (for-syntax (combine-out . t-expanders)
+                                               (combine-out . mk-fns)
+                                               (combine-out . t+s)
+                                               . t?s)))
                   modes)]))))
 
          ;; transformer functions, for defining types
@@ -687,6 +712,7 @@
              #:with τ? (mk-? #'τ)
              #:with τ-expander (mk-~ #'τ)
              #:with τ-internal (generate-temporary #'τ)
+             #:with τ+ (mk-+ #'τ)
              #`(begin
                 (begin-for-syntax
                  (define τ? (mk-type-recognizer #'τ-internal))
@@ -698,7 +724,9 @@
                            (exn:fail:type:runtime
                             (format "~a: Cannot use ~a at run time" 'τ 'tag)
                             (current-continuation-marks)))))
-                (define-syntax τ (mk-base-transformer #'τ-internal 'new-key2 #'new-#%tag)))]))
+                (define-syntax τ (mk-base-transformer #'τ-internal 'new-key2 #'new-#%tag))
+                (begin-for-syntax
+                  (define τ+ ((current-type-eval) #'τ))))]))
          (define-syntax define-base-types
            (syntax-parser
              [(_ (~var x id) (... ...))
@@ -733,6 +761,7 @@
              #:with τ- (mk-- #'τ)
              #:with τ-expander (mk-~ #'τ)
              #:with τ-internal (generate-temporary #'τ)
+             #:with mk-τ- (mk-mk #'τ-)
              #`(begin
                 (begin-for-syntax
                   (define τ? (mk-type-recognizer #'τ-internal))
@@ -748,7 +777,15 @@
                 ; It does not validate inputs and does not attach a kind,
                 ; ie, it won't be recognized as a valid type, the programmer
                 ; must implement their own kind system on top
-                (define-syntax τ- (mk-internal-ctor-transformer #'τ-internal #'extra-info arg-var-fn)))]))
+                (define-syntax τ- (mk-internal-ctor-transformer #'τ-internal #'extra-info arg-var-fn))
+                (define-for-syntax (mk-τ- args) ; TODO: add arg-variances?
+                  (mk-type
+                   (add-orig
+                    #`(#%plain-app
+                       τ-internal
+;                       #,(add-arg-variances #'τ-internal (arg-var-fn (cons #'τ-internal args)))
+                       (#%plain-lambda () (#%expression extra-info) (#%plain-app list . #,args)))
+                    #`(τ . #,args)))))]))
          (define-syntax define-type-constructor
            (syntax-parser
             [(_ (~var τ id)
@@ -799,7 +836,12 @@
                 ; ie, it won't be recognized as a valid type, the programmer
                 ; must implement their own kind system
                 (define-syntax τ-
-                  (mk-internal-binding-transformer #'τ-internal #'extra-info arg-vars-fn)))]))
+                  (mk-internal-binding-transformer #'τ-internal #'extra-info arg-vars-fn))
+                (define-for-syntax (mk-τ- Xs arg) ; TODO: add arg-variances?
+                  (mk-type
+                   (add-orig
+                    #`(#%plain-app τ-internal (#%plain-lambda #,Xs (#%expression extra-info) (#%plain-app list #,arg)))
+                    #`(τ #,Xs #,arg)))))]))
          (define-syntax define-binding-type
            (syntax-parser
              [(_ (~var τ id)
@@ -861,11 +903,19 @@
     [(define-primop op:id (~optional :) τ)
      #:with op- ((current-host-lang) #'op)
      #'(define-primop op op- τ)]
-    [(define-primop op/tc:id (~optional #:as) op:id (~optional :) τ:type)
+    [(define-primop op/tc:id (~optional #:as) op:id (~optional :) τ)
      ; rename-transformer doesnt seem to expand at the right time
      ; - op still has no type in #%app
+     ; - so use make-variable-like-transformer
+     ; also, need to 1) use `type` stx class above to validate user input
+     ; 2) use τ.norm below to avoid dup expansion
+     ; 3) but using the expanded τ.norm below loses all properties,
+     ;    resulting in "not type" and "orig" errors
+     ; - for now, drop the check
+     ; TODO: how to have the check but not double expand?
      #'(define-syntax op/tc
-         (make-variable-like-transformer (assign-type #'op #'τ #:wrap? #f)))]))
+         (make-variable-like-transformer
+          (assign-type #'op #'τ #:wrap? #f)))]))
 
 (begin-for-syntax
   ;; --------------------------------------------------------------------------
@@ -891,6 +941,13 @@
   ;; var-assign :
   ;; Id (Listof Sym) (StxListof TypeStx) -> Stx
   (define (var-assign x x+ seps τs)
+    ;; not using checked-type-eval bc
+    ;; too many examples require re-expansion of a τ that is already
+    ;; expanded, but has been manually tampered, eg:
+    ;; - langs that use subst on expanded taus
+    ;;   - eg exist, fomega
+    ;; - langs that that need to simultaneously bind tyvars and annotations
+    ;;   that reference those tyvars, eg mlish
     (attachs x+ seps (stx-map (current-type-eval) τs)))
 
   ;; macro-var-assign : Id -> (Id (Listof Sym) (StxListof TypeStx) -> Stx)

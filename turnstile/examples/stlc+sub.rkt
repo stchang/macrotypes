@@ -44,8 +44,8 @@
 (begin-for-syntax
   (define (sub? t1 t2)
     ; need this because recursive calls made with unexpanded types
-    (define τ1 ((current-type-eval) t1))
-    (define τ2 ((current-type-eval) t2))
+    (define τ1 (checked-type-eval t1))
+    (define τ2 (checked-type-eval t2))
 ;    (printf "t1 = ~a\n" (syntax->datum τ1))
 ;    (printf "t2 = ~a\n" (syntax->datum τ2))
     (or (type=? τ1 τ2)
@@ -67,8 +67,8 @@
        #'(begin
            (define old-sub? (current-sub?))
            (define (fn t1 t2)
-             (define τ1 ((current-type-eval) t1))
-             (define τ2 ((current-type-eval) t2))
+             (define τ1 (checked-type-eval t1))
+             (define τ2 (checked-type-eval t2))
              (syntax-parse (list τ1 τ2)
                [(τ1-expander τ) ((current-sub?) #'τ2 #'τ)]
                [(τ τ2-expander) ((current-sub?) #'τ #'τ1)]
@@ -86,8 +86,8 @@
        #'(begin
            (define old-sub? (current-sub?))
            (define (fn t1 t2)
-             (define τ1 ((current-type-eval) t1))
-             (define τ2 ((current-type-eval) t2))
+             (define τ1 (checked-type-eval t1))
+             (define τ2 (checked-type-eval t2))
              (syntax-parse (list τ1 τ2)
                [((tycon1-expander . rst1) (tycon2-expander . rst2))
                 (and (subs? #'(τ1 ddd) #'(τ2 ddd))

@@ -814,7 +814,7 @@
         #:with (acc ...) (for/list ([(a i) (in-indexed (syntax->list #'(x ...)))])
                            #`(lambda- (s) (list-ref- s #,(datum->syntax #'here i))))
         #:with z (generate-temporary)
-        (⊢ (let- ([z e-])
+        (⊢/no-teval (let- ([z e-])
              (let- ([x- (acc z)] ...) e_body-))
            : ty_body)])]
      [(List? #'τ_e) ;; e is List
@@ -913,8 +913,7 @@
 (define-typed-syntax λ
   [(_ (x:id ...) body)
    #:with (~?∀ Xs expected) (get-expected-type stx)
-   #:fail-unless (→? #'expected)
-   (no-expected-type-fail-msg)
+   #:fail-unless (→? #'expected) (no-expected-type-fail-msg)
    #:with (~ext-stlc:→ arg-ty ... body-ty) #'expected
    #:fail-unless (stx-length=? #'[x ...] #'[arg-ty ...])
    (format "expected a function of ~a arguments, got one with ~a arguments"
@@ -1086,7 +1085,7 @@
           (infer/ctx+erase #'([acc : ty_init][x : ty] ...) #'body)
    #:fail-unless (typecheck? #'ty_body #'ty_init)
    (typecheck-fail-msg/1 #'ty_init #'ty_body #'body)
-   (⊢ (for/fold- ([acc- init-]) ([x- e-] ...) body-) : ty_body)])
+   (⊢/no-teval (for/fold- ([acc- init-]) ([x- e-] ...) body-) : ty_body)])
 
 (define-typed-syntax for/hash
   [(for/hash ([x:id e]...) body)
@@ -1129,7 +1128,7 @@
    #:fail-unless (typecheck? #'ty_body #'ty.norm)
                  (format "type of let body ~a does not match expected typed ~a"
                          (type->str #'ty_body) (type->str #'ty))
-   (⊢ (letrec- ([name- (λ- xs- body- ...)]) 
+   (⊢/no-teval (letrec- ([name- (λ- xs- body- ...)]) 
         (name- e- ...))
       : ty_body)]
   [(let ([x:id e] ...) body ...) 
@@ -1166,7 +1165,7 @@
    #:with [k- ty_k] (infer+erase #'k)
    #:fail-unless (typecheck? #'ty_k #'ty_key)
    (typecheck-fail-msg/1 #'ty_key #'ty_k #'k)
-   (⊢ (hash-ref- h- k-) : ty_val)]
+   (⊢/no-teval (hash-ref- h- k-) : ty_val)]
   [(hash-ref h k fail)
    #:with [h- (~Hash ty_key ty_val)] (infer+erase #'h)
    #:with [k- ty_k] (infer+erase #'k)
@@ -1175,7 +1174,7 @@
    #:with [fail- (~?∀ () (~ext-stlc:→ ty_fail))] (infer+erase #'fail)
    #:fail-unless (typecheck? #'ty_fail #'ty_val)
    (typecheck-fail-msg/1 #'(→ ty_val) #'(→ ty_fail) #'fail)
-   (⊢ (hash-ref- h- k- fail-) : ty_val)])
+   (⊢/no-teval (hash-ref- h- k- fail-) : ty_val)])
 
 (define-base-type String-Port)
 (define-base-type Input-Port)

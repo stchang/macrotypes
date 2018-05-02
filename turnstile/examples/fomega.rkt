@@ -81,8 +81,9 @@
 (define-typed-syntax (inst e τ:any-type ...) ≫
   [⊢ e ≫ e- ⇒ (~∀ tvs τ_body) (⇒ :: (~∀★ k ...))]
   [⊢ τ ≫ _ ⇐ :: k] ...
+  #:with τ_out ((current-type-eval) (substs #'(τ.norm ...) #'tvs #'τ_body))
   --------
-  [⊢ e- ⇒ #,(substs #'(τ.norm ...) #'tvs #'τ_body)])
+  [⊢ e- ⇒ τ_out])
 
 ;; - see fomega2.rkt for example with no explicit tyλ and tyapp
 (define-kinded-syntax (tyλ bvs:kind-ctx τ_body) ≫

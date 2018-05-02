@@ -725,7 +725,7 @@
                #'(ctx ...) #`((pass-expected e_body #,stx) ...))
       #:when (check-exhaust #'(pat- ...) #'τ_e)
       #:with τ_out (stx-foldr (current-join) (stx-car #'(ty_body ...)) (stx-cdr #'(ty_body ...)))
-      (⊢ (match- e- [pat- (let- ([x- x] ...) e_body-)] ...) : τ_out)
+      (⊢/no-teval (match- e- [pat- (let- ([x- x] ...) e_body-)] ...) : τ_out)
       ])]))
 
 (define-typed-syntax match #:datum-literals (with)
@@ -744,7 +744,7 @@
         #:with (acc ...) (for/list ([(a i) (in-indexed (syntax->list #'(x ...)))])
                            #`(lambda (s) (list-ref s #,(datum->syntax #'here i))))
         #:with z (generate-temporary)
-        (⊢ (let- ([z e-])
+        (⊢/no-teval (let- ([z e-])
              (let- ([x- (acc z)] ...) e_body-))
            : ty_body)])]
      [(List? #'τ_e) ;; e is List
@@ -775,7 +775,7 @@
                                         #`(lambda (lst) (list-ref lst #,(datum->syntax #'here i)))))
                                   #'((x ...) ...))
         #:with (acc2 ...) (stx-map (lambda (l) #`(lambda (lst) (list-tail lst #,l))) #'(len ...))
-        (⊢ (let- ([z e-])
+        (⊢/no-teval (let- ([z e-])
              (cond- 
               [(pred? z)
                (let- ([x- (acc1 z)] ... [rst- (acc2 z)]) e_body-)] ...))
@@ -823,7 +823,7 @@
                       "guard expression(s) must have type bool"
         #:with τ_out (stx-foldr (current-join) (stx-car #'(τ_ec ...)) (stx-cdr #'(τ_ec ...)))
         #:with z (generate-temporary) ; dont duplicate eval of test expr
-        (⊢ (let- ([z e-])
+        (⊢/no-teval (let- ([z e-])
              (cond- 
               [(and- (Cons? z) 
                      (let- ([x- (acc z)] ...) e_guard-))
@@ -947,7 +947,7 @@
         #:fail-unless (stx-length=? #'(e_arg ...) #'(τ_inX ...))
                       (mk-app-err-msg stx #:expected #'(τ_inX ...) 
                                       #:note "Wrong number of arguments.")
-        #:with e_fn/ty (⊢ e_fn- : (ext-stlc:→ . tyX_args))
+        #:with e_fn/ty (⊢/no-teval e_fn- : #,(mk-→- #'tyX_args))
         #'(ext-stlc:#%app e_fn/ty (add-expected/noeval e_arg τ_inX) ...)])]
     [else
      (syntax-parse #'ty_fnX
@@ -1094,18 +1094,18 @@
    #:with ([body- ty_body] ...) (infers+erase #`((pass-expected body #,this-syntax) ...))
    #:with (([b- ty_b] ...) ...) (stx-map infers+erase #'((b ...) ...))
    #:with τ_out (stx-foldr (current-join) (stx-car #'(ty_body ...)) (stx-cdr #'(ty_body ...)))
-   (⊢ (cond- [test- b- ... body-] ...) : τ_out)])
+   (⊢/no-teval (cond- [test- b- ... body-] ...) : τ_out)])
 (define-typed-syntax when
   [(_ test body ...)
    #:with [test- _] (infer+erase #'test)
    #:with [(body- _) ...] (infers+erase #'(body ...))
-   (⊢ (when- test- body- ...) : Unit)])
+   (⊢/no-teval (when- test- body- ...) : #,Unit+)])
 (define-typed-syntax unless
   [(_ test body ...)
 ;   #:with test- (⇑ test as Bool)
    #:with [test- _] (infer+erase #'test)
    #:with [(body- _) ...] (infers+erase #'(body ...))
-   (⊢ (unless- test- body- ...) : Unit)])
+   (⊢/no-teval (unless- test- body- ...) : #,Unit+)])
 
 ;; sync channels and threads
 (define-type-constructor Channel)
@@ -1113,11 +1113,11 @@
 (define-typed-syntax make-channel
   [(_ (~and tys {ty}))
    #:when (brace? #'tys)
-   (⊢ (make-channel-) : (Channel ty))])
+   (⊢/no-teval (make-channel-) : #,(mk-Channel- #'(ty)))])
 (define-typed-syntax channel-get
   [(_ c)
    #:with (c- (ty)) (⇑ c as Channel)
-   (⊢ (channel-get- c-) : ty)])
+   (⊢/no-teval (channel-get- c-) : ty)])
 (define-typed-syntax channel-put
   [(_ c v)
    #:with (c- (ty)) (⇑ c as Channel)
@@ -1125,7 +1125,7 @@
    #:fail-unless (typechecks? #'ty_v #'ty)
                  (format "Cannot send ~a value on ~a channel."
                          (type->str #'ty_v) (type->str #'ty))
-   (⊢ (channel-put- c- v-) : Unit)])
+   (⊢/no-teval (channel-put- c- v-) : #,Unit+)])
 
 (define-base-type Thread)
 
@@ -1133,7 +1133,7 @@
 (define-typed-syntax thread
   [(_ th)
    #:with (th- (~∀ () (~ext-stlc:→ τ_out))) (infer+erase #'th)
-   (⊢ (thread- th-) : Thread)])
+   (⊢/no-teval (thread- th-) : #,Thread+)])
 
 (provide (typed-out [random : (→ Int Int)]
                     [integer->char : (→ Int Char)]
@@ -1190,7 +1190,7 @@
   [(_ e n)
    #:with n- (⇑ n as Int)
    #:with [e- (ty)] (⇑ e as Vector)
-   (⊢ (vector-ref- e- n-) : ty)])
+   (⊢/no-teval (vector-ref- e- n-) : ty)])
 (define-typed-syntax vector-set!
   [(_ e n v)
    #:with n- (⇑ n as Int)
@@ -1340,7 +1340,7 @@
    #:fail-unless (typecheck? #'ty_body #'ty.norm)
                  (format "type of let body ~a does not match expected typed ~a"
                          (type->str #'ty_body) (type->str #'ty))
-   (⊢ (letrec- ([name- (λ- xs- body- ...)]) 
+   (⊢/no-teval (letrec- ([name- (λ- xs- body- ...)]) 
         (name- e- ...))
       : ty_body)]
   [(_ ([x:id e] ...) body ...) 
@@ -1392,7 +1392,7 @@
    #:with [k- ty_k] (infer+erase #'k)
    #:when (typecheck? #'ty_k #'ty_key)
    #:with (fail- _) (infer+erase #'fail) ; default val can be any
-   (⊢ (hash-ref- h- k- fail-) : ty_val)])
+   (⊢/no-teval (hash-ref- h- k- fail-) : ty_val)])
 (define-typed-syntax hash-has-key?
   [(_ h k)
    #:with [h- (ty_key _)] (⇑ h as Hash)

@@ -102,7 +102,7 @@
    #:fail-unless (kindchecks? #'(k_τ ...) #'(k ...))
                  (typecheck-fail-msg/multi 
                   #'(k ...) #'(k_τ ...) #'(τ ...))
-   #:with τ_inst (substs #'(τ.norm ...) #'(tv ...) #'τ_body)
+   #:with τ_inst ((current-type-eval) (substs #'(τ.norm ...) #'(tv ...) #'τ_body))
    (⊢ e- : τ_inst)])
 
 ;; extend λ to also work as a type

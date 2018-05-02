@@ -127,11 +127,11 @@
                (with-syntax ([tag-expr tag-expr] [k k] [v v])
                  #`(attach tag-expr `k 
                            #,(if (equal? (syntax->datum #'k) (syntax-parameter-value #'current-tag2-stx))
-                                 #'((current-ev) v)
+                                 #'(checked-type-eval v)
                                  #'v))))
              #:with tag-expr
                     (if (equal? (syntax->datum #'tag) (syntax-parameter-value #'current-tag-stx))
-                        #'((current-ev) tag-expr-body)
+                        #'(checked-type-eval tag-expr-body)
                         #'tag-expr-body)])
   (define-syntax-class ⇐-prop
     #:datum-literals (⇐) #:attributes (tag tag-stx e-pat)
@@ -193,9 +193,7 @@
                                     ([tag (in-stx-list #'(lprop.tag ...))]
                                      [tag-stx (in-stx-list #'(lprop.tag-stx ...))])
                             (if (equal? (syntax->datum tag) (syntax-parameter-value #'current-tag-stx))
-                                (if (syntax-property tag-stx '::) ; an optimization, tests if already expanded
-                                    #`(add-expected/noeval #,e-stx/acc #,tag-stx)
-                                    #`(add-expected #,e-stx/acc #,tag-stx))
+                                #`(add-expected #,e-stx/acc #,tag-stx)
                                 #`(attach/m #,e-stx/acc #,tag #,tag-stx)))
              #:with e-stx-orig #'e-stx*
              #:with e-pat #'(~and lprop.e-pat ... rprop.e-pat ... e-pat*)])

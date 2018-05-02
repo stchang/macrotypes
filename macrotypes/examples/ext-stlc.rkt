@@ -63,32 +63,30 @@
        (define- x- e-))])
 
 (define-typed-syntax #%datum
-  [(_ . b:boolean) (⊢ #,(syntax/loc stx (#%datum- . b)) : Bool)]
-  [(_ . s:str) (⊢ #,(syntax/loc stx (#%datum- . s)) : String)]
+  [(_ . b:boolean) (⊢/no-teval #,(syntax/loc stx (#%datum- . b)) : #,Bool+)]
+  [(_ . s:str) (⊢/no-teval #,(syntax/loc stx (#%datum- . s)) : #,String+)]
   [(_ . f) #:when (flonum? (syntax-e #'f)) 
-   (⊢ #,(syntax/loc stx (#%datum- . f)) : Float)]
-  [(_ . c:char) (⊢ #,(syntax/loc stx (#%datum- . c)) : Char)]
+   (⊢/no-teval #,(syntax/loc stx (#%datum- . f)) : #,Float+)]
+  [(_ . c:char) (⊢/no-teval #,(syntax/loc stx (#%datum- . c)) : #,Char+)]
   [(_ . x) (syntax/loc stx (stlc+lit:#%datum . x))])
 
 (define-typed-syntax and
   [(_ e1 e2)
-   #:with Bool* ((current-type-eval) #'Bool)
    #:with [e1- τ_e1] (infer+erase #'e1)
    #:with [e2- τ_e2] (infer+erase #'e2)
-   #:fail-unless (typecheck? #'τ_e1 #'Bool*)
-                 (typecheck-fail-msg/1 #'Bool* #'τ_e1 #'e1)
-   #:fail-unless (typecheck? #'τ_e2 #'Bool*)
-                 (typecheck-fail-msg/1 #'Bool* #'τ_e2 #'e2)
-   (⊢ (and- e1- e2-) : Bool)])
+   #:fail-unless (typecheck? #'τ_e1 Bool+)
+                 (typecheck-fail-msg/1 Bool+ #'τ_e1 #'e1)
+   #:fail-unless (typecheck? #'τ_e2 Bool+)
+                 (typecheck-fail-msg/1 Bool+ #'τ_e2 #'e2)
+   (⊢/no-teval (and- e1- e2-) : #,Bool+)])
   
 (define-typed-syntax or
   [(_ e ...)
-   #:with ([_ Bool*] ...) #`([e #,((current-type-eval) #'Bool)] ...)
    #:with ([e- τ_e] ...) (infers+erase #'(e ...))
-   #:fail-unless (typechecks? #'(τ_e ...) #'(Bool* ...))
+   #:fail-unless (stx-andmap Bool? #'(τ_e ...))
                  (typecheck-fail-msg/multi 
-                  #'(Bool* ...) #'(τ_e ...) #'(e ...))
-   (⊢ (or- e- ...) : Bool)])
+                  (stx-map (λ _ Bool+) #'(e ...)) #'(τ_e ...) #'(e ...))
+   (⊢/no-teval (or- e- ...) : #,Bool+)])
 
 (begin-for-syntax 
   (define current-join 
@@ -103,8 +101,8 @@
 (define-syntax ⊔
   (syntax-parser
     [(⊔ τ1 τ2 ...)
-     (for/fold ([τ ((current-type-eval) #'τ1)])
-               ([τ2 (in-list (stx-map (current-type-eval) #'[τ2 ...]))])
+     (for/fold ([τ (checked-type-eval #'τ1)])
+               ([τ2 (in-list (stx-map checked-type-eval #'[τ2 ...]))])
        ((current-join) τ τ2))]))
 
 (define-typed-syntax if

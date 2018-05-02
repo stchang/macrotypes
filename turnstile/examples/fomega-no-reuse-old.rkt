@@ -168,7 +168,7 @@
   [⊢ τ ≫ τ- ⇒ k_τ] ... ; so use ⇒ and kindchecks?
   #:fail-unless (kindchecks? #'(k_τ ...) #'(k ...))
                 (typecheck-fail-msg/multi #'(k ...) #'(k_τ ...) #'(τ ...))
-  #:with τ-inst (substs #'(τ- ...) #'(tv ...) #'τ_body)
+  #:with τ-inst ((current-type-eval) (substs #'(τ- ...) #'(tv ...) #'τ_body))
   --------
   [⊢ e- ⇒ τ-inst])
 

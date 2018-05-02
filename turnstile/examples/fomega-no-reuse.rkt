@@ -162,6 +162,7 @@
 (define-typed-syntax (inst e τ:any-type ...) ≫
   [⊢ e ≫ e- ⇒ (~∀ (tv ...) τ_body) (⇒ :: (~★ k ...))]
   [⊢ τ ≫ _ ⇐ :: k] ...
+  #:with τ_out ((current-type-eval) (substs #'(τ.norm ...) #'(tv ...) #'τ_body))
   --------
-  [⊢ e- ⇒ #,(substs #'(τ.norm ...) #'(tv ...) #'τ_body)])
+  [⊢ e- ⇒ τ_out])
 

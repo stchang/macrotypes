@@ -194,7 +194,7 @@
    #:with env (stx-flatten (filter (λ (x) x) (stx-map get-env #'(e_arg- ...))))
    #:with result-app #'(#%app- e_fn- e_arg- ...)
    ;(⊢ (#%app- e_fn- e_arg- ...) : τ_out)]
-   (add-env (⊢ result-app : τ_out) #'env)]
+   (add-env (⊢/no-teval result-app : τ_out) #'env)]
   [(_ e_fn e_arg ...) ; infer fn first ------------------------- ; TODO: remove code dup
 ;   #:when (printf "fn first ~a\n" (syntax->datum stx))
    #:with [e_fn- ((X ...) ((~ext-stlc:→ τ_inX ... τ_outX)))] (⇑ e_fn as ∀)
@@ -231,4 +231,4 @@
                   (string-join (stx-map type->str #'(τ_in ...)) ", "))
   #:with result-app #'(#%app- e_fn- e_arg- ...)
   ;(⊢ (#%app- e_fn- e_arg- ...) : τ_out)])
-  (add-env (⊢ result-app : τ_out) #'env)])
+  (add-env (⊢/no-teval result-app : τ_out) #'env)])

@@ -18,7 +18,7 @@
 
 (define-typed-syntax nil
   [(_ ~! τi:type-ann)
-   (⊢ null- : (List τi.norm))]
+   (⊢/no-teval null- : #,(mk-List- #'(τi.norm)))]
   ; minimal type inference
   [nil:id
    #:with expected-τ (get-expected-type #'nil)
@@ -39,11 +39,11 @@
         (syntax-source stx) (syntax-line stx) (syntax-column stx)
         (type->str #'ty_lst))
        (current-continuation-marks)))
-     (⊢ null- : expected-τ)])
+     (⊢/no-teval null- : expected-τ)])
 (define-typed-syntax cons
   [(_ e1 e2)
    #:with [e1- τ_e1] (infer+erase #'e1)
-   #:with τ_list ((current-type-eval) #'(List τ_e1))
+   #:with τ_list (mk-List- #'(τ_e1))
    #:with [e2- τ_e2] (infer+erase (add-expected-type/noeval #'e2 #'τ_list))
    #:fail-unless (typecheck? #'τ_e2 #'τ_list)
                  (typecheck-fail-msg/1 #'τ_list #'τ_e2 #'e2)
@@ -54,7 +54,7 @@
 (define-typed-syntax isnil
   [(_ e)
    #:with [e- (~List _)] (infer+erase #'e)
-   (⊢ (null?- e-) : Bool)])
+   (⊢/no-teval (null?- e-) : #,Bool+)])
 (define-typed-syntax head
   [(_ e)
    #:with [e- (~List τ)] (infer+erase #'e)
@@ -69,7 +69,7 @@
   [(_ x . rst) ; has expected type
    #:with expected-τ (get-expected-type stx)
    #:when (syntax-e #'expected-τ)
-   #:with (~List τ) (local-expand #'expected-τ 'expression null)
+   #:with (~List τ) #'expected-τ
    #'(cons (add-expected/noeval x τ) (list . rst))]
   [(_ x . rst) ; no expected type
    #'(cons x (list . rst))])
@@ -93,4 +93,4 @@
    #:with (e- (ty)) (⇑ e as List)
    #:with [v- ty_v] (infer+erase #'(add-expected/noeval v ty))
    #:when (typecheck? #'ty_v #'ty)
-   (⊢ (member- v- e-) : Bool)])
+   (⊢/no-teval (member- v- e-) : #,Bool+)])

@@ -67,7 +67,7 @@
    (format "Expected expression ~s to have × type, got: ~a"
            (syntax->datum #'e_rec) (type->str #'τ_e))
    #:with τ_l (×-ref #'τ_e #'l)
-   (⊢ (cadr- (assoc- 'l e_rec-)) : τ_l)])
+   (⊢/no-teval (cadr- (assoc- 'l e_rec-)) : τ_l)])
 
 (define-type-constructor ∨/internal #:arity >= 0)
 
@@ -128,7 +128,7 @@
    #:with [e- τ_e] (infer+erase #'e)
    #:fail-unless (typecheck? #'τ_e #'τ_match)
                  (typecheck-fail-msg/1 #'τ_match #'τ_e #'e)
-   (⊢ (list- 'l e-) : τ.norm)])
+   (⊢/no-teval (list- 'l e-) : τ.norm)])
 (define-typed-syntax case
   #:datum-literals (of =>)
   [(_ e [l:id x:id => e_l] ...)

@@ -119,8 +119,8 @@
 (define-syntax ⊔
   (syntax-parser
     [(⊔ τ1 τ2 ...)
-     (for/fold ([τ ((current-type-eval) #'τ1)])
-               ([τ2 (in-list (stx-map (current-type-eval) #'[τ2 ...]))])
+     (for/fold ([τ (checked-type-eval #'τ1)])
+               ([τ2 (in-list (stx-map checked-type-eval #'[τ2 ...]))])
        ((current-join) τ τ2))]))
 
 (define-typed-syntax if

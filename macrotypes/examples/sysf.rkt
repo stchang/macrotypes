@@ -20,5 +20,5 @@
 (define-typed-syntax inst
   [(_ e τ:type ...)
    #:with [e- (~∀ tvs τ_body)] (infer+erase #'e)
-   (⊢ e- : #,(substs #'(τ.norm ...) #'tvs #'τ_body))]
+   (⊢/no-teval e- : #,(substs #'(τ.norm ...) #'tvs #'τ_body))]
   [(_ e) #'e])

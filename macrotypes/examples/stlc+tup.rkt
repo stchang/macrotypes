@@ -30,5 +30,5 @@
   [(_ e_tup n:nat)
    #:with [e_tup- (~× . τs_tup)] (infer+erase #'e_tup)
    #:fail-unless (< (syntax-e #'n) (stx-length #'τs_tup)) "index too large"
-   (⊢ (list-ref- e_tup- n) : #,(stx-list-ref #'τs_tup (syntax-e #'n)))])
+   (⊢/no-teval (list-ref- e_tup- n) : #,(stx-list-ref #'τs_tup (syntax-e #'n)))])
    

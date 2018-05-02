@@ -21,7 +21,7 @@
 (define-typed-syntax λ
   [(_ bvs:type-ctx e)
    #:with (xs- e- τ_res) (infer/ctx+erase #'bvs #'e)
-   (⊢ (λ- xs- e-) : (→ bvs.type ... τ_res))])
+   (⊢/no-teval (λ- xs- e-) : #,(mk-→- #'(bvs.type ... τ_res)))])
 
 (define-typed-syntax #%app
   [(_ e_fn e_arg ...)
