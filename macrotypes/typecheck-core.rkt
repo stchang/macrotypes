@@ -196,21 +196,37 @@
                             out-name)))
                    (all-from-out base-lang)))))]))
 
-(define-syntax add-expected
-  (syntax-parser
-    [(_ e τ) (add-orig (add-expected-ty #'e #'τ) (get-orig #'e))]))
 (define-syntax attach/m
   (syntax-parser
     [(_ e tag τ) (attach #'e (stx->datum #'tag) #'τ)]))
+(define-syntax add-expected
+  (syntax-parser
+    [(_ e τ) (add-orig (add-expected-type #'e #'τ) (get-orig #'e))]))
+(define-syntax add-expected/noeval
+  (syntax-parser
+    [(_ e τ) (add-orig (add-expected-type/noeval #'e #'τ) (get-orig #'e))]))
 (define-syntax pass-expected
   (syntax-parser
-    [(_ e stx) (add-expected-ty #'e (get-expected-type #'stx))]))
-(define-for-syntax (add-expected-ty e ty)
-  (if (and (syntax? ty) (syntax-e ty))
-      (set-stx-prop/preserved e 'expected-type (intro-if-stx ((current-type-eval) ty)))
-      e))
+    [(_ to from) (add-expected-type/raw #'to (get-expected-type/raw #'from))]))
 
 (begin-for-syntax
+  ;; --------------------------------------------------------------------------
+  ;; functions for manipulating "expected type"
+  ;; "expected type" implements the "check" (left) arrow in bidirectional systems
+  (define (get-expected-type/raw e)
+    (get-stx-prop/cd*r e 'expected-type))
+  (define (get-expected-type e)
+    (intro-if-stx (get-expected-type/raw e)))
+  (define (add-expected-type/raw e τ)
+    (set-stx-prop/preserved e 'expected-type τ))
+  (define (add-expected-type/noeval e τ)
+    (add-expected-type/raw e (intro-if-stx τ)))
+  (define (add-expected-type e ty)
+    (if (and (syntax? ty) (syntax-e ty))
+        (add-expected-type/raw e (syntax-local-introduce ((current-type-eval) ty)))
+        e))
+
+
   ;; Helper functions for attaching/detaching types, kinds, etc.
   
   ;; A Tag is a Symbol serving as a stx prop key for some kind of metadata.
@@ -891,16 +907,6 @@
   ;; (Parameterof [Id Id (Listof Sym) (StxListof TypeStx) -> Stx])
   (define current-var-assign
     (make-parameter var-assign))
-
-  ;; --------------------------------------------------------------------------
-  ;; functions for manipulating "expected type"
-  ;; "expected type" implements the "check" (left) arrow in bidirectional systems
-   (define (add-expected-type e τ)
-    (if (and (syntax? τ) (syntax-e τ))
-        (set-stx-prop/preserved e 'expected-type (intro-if-stx τ)) ; dont type-eval?, ie expand?
-        e))
-  (define (get-expected-type e)
-    (intro-if-stx (get-stx-prop/cd*r e 'expected-type)))
 
   ;; --------------------------------------------------------------------------
   ;; "infer" and "expand" fns

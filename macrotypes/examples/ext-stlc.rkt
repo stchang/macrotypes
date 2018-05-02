@@ -109,10 +109,9 @@
 
 (define-typed-syntax if
   [(_ e_tst e1 e2)
-   #:with τ-expected (get-expected-type stx)
    #:with [e_tst- _] (infer+erase #'e_tst)
-   #:with e1_ann #'(add-expected e1 τ-expected)
-   #:with e2_ann #'(add-expected e2 τ-expected)
+   #:with e1_ann #`(pass-expected e1 #,this-syntax)
+   #:with e2_ann #`(pass-expected e2 #,this-syntax)
    #:with (e1- τ1) (infer+erase #'e1_ann)
    #:with (e2- τ2) (infer+erase #'e2_ann)
    (⊢ (if- e_tst- e1- e2-) : (⊔ τ1 τ2))])
@@ -125,7 +124,7 @@
 
 (define-typed-syntax ann #:datum-literals (:)
   [(_ e : ascribed-τ:type)
-   #:with e/expected (add-expected-type #'e #'ascribed-τ.norm)
+   #:with e/expected (add-expected-type/noeval #'e #'ascribed-τ.norm)
    #:with (e- τ) (infer+erase #'e/expected)
    #:fail-unless (typecheck? #'τ #'ascribed-τ.norm)
    (typecheck-fail-msg/1 #'ascribed-τ.norm #'τ #'e)
@@ -133,12 +132,12 @@
 
 (define-typed-syntax let
   [(_ ([x e] ...) e_body)
-   #:with τ-expected (get-expected-type stx)
    #:with ((e- τ) ...) (infers+erase #'(e ...))
    #:with ((x- ...) e_body- τ_body)
-          (infer/ctx+erase #'([x τ] ...) #'(add-expected e_body τ-expected))
+          (infer/ctx+erase #'([x τ] ...) #`(pass-expected e_body #,this-syntax))
+   #:with τ-expected (get-expected-type stx)
    #:fail-unless (or (not (syntax-e #'τ-expected)) ; no expected type
-                     (typecheck? #'τ_body ((current-type-eval) #'τ-expected)))
+                     (typecheck? #'τ_body #'τ-expected))
    (typecheck-fail-msg/1 #'τ-expected #'τ_body #'e_body)
    (⊢/no-teval (let- ([x- e-] ...) e_body-) : τ_body)])
 
@@ -148,16 +147,14 @@
 ;   - see let/tc
 (define-typed-syntax let*
   [(_ () e_body)
-   #:with τ-expected (get-expected-type stx)
    #'e_body]
   [(_ ([x e] [x_rst e_rst] ...) e_body)
-   #:with τ-expected (get-expected-type stx)
    #'(let ([x e]) (let* ([x_rst e_rst] ...) e_body))])
 
 (define-typed-syntax letrec
   [(_ ([b:type-bind e] ...) e_body)
    #:with ((x- ...) (e- ... e_body-) (τ ... τ_body))
-          (infers/ctx+erase #'(b ...) #'((add-expected e b.type) ... e_body))
+          (infers/ctx+erase #'(b ...) #'((add-expected/noeval e b.type) ... e_body))
    #:fail-unless (typechecks? #'(b.type ...) #'(τ ...))
    (typecheck-fail-msg/multi #'(b.type ...) #'(τ ...) #'(e ...))
    (⊢/no-teval (letrec- ([x- e-] ...) e_body-) : τ_body)])

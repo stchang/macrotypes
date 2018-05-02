@@ -193,7 +193,9 @@
                                     ([tag (in-stx-list #'(lprop.tag ...))]
                                      [tag-stx (in-stx-list #'(lprop.tag-stx ...))])
                             (if (equal? (syntax->datum tag) (syntax-parameter-value #'current-tag-stx))
-                                #`(add-expected #,e-stx/acc #,tag-stx)
+                                (if (syntax-property tag-stx '::) ; an optimization, tests if already expanded
+                                    #`(add-expected/noeval #,e-stx/acc #,tag-stx)
+                                    #`(add-expected #,e-stx/acc #,tag-stx))
                                 #`(attach/m #,e-stx/acc #,tag #,tag-stx)))
              #:with e-stx-orig #'e-stx*
              #:with e-pat #'(~and lprop.e-pat ... rprop.e-pat ... e-pat*)])

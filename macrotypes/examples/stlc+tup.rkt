@@ -21,7 +21,7 @@
    #:with (e_ann ...)
           (if (syntax-e #'ty-expected)
               (syntax-parse (local-expand #'ty-expected 'expression null)
-                [(~× ty_exp ...) #'((add-expected e ty_exp) ...)]
+                [(~× ty_exp ...) #'((add-expected/noeval e ty_exp) ...)]
                 [_ #'(e ...)])
               #'(e ...))
    #:with ([e- τ] ...) (infers+erase #'(e_ann ...))

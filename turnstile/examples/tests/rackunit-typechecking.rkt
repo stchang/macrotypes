@@ -23,19 +23,20 @@
   (syntax-parse stx #:datum-literals (⇒ ->)
     ;; duplicate code to avoid redundant expansions
     [(_ e tag:id τ-expected (~or ⇒ ->) v)
-     #:with (e+ τ) (infer+erase #'(add-expected e τ-expected) #:tag (stx->datum #'tag))
-     #:fail-unless (typecheck? #'τ ((current-type-eval) #'τ-expected))
+     #:with τ-expected+ ((current-type-eval) #'τ-expected)
+     #:with (e+ τ) (infer+erase #'(add-expected/noeval e τ-expected+) #:tag (stx->datum #'tag))
+     #:fail-unless (typecheck? #'τ #'τ-expected+)
                    (format
                     "Expression ~a [loc ~a:~a] has type ~a, expected ~a"
                     (syntax->datum #'e) (syntax-line #'e) (syntax-column #'e)
                     (type->str #'τ) (type->str #'τ-expected))
-     (syntax/loc stx (check-equal? e+ (add-expected v τ-expected)))]
+     (syntax/loc stx (check-equal? e+ (add-expected/noeval v τ-expected+)))]
     [(_ e tag:id τ-expected)
-     #:with (e+ τ) (infer+erase #'(add-expected e τ-expected) #:tag (stx->datum #'tag))
-     #:fail-unless
-     (typecheck? #'τ ((current-type-eval) #'τ-expected))
+     #:with τ-expected+ ((current-type-eval) #'τ-expected)
+     #:with (e+ τ) (infer+erase #'(add-expected/noeval e τ-expected+) #:tag (stx->datum #'tag))
+     #:fail-unless (typecheck? #'τ #'τ-expected+)
      (format
-      "Expression ~a [loc ~a:~a] has type ~a, expected ~a"
+      "Expression ~a [loc ~a:~a] has type ~a, e#,stxxpected ~a"
       (syntax->datum #'e) (syntax-line #'e) (syntax-column #'e)
       (type->str #'τ) (type->str #'τ-expected))
      #'(void)]))

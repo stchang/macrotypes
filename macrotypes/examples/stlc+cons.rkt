@@ -44,7 +44,7 @@
   [(_ e1 e2)
    #:with [e1- τ_e1] (infer+erase #'e1)
    #:with τ_list ((current-type-eval) #'(List τ_e1))
-   #:with [e2- τ_e2] (infer+erase (add-expected-ty #'e2 #'τ_list))
+   #:with [e2- τ_e2] (infer+erase (add-expected-type/noeval #'e2 #'τ_list))
    #:fail-unless (typecheck? #'τ_e2 #'τ_list)
                  (typecheck-fail-msg/1 #'τ_list #'τ_e2 #'e2)
    ;; propagate up inferred types of variables
@@ -70,7 +70,7 @@
    #:with expected-τ (get-expected-type stx)
    #:when (syntax-e #'expected-τ)
    #:with (~List τ) (local-expand #'expected-τ 'expression null)
-   #'(cons (add-expected x τ) (list . rst))]
+   #'(cons (add-expected/noeval x τ) (list . rst))]
   [(_ x . rst) ; no expected type
    #'(cons x (list . rst))])
 (define-typed-syntax reverse
@@ -91,6 +91,6 @@
 (define-typed-syntax member
   [(_ v e)
    #:with (e- (ty)) (⇑ e as List)
-   #:with [v- ty_v] (infer+erase #'(add-expected v ty))
+   #:with [v- ty_v] (infer+erase #'(add-expected/noeval v ty))
    #:when (typecheck? #'ty_v #'ty)
    (⊢ (member- v- e-) : Bool)])

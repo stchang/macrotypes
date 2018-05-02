@@ -719,11 +719,10 @@
                          (lambda (ps) (syntax-parse ps [(pp ...) (syntax/loc stx {pp ...})]))
                          #'((p ...) ...)) 
       #:with ([(~and ctx ([x ty] ...)) pat-] ...) (compile-pats #'(pat ...) #'τ_e)
-      #:with ty-expected (get-expected-type stx)
       #:with ([(x- ...) e_body- ty_body] ...) 
              (stx-map 
                infer/ctx+erase 
-               #'(ctx ...) #'((add-expected e_body ty-expected) ...))
+               #'(ctx ...) #`((pass-expected e_body #,stx) ...))
       #:when (check-exhaust #'(pat- ...) #'τ_e)
       #:with τ_out (stx-foldr (current-join) (stx-car #'(ty_body ...)) (stx-cdr #'(ty_body ...)))
       (⊢ (match- e- [pat- (let- ([x- x] ...) e_body-)] ...) : τ_out)
@@ -733,7 +732,6 @@
    [(_ e with . clauses)
     #:fail-when (null? (syntax->list #'clauses)) "no clauses"
     #:with [e- τ_e] (infer+erase #'e)
-    #:with t_expect (syntax-property stx 'expected-type) ; propagate inferred type
     (cond
      [(×? #'τ_e) ;; e is tuple
       (syntax-parse #'clauses #:datum-literals (->)
@@ -742,7 +740,7 @@
         #:fail-unless (stx-length=? #'(ty ...) #'(x ...))
                       "match clause pattern not compatible with given tuple"
         #:with [(x- ...) e_body- ty_body] (infer/ctx+erase #'([x ty] ...) 
-                                            #'(add-expected e_body t_expect))
+                                            #`(pass-expected e_body #,stx))
         #:with (acc ...) (for/list ([(a i) (in-indexed (syntax->list #'(x ...)))])
                            #`(lambda (s) (list-ref s #,(datum->syntax #'here i))))
         #:with z (generate-temporary)
@@ -764,7 +762,7 @@
         #:with (~List ty) #'τ_e
         #:with ([(x- ... rst-) e_body- ty_body] ...)
                (stx-map (lambda (ctx e) (infer/ctx+erase ctx e)) 
-                 #'(([x ty] ... [rst (List ty)]) ...) #'((add-expected e_body t_expect) ...))
+                 #'(([x ty] ... [rst (List ty)]) ...) #`((pass-expected e_body #,stx) ...))
         #:with τ_out (stx-foldr (current-join) (stx-car #'(ty_body ...)) (stx-cdr #'(ty_body ...)))
         #:with (len ...) (stx-map (lambda (p) #`#,(stx-length p)) #'((x ...) ...))
         #:with (lenop ...) (stx-map (lambda (p) (if (brack? p) #'=- #'>=-)) #'(xs ...))
@@ -815,7 +813,7 @@
         ;;                          (for/list ([(a i) (in-indexed (syntax->list accs))])
         ;;                            #`(lambda (s) (unsafe-struct*-ref s #,(datum->syntax #'here i)))))
         ;;                         #'((acc-fn ...) ...))
-        #:with (e_c ...+) (stx-map (lambda (ec) (add-expected-ty ec #'t_expect)) #'(e_c_un ...))
+        #:with (e_c ...+) (stx-map (lambda (ec) #`(pass-expected #,ec #,stx)) #'(e_c_un ...))
         #:with (((x- ...) (e_guard- e_c-) (τ_guard τ_ec)) ...)
                (stx-map 
                    (λ (bs eg+ec) (infers/ctx+erase bs eg+ec)) 
@@ -910,7 +908,7 @@
   [(_ ([x:id (~datum :) ty] ...) body) ; no TC
    #:with (X ...) (compute-tyvars #'(ty ...))
    #:with (~∀ () (~ext-stlc:→ _ ... body-ty)) (get-expected-type stx)
-   #'(Λ (X ...) (ext-stlc:λ ([x : ty] ...) (add-expected body body-ty)))]
+   #'(Λ (X ...) (ext-stlc:λ ([x : ty] ...) (add-expected/noeval body body-ty)))]
   [(_ ([x:id (~datum :) ty] ...) body) ; no TC, ignoring expected-type
    #:with (X ...) (compute-tyvars #'(ty ...))
    #'(Λ (X ...) (ext-stlc:λ ([x : ty] ...) body))]
@@ -923,10 +921,10 @@
            (type-error #:src stx #:msg
                        (format "expected a function of ~a arguments, got one with ~a arguments"
                                (stx-length #'[arg-ty ...] #'[x ...]))))]
-   #`(Λ Xs (ext-stlc:λ ([x : arg-ty] ...) #,(add-expected-ty #'body #'body-ty)))]
+   #`(Λ Xs (ext-stlc:λ ([x : arg-ty] ...) (add-expected/noeval body body-ty)))]
   #;[(_ args body)
    #:with (~∀ () (~ext-stlc:→ arg-ty ... body-ty)) (get-expected-type stx)
-   #`(Λ () (ext-stlc:λ args #,(add-expected-ty #'body #'body-ty)))]
+   #`(Λ () (ext-stlc:λ args #,(add-expected-type/noeval #'body #'body-ty)))]
   #;[(_ (~and x+tys ([_ (~datum :) ty] ...)) . body)
    #:with Xs (compute-tyvars #'(ty ...))
    ;; TODO is there a way to have λs that refer to ids defined after them?
@@ -950,7 +948,7 @@
                       (mk-app-err-msg stx #:expected #'(τ_inX ...) 
                                       #:note "Wrong number of arguments.")
         #:with e_fn/ty (⊢ e_fn- : (ext-stlc:→ . tyX_args))
-        #'(ext-stlc:#%app e_fn/ty (add-expected e_arg τ_inX) ...)])]
+        #'(ext-stlc:#%app e_fn/ty (add-expected/noeval e_arg τ_inX) ...)])]
     [else
      (syntax-parse #'ty_fnX
       ;; TODO: combine these two clauses
@@ -968,7 +966,7 @@
          ;; ) compute argument types; re-use args expanded during solve
          #:with ([e_arg2- τ_arg2] ...) (let ([n (stx-length #'(e_arg1- ...))])
                                         (infers+erase 
-                                        (stx-map add-expected-ty 
+                                        (stx-map add-expected-type/noeval 
                                           (stx-drop #'e_args n) (stx-drop #'(τ_in ...) n))))
          #:with (τ_arg1 ...) (stx-map typeof #'(e_arg1- ...))
          #:with (τ_arg ...) #'(τ_arg1 ... τ_arg2 ...)
@@ -1051,7 +1049,7 @@
           ;; ) compute argument types; re-use args expanded during solve
           #:with ([e_arg2- τ_arg2] ...) (let ([n (stx-length #'(e_arg1- ...))])
                                           (infers+erase 
-                                              (stx-map add-expected-ty 
+                                              (stx-map add-expected-type/noeval 
                                                 (stx-drop #'e_args n) (stx-drop #'(τ_in ...) n))))
           #:with (τ_arg1 ...) (stx-map typeof #'(e_arg1- ...))
           #:with (τ_arg ...) #'(τ_arg1 ... τ_arg2 ...)
@@ -1093,8 +1091,7 @@
          test)
        b ... body] ...+)
    #:with (test- ...) (⇑s (test ...) as Bool)
-   #:with ty-expected (get-expected-type stx)
-   #:with ([body- ty_body] ...) (infers+erase #'((add-expected body ty-expected) ...))
+   #:with ([body- ty_body] ...) (infers+erase #`((pass-expected body #,this-syntax) ...))
    #:with (([b- ty_b] ...) ...) (stx-map infers+erase #'((b ...) ...))
    #:with τ_out (stx-foldr (current-join) (stx-car #'(ty_body ...)) (stx-cdr #'(ty_body ...)))
    (⊢ (cond- [test- b- ... body-] ...) : τ_out)])
@@ -1279,7 +1276,7 @@
    (⊢ (for*/list- ([x- e-] ...) body-) : (List ty_body))])
 (define-typed-syntax for/fold
   [(_ ([acc init]) ([x:id e] ...) body)
-   #:with [init- ty_init] (infer+erase #`(pass-expected init #,stx))
+   #:with [init- ty_init] (infer+erase #`(pass-expected init #,this-syntax))
    #:with ([e- (ty)] ...) (⇑s (e ...) as Sequence)
    #:with [(acc- x- ...) body- ty_body] 
           (infer/ctx+erase #'([acc : ty_init][x : ty] ...) #'body)
@@ -1354,8 +1351,7 @@
 
 (define-typed-syntax begin/tc #:export-as begin
  [(_ body ... b)
-  #:with expected (get-expected-type stx)
-  #:with b_ann #'(add-expected b expected)
+  #:with b_ann #`(pass-expected b #,this-syntax)
   #'(ext-stlc:begin body ... b_ann)])
 
 ;; hash
@@ -1497,7 +1493,7 @@
 (define-typed-syntax equal?
   [(_ e1 e2)
    #:with [e1- ty1] (infer+erase #'e1)
-   #:with [e2- ty2] (infer+erase #'(add-expected e2 ty1))
+   #:with [e2- ty2] (infer+erase #'(add-expected/noeval e2 ty1))
    #:fail-unless (typecheck? #'ty1 #'ty2) "arguments to equal? have different types"
    (⊢ (equal?- e1- e2-) : Bool)])
 

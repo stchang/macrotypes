@@ -198,7 +198,7 @@
                 (define ty_in (inst-type/cs/orig Xs cs tyXin datum=?))
                 (define/with-syntax [a- ty_a]
                   (infer+erase (if (empty? (find-free-Xs Xs ty_in))
-                                   (add-expected-ty a ty_in)
+                                   (add-expected-type/noeval a ty_in)
                                    a)))
                 (values
                  (cons #'a- as-)
@@ -810,8 +810,7 @@
                      (lambda (ps) (syntax-parse ps [(pp ...) (syntax/loc this-syntax {pp ...})]))
                      #'((p ...) ...))
    #:with ([(~and ctx ([x ty] ...)) pat-] ...) (compile-pats #'(pat ...) #'τ_e)
-   #:with ty-expected (get-expected-type this-syntax)
-   [[x ≫ x- : ty] ... ⊢ (add-expected e_body ty-expected) ≫ e_body- ⇒ ty_body] ...
+   [[x ≫ x- : ty] ... ⊢ (pass-expected e_body #,this-syntax) ≫ e_body- ⇒ ty_body] ...
    #:when (check-exhaust #'(pat- ...) #'τ_e)
    --------
    [⊢ (match- e- [pat- (let- ([x- x] ...) e_body-)] ...) ⇒ (⊔ ty_body ...)]])
@@ -822,12 +821,11 @@
    #:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"
    [⊢ e ≫ e- ⇒ τ_e]
    #:when (×? #'τ_e)
-   #:with t_expect (get-expected-type this-syntax) ; propagate inferred type
    #:with ([x ... -> e_body]) #'clauses
    #:with (~× ty ...) #'τ_e
    #:fail-unless (stx-length=? #'(ty ...) #'(x ...))
                  "match clause pattern not compatible with given tuple"
-   [[x ≫ x- : ty] ... ⊢ (add-expected e_body t_expect) ≫ e_body- ⇒ ty_body]
+   [[x ≫ x- : ty] ... ⊢ (pass-expected e_body #,this-syntax) ≫ e_body- ⇒ ty_body]
    #:with (acc ...) (for/list ([(a i) (in-indexed (syntax->list #'(x ...)))])
                       #`(lambda (s) (list-ref s #,(datum->syntax #'here i))))
    #:with z (generate-temporary)
@@ -839,7 +837,6 @@
    #:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"
    [⊢ e ≫ e- ⇒ τ_e]
    #:when (List? #'τ_e)
-   #:with t_expect (get-expected-type this-syntax) ; propagate inferred type
    #:with ([(~or (~and (~and xs [x ...]) (~parse rst (generate-temporary)))
                  (~and (~seq (~seq x ::) ... rst:id) (~parse xs #'())))
             -> e_body] ...+)
@@ -853,7 +850,7 @@
                  "match: missing non-empty list case"
    #:with (~List ty) #'τ_e
    [[x ≫ x- : ty] ... [rst ≫ rst- : (List ty)]
-    ⊢ (add-expected e_body t_expect) ≫ e_body- ⇒ ty_body] ...
+    ⊢ (pass-expected e_body #,this-syntax) ≫ e_body- ⇒ ty_body] ...
    #:with (len ...) (stx-map (lambda (p) #`#,(stx-length p)) #'((x ...) ...))
    #:with (lenop ...) (stx-map (lambda (p) (if (brack? p) #'=- #'>=-)) #'(xs ...))
    #:with (pred? ...) (stx-map
@@ -909,7 +906,7 @@
    ;;                          (for/list ([(a i) (in-indexed (syntax->list accs))])
    ;;                            #`(lambda (s) (unsafe-struct*-ref s #,(datum->syntax #'here i)))))
    ;;                         #'((acc-fn ...) ...))
-   #:with (e_c ...+) (stx-map (lambda (ec) (add-expected-ty ec #'t_expect)) #'(e_c_un ...))
+   #:with (e_c ...+) (stx-map (lambda (ec) #`(pass-expected #,ec #,this-syntax)) #'(e_c_un ...))
    [[x ≫ x- : τ] ... ⊢ [e_guard ≫ e_guard- ⇐ Bool] [e_c ≫ e_c- ⇒ τ_ec]] ...
    #:with z (generate-temporary) ; dont duplicate eval of test expr
    --------

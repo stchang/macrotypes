@@ -82,7 +82,7 @@
             (define τ_in (inst-type/cs Xs cs τ_inX))
             (define/with-syntax [e τ]
               (infer+erase (if (empty? (find-free-Xs Xs τ_in))
-                               (add-expected-ty e_arg τ_in)
+                               (add-expected-type/noeval e_arg τ_in)
                                e_arg)))
             ;             (displayln #'(e τ))
             (define cs* (add-constraints Xs cs #`([#,τ_in τ])))
