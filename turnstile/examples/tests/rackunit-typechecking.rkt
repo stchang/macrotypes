@@ -36,7 +36,7 @@
      #:with (e+ τ) (infer+erase #'(add-expected e τ-expected+) #:tag (stx->datum #'tag))
      #:fail-unless (typecheck? #'τ #'τ-expected+)
      (format
-      "Expression ~a [loc ~a:~a] has type ~a, e#,stxxpected ~a"
+      "Expression ~a [loc ~a:~a] has type ~a, expected ~a"
       (syntax->datum #'e) (syntax-line #'e) (syntax-column #'e)
       (type->str #'τ) (type->str #'τ-expected))
      #'(void)]))
