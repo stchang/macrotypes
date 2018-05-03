@@ -1009,16 +1009,7 @@
   ;; - each x in ctx is in scope for subsequent xs
   ;;   - ie, dont need separate ctx and tvctx
   ;; - keep tvctx bc it's often useful to separate the returned Xs-
-
   (define (expands/ctxs es #:ctx [ctx null] #:tvctx [tvctx null]
-                        #:stop-list? [stop-list? #t])
-    (with-syntax
-      ([(tvs+ _ xs+ es+)
-        (expands/ctxs/turn es #:ctx ctx #:tvctx tvctx #:tvctx2 null
-                           #:stop-list? stop-list?)])
-      (list #'tvs+ #'xs+ #'es+)))
-
-  (define (expands/ctxs/turn es #:ctx [ctx null] #:tvctx [tvctx null] #:tvctx2 [tvctx2 null]
                         #:stop-list? [stop-list? #t])
      (syntax-parse ctx
        [((~or X:id [x:id (~seq sep:id τ) ...]) ...) ; dont expand; τ may reference to tv
@@ -1027,8 +1018,6 @@
                                  (stx-map (λ _ #'[(::) (#%type)]) #'(tv ...))))
                    ([tv (~seq tvsep:id tvk) ...] ...))
                    tvctx
-        #:with ([tv2 (~seq tvsep2:id tvk2) ...] ...)
-                tvctx2
        #:with (e ...) es
 
        (define ctx (syntax-local-make-definition-context))
@@ -1036,13 +1025,13 @@
          (internal-definition-context-introduce ctx s))
 
        (define/syntax-parse
-         ((tv+ ...) (tv2+ ...) (X+ ...) (x+ ...))
+         ((tv+ ...) (X+ ...) (x+ ...))
          (stx-deep-map
            (compose in-ctx fresh)
-           #'((tv ...) (tv2 ...) (X ...) (x ...))))
+           #'((tv ...) (X ...) (x ...))))
 
        (syntax-local-bind-syntaxes
-         (syntax->list #'(tv+ ... tv2+ ... X+ ... x+ ...))
+         (syntax->list #'(tv+ ... X+ ... x+ ...))
          #f ctx)
 
        (syntax-local-bind-syntaxes
@@ -1050,14 +1039,6 @@
          #`(values (make-rename-transformer
                                (mk-tyvar
                                  (attachs #'tv+ '(tvsep ...) #'(tvk ...))))
-                             ...)
-         ctx)
-
-        (syntax-local-bind-syntaxes
-         (syntax->list #'(tv2 ...))
-         #`(values (make-rename-transformer
-                               (mk-tyvar
-                                 (attachs #'tv2+ '(tvsep2 ...) #'(tvk2 ...))))
                              ...)
          ctx)
 
@@ -1083,11 +1064,11 @@
          (for/list ([e (syntax->list #'(e ...))])
            (local-expand e 'expression (decide-stop-list stop-list?) ctx)))
 
-       (list #'(tv+ ...) #'(tv2+ ...) #'(X+ ... x+ ...) #'(e+ ...))]
+       (list #'(tv+ ...) #'(X+ ... x+ ...) #'(e+ ...))]
 
       [([x τ] ...)
-       (expands/ctxs/turn es #:ctx #`([x #,(current-tag) τ] ...)
-                        #:tvctx tvctx #:tvctx2 tvctx2
+       (expands/ctxs es #:ctx #`([x #,(current-tag) τ] ...)
+                        #:tvctx tvctx
                         #:stop-list? stop-list?)]))
 
   ;; "expand" and "infer" fns derived from expands/ctxs -----------------------
