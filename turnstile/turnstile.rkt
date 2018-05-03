@@ -35,8 +35,7 @@
   ;;   xs-   ; a stx-list of the expanded versions of variables in the ctx
   ;;   es*-  ; a nested list a depth given by the depth argument, with the same structure
   ;;         ; as es*, containing the expanded es*, with the types attached
-  (define (infer/depth #:ctx ctx #:tvctx tvctx depth es* origs*
-                       #:tag tag)
+  (define (infer/depth #:ctx ctx #:tvctx tvctx depth es* origs*)
     (define flat (stx-flatten/depth-lens depth))
     (define es (lens-view flat es*))
     (define origs (lens-view flat origs*))
@@ -44,9 +43,15 @@
       (expands/ctxs #:tvctx tvctx #:ctx ctx (stx-map pass-orig es origs)))
     (define es*- (lens-set flat es* #`es-))
     (list #'tvxs- #'xs- es*-))
+  (define (infer/depth/noctx depth es* origs*)
+    (define flat (stx-flatten/depth-lens depth))
+    (define es (lens-view flat es*))
+    (define origs (lens-view flat origs*))
+    (define/with-syntax es-
+      (expands/stop (stx-map pass-orig es origs)))
+    (list (lens-set flat es* #`es-)))
 
-  (define (infers/depths clause-depth tc-depth tvctxs/ctxs/ess/origss*
-                         #:tag tag)
+  (define (infers/depths clause-depth tc-depth tvctxs/ctxs/ess/origss*)
     (define flat (stx-flatten/depth-lens clause-depth))
     (define tvctxs/ctxs/ess/origss
       (lens-view flat tvctxs/ctxs/ess/origss*))
@@ -54,10 +59,17 @@
       (for/list ([tvctx/ctx/es/origs (in-list (stx->list tvctxs/ctxs/ess/origss))])
         (match-define (list tvctx ctx es origs)
           (stx->list tvctx/ctx/es/origs))
-        (infer/depth #:tvctx tvctx #:ctx ctx tc-depth es origs #:tag tag)))
-    (define res
-      (lens-set flat tvctxs/ctxs/ess/origss* tcs))
-    res)
+        (infer/depth #:tvctx tvctx #:ctx ctx tc-depth es origs)))
+    (lens-set flat tvctxs/ctxs/ess/origss* tcs))
+  (define (infers/depths/noctx clause-depth tc-depth ess/origss*)
+    (define flat (stx-flatten/depth-lens clause-depth))
+    (define ess/origss (lens-view flat ess/origss*))
+    (define tcs
+      (for/list ([es/origs (in-list (stx->list ess/origss))])
+        (match-define (list es origs)
+          (stx->list es/origs))
+        (infer/depth/noctx tc-depth es origs)))
+    (lens-set flat ess/origss* tcs))
   #;(define (raise-⇐-expected-type-error ⇐-stx body expected-type existing-type)
     (raise-syntax-error
      '⇐
@@ -265,11 +277,34 @@
              #:attr wrap2 (λ(x)x)]
     )
   (define-splicing-syntax-class tc-clause
-    #:attributes (pat)
-    #:datum-literals (⊢)
-    [pattern (~or (~seq [⊢ . tc:tc*] ooo:elipsis ...
-                        (~parse ((ctx.x- ctx.ctx tvctx.x- tvctx.ctx tvctx2.x- tvctx2.ctx) ...) #'()))
-                  (~seq [ctx:id-props+≫* ⊢ . tc:tc*] ooo:elipsis ...
+    #:attributes (pat) #:datum-literals (⊢)
+    ;; fast case, 0 depth, no ctx
+    [pattern (~seq [⊢ tc:tc-elem])
+             #:with inf #`(expand/stop (pass-orig #`tc.e-stx #`tc.e-stx-orig))
+             #:with pat #`(~post (~post (~parse tc.e-pat inf)))]
+    [pattern (~seq [⊢ . tc:tc-elem])
+             #:with inf #`(expand/stop (pass-orig #`tc.e-stx #`tc.e-stx-orig))
+             #:with pat #`(~post (~post (~parse tc.e-pat inf)))]
+    ; fast case, no ctx
+    [pattern (~seq [⊢ . tc:tc*] ooo:elipsis ...)
+             #:with clause-depth (stx-length #'[ooo ...])
+             #:with tcs-pat
+             (with-depth
+              #'[tc.es-pat]
+              #'[ooo ...])
+             #:with ess/origs
+             (with-depth
+              #`[tc.es-stx tc.es-stx-orig]
+              #'[ooo ...])
+             #:with inf #`(infers/depths/noctx 'clause-depth
+                                               'tc.depth
+                                               #`ess/origs)
+             #:with inf+ ((attribute tc.wrap-computation) #'inf)
+             ;; wrap2 allows using pat vars bound by inf+
+             ;; (wrap-computation does not)
+             #:with pat ((attribute tc.wrap2)
+                         #`(~post (~post (~parse tcs-pat inf+))))]
+    [pattern (~or (~seq [ctx:id-props+≫* ⊢ . tc:tc*] ooo:elipsis ...
                         (~parse ((tvctx.x- tvctx.ctx) ...) #'()))
                   (~seq [(ctx:id-props+≫*) ⊢ . tc:tc*] ooo:elipsis ...
                         (~parse ((tvctx.x- tvctx.ctx) ...) #'()))
@@ -287,8 +322,7 @@
               #'[ooo ...])
              #:with inf #`(infers/depths 'clause-depth
                                          'tc.depth
-                                         #`tvctxs/ctxs/ess/origs
-                                         #:tag '#,(syntax-parameter-value #'current-tag-stx))
+                                         #`tvctxs/ctxs/ess/origs)
              #:with inf+ ((attribute tc.wrap-computation) #'inf)
              ;; wrap2 allows using pat vars bound by inf+
              ;; (wrap-computation does not)
