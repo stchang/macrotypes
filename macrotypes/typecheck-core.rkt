@@ -411,8 +411,8 @@
                       #:attr norm #f))
            ;; checking types
            (define (default-current-type=? t1 t2 env1 env2)
-             ;; (printf "(τ=) t1 = ~a\n" #;τ1 (stx->datum t1))
-             ;; (printf "(τ=) t2 = ~a\n" #;τ2 (stx->datum t2))
+             ;; (printf "(~a=) t1 = ~a\n" 'name #;τ1 (stx->datum t1))
+             ;; (printf "(~a=) t2 = ~a\n" 'name #;τ2 (stx->datum t2))
              (or (and (id? t1) (id? t2)
                       (let ([r1 (bound-id-table-ref env1 t1 #f)]
                             [r2 (bound-id-table-ref env2 t2 #f)])
@@ -883,35 +883,72 @@
    (lambda (stx modes)
      (syntax-parse stx #:datum-literals (:)
        ;; cannot write ty:type bc provides might precede type def
+       ;; but ok to let define-primop validate type
+       [(_ (~and (~or (~and [out-x:id (~optional :) ty] (~parse x ((current-host-lang)#'out-x)))
+                      [[x:id (~optional :) ty] out-x:id])) ...)
+        #:with (x/tc ...) (generate-temporaries #'(x ...))
+        #:when (stx-map
+                syntax-local-lift-module-end-declaration
+                #'((define-primop x/tc x ty) ...))
+        (pre-expand-export (syntax/loc stx (rename-out [x/tc out-x] ...))
+                           modes)]))))
+;; same as typed-out, except it uses define-prop/unsafe
+;; see define-primop/unsafe below for more details
+(define-syntax typed-out/unsafe
+  (make-provide-pre-transformer
+   (lambda (stx modes)
+     (syntax-parse stx #:datum-literals (:)
+       ;; cannot write ty:type bc provides might precede type def
        [(_ (~and (~or (~and [out-x:id (~optional :) ty] (~parse x ((current-host-lang)#'out-x)))
                       [[x:id (~optional :) ty] out-x:id])) ...)
         #:with (x/tc ...) (generate-temporaries #'(x ...))
         #:when (stx-map
                 syntax-local-lift-module-end-declaration
                 ;; use define-primop to validate type
-                #'((define-primop x/tc x ty) ...))
+                #'((define-primop/unsafe x/tc x ty) ...))
         (pre-expand-export (syntax/loc stx (rename-out [x/tc out-x] ...))
                            modes)]))))
 
-;; colon is optional to make it easier to use define-primop in macros
 (define-syntax define-primop
   (syntax-parser #:datum-literals (:)
+    ;; optional colon makes it easier to use define-primop in macros
     [(define-primop op:id (~optional :) τ)
      #:with op- ((current-host-lang) #'op)
      #'(define-primop op op- τ)]
-    [(define-primop op/tc:id (~optional #:as) op:id (~optional :) τ)
+    [(define-primop op/tc:id (~optional #:as) op:id (~optional :) τ:type)
      ; rename-transformer doesnt seem to expand at the right time
      ; - op still has no type in #%app
      ; - so use make-variable-like-transformer
-     ; also, need to 1) use `type` stx class above to validate user input
-     ; 2) use τ.norm below to avoid dup expansion
-     ; 3) but using the expanded τ.norm below loses all properties,
-     ;    resulting in "not type" and "orig" errors
-     ; - for now, drop the check
-     ; TODO: how to have the check but not double expand?
      #'(define-syntax op/tc
          (make-variable-like-transformer
           (assign-type #'op #'τ #:wrap? #f)))]))
+
+;; `define-primop` performs redundant tyevals:
+;; - once by the `type` stx class, to validate the type from the programmer
+;; - and every time the `assign-type` happens,
+;;   ie, everytime the lang that defines the primop is used
+;; `define-primop/unsafe` (or the analogous typed-out/unsafe) eliminates redundant tyevals
+;; Use when the following is true:
+;; 1) when a primop is reused many times (eg, + in stlc+lit)
+;; 2) when the kind on the type(s) given to the primop is not defined in the same
+;;   file as the primop itself
+;;   (eg, see turnstile/examples/fomega-no-reuse.rkt for a counter example to #2)
+;; 2018-05-04: Using define-primop/unsafe as much as possible speeds up test suite ~5%
+;; The second requirement is an expander quirk concerning stx props, see:
+;; - https://groups.google.com/forum/#!topic/racket-users/ZWjpz3kFmjo
+;; - https://groups.google.com/forum/#!topic/racket-users/TGax2h8dVxs
+;; - https://github.com/racket/racket/issues/1495
+;; A workaround might be possible by defining kinds in a separate file,
+;; which restores free-id=? bc the module paths of the ids are the same.
+(define-syntax define-primop/unsafe
+  (syntax-parser #:datum-literals (:)
+    [(_ op:id (~optional :) τ)
+     #:with op- ((current-host-lang) #'op)
+     #'(define-primop/unsafe op op- τ)]
+    [(_ op/tc:id (~optional #:as) op:id (~optional :) τ:type)
+     #'(define-syntax op/tc
+         (make-variable-like-transformer
+          (assign-type #'op #'τ.norm #:wrap? #f #:eval? #f)))]))
 
 (begin-for-syntax
   ;; --------------------------------------------------------------------------
