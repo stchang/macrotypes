@@ -25,7 +25,7 @@
          zero? =
          (rename-out [typed- -] [typed* *])
          ;; test all variations of typed-out
-         (typed-out [add1 (→ Int Int)]
+         (typed-out/unsafe [add1 (→ Int Int)]
                     [sub1 : (→ Int Int)]
                     [[not- (→ Bool Bool)] not]
                     [[void- : (→ Unit)] void])
@@ -33,11 +33,11 @@
 
 (define-base-types Bool String Float Char Unit)
 
-;; test all variations of define-primop-out
-(define-primop zero? (→ Int Bool))
-(define-primop = : (→ Int Int Bool))
-(define-primop typed- - (→ Int Int Int))
-(define-primop typed* * : (→ Int Int Int))
+;; test all variations of define-primop
+(define-primop/unsafe zero? (→ Int Bool))
+(define-primop/unsafe = : (→ Int Int Bool))
+(define-primop/unsafe typed- - (→ Int Int Int))
+(define-primop/unsafe typed* * : (→ Int Int Int))
 
 (define-for-syntax (make-type-alias-transformer xs ty)
   (syntax-parser

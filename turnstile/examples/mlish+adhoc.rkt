@@ -850,7 +850,7 @@
      #'(∀ Xs (=> TC ... (ext-stlc:→ . tys_arr)))]))
 
 ; redefine these to use lifted →
-(provide (typed-out [+ : (→ Int Int Int)]
+(provide (typed-out/unsafe [+ : (→ Int Int Int)]
                     [- : (→ Int Int Int)]
                     [* : (→ Int Int Int)]
                     [max : (→ Int Int Int)]
@@ -1147,7 +1147,7 @@
   --------
   [⊢ (thread- th-) ⇒ #,Thread+])
 
-(provide (typed-out [random : (→ Int Int)]
+(provide (typed-out/unsafe [random : (→ Int Int)]
                     [integer->char : (→ Int Char)]
                     [string->list : (→ String (List Char))]
                     [string->number : (→ String Int)]))
@@ -1164,7 +1164,7 @@
    --------
    [⊢ (number->string- n- rad-) ⇒ #,String+]])
 
-(provide (typed-out [string : (→ Char String)]
+(provide (typed-out/unsafe [string : (→ Char String)]
                     [sleep : (→ Int Unit)]
                     [string=? : (→ String String Bool)]
                     [string<? : (→ String String Bool)]
@@ -1363,7 +1363,7 @@
   [⊢ e ≫ e- ⇒ _]
   --------
   [⊢ (displayln- e-) ⇒ #,Unit+])
-(provide (typed-out [newline : (→ Unit)]))
+(provide (typed-out/unsafe [newline : (→ Unit)]))
 
 (define-typed-syntax list->vector
   [(_ e) ⇐ (~Vector ty) ≫
@@ -1457,7 +1457,7 @@
 
 (define-base-type String-Port)
 (define-base-type Input-Port)
-(provide (typed-out [open-output-string : (→ String-Port)]
+(provide (typed-out/unsafe [open-output-string : (→ String-Port)]
                     [get-output-string : (→ String-Port String)]
                     [string-upcase : (→ String String)]))
 
@@ -1477,7 +1477,7 @@
   [⊢ str ≫ str- ⇐ #,String+]
   --------
   [⊢ (string-length- str-) ⇒ #,Int+])
-(provide (typed-out [make-string : (→ Int String)]
+(provide (typed-out/unsafe [make-string : (→ Int String)]
                     [string-set! : (→ String Int Char Unit)]
                     [string-ref : (→ String Int Char)]))
 (define-typed-syntax string-copy!
@@ -1494,7 +1494,7 @@
    --------
    [⊢ (string-copy!- dest- dest-start- src- src-start- src-end-) ⇒ #,Unit+]])
 
-(provide (typed-out [fl+ : (→ Float Float Float)]
+(provide (typed-out/unsafe [fl+ : (→ Float Float Float)]
                     [fl- : (→ Float Float Float)]
                     [fl* : (→ Float Float Float)]
                     [fl/ : (→ Float Float Float)]
@@ -1513,7 +1513,7 @@
   [⊢ (let-values- ([[a b] (quotient/remainder- x- y-)])
        (list- a b))
      ⇒ #,(mk-×- (list Int+ Int+))])
-(provide (typed-out [quotient : (→ Int Int Int)]))
+(provide (typed-out/unsafe [quotient : (→ Int Int Int)]))
 
 (define-typed-syntax (set! x:id e) ≫
   [⊢ x ≫ x- ⇒ ty_x]
@@ -1544,7 +1544,7 @@
        (define-typed-variable-rename x ≫ x- : x-ty) ...)])
 
 (define-base-type Regexp)
-(provide (typed-out [regexp-match : (→ Regexp String (List String))]
+(provide (typed-out/unsafe [regexp-match : (→ Regexp String (List String))]
                     [regexp : (→ String Regexp)]))
 
 (define-typed-syntax (equal? e1 e2) ≫

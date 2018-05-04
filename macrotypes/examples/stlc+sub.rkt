@@ -21,7 +21,7 @@
 
 (provide (for-syntax subs? current-sub?)
          (type-out Top Num Nat)
-         (typed-out [+ : (→ Num Num Num)]
+         (typed-out/unsafe [+ : (→ Num Num Num)]
                     [* : (→ Num Num Num)])
          #%datum)
 

@@ -36,7 +36,7 @@
 
 (provide define-type define-types
          → →/test
-         (typed-out [+ : (→ Int Int Int)]
+         (typed-out/unsafe [+ : (→ Int Int Int)]
                     [- : (→ Int Int Int)]
                     [* : (→ Int Int Int)]
                     [max : (→ Int Int Int)]
@@ -959,8 +959,8 @@
    (⊢ (#%app- e_fn- e_arg- ...) : τ_out*)])
 
 ;; define these explicitly (instead of typed-out), for use in desugarings
-(define-primop void : (→ Unit))
-(define-primop not : (→ Bool Bool))
+(define-primop/unsafe void : (→ Unit))
+(define-primop/unsafe not : (→ Bool Bool))
 
 ;; cond and other conditionals
 (define-typed-syntax cond
@@ -1179,7 +1179,7 @@
 (define-base-type String-Port)
 (define-base-type Input-Port)
 
-(define-primop string-length : (→ String Int))
+(define-primop/unsafe string-length : (→ String Int))
 
 (define-typed-syntax write-string
  [(write-string str out)

@@ -8,7 +8,7 @@
          define
          %L %U
          #%module-begin #%top-interaction require
-         (typed-out [= : (→ Int Int Int)]
+         (typed-out/unsafe [= : (→ Int Int Int)]
                     [< : (→ Int Int Bool)]
                     [sub1 : (→ Int Int)]
                     [add1 : (→ Int Int)]

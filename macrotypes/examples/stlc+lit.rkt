@@ -11,7 +11,7 @@
 ;; - prim +
 
 (provide (type-out Int)
-         (typed-out [+ : (→ Int Int Int)])
+         (typed-out/unsafe [+ : (→ Int Int Int)])
          #%datum)
 
 (define-base-type Int)

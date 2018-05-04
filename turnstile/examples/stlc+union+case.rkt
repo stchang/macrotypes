@@ -12,7 +12,7 @@
 ;; Other: updated current-sub?
 
 (provide (type-out case->) case→
-         (typed-out [add1 : (case→ (→ Nat Nat)
+         (typed-out/unsafe [add1 : (case→ (→ Nat Nat)
                                    (→ Int Int))]
                     [sub1 : (case→ (→ Zero NegInt)
                                    (→ PosInt Nat)

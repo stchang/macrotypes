@@ -25,7 +25,7 @@
          define-named-type-alias
          Int Num Nat U (type-out U*)
          Zero NegInt PosInt Float Bool False True
-         (typed-out [+ : (→ Num Num Num)]
+         (typed-out/unsafe [+ : (→ Num Num Num)]
                     [* : (→ Num Num Num)]
                     [add1 : (→ Int Int)]
                     [sub1 : (→ Int Int)])

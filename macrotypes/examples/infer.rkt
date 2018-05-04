@@ -12,7 +12,7 @@
 ;; a language with local type inference using bidirectional type checking
 
 (provide →
-        (typed-out [+ : (→ Int Int Int)]
+        (typed-out/unsafe [+ : (→ Int Int Int)]
                    [- : (→ Int Int Int)]
                    [void : (→ Unit)]
                    [= : (→ Int Int Bool)]

@@ -15,7 +15,7 @@
 ;; - extend current-sub? to call expose
 
 (provide <: ∀
-         (typed-out [+ : (→ Nat Nat Nat)])
+         (typed-out/unsafe [+ : (→ Nat Nat Nat)])
          (rename-out [typed-app #%app])
          Λ inst proj)
 

@@ -22,7 +22,7 @@
          (rename-out [datum/tc #%datum]
                      [app/tc #%app])
          λ tr:λ tr:Any define begin let
-         (typed-out 
+         (typed-out/unsafe 
           [make-vector : (→ (N) [] (Int N) (Vec N))]
           [vector-ref 
            : (→ (M N) 
