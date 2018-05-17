@@ -35,7 +35,8 @@
 ;; - (local) type inference
 
 (provide define-type define-types
-         → →/test
+         (for-syntax make-extra-info-transformer)
+         → →/test ?∀
          (typed-out/unsafe [+ : (→ Int Int Int)]
                     [- : (→ Int Int Int)]
                     [* : (→ Int Int Int)]

@@ -14,7 +14,7 @@
 (define-binding-type ∀)
 
 (define-typed-syntax (Λ (tv:id ...) e) ≫
-  [[tv ≫ tv- :: #%type] ... ⊢ e ≫ e- ⇒ τ]
+  [([tv ≫ tv- :: #%type] ...) () ⊢ e ≫ e- ⇒ τ]
   --------
   ;; can't use internal mk-∀- constructor here
   ;; - will cause the bound-id=? quirk to show up
