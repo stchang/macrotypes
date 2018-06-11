@@ -179,7 +179,7 @@
   [(_ (y:id ...) e) ⇐ (~Π ([x:id : τ_in] ... ) τ_out) ≫
    [[x ≫ x- : τ_in] ... ⊢ #,(substs #'(x ...) #'(y ...) #'e) ≫ e- ⇐ τ_out]
    ---------
-   [⊢ (λ- (x- ...) e-)]]
+   [⊢ #,(mk-β #'(λ- (x- ...) e-))]]
   ;; both expected ty and annotations
   [(_ ([y:id : τ_in*] ...) e) ⇐ (~Π ([x:id : τ_in] ...) τ_out) ≫
    #:fail-unless (stx-length=? #'(y ...) #'(x ...))
@@ -188,17 +188,85 @@
    #:when (typechecks? #'(τ_in** ...) #'(τ_in ...))
    [[x ≫ x- : τ_in] ... ⊢ #,(substs #'(x ...) #'(y ...) #'e) ≫ e- ⇐ τ_out]
    -------
-   [⊢ (λ- (x- ...) e-)]]
+   [⊢ #,(mk-β #'(λ- (x- ...) e-))]]
   ;; annotations only
   [(_ ([x:id : τ_in] ...) e) ≫
    [[x ≫ x- : τ_in] ... ⊢ [e ≫ e- ⇒ τ_out] [τ_in ≫ τ_in- ⇒ _] ...]
    -------
-   [⊢ (λ- (x- ...) e-) ⇒ (Π ([x- : τ_in-] ...) τ_out)]])
+   [⊢ #,(mk-β #'(λ- (x- ...) e-))
+      ⇒ (Π ([x- : τ_in-] ...) τ_out)]])
+
+  (define-syntax β?
+    (syntax-parser
+      #;[stx #:do[(displayln #'stx)] #:when #f #'(void)]
+      #;[(((~literal #%plain-lambda) (x ...) e) e_arg ...) #t]
+      [(_ ((~literal #%plain-lambda) (x ...) e) e_arg ...) 
+       #t]
+      [_ #f]))
+  (define-syntax doβ
+    (syntax-parser
+          [(_ ((~literal #%plain-lambda) (x ...) e) e_arg ...)
+ ;    #:do[(displayln (syntax->datum this-syntax))]
+     #:with r-app (datum->syntax (if (identifier? #'e) #'e (stx-car #'e)) '#%app)
+;     #:with r-app (datum->syntax (if (identifier? this-syntax) this-syntax (stx-car this-syntax)) '#%app)
+     #:with e-inst_ (substs #'(e_arg ...) #'(x ...) #'e)
+     ;; TODO: this will also subst apps in expanded types,
+     ;; which lead to extra expands but otherwise does not affect result
+     #:with e-inst (subst #'app/head #'r-app #'e-inst_ free-identifier=?)
+     (transfer-type this-syntax #'e-inst)]
+      #;[(((~literal #%plain-lambda) (x ...) e) e_arg ...)
+ ;    #:do[(displayln (syntax->datum this-syntax))]
+     #:with r-app (datum->syntax (if (identifier? #'e) #'e (stx-car #'e)) '#%app)
+;     #:with r-app (datum->syntax (if (identifier? this-syntax) this-syntax (stx-car this-syntax)) '#%app)
+     #:with e-inst_ (substs #'(e_arg ...) #'(x ...) #'e)
+     ;; TODO: this will also subst apps in expanded types,
+     ;; which lead to extra expands but otherwise does not affect result
+     (subst #'app/head #'r-app #'e-inst_ free-identifier=?)]
+     
+      #;[((lm xs body) . args)
+       #:with r-app
+         (datum->syntax (if (identifier? #'body) #'body (stx-car #'body)) '#%app)
+       (subst #'app/head #'r-app
+              (substs #'args #'xs #'body)
+              free-id=?)]))
+(begin-for-syntax
+  (define reflect
+    (syntax-parser
+      [(((~literal #%plain-lambda) (x ...) e) e_arg ...)
+       #:with r-app
+         (datum->syntax (if (identifier? #'e) #'e (stx-car #'e)) '#%app)
+       (subst #'app/head #'r-app this-syntax free-identifier=?)]))
+
+  (define (mk-β lam)
+    (syntax-property
+     (syntax-property
+      lam
+      'pred
+      #'β?)
+     'red
+     #'doβ)))
+
+#;(begin-for-syntax
+  #;(define (mk-app/eval app pred red ref)
+    (syntax-property
+     (syntax-property
+      (syntax-property
+       app
+       'pred
+       pred)
+      'red
+      red)
+     'reflect
+     ref)))
 
 (define-syntax app/eval
   (syntax-parser
-    #;[_
-     #:do[(printf "app: ~a\n" (stx->datum this-syntax))]
+    #;[(a . _)
+     #:do[(printf "app: ~a\n" (stx->datum this-syntax))
+          ;; (displayln (syntax-property #'a 'pred))
+          ;; (displayln (syntax-property #'a 'red))
+          ;; (displayln (syntax-property #'a 'reflect))
+          ]
      #:when #f
      #'(void)]
     ;; elim case
@@ -207,9 +275,37 @@
      #:with (_ m/d . _) (local-expand #'(#%app match/delayed 'dont 'care) 'expression null)
      #:when (free-identifier=? #'m/d #'f)
      (transfer-type this-syntax #'(matcher . args))]
+    ;;
+    #;[(a  . rst)
+     #:do[(define _p? (syntax-property #'a 'pred))
+          (define _red (syntax-property #'a 'red))
+          (define _ref (syntax-property #'a 'reflect))
+          (define p? (and _p? (syntax-local-value _p?)))
+          (define red (and _red (syntax-local-value _red)))
+          (define ref (and _ref (syntax-local-value _ref)))
+          (when _p?
+            (displayln p?)
+            (displayln red)
+            (displayln ref)
+            (displayln (p? #'rst))
+            (displayln (red #'rst))
+            (displayln (ref (red #'rst))))]
+     #:when #f
+     #'(void)]
+                                 
     ;; TODO: apply to only lambda args or all args?
-    [(_ (~and f ((~literal #%plain-lambda) (x ...) e)) e_arg ...)
+    #;[(_ . e)
+     #:when (β? #'e)
+     (transfer-type this-syntax (reflect (doβ #'e)))]
+    [(_ f . args)
+     #:do[(define p? (syntax-property #'f 'pred))
+          (define red (syntax-property #'f 'red))]
+     #:when (and p? red ((syntax-local-value p?) this-syntax))
+     (transfer-type this-syntax ((syntax-local-value red) this-syntax))]
+    #;[(_ ((~literal #%plain-lambda) (x ...) e) e_arg ...)
+ ;    #:do[(displayln (syntax->datum this-syntax))]
      #:with r-app (datum->syntax (if (identifier? #'e) #'e (stx-car #'e)) '#%app)
+;     #:with r-app (datum->syntax (if (identifier? this-syntax) this-syntax (stx-car this-syntax)) '#%app)
      #:with e-inst_ (substs #'(e_arg ...) #'(x ...) #'e)
      ;; TODO: this will also subst apps in expanded types,
      ;; which lead to extra expands but otherwise does not affect result
@@ -232,6 +328,17 @@
      #:with r-app (datum->syntax (if (identifier? #'τ_out) #'τ_out (stx-car #'τ_out)) '#%app)
    #:with τ_out-inst (substs #'(e_arg- ...) #'(X ...) #'τ_out)
    #:with τ_out-refl (subst #'app/head #'r-app #'τ_out-inst free-id=?)
+   ;; #:with app/eval+
+   ;; (syntax-property
+   ;;  (syntax-property
+   ;;   (syntax-property
+   ;;    #'app/eval
+   ;;    'pred
+   ;;    #'β?)
+   ;;   'red
+   ;;   #'doβ)
+   ;;  'reflect
+   ;;  #'reflect)
    -----------------------------
    [⊢ (app/eval e_fn- e_arg- ...) ⇒ τ_out-refl]])
 
@@ -257,7 +364,7 @@
 (define-syntax (app/eval/c stx)
   (syntax-parse stx
     [(_ e) #'e]
-    [(_ f e . rst) #'(app/eval/c (app/eval f e) . rst)]))
+    [(_ f e . rst) #`(app/eval/c (app/eval f e) . rst)]))
 
 (define-syntax (app/head/c stx)
   (syntax-parse stx
@@ -432,6 +539,9 @@
    #:with (m- ...) (generate-temporaries #'(m ...))
    #:with (τm ...) (generate-temporaries #'(m ...))
    #:with elim-TY (format-id #'TY "elim-~a" #'TY)
+   #:with elim-TY? (mk-? #'elim-TY)
+   #:with do-elim-TY (format-id #'TY "do-elim-~a" #'TY)
+   #:with elim-TY-reflect (format-id #'TY "elim-~a-reflect" #'TY)
    #:with eval-TY (format-id #'TY "eval-~a" #'TY)
    #:with TY/internal (generate-temporary #'TY)
    --------
@@ -456,6 +566,25 @@
           [⊢ m ≫ m- ⇐ τm] ...
           -----------
           [⊢ (eval-TY v- P- m- ...) ⇒ (app/c P- v-)])
+        #;(define-syntax elim-TY?
+          (syntax-parser
+            [(_ (~Cons (C x ...)) P m ...) #t] [_ #f]))
+        #;(define-syntax do-elim-TY
+          (syntax-parser
+            [(_ (~Cons (C x ...)) P m ...)
+             #'(app/head/c m x ... (eval-TY xrec P m ...) ...)]))
+;        (define-syntax elim-TY-reflect
+        #;(define-typerule (elim-TY v P m ...) ≫
+          [⊢ v ≫ v- ⇐ TY]
+          [⊢ P ≫ P- ⇐ (→ TY Type)] ; prop / motive
+          ;; each `m` can consume 2 sets of args:
+          ;; 1) args of the constructor `x` ... 
+          ;; 2) IHs for each `x` that has type `TY`
+          #:with (τm ...) #'((Π/c [x : τin] ...
+                              (→/c (app/c P- xrec) ... (app/c P- (app/c C x ...)))) ...)
+          [⊢ m ≫ m- ⇐ τm] ...
+          -----------
+          [⊢ (#,(mk-app/eval #'elim-TY? #'do-elim-TY #'reflect) v- P- m- ...) ⇒ (app/c P- v-)])
         ;; eval the elim redexes
         (define-syntax eval-TY
           (syntax-parser
