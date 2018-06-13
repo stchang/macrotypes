@@ -425,13 +425,29 @@
        [(_ (C x ...))
         #'(~and TMP
                 (~parse (~plain-app/c C-:id x ...) (expand/df #'TMP))
-;                (~parse (_ C+ . _) (expand/df #'(C)))
-                (~fail #:unless (let ([C+ (expand/df #'(C x ...))])
+                (~parse (_ C+ . _) (expand/df #'(C)))
+                (~fail #:unless (free-id=? #'C- #'C+))
+                #;(~fail #:unless (let ([C+ (expand/df #'(C x ...))])
                                   (or (and (identifier? C+) (free-id=? #'C- C+))
                                       (and (stx-pair? C+) (free-id=? #'C- (stx-cadr C+))))))
                 )])))
 )
 
+(define-syntax define-data-constructor
+  (syntax-parser
+    [(_ (C (~and As {A ...}) x ...) : ty)
+     #:when (brace? #'As)
+     #:with C/internal (generate-temporary)
+     #'(begin-
+         (struct C/internal (x ...) #:transparent)
+         (define C
+           (unsafe-assign-type
+            (λ/c- (A ... x ...)
+              (C/internal x ...))
+            : ty)))]
+    [(_ (C x ...) : ty)
+     #'(define-data-constructor (C {} x ...) : ty)]))
+         
 (define-typed-syntax define-datatype
   ;; simple datatypes, eg Nat -------------------------------------------------
   ;; - ie, `TY` is an id with no params or indices
@@ -443,7 +459,7 @@
    #:with ((xrec ...) ...) (find-recur #'TY #'(([x τin] ...) ...))
    ;; struct defs
    #:with (C/internal ...) (generate-temporaries #'(C ...))
-   #:with ((x- ...) ...) (stx-map generate-temporaries #'((x ...) ...))
+;   #:with ((x- ...) ...) (stx-map generate-temporaries #'((x ...) ...))
    ;; elim methods and method types
    #:with (m ...) (generate-temporaries #'(C ...))
    #:with (m- ...) (generate-temporaries #'(m ...))
@@ -462,9 +478,10 @@
         (define-typed-syntax TY
           [_:id ≫ --- [⊢ #,(syntax-property #'(TY/internal) 'elim-name #'elim-TY) ⇒ τ]])
         ;; define structs for `C` constructors
-        (struct C/internal (x ...) #:transparent) ...
-;        (define C (unsafe-assign-type C/internal : τC)) ...
-        (define-typerule C
+        (define-data-constructor (C x ...) : τC) ...
+        ;; (struct C/internal (x ...) #:transparent) ...
+        ;; (define C (unsafe-assign-type C/internal : τC)) ...
+        #;(define-typerule C
           ;[_ ≫ #:do[(printf "expanding constructor: ~a\n" (syntax->datum this-syntax))] #:when #f --- [⊢ void ⇒ TY]]
           [(~var _ id) ≫ #:when (stx-null? #'(x ...)) --- [⊢ C/internal ⇒ TY]]
           [(~var _ id) ≫ --- [⊢ C/internal ⇒ τC]]
@@ -472,7 +489,7 @@
           [(_ x ...) ≫
            [⊢ x ≫ x- ⇐ τin] ...
            ---------------------
-           [⊢ (#%app- C/internal x- ...) ⇒ TY]]) ...
+           [⊢ (#%app- C/internal x- ...) ⇒ TY]]) ;...
           
         ;; elimination form
         (define-typerule/red (elim-TY v P m ...) ≫
@@ -482,7 +499,7 @@
           ;; 1) args of the constructor `x` ... 
           ;; 2) IHs for each `x` that has type `TY`
           #:with (τm ...) #'((Π/c [x : τin] ...
-                              (→/c (app/c P- xrec) ... (app/c P- (C x ...)))) ...)
+                              (→/c (app/c P- xrec) ... (app/c P- (app/c C x ...)))) ...)
           [⊢ m ≫ m- ⇐ τm] ...
           -----------
           [⊢ (eval-TY v- P- m- ...) ⇒ (app/c P- v-)]
@@ -577,12 +594,13 @@
 
         ;; define structs for constructors
         ;; TODO: currently i's are included in struct fields; separate i's from i+x's
-        (struct C/internal (xs) #:transparent) ...
-        ;; TODO: this define should be a macro instead?
-        ;; must use internal list, bc Racket is not auto-currying
-        (define C (unsafe-assign-type
-                   (λ/c- (A ... i+x ...) (C/internal (list i+x ...)))
-                   : τC)) ...
+        (define-data-constructor (C {A ...} i+x ...) : τC) ...
+        ;; (struct C/internal (i+x ...) #:transparent) ...
+        ;; ;; TODO: this define should be a macro instead?
+        ;; ;; must use internal list, bc Racket is not auto-currying
+        ;; (define C (unsafe-assign-type
+        ;;            (λ/c- (A ... i+x ...) (C/internal i+x ...)) ; TODO: curry C/internal?
+        ;;            : τC)) ...
         ;; define eliminator-form elim-TY
         ;; v = target
         ;; - infer A ... from v
