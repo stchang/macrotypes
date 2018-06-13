@@ -206,7 +206,26 @@
       [_ stx]))
 )
 
-(define-syntax (app/eval stx)
+(define-syntax define-red
+  (syntax-parser
+    [(_ name [(head-pat . rst-pat) (~datum ~>) contractum] ...)
+     #:with OUT
+     #'(define-syntax name
+         (syntax-parser
+           [(_ head . rst-pat2)
+            (transfer-type
+             this-syntax
+             (syntax-parse #`(#,(expand/df #'head) . rst-pat2)
+               [(head-pat . rst-pat) (reflect #`contractum)] ...
+               [(f- . rst) #`(#,(syntax-property #'#%plain-app- 'reflect #'name) f- . rst)]))]))
+;     #:do[(pretty-print (stx->datum #'OUT))]
+     #'OUT]))
+
+(define-red app/eval
+  [(((~literal #%plain-lambda) (x ...) e) . args) ~>
+   #,(substs #'args #'(x ...) #'e)])
+
+#;(define-syntax (app/eval stx)
   (syntax-parse stx
     #;[(a . _) ; debug case
      #:do[(printf "app: ~a\n" (stx->datum this-syntax))]
@@ -463,7 +482,11 @@
           [⊢ (eval-TY v- P- m- ...) ⇒ (app/c P- v-)])
 
         ;; eval the elim redexes
-        (define-syntax (eval-TY stx)
+        
+        (define-red eval-TY
+          [((~Cons (C x ...)) P m ...) ~>
+           (app/eval/c m x ... (eval-TY xrec P m ...) ...)] ...)
+        #;(define-syntax (eval-TY stx)
           (syntax-parse stx
             #;[(_ . args) ; uncomment for help with debugging
              #:do[(printf "trying to match:\n~a\n" (stx->datum #'args))]
@@ -610,9 +633,12 @@
           [⊢ m ≫ m- ⇐ τm] ...
           -----------
           [⊢ (eval-TY v- P- m- ...) ⇒ (app/c P- i ... v-)])
-
+        
+        (define-red eval-TY
+          [((~Cons (C CA ... i+x ...)) P m ...) ~>
+           (app/eval/c m i+x ... (eval-TY xrec P m ...) ...)] ...)
         ;; implements reduction of eliminator redexes
-        (define-syntax eval-TY
+        #;(define-syntax eval-TY
           (syntax-parser
             [(_ v P m ...)
              (transfer-type
