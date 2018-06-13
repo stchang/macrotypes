@@ -1,4 +1,5 @@
 #lang turnstile/lang
+(require turnstile/eval)
 
 ; a basic dependently-typed calculus
 ; - with inductive datatypes
@@ -65,10 +66,7 @@
               (typecheck? ((current-type-eval) t1) t2)]
              [_ #f])
            (old-relation t1 t2)))
-     res))
-
-  (define (transfer-type from to)
-    (syntax-property to ': (typeof from))))
+     res)))
 
 ;; Π expands into combination of internal →- and ∀-
 ;; uses "let*" syntax where X_i is in scope for τ_i+1 ...
@@ -191,59 +189,6 @@
    -------
    [⊢ (λ- (x- ...) e-) ⇒ (Π ([x- : τ_in-] ...) τ_out)]])
 
-(begin-for-syntax
-  ;; reflects expanded stx to surface, so evaluation may continue
-  (define (reflect stx)
-;    (printf "reflect: ~a\n" (syntax->datum stx))
-    (syntax-parse stx
-      [:id stx]
-      [(m . rst)
-       #:do[(define new-m (syntax-property #'m 'reflect))]
-       (transfer-props
-        stx
-        #`(#,(or new-m #'m) . #,(stx-map reflect #'rst))
-        #:except null)]
-      [_ stx])))
-
-(define-syntax define-typerule/red
-  (syntax-parser
-    [(_ (~and rule (~not #:where)) ... #:where red-name reds ...)
-     #'(begin
-         (define-typerule rule ...)
-         (define-red red-name reds ...))]))
-
-(define-syntax define-red
-  (syntax-parser
-    [(_ name [(head-pat . rst-pat) (~datum ~>) contractum] ...)
-     #:with OUT
-     #'(define-syntax name
-         (syntax-parser
-           [(_ head . rst-pat2)
-            (transfer-type
-             this-syntax
-             (syntax-parse #`(#,(expand/df #'head) . rst-pat2)
-               [(head-pat . rst-pat) (reflect #`contractum)] ...
-               [(f- . rst) #`(#,(syntax-property #'#%plain-app- 'reflect #'name) f- . rst)]))]))
-;     #:do[(pretty-print (stx->datum #'OUT))]
-     #'OUT]))
-
-#;(define-red app/eval
-  [(((~literal #%plain-lambda) (x ...) e) . args) ~>
-   #,(substs #'args #'(x ...) #'e)])
-
-#;(define-syntax (app/eval stx)
-  (syntax-parse stx
-    #;[(a . _) ; debug case
-     #:do[(printf "app: ~a\n" (stx->datum this-syntax))]
-     #:when #f
-     #'void]
-    [(_ f . args)
-     (transfer-type
-      stx
-      (syntax-parse (expand/df #'f)
-        [((~literal #%plain-lambda) (x ...) e)
-         (reflect (substs #'args #'(x ...) #'e))]
-        [f- #`(#,(syntax-property #'#%plain-app- 'reflect #'app/eval) f- . args)]))]))
 (define-typerule/red (app e_fn e_arg ...) ≫
   [⊢ e_fn ≫ e_fn- ⇒ (~Π ([X : τ_in] ...) τ_out)]
   #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
@@ -302,12 +247,6 @@
        [(_ f e . rst)
         #'(~plain-app/c ((~literal #%plain-app) f e) . rst)]))))
 
-;; untyped
-(define-syntax (λ/c- stx)
-  (syntax-parse stx
-    [(_ () e) #'e]
-    [(_ (x . rst) e) #'(λ- (x) (λ/c- rst e))]))
-
 ;; top-level ------------------------------------------------------------------
 ;; TODO: shouldnt need define-type-alias, should be same as define
 (define-syntax define-type-alias
@@ -335,9 +274,6 @@
    [≻ (begin-
         (define-syntax x (make-rename-transformer #'y+props))
         (define- y e-))]])
-
-
-(define-typed-syntax (unsafe-assign-type e (~datum :) τ) ≫ --- [⊢ e ⇒ τ])
 
 ;; TmpTy is a placeholder for undefined names
 (struct TmpTy- ())
@@ -424,30 +360,12 @@
      (syntax-parser
        [(_ (C x ...))
         #'(~and TMP
-                (~parse (~plain-app/c C-:id x ...) (expand/df #'TMP))
+                (~parse (~plain-app/c C-:id x ...) #'TMP)
                 (~parse (_ C+ . _) (expand/df #'(C)))
                 (~fail #:unless (free-id=? #'C- #'C+))
-                #;(~fail #:unless (let ([C+ (expand/df #'(C x ...))])
-                                  (or (and (identifier? C+) (free-id=? #'C- C+))
-                                      (and (stx-pair? C+) (free-id=? #'C- (stx-cadr C+))))))
                 )])))
 )
 
-(define-syntax define-data-constructor
-  (syntax-parser
-    [(_ (C (~and As {A ...}) x ...) : ty)
-     #:when (brace? #'As)
-     #:with C/internal (generate-temporary)
-     #'(begin-
-         (struct C/internal (x ...) #:transparent)
-         (define C
-           (unsafe-assign-type
-            (λ/c- (A ... x ...)
-              (C/internal x ...))
-            : ty)))]
-    [(_ (C x ...) : ty)
-     #'(define-data-constructor (C {} x ...) : ty)]))
-         
 (define-typed-syntax define-datatype
   ;; simple datatypes, eg Nat -------------------------------------------------
   ;; - ie, `TY` is an id with no params or indices
@@ -457,39 +375,22 @@
    ;; ---------- pre-define some pattern variables for cleaner output:
    ;; recursive args of each C; where (xrec ...) ⊆ (x ...)
    #:with ((xrec ...) ...) (find-recur #'TY #'(([x τin] ...) ...))
-   ;; struct defs
-   #:with (C/internal ...) (generate-temporaries #'(C ...))
-;   #:with ((x- ...) ...) (stx-map generate-temporaries #'((x ...) ...))
    ;; elim methods and method types
    #:with (m ...) (generate-temporaries #'(C ...))
    #:with (m- ...) (generate-temporaries #'(m ...))
    #:with (τm ...) (generate-temporaries #'(m ...))
    #:with elim-TY (format-id #'TY "elim-~a" #'TY)
-   #:with elim-TY? (mk-? #'elim-TY)
-   #:with do-elim-TY (format-id #'TY "do-elim-~a" #'TY)
-   #:with elim-TY-reflect (format-id #'TY "elim-~a-reflect" #'TY)
    #:with eval-TY (format-id #'TY "eval-~a" #'TY)
    #:with TY/internal (generate-temporary #'TY)
    --------
    [≻ (begin-
         ;; define `TY`, eg "Nat", as a valid type
-;        (define-base-type TY : κ) ; dont use bc uses '::, and runtime errs
+;        (define-base-type TY : τ) ; dont use bc uses '::, and runtime errs
         (struct TY/internal () #:prefab)
         (define-typed-syntax TY
           [_:id ≫ --- [⊢ #,(syntax-property #'(TY/internal) 'elim-name #'elim-TY) ⇒ τ]])
         ;; define structs for `C` constructors
         (define-data-constructor (C x ...) : τC) ...
-        ;; (struct C/internal (x ...) #:transparent) ...
-        ;; (define C (unsafe-assign-type C/internal : τC)) ...
-        #;(define-typerule C
-          ;[_ ≫ #:do[(printf "expanding constructor: ~a\n" (syntax->datum this-syntax))] #:when #f --- [⊢ void ⇒ TY]]
-          [(~var _ id) ≫ #:when (stx-null? #'(x ...)) --- [⊢ C/internal ⇒ TY]]
-          [(~var _ id) ≫ --- [⊢ C/internal ⇒ τC]]
-          [(_) ≫ #:when (stx-null? #'(x ...)) --- [⊢ C/internal ⇒ TY]]
-          [(_ x ...) ≫
-           [⊢ x ≫ x- ⇐ τin] ...
-           ---------------------
-           [⊢ (#%app- C/internal x- ...) ⇒ TY]]) ;...
           
         ;; elimination form
         (define-typerule/red (elim-TY v P m ...) ≫
@@ -503,28 +404,9 @@
           [⊢ m ≫ m- ⇐ τm] ...
           -----------
           [⊢ (eval-TY v- P- m- ...) ⇒ (app/c P- v-)]
-          #:where eval-TY
+          #:where eval-TY ; elim redexes
           [((~Cons (C x ...)) P m ...) ~> (app/eval/c m x ... (eval-TY xrec P m ...) ...)] ...)
         ;; eval the elim redexes
-        
-        #;(define-red eval-TY
-          [((~Cons (C x ...)) P m ...) ~>
-           (app/eval/c m x ... (eval-TY xrec P m ...) ...)] ...)
-        #;(define-syntax (eval-TY stx)
-          (syntax-parse stx
-            #;[(_ . args) ; uncomment for help with debugging
-             #:do[(printf "trying to match:\n~a\n" (stx->datum #'args))]
-             #:when #f #'void]
-            [(_ v P m ...)
-             (syntax-parse (expand/df #'v)
-               [(~Cons (C x ...))
-                (transfer-type
-                 stx
-                 #'(app/eval/c m x ... (eval-TY xrec P m ...) ...))] ...
-               [v-
-                (transfer-type
-                 stx
-                 #`(#,(syntax-property #'#%plain-app- 'reflect #'eval-TY) v- P m ...))])]))
         )]]
   ;; --------------------------------------------------------------------------
   ;; defines inductive type family `TY`, with:
@@ -571,7 +453,6 @@
    #:with (j ...) (generate-temporaries #'(i ...))
    ; dup (A ...) C times, again for ellipses matching
    #:with ((A*C ...) ...) (stx-map (lambda _ #'(A ...)) #'(C ...))
-   #:with (C/internal ...) (generate-temporaries #'(C ...))
    #:with (m ...) (generate-temporaries #'(C ...))
    #:with (m- ...) (generate-temporaries #'(C ...))
    #:with TY- (mk-- #'TY)
@@ -593,14 +474,9 @@
           [⊢ #,(syntax-property #'(TY- A- ... i- ...) 'elim-name #'elim-TY) ⇒ τ])
 
         ;; define structs for constructors
-        ;; TODO: currently i's are included in struct fields; separate i's from i+x's
+        ;; TODO: currently i's are included in struct fields; separate i's from i+x's?
         (define-data-constructor (C {A ...} i+x ...) : τC) ...
-        ;; (struct C/internal (i+x ...) #:transparent) ...
-        ;; ;; TODO: this define should be a macro instead?
-        ;; ;; must use internal list, bc Racket is not auto-currying
-        ;; (define C (unsafe-assign-type
-        ;;            (λ/c- (A ... i+x ...) (C/internal i+x ...)) ; TODO: curry C/internal?
-        ;;            : τC)) ...
+
         ;; define eliminator-form elim-TY
         ;; v = target
         ;; - infer A ... from v
@@ -660,20 +536,7 @@
           [⊢ (eval-TY v- P- m- ...) ⇒ (app/c P- i ... v-)]
           #:where eval-TY
           [((~Cons (C CA ... i+x ...)) P m ...) ~> (app/eval/c m i+x ... (eval-TY xrec P m ...) ...)] ...)
-        
-        #;(define-red eval-TY
-          [((~Cons (C CA ... i+x ...)) P m ...) ~>
-           (app/eval/c m i+x ... (eval-TY xrec P m ...) ...)] ...)
-        ;; implements reduction of eliminator redexes
-        #;(define-syntax eval-TY
-          (syntax-parser
-            [(_ v P m ...)
-             (transfer-type
-              this-syntax
-              (syntax-parse (expand/df #'v)
-                [(~Cons (C CA ... i+x ...))
-                 #`(app/eval/c m i+x ... (eval-TY xrec P m ...) ...)] ...
-                [v- #`(#,(syntax-property #'#%plain-app- 'reflect #'eval-TY) v- P m ...)]))])))
+        )
    --------
    [≻ OUTPUT-DEFS]])
 
