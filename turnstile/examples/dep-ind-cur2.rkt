@@ -203,8 +203,14 @@
         stx
         #`(#,(or new-m #'m) . #,(stx-map reflect #'rst))
         #:except null)]
-      [_ stx]))
-)
+      [_ stx])))
+
+(define-syntax define-typerule/red
+  (syntax-parser
+    [(_ (~and rule (~not #:where)) ... #:where red-name reds ...)
+     #'(begin
+         (define-typerule rule ...)
+         (define-red red-name reds ...))]))
 
 (define-syntax define-red
   (syntax-parser
@@ -221,7 +227,7 @@
 ;     #:do[(pretty-print (stx->datum #'OUT))]
      #'OUT]))
 
-(define-red app/eval
+#;(define-red app/eval
   [(((~literal #%plain-lambda) (x ...) e) . args) ~>
    #,(substs #'args #'(x ...) #'e)])
 
@@ -238,16 +244,16 @@
         [((~literal #%plain-lambda) (x ...) e)
          (reflect (substs #'args #'(x ...) #'e))]
         [f- #`(#,(syntax-property #'#%plain-app- 'reflect #'app/eval) f- . args)]))]))
-
-(define-typed-syntax app
-  [(_ e_fn e_arg ...) ≫
-   [⊢ e_fn ≫ e_fn- ⇒ (~Π ([X : τ_in] ...) τ_out)]
-   #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
-                 (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
-   [⊢ e_arg ≫ e_arg- ⇐ τ_in] ... ; typechecking args
-   #:with τ-out (reflect (substs #'(e_arg- ...) #'(X ...) #'τ_out))
-   -----------------------------
-   [⊢ (app/eval e_fn- e_arg- ...) ⇒ τ-out]])
+(define-typerule/red (app e_fn e_arg ...) ≫
+  [⊢ e_fn ≫ e_fn- ⇒ (~Π ([X : τ_in] ...) τ_out)]
+  #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
+                (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
+  [⊢ e_arg ≫ e_arg- ⇐ τ_in] ... ; typechecking args
+  #:with τ-out (reflect (substs #'(e_arg- ...) #'(X ...) #'τ_out))
+  -----------------------------
+  [⊢ (app/eval e_fn- e_arg- ...) ⇒ τ-out]
+  #:where app/eval
+  [(((~literal #%plain-lambda) xs e) . args) ~> #,(substs #'args #'xs #'e)])
 
 (define-typed-syntax (ann e (~datum :) τ) ≫
   [⊢ e ≫ e- ⇐ τ]
@@ -469,7 +475,7 @@
            [⊢ (#%app- C/internal x- ...) ⇒ TY]]) ...
           
         ;; elimination form
-        (define-typerule (elim-TY v P m ...) ≫
+        (define-typerule/red (elim-TY v P m ...) ≫
           [⊢ v ≫ v- ⇐ TY]
           [⊢ P ≫ P- ⇐ (→ TY Type)] ; prop / motive
           ;; each `m` can consume 2 sets of args:
@@ -479,11 +485,12 @@
                               (→/c (app/c P- xrec) ... (app/c P- (C x ...)))) ...)
           [⊢ m ≫ m- ⇐ τm] ...
           -----------
-          [⊢ (eval-TY v- P- m- ...) ⇒ (app/c P- v-)])
-
+          [⊢ (eval-TY v- P- m- ...) ⇒ (app/c P- v-)]
+          #:where eval-TY
+          [((~Cons (C x ...)) P m ...) ~> (app/eval/c m x ... (eval-TY xrec P m ...) ...)] ...)
         ;; eval the elim redexes
         
-        (define-red eval-TY
+        #;(define-red eval-TY
           [((~Cons (C x ...)) P m ...) ~>
            (app/eval/c m x ... (eval-TY xrec P m ...) ...)] ...)
         #;(define-syntax (eval-TY stx)
@@ -592,7 +599,7 @@
         ;;   - constructor args
         ;;     - inst with A ... inferred from v
         ;;   - maybe IH for recursive args
-        (define-typed-syntax (elim-TY v P m ...) ≫
+        (define-typerule/red (elim-TY v P m ...) ≫
           ;; target, infers A ...
           [⊢ v ≫ v- ⇒ (TY-patexpand A ... i ...)]
           
@@ -632,9 +639,11 @@
                               (app/c P- τouti ... (app/c C A*C ... i+x ...)))) ...)
           [⊢ m ≫ m- ⇐ τm] ...
           -----------
-          [⊢ (eval-TY v- P- m- ...) ⇒ (app/c P- i ... v-)])
+          [⊢ (eval-TY v- P- m- ...) ⇒ (app/c P- i ... v-)]
+          #:where eval-TY
+          [((~Cons (C CA ... i+x ...)) P m ...) ~> (app/eval/c m i+x ... (eval-TY xrec P m ...) ...)] ...)
         
-        (define-red eval-TY
+        #;(define-red eval-TY
           [((~Cons (C CA ... i+x ...)) P m ...) ~>
            (app/eval/c m i+x ... (eval-TY xrec P m ...) ...)] ...)
         ;; implements reduction of eliminator redexes
