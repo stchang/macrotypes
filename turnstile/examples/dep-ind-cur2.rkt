@@ -207,12 +207,13 @@
     (syntax-parser
           [(_ ((~literal #%plain-lambda) (x ...) e) e_arg ...)
  ;    #:do[(displayln (syntax->datum this-syntax))]
-     #:with r-app (datum->syntax (if (identifier? #'e) #'e (stx-car #'e)) '#%app)
-;     #:with r-app (datum->syntax (if (identifier? this-syntax) this-syntax (stx-car this-syntax)) '#%app)
+;     #:with r-app (datum->syntax (if (identifier? #'e) #'e (stx-car #'e)) '#%app)
+;;     #:with r-app (datum->syntax (if (identifier? this-syntax) this-syntax (stx-car this-syntax)) '#%app)
      #:with e-inst_ (substs #'(e_arg ...) #'(x ...) #'e)
      ;; TODO: this will also subst apps in expanded types,
      ;; which lead to extra expands but otherwise does not affect result
-     #:with e-inst (subst #'app/head #'r-app #'e-inst_ free-identifier=?)
+;     #:with e-inst (subst #'app/head #'r-app #'e-inst_ free-identifier=?)
+     #:with e-inst (reflect #'e-inst_)
      (transfer-type this-syntax #'e-inst)]
       #;[(((~literal #%plain-lambda) (x ...) e) e_arg ...)
  ;    #:do[(displayln (syntax->datum this-syntax))]
@@ -230,9 +231,21 @@
               (substs #'args #'xs #'body)
               free-id=?)]))
 (begin-for-syntax
-  (define reflect
-    (syntax-parser
-      [(((~literal #%plain-lambda) (x ...) e) e_arg ...)
+  ;; reflect function 
+  (define (reflect stx)
+;    (printf "reflect: ~a\n" (syntax->datum stx))
+    (syntax-parse stx
+      [:id stx]
+      [(m . rst)
+       #:do[(define new-m (syntax-property #'m 'reflect))]
+;       #:do[(when new-m (printf "lift: ~a -> ~a\n" (syntax->datum #'m) (syntax->datum new-m)))]
+       ;; TODO: transfer other props?
+       (transfer-props
+        stx
+        #`(#,(or new-m #'m) . #,(stx-map reflect #'rst))
+        #:except null)]
+      [_ stx]
+      #;[(((~literal #%plain-lambda) (x ...) e) e_arg ...)
        #:with r-app
          (datum->syntax (if (identifier? #'e) #'e (stx-car #'e)) '#%app)
        (subst #'app/head #'r-app this-syntax free-identifier=?)]))
@@ -259,8 +272,8 @@
      'reflect
      ref)))
 
-(define-syntax app/eval
-  (syntax-parser
+(define-syntax (app/eval stx)
+  (syntax-parse stx
     #;[(a . _)
      #:do[(printf "app: ~a\n" (stx->datum this-syntax))
           ;; (displayln (syntax-property #'a 'pred))
@@ -270,7 +283,7 @@
      #:when #f
      #'(void)]
     ;; elim case
-    [(_ f:id (_ matcher) (_ _ . args))
+    #;[(_ f:id (_ matcher) (_ _ . args))
      ;; TODO: use pat expander instead
      #:with (_ m/d . _) (local-expand #'(#%app match/delayed 'dont 'care) 'expression null)
      #:when (free-identifier=? #'m/d #'f)
@@ -298,6 +311,13 @@
      #:when (β? #'e)
      (transfer-type this-syntax (reflect (doβ #'e)))]
     [(_ f . args)
+     (transfer-type
+      stx
+      (syntax-parse (expand/df #'f)
+        [((~literal #%plain-lambda) (x ...) e)
+         (reflect (substs #'args #'(x ...) #'e))]
+        [f- #`(#,(syntax-property #'#%plain-app- 'reflect #'app/eval) f- . args)]))]
+    #;[(_ f . args)
      #:do[(define p? (syntax-property #'f 'pred))
           (define red (syntax-property #'f 'red))]
      #:when (and p? red ((syntax-local-value p?) this-syntax))
@@ -311,7 +331,7 @@
      ;; which lead to extra expands but otherwise does not affect result
      #:with e-inst (subst #'app/head #'r-app #'e-inst_ free-identifier=?)
      (transfer-type this-syntax #'e-inst)]
-    [(_ . rst) (transfer-type this-syntax #'(#%app- . rst))]))
+    #;[(_ . rst) (transfer-type this-syntax #`(#,(syntax-property #'#%plain-app- 'reflect #'app/head) . rst))]))
 
 ;; expands the function position
 (define-syntax app/head
@@ -327,7 +347,8 @@
    [⊢ e_arg ≫ e_arg- ⇐ τ_in] ... ; typechecking args
      #:with r-app (datum->syntax (if (identifier? #'τ_out) #'τ_out (stx-car #'τ_out)) '#%app)
    #:with τ_out-inst (substs #'(e_arg- ...) #'(X ...) #'τ_out)
-   #:with τ_out-refl (subst #'app/head #'r-app #'τ_out-inst free-id=?)
+;   #:with τ_out-refl (subst #'app/head #'r-app #'τ_out-inst free-id=?)
+   #:with τ_out-refl (reflect #'τ_out-inst)
    ;; #:with app/eval+
    ;; (syntax-property
    ;;  (syntax-property
@@ -519,8 +540,11 @@
        [(_ (C x ...))
         #'(~and TMP
                 (~parse (~plain-app/c C-:id x ...) (expand/df #'TMP))
-                (~parse (_ C+ . _) (expand/df #'(C)))
-                (~fail #:unless (free-id=? #'C- #'C+)))])))
+;                (~parse (_ C+ . _) (expand/df #'(C)))
+                (~fail #:unless (let ([C+ (expand/df #'(C x ...))])
+                                  (or (and (identifier? C+) (free-id=? #'C- C+))
+                                      (and (stx-pair? C+) (free-id=? #'C- (stx-cadr C+))))))
+                )])))
 )
      
 (define-typed-syntax define-datatype
@@ -534,6 +558,7 @@
    #:with ((xrec ...) ...) (find-recur #'TY #'(([x τin] ...) ...))
    ;; struct defs
    #:with (C/internal ...) (generate-temporaries #'(C ...))
+   #:with ((x- ...) ...) (stx-map generate-temporaries #'((x ...) ...))
    ;; elim methods and method types
    #:with (m ...) (generate-temporaries #'(C ...))
    #:with (m- ...) (generate-temporaries #'(m ...))
@@ -553,7 +578,17 @@
           [_:id ≫ --- [⊢ #,(syntax-property #'(TY/internal) 'elim-name #'elim-TY) ⇒ τ]])
         ;; define structs for `C` constructors
         (struct C/internal (x ...) #:transparent) ...
-        (define C (unsafe-assign-type C/internal : τC)) ...
+;        (define C (unsafe-assign-type C/internal : τC)) ...
+        (define-typerule C
+          ;[_ ≫ #:do[(printf "expanding constructor: ~a\n" (syntax->datum this-syntax))] #:when #f --- [⊢ void ⇒ TY]]
+          [(~var _ id) ≫ #:when (stx-null? #'(x ...)) --- [⊢ C/internal ⇒ TY]]
+          [(~var _ id) ≫ --- [⊢ C/internal ⇒ τC]]
+          [(_) ≫ #:when (stx-null? #'(x ...)) --- [⊢ C/internal ⇒ TY]]
+          [(_ x ...) ≫
+           [⊢ x ≫ x- ⇐ τin] ...
+           ---------------------
+           [⊢ (#%app- C/internal x- ...) ⇒ TY]]) ...
+          
         ;; elimination form
         (define-typerule (elim-TY v P m ...) ≫
           [⊢ v ≫ v- ⇐ TY]
@@ -562,7 +597,7 @@
           ;; 1) args of the constructor `x` ... 
           ;; 2) IHs for each `x` that has type `TY`
           #:with (τm ...) #'((Π/c [x : τin] ...
-                              (→/c (app/c P- xrec) ... (app/c P- (app/c C x ...)))) ...)
+                              (→/c (app/c P- xrec) ... (app/c P- (C x ...)))) ...)
           [⊢ m ≫ m- ⇐ τm] ...
           -----------
           [⊢ (eval-TY v- P- m- ...) ⇒ (app/c P- v-)])
@@ -586,16 +621,24 @@
           -----------
           [⊢ (#,(mk-app/eval #'elim-TY? #'do-elim-TY #'reflect) v- P- m- ...) ⇒ (app/c P- v-)])
         ;; eval the elim redexes
-        (define-syntax eval-TY
-          (syntax-parser
+        (define-syntax (eval-TY stx)
+          (syntax-parse stx
             #;[(_ . args) ; uncomment for help with debugging
              #:do[(printf "trying to match:\n~a\n" (stx->datum #'args))]
              #:when #f #'void]
-            [(_ (~Cons (C x ...)) P m ...)
-             #'(app/head/c m x ... (eval-TY xrec P m ...) ...)] ...
+            [(_ v P m ...)
+             (syntax-parse (expand/df #'v)
+               [(~Cons (C x ...))
+                (transfer-type
+                 stx
+                 #'(app/head/c m x ... (eval-TY xrec P m ...) ...))] ...
+               [v-
+                (transfer-type
+                 stx
+                 #`(#,(syntax-property #'#%plain-app- 'reflect #'eval-TY) v- P m ...))])]
             ;; else generate a "delayed" term
             ;; must be #%app-, not #%plain-app, ow match will not dispatch properly
-            [(_ . args) #'(#%app- match/delayed 'eval-TY (void . args))])))]]
+               #;[(_ . args) #`(#,(syntax-property #'#%plain-app- 'reflect #'app/head) match/delayed 'eval-TY (void . args))])))]]
   ;; --------------------------------------------------------------------------
   ;; defines inductive type family `TY`, with:
   ;; - params A ...
@@ -729,13 +772,27 @@
           [⊢ (eval-TY v- P- m- ...) ⇒ (app/c P- i ... v-)])
 
         ;; implements reduction of eliminator redexes
-        (define-syntax eval-TY
-          (syntax-parser
-            [(_ (~Cons (C CA ... i+x ...)) P m ...)
-             #`(app/head/c m i+x ... (eval-TY xrec P m ...) ...)] ...
+        (define-syntax (eval-TY stx)
+          (syntax-parse stx
+            #;[(_ v P m ...)
+             (syntax-parse (expand/df #'v)
+               [(~Cons (C x ...))
+                #'(app/head/c m x ... (eval-TY xrec P m ...) ...)] ...
+               [v-
+                #`(#,(syntax-property #'#%plain-app- 'reflect #'eval-TY) v- P m ...)])]
+            [(_ v P m ...)
+             (syntax-parse (expand/df #'v)
+               [(~Cons (C CA ... i+x ...))
+                (transfer-type
+                 stx
+                 #`(app/eval/c m i+x ... (eval-TY xrec P m ...) ...))] ...
+               [v-
+                (transfer-type
+                 stx
+                 #`(#,(syntax-property #'#%plain-app- 'reflect #'eval-TY) v- P m ...))])]
             ;; else, generate a "delayed" term
             ;; must be #%app-, not #%plain-app, ow match will not dispatch properly
-            [(_ . args) #'(#%app- match/delayed 'eval-TY (void . args))])))
+            #;[(_ . args) #`(#,(syntax-property #'#%plain-app- 'reflect #'app/head) match/delayed 'eval-TY (void . args))])))
    --------
    [≻ OUTPUT-DEFS]])
 
