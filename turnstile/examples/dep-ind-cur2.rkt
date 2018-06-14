@@ -239,7 +239,7 @@
   (Π/c [X : Type] ... τ))
 
 ;; pattern expanders
-(begin-for-syntax
+#;(begin-for-syntax
   (define-syntax ~plain-app/c
     (pattern-expander
      (syntax-parser
@@ -355,7 +355,7 @@
         ;; un-subst tmp id in expanded stx with type constructor X
         #'(~and TMP (~parse pat (subst-tmp #'X #'TmpTy+ #'TMP free-id=?)))])))
   ;; matches constructor pattern (C x ...) where C matches literally
-  (define-syntax ~Cons
+  #;(define-syntax ~Cons
     (pattern-expander
      (syntax-parser
        [(_ (C x ...))
@@ -382,6 +382,7 @@
    #:with elim-TY (format-id #'TY "elim-~a" #'TY)
    #:with eval-TY (format-id #'TY "eval-~a" #'TY)
    #:with TY/internal (generate-temporary #'TY)
+   #:with (C-expander ...) (stx-map mk-~ #'(C ...))
    --------
    [≻ (begin-
         ;; define `TY`, eg "Nat", as a valid type
@@ -405,7 +406,8 @@
           -----------
           [⊢ (eval-TY v- P- m- ...) ⇒ (app/c P- v-)]
           #:where eval-TY ; elim redexes
-          [((~Cons (C x ...)) P m ...) ~> (app/eval/c m x ... (eval-TY xrec P m ...) ...)] ...)
+;          [((~Cons (C x ...)) P m ...) ~> (app/eval/c m x ... (eval-TY xrec P m ...) ...)] ...)
+          [((C-expander x ...) P m ...) ~> (app/eval/c m x ... (eval-TY xrec P m ...) ...)] ...)
         ;; eval the elim redexes
         )]]
   ;; --------------------------------------------------------------------------
@@ -460,6 +462,7 @@
    #:with elim-TY (format-id #'TY "elim-~a" #'TY)
    #:with eval-TY (format-id #'TY "match-~a" #'TY)
    #:with (τm ...) (generate-temporaries #'(m ...))
+   #:with (C-expander ...) (stx-map mk-~ #'(C ...))
    ;; these are all the generated definitions that implement the define-datatype
    #:with OUTPUT-DEFS
     #'(begin-
@@ -535,7 +538,8 @@
           -----------
           [⊢ (eval-TY v- P- m- ...) ⇒ (app/c P- i ... v-)]
           #:where eval-TY
-          [((~Cons (C CA ... i+x ...)) P m ...) ~> (app/eval/c m i+x ... (eval-TY xrec P m ...) ...)] ...)
+;          [((~Cons (C CA ... i+x ...)) P m ...) ~> (app/eval/c m i+x ... (eval-TY xrec P m ...) ...)] ...)
+          [((C-expander CA ... i+x ...) P m ...) ~> (app/eval/c m i+x ... (eval-TY xrec P m ...) ...)] ...)
         )
    --------
    [≻ OUTPUT-DEFS]])
