@@ -238,17 +238,8 @@
 (define-simple-macro (∀/c X ...  τ)
   (Π/c [X : Type] ... τ))
 
-;; pattern expanders
-#;(begin-for-syntax
-  (define-syntax ~plain-app/c
-    (pattern-expander
-     (syntax-parser
-       [(_ f) #'f]
-       [(_ f e . rst)
-        #'(~plain-app/c ((~literal #%plain-app) f e) . rst)]))))
-
 ;; top-level ------------------------------------------------------------------
-;; TODO: shouldnt need define-type-alias, should be same as define
+;; TODO: shouldnt need define-type-alias, should be same as define?
 (define-syntax define-type-alias
   (syntax-parser
     [(_ alias:id τ)
@@ -354,16 +345,6 @@
        [(_ X:id pat)
         ;; un-subst tmp id in expanded stx with type constructor X
         #'(~and TMP (~parse pat (subst-tmp #'X #'TmpTy+ #'TMP free-id=?)))])))
-  ;; matches constructor pattern (C x ...) where C matches literally
-  #;(define-syntax ~Cons
-    (pattern-expander
-     (syntax-parser
-       [(_ (C x ...))
-        #'(~and TMP
-                (~parse (~plain-app/c C-:id x ...) #'TMP)
-                (~parse (_ C+ . _) (expand/df #'(C)))
-                (~fail #:unless (free-id=? #'C- #'C+))
-                )])))
 )
 
 (define-typed-syntax define-datatype
@@ -406,7 +387,6 @@
           -----------
           [⊢ (eval-TY v- P- m- ...) ⇒ (app/c P- v-)]
           #:where eval-TY ; elim redexes
-;          [((~Cons (C x ...)) P m ...) ~> (app/eval/c m x ... (eval-TY xrec P m ...) ...)] ...)
           [((C-expander x ...) P m ...) ~> (app/eval/c m x ... (eval-TY xrec P m ...) ...)] ...)
         ;; eval the elim redexes
         )]]
@@ -538,7 +518,6 @@
           -----------
           [⊢ (eval-TY v- P- m- ...) ⇒ (app/c P- i ... v-)]
           #:where eval-TY
-;          [((~Cons (C CA ... i+x ...)) P m ...) ~> (app/eval/c m i+x ... (eval-TY xrec P m ...) ...)] ...)
           [((C-expander CA ... i+x ...) P m ...) ~> (app/eval/c m i+x ... (eval-TY xrec P m ...) ...)] ...)
         )
    --------

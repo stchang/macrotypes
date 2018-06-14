@@ -85,10 +85,6 @@
      #:when (brace? #'As)
      #:with C/internal (generate-temporary)
      #:with C-expander (mk-~ #'C)
-     ;; #:with C/typed
-     ;;        #'(unsafe-assign-type
-     ;;           (λ/c- (A ... x ...) (C/internal x ...))
-     ;;           : ty)
      #'(begin-
          (struct- C/internal (x ...) #:transparent)
          (typed-define C
@@ -101,21 +97,12 @@
            (define-syntax C-expander
              (pattern-expander
               (syntax-parser
-;                [_ #:do[(printf "trying ~a\n" (syntax->datum this-syntax))] #:when #f #'void]
+;                [_ #:do[(printf "trying ~a\n" (stx->datum this-syntax))] #:when #f #'void]
                 [(_ A ... x ...)
                  #'(~and
                     TMP
-                    #;(~do
-                     (printf "to match: ~a\n" (stx->datum #'TMP))
-                     (printf "internal id: ~a\n" #'C/internal+)
-                     ;(printf "internal id: ~a\n" (syntax->datum (expand/df #'(C))))
-                     )
-                    (~parse (~or ;C-:id
-                                 (~plain-app/c C-:id A ... x ...)) #'TMP)
-                    ;                    (~parse (_ C+:id . _) (expand/df #'(C)))
-;                    (~do (displayln (free-id=? #'C- #'C/internal+)))
+                    (~parse (~plain-app/c C-:id A ... x ...) #'TMP)
                     (~fail #:unless (free-id=? #'C- #'C/internal+))
-                    ;(~parse pat #'rst)
                     )])))))]
     [(_ (C x ...) : ty)
      #'(define-data-constructor (C {} x ...) : ty)]))
