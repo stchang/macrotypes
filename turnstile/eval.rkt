@@ -3,10 +3,14 @@
 ;; library for specifying type-level reduction rules
 
 (provide define-typerule/red
+         define-base-type
          define-data-constructor
-         (for-syntax reflect))
+         λ/c-
+         (for-syntax datum=? reflect ~plain-app/c))
 
 (begin-for-syntax
+
+  (define (datum=? x y) (equal? (syntax->datum x) (syntax->datum y)))
 
   (define (transfer-type from to)
     (syntax-property to ': (typeof from)))
@@ -77,7 +81,8 @@
      (syntax-parser
        [(_ f) #'f]
        [(_ f e . rst)
-        #'(~plain-app/c ((~literal #%plain-app) f e) . rst)]))))
+        #'(~plain-app/c ((~literal #%plain-app) f e) . rst)])))
+)
 
 (define-syntax define-data-constructor
   (syntax-parser
@@ -97,7 +102,6 @@
            (define-syntax C-expander
              (pattern-expander
               (syntax-parser
-;                [_ #:do[(printf "trying ~a\n" (stx->datum this-syntax))] #:when #f #'void]
                 [(_ A ... x ...)
                  #'(~and
                     TMP
@@ -106,3 +110,24 @@
                     )])))))]
     [(_ (C x ...) : ty)
      #'(define-data-constructor (C {} x ...) : ty)]))
+
+(define-syntax define-base-type
+  (syntax-parser
+    [(_ TY (~datum :) k)
+     #:with TY/internal (generate-temporary #'TY)
+     #'(begin-
+         (struct- TY/internal () #:transparent)
+         (define-syntax TY
+           (make-variable-like-transformer
+            (assign-type #'(TY/internal) #'k))))]))
+
+#;(define-syntax define-binding-type
+  (syntax-parser
+    [(_ (name . pat) rule ...)
+     #:with name/internal (mk-- #'name)
+     #'(begin-
+         (struct- name/internal (rep) #:transparent))]))
+
+           
+                       
+     

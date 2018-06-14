@@ -75,31 +75,34 @@
 (begin-for-syntax
   (define/syntax-parse (_ Π/internal _)
     (local-expand #'(Π- (λ (x) x)) 'expression null)))
-(define-typed-syntax (Π ([X:id : τ_in] ...) τ_out) ≫
-  [[X ≫ X- : τ_in] ... ⊢ [τ_out ≫ τ_out- ⇒ ~Type]
-                         [τ_in  ≫ τ_in-  ⇒ ~Type] ...]
-  ;; check that types have type (Type _)
-  ;; must re-expand since (Type n) will have type unexpanded (Type n+1)
-;  #:with ((~Type _) ...) (stx-map (current-type-eval) #'(tyoutty tyinty ...))
+;; (define-binding-type (Π ([X:id : Type]) Type) ≫
+;;   [⊢ τ_in ⇒ ~Type]
+;;   [[X : τ_in] ⊢ τ_out ⇒ ~Type i]
+
+;; (define-binding-type (Π ([X:id : box]) *))
+;; (define-bindin-type (Π ([X:id : A:box]) B:box)
+
+(define-typed-syntax (Π ([X:id : τ_in]) τ_out) ≫
+  [⊢ τ_in  ≫ τ_in-  ⇒ ~Type]
+  [[X ≫ X- : τ_in-] ⊢ τ_out ≫ τ_out- ⇒ ~Type]
   -------
-;  [⊢ (∀- (X- ...) (→- τ_in- ... τ_out-)) ⇒ Type])
-  [⊢ (Π- (λ- (X- ...) τ_in- ... τ_out-)) ⇒ Type])
+  [⊢ (Π- (λ- (X-) τ_in- τ_out-)) ⇒ Type])
 
 ;; abbrevs for Π
 ;; (→ τ_in τ_out) == (Π (unused : τ_in) τ_out)
-(define-simple-macro (→ τ_in ... τ_out)
-  #:with (X ...) (generate-temporaries #'(τ_in ...))
-  (Π ([X : τ_in] ...) τ_out))
+(define-simple-macro (→ τ_in τ_out)
+  #:with X (generate-temporary #'τ_in)
+  (Π ([X : τ_in]) τ_out))
 ;; (∀ (X) τ) == (∀ ([X : Type]) τ)
-(define-simple-macro (∀ (X ...)  τ)
-  (Π ([X : Type] ...) τ))
+(define-simple-macro (∀ (X)  τ)
+  (Π ([X : Type]) τ))
 
 ;; pattern expanders
 (begin-for-syntax
   (define-syntax ~Π
     (pattern-expander
      (syntax-parser
-       [(_ ([x:id : τ_in] ... (~and (~literal ...) ooo)) τ_out)
+       [(_ ([x:id : τ_in]) τ_out)
         #'(~and ty
                 (~parse
                  ((~literal #%plain-app)
@@ -107,22 +110,9 @@
                                     (format "type mismatch, expected Π type, given ~a"
                                             (syntax->datum #'C))))
                   ((~literal #%plain-lambda)
-                   (x ... ooo)
-                   τ_in ... ooo τ_out))
-                 #'ty))]
-        ;#'(~∀ (x ... ooo) (~→ τ_in ... ooo τ_out))]
-       [(_ ([x:id : τ_in] ...)  τ_out)
-        #'(~and ty
-                (~parse
-                 ((~literal #%plain-app)
-                  (~and C:id (~fail #:unless (free-identifier=? #'C #'Π/internal)
-                                    (format "type mismatch, expected Π type, given ~a"
-                                            (syntax->datum #'C))))
-                  ((~literal #%plain-lambda)
-                   (x ...)
-                   τ_in ... τ_out))
+                   (x)
+                   τ_in τ_out))
                  #'ty))])))
-        ;#'(~∀ (x ...) (~→ τ_in ... τ_out))])))
   (define-syntax ~Π/c
     (pattern-expander
      (syntax-parser
@@ -132,73 +122,72 @@
                 (~parse ([x ty] ooo t_out)
                         (let L ([ty #'TMP][xtys empty])
                              (syntax-parse ty
-                               [(~Π ([x : τ_in]) rst) (L #'rst (cons #'[x τ_in] xtys))]
-                               [t_out (reverse (cons #'t_out xtys))]))))]
+                               [(~Π ([x : τ_in]) rst)
+                                (L #'rst (cons #'[x τ_in] xtys))]
+                               [t_out
+                                (reverse (cons #'t_out xtys))]))))]
        [(_ (~and xty [x:id : τ_in]) . rst)
         #'(~Π (xty) (~Π/c . rst))]))))
 
-;; equality -------------------------------------------------------------------
-;(define-internal-type-constructor =)
-(struct =- (l r) #:transparent)
-(define-typed-syntax (= t1 t2) ≫
-  [⊢ t1 ≫ t1- ⇒ ty]
-  [⊢ t2 ≫ t2- ⇐ ty]
-  ---------------------
-  [⊢ (=- t1- t2-) ⇒ Type])
-
-(define-typed-syntax (eq-refl e) ≫
-  [⊢ e ≫ e- ⇒ _]
-  ----------
-  [⊢ (#%app- void-) ⇒ (= e- e-)])
-
-;; eq-elim: t : T
-;;          P : (T -> Type)
-;;          pt : (P t)
-;;          w : T
-;;          peq : (= t w)
-;;       -> (P w)
-(define-typed-syntax (eq-elim t P pt w peq) ≫
-  [⊢ t ≫ t- ⇒ ty]
-  [⊢ P ≫ P- ⇐ (→ ty Type)]
-  [⊢ pt ≫ pt- ⇐ (app P- t-)]
-  [⊢ w ≫ w- ⇐ ty]
-  [⊢ peq ≫ peq- ⇐ (= t- w-)]
-  --------------
-  [⊢ pt- ⇒ (app P- w-)])
+(define-syntax define-type-constructor
+  (syntax-parser
+    [(_ name (~datum :) ty)
+     #:with (~Π/c [A+i : τ] ... τ-out) ((current-type-eval) #'ty)
+     #:with name/internal (generate-temporary #'name)
+     #:with name-expander (mk-~ #'name)
+     #:with out
+     #'(begin-
+         (struct name/internal (A+i ...) #:transparent)
+         (define-syntax name
+           (make-variable-like-transformer
+            (assign-type 
+             #'(λ/c- (A+i ...) (name/internal A+i ...))
+             #'ty)))
+         (begin-for-syntax
+           (define/syntax-parse (_ name/internal+ . _)
+             (expand/df #'(name/internal A+i ...)))
+           (define-syntax name-expander
+             (pattern-expander
+              (syntax-parser
+                [(_ A+i ...)
+                 #'(~and
+                    TMP
+                    (~parse ((~literal #%plain-app) name-:id A+i ...) #'TMP)
+                    (~fail #:unless (free-id=? #'name- #'name/internal+))
+                    )])))))
+;     #:do[(pretty-print (stx->datum #'out))]
+     #'out]))
 
 ;; lambda and #%app -----------------------------------------------------------
-
 (define-typed-syntax λ
   ;; expected ty only
-  [(_ (y:id ...) e) ⇐ (~Π ([x:id : τ_in] ... ) τ_out) ≫
-   [[x ≫ x- : τ_in] ... ⊢ #,(substs #'(x ...) #'(y ...) #'e) ≫ e- ⇐ τ_out]
+  [(_ (y:id) e) ⇐ (~Π ([x:id : τ_in]) τ_out) ≫
+   [[x ≫ x- : τ_in] ⊢ #,(subst #'x #'y #'e) ≫ e- ⇐ τ_out]
    ---------
-   [⊢ (λ- (x- ...) e-)]]
+   [⊢ (λ- (x-) e-)]]
   ;; both expected ty and annotations
-  [(_ ([y:id : τ_in*] ...) e) ⇐ (~Π ([x:id : τ_in] ...) τ_out) ≫
-   #:fail-unless (stx-length=? #'(y ...) #'(x ...))
-                 "function's arity does not match expected type"
-   [⊢ τ_in* ≫ τ_in** ⇐ Type] ...
-   #:when (typechecks? #'(τ_in** ...) #'(τ_in ...))
-   [[x ≫ x- : τ_in] ... ⊢ #,(substs #'(x ...) #'(y ...) #'e) ≫ e- ⇐ τ_out]
+  [(_ ([y:id : τ_in*]) e) ⇐ (~Π ([x:id : τ_in]) τ_out) ≫
+   [⊢ τ_in* ≫ τ_in** ⇐ Type]
+   #:when (typecheck? #'τ_in** #'τ_in)
+   [[x ≫ x- : τ_in] ⊢ #,(subst #'x #'y #'e) ≫ e- ⇐ τ_out]
    -------
-   [⊢ (λ- (x- ...) e-)]]
+   [⊢ (λ- (x-) e-)]]
   ;; annotations only
-  [(_ ([x:id : τ_in] ...) e) ≫
-   [[x ≫ x- : τ_in] ... ⊢ [e ≫ e- ⇒ τ_out] [τ_in ≫ τ_in- ⇒ _] ...]
+  [(_ ([x:id : τ_in]) e) ≫
+   [[x ≫ x- : τ_in] ⊢ [e ≫ e- ⇒ τ_out] [τ_in ≫ τ_in- ⇒ _]]
    -------
-   [⊢ (λ- (x- ...) e-) ⇒ (Π ([x- : τ_in-] ...) τ_out)]])
+   [⊢ (λ- (x-) e-) ⇒ (Π ([x- : τ_in-]) τ_out)]])
 
-(define-typerule/red (app e_fn e_arg ...) ≫
-  [⊢ e_fn ≫ e_fn- ⇒ (~Π ([X : τ_in] ...) τ_out)]
-  #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
-                (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
-  [⊢ e_arg ≫ e_arg- ⇐ τ_in] ... ; typechecking args
-  #:with τ-out (reflect (substs #'(e_arg- ...) #'(X ...) #'τ_out))
+(define-typerule/red (app e_fn e_arg) ≫
+;  #:do[(printf "apping: ~a ------------\n" (syntax->datum #'(app e_fn e_arg)))]
+  [⊢ e_fn ≫ e_fn- ⇒ (~Π ([X : τ_in]) τ_out)]
+  [⊢ e_arg ≫ e_arg- ⇐ τ_in]
+  #:with τ-out (reflect (subst #'e_arg- #'X #'τ_out))
   -----------------------------
-  [⊢ (app/eval e_fn- e_arg- ...) ⇒ τ-out]
+  [⊢ (app/eval e_fn- e_arg-) ⇒ τ-out]
   #:where app/eval
-  [(((~literal #%plain-lambda) xs e) . args) ~> #,(substs #'args #'xs #'e)])
+  [(((~literal #%plain-lambda) (x) e) arg) ~> #,(subst #'arg #'x #'e)]
+  [(((~literal #%expression) ((~literal #%plain-lambda) (x) e)) arg) ~> #,(subst #'arg #'x #'e)])
 
 (define-typed-syntax (ann e (~datum :) τ) ≫
   [⊢ e ≫ e- ⇐ τ]
@@ -238,6 +227,36 @@
 (define-simple-macro (∀/c X ...  τ)
   (Π/c [X : Type] ... τ))
 
+;; equality -------------------------------------------------------------------
+;(define-internal-type-constructor =)
+;(define-type-constructor = : (→/c Type Type Type))
+(struct =- (l r) #:transparent)
+(define-typed-syntax (= t1 t2) ≫
+  [⊢ t1 ≫ t1- ⇒ ty]
+  [⊢ t2 ≫ t2- ⇐ ty]
+  ---------------------
+  [⊢ (=- t1- t2-) ⇒ Type])
+
+(define-typed-syntax (eq-refl e) ≫
+  [⊢ e ≫ e- ⇒ _]
+  ----------
+  [⊢ (#%app- void-) ⇒ (= e- e-)])
+
+;; eq-elim: t : T
+;;          P : (T -> Type)
+;;          pt : (P t)
+;;          w : T
+;;          peq : (= t w)
+;;       -> (P w)
+(define-typed-syntax (eq-elim t P pt w peq) ≫
+  [⊢ t ≫ t- ⇒ ty]
+  [⊢ P ≫ P- ⇐ (→ ty Type)]
+  [⊢ pt ≫ pt- ⇐ (app P- t-)]
+  [⊢ w ≫ w- ⇐ ty]
+  [⊢ peq ≫ peq- ⇐ (= t- w-)]
+  --------------
+  [⊢ pt- ⇒ (app P- w-)])
+
 ;; top-level ------------------------------------------------------------------
 ;; TODO: shouldnt need define-type-alias, should be same as define?
 (define-syntax define-type-alias
@@ -271,7 +290,8 @@
 (define-syntax TmpTy
   (syntax-parser
     [:id (assign-type #'TmpTy- #'Type)]
-    [(_ . args) (assign-type #'(#%app TmpTy- . args) #'Type)]))
+    ;; TODO: orig will get stuck with eg, (TmpTy A)
+    [(_ . args) (assign-type #'(app/eval/c TmpTy- . args) #'Type)]))
 (begin-for-syntax (define/with-syntax TmpTy+ (expand/df #'TmpTy)))
 
 ;; helper syntax fns
@@ -303,7 +323,9 @@
        (define xs (stx-map stx-car x+τs))
        (stx-filtermap
         (syntax-parser
-          [(x (t . _)) (and (free-id=? #'t TY) (cons #'x (stx-take xs num-is)))]
+          ;; TODO: generalize these patterns with ~plain-app/c
+          [(x (_ t:id . _)) (and (free-id=? #'t TY) (cons #'x (stx-take xs num-is)))]
+          [(x (_ (_ t:id . _) . _)) (and (free-id=? #'t TY) (cons #'x (stx-take xs num-is)))]
           [_ #f])
         x+τs))
      x+τss))
@@ -316,7 +338,7 @@
      ;swap in a tmp (bound) id `TmpTy` for unbound X
      #:with e/tmp (subst #'TmpTy #'X #'e)
      ;; expand with the tmp id
-     (expand/df #'e/tmp)]))
+      (expand/df #'e/tmp)]))
 (define-syntax (drop-params stx)
   (syntax-parse stx
     [(_ (A ...) τ)
@@ -328,24 +350,17 @@
      (syntax-parser
        [(_ X:id pat)
         ;; un-subst tmp id in expanded stx with type X
-        #'(~and TMP (~parse pat (subst #'X #'TmpTy+ #'TMP free-id=?)))])))
-    ; subst τ for TmpTy+ in e, if (bound-id=? x y), when it has usage (#%app TmpTy+ . args)
-  (define (subst-tmp τ x e [cmp bound-identifier=?])
-    (syntax-parse e
-      [((~literal #%plain-app) y . rst)
-       #:when (cmp #'y #'TmpTy+)
-       (transfer-stx-props #`(#,τ . rst) (merge-type-tags (syntax-track-origin τ e #'y)))]
-      [(esub ...)
-       #:with res (stx-map (λ (e1) (subst-tmp τ x e1 cmp)) #'(esub ...))
-       (transfer-stx-props #'res e #:ctx e)]
-      [_ e]))
-  (define-syntax ~unbound/tycon
+        #'(~and TMP
+                (~parse pat (reflect (subst #'X #'TmpTy+ #'TMP free-id=?))))])))
+  )
+
+(begin-for-syntax
+  (define-syntax ~app/eval/c
     (pattern-expander
      (syntax-parser
-       [(_ X:id pat)
-        ;; un-subst tmp id in expanded stx with type constructor X
-        #'(~and TMP (~parse pat (subst-tmp #'X #'TmpTy+ #'TMP free-id=?)))])))
-)
+       [(_ f) #'f]
+       [(_ f e . rst)
+        #'(~app/eval/c ((~literal app/eval) f e) . rst)]))))
 
 (define-typed-syntax define-datatype
   ;; simple datatypes, eg Nat -------------------------------------------------
@@ -367,10 +382,10 @@
    --------
    [≻ (begin-
         ;; define `TY`, eg "Nat", as a valid type
-;        (define-base-type TY : τ) ; dont use bc uses '::, and runtime errs
-        (struct TY/internal () #:prefab)
-        (define-typed-syntax TY
-          [_:id ≫ --- [⊢ #,(syntax-property #'(TY/internal) 'elim-name #'elim-TY) ⇒ τ]])
+        (define-base-type TY : τ) 
+        ;; (struct TY/internal () #:transparent)
+        ;; (define-typed-syntax TY
+        ;;   [_:id ≫ --- [⊢ #,(syntax-property #'(TY/internal) 'elim-name #'elim-TY) ⇒ τ]])
         ;; define structs for `C` constructors
         (define-data-constructor (C x ...) : τC) ...
           
@@ -401,7 +416,7 @@
             (~datum ->) τ
    [C:id (~datum :) τC] ...) ≫
    ; need to expand `τC` but `TY` is still unbound so use tmp id
-   [⊢ (with-unbound TY τC) ≫ (~unbound/tycon TY (~Π/c [A+i+x : τA+i+x] ... τout)) ⇐ Type] ...
+   [⊢ (with-unbound TY τC) ≫ (~unbound TY (~Π/c [A+i+x : τA+i+x] ... τout)) ⇐ Type] ...
    ;; split τC args into params and others
    ;; TODO: check that τA matches τCA (but cant do it in isolation bc they may refer to other params?)
    #:with ((([CA τCA] ...)
@@ -419,7 +434,6 @@
    ;;         (otherwise, cannot include indices in args to find-recur/i)
    #:with (((xrec irec ...) ...) ...)
           (find-recur/i #'TY (stx-length #'(i ...)) #'(([i+x τin] ...) ...))
-
    ;; ---------- pre-generate other patvars; makes nested macros below easier to read
    #:with (A- ...) (generate-temporaries #'(A ...))
    #:with (i- ...) (generate-temporaries #'(i ...))
@@ -436,6 +450,7 @@
    ; dup (A ...) C times, again for ellipses matching
    #:with ((A*C ...) ...) (stx-map (lambda _ #'(A ...)) #'(C ...))
    #:with (m ...) (generate-temporaries #'(C ...))
+   #:with (τ1 ...) (generate-temporaries #'(C ...))
    #:with (m- ...) (generate-temporaries #'(C ...))
    #:with TY- (mk-- #'TY)
    #:with TY-patexpand (mk-~ #'TY)
@@ -447,14 +462,15 @@
    #:with OUTPUT-DEFS
     #'(begin-
         ;; define the type
-        (define-internal-type-constructor TY)
-        ;; τi refs A ... but dont need to explicitly inst τi with A ...
-        ;; due to reuse of A ... as patvars
-        (define-typed-syntax (TY A ... i ...) ≫
-          [⊢ A ≫ A- ⇐ τA] ...
-          [⊢ i ≫ i- ⇐ τi] ...
-          ----------
-          [⊢ #,(syntax-property #'(TY- A- ... i- ...) 'elim-name #'elim-TY) ⇒ τ])
+        (define-type-constructor TY : (Π/c [A : τA] ... [i : τi] ... τ))
+        ;; (define-internal-type-constructor TY)
+        ;; ;; τi refs A ... but dont need to explicitly inst τi with A ...
+        ;; ;; due to reuse of A ... as patvars
+        ;; (define-typed-syntax (TY A ... i ...) ≫
+        ;;   [⊢ A ≫ A- ⇐ τA] ...
+        ;;   [⊢ i ≫ i- ⇐ τi] ...
+        ;;   ----------
+        ;;   [⊢ #,(syntax-property #'(TY- A- ... i- ...) 'elim-name #'elim-TY) ⇒ τ])
 
         ;; define structs for constructors
         ;; TODO: currently i's are included in struct fields; separate i's from i+x's?
@@ -493,7 +509,7 @@
                   #'((τin ... τout) ...))
 
           ;; τi here is τi above, instantiated with A ... from v-
-          [⊢ P ≫ P- ⇐ (Π/c [j : τi] ... (→ (TY A ... j ...) Type))]
+          [⊢ P ≫ P- ⇐ (Π/c [j : τi] ... (→ (app/c TY A ... j ...) Type))]
 
           ;; get the params and indices in τout/A
           ;; - dont actually need τoutA, except to find τouti
@@ -504,7 +520,7 @@
           ;;   Eg, for empty indexed list, for index n, τouti = 0
           ;;       for non-empt indx list, for index n, τouti = (Succ 0)
           ;; ASSUMING: τoutA has shape (TY . args) (ie, unexpanded)
-          #:with (((~literal TY) τoutA ... τouti ...) ...) #'(τout/A ...)
+          #:with ((~app/eval/c (~literal TY) τoutA ... τouti ...) ...) #'(τout/A ...)
 
           ;; each m is curried fn consuming 3 (possibly empty) sets of args:
           ;; 1,2) i+x  - indices of the tycon, and args of each constructor `C`
