@@ -86,7 +86,7 @@
   [⊢ τ_in  ≫ τ_in-  ⇒ ~Type]
   [[X ≫ X- : τ_in-] ⊢ τ_out ≫ τ_out- ⇒ ~Type]
   -------
-  [⊢ (Π- (λ- (X-) τ_in- τ_out-)) ⇒ Type])
+  [⊢ (list τ_in- (λ- (X-) τ_out-)) ⇒ Type])
 
 ;; abbrevs for Π
 ;; (→ τ_in τ_out) == (Π (unused : τ_in) τ_out)
@@ -106,12 +106,11 @@
         #'(~and ty
                 (~parse
                  ((~literal #%plain-app)
-                  (~and C:id (~fail #:unless (free-identifier=? #'C #'Π/internal)
-                                    (format "type mismatch, expected Π type, given ~a"
-                                            (syntax->datum #'C))))
+                  (~literal list)
+                  τ_in
                   ((~literal #%plain-lambda)
                    (x)
-                   τ_in τ_out))
+                   τ_out))
                  #'ty))])))
   (define-syntax ~Π/c
     (pattern-expander
