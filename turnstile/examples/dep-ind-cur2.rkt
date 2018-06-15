@@ -22,10 +22,9 @@
 
 ;; set (Type n) : (Type n+1)
 ;; Type = (Type 0)
-(struct Type- (n) #:transparent)
+(struct Type- (n) #:transparent) ; runtime representation
 (begin-for-syntax
-  (define/syntax-parse (_ Type-id:id _)
-    (local-expand #'(Type- 0) 'expression null))
+  (define Type-id (expand/df #'Type-))
   (define-syntax ~Type
     (pattern-expander
      (syntax-parser
@@ -34,12 +33,12 @@
         #'(~or
            ((~literal Type) n)   ; unexpanded
            ((~literal #%plain-app) ; expanded
-            (~and C:id (~fail #:unless (free-identifier=? #'C #'Type-id)
+            (~and C:id (~fail #:unless (free-identifier=? #'C Type-id)
                               (format "type mismatch, expected Type, given ~a"
                                       (syntax->datum #'C))))
-            ((~literal quote) n)))]))))
+            ((~literal quote) n)))]
+       ))))
 
-;(define-internal-type-constructor Type #:runtime)
 (define-typed-syntax Type
   [:id ≫ --- [≻ (Type 0)]]
   [(_ n:exact-nonnegative-integer) ≫
@@ -57,7 +56,7 @@
 
 ;; for convenience, Type that is a supertype of all (Type n)
 ;; TODO: get rid of this?
-(define-base-type TypeTop : Type)
+(define-syntax TypeTop (make-variable-like-transformer #'(Type 99)))
 
 (define-binding-type Π #:bind ([X : TypeTop]) : TypeTop -> Type)
 
@@ -104,34 +103,40 @@
 (define-simple-macro (∀/c X ...  τ)
   (Π/c [X : Type] ... τ))
 
-(define-syntax define-type-constructor
+;; TODO: move this to turnstile/eval?
+(define-syntax define-constructor
   (syntax-parser
-    [(_ name (~datum :) ty)
+    [(_ name (~datum :) ty
+        (~optional
+         ; n = how many args to drop from the struct
+         ; for type constructors, n = 0, bc we may need to know params
+         ; for data constructors, n = (len (A ...)), ie drop the params
+         (~seq #:drop n:exact-nonnegative-integer)
+         #:defaults ([n #'0])))
      #:with (~Π/c [A+i : τ] ... τ-out) ((current-type-eval) #'ty)
+     #:with (i ...) (stx-drop #'(A+i ...) (stx-e #'n))
      #:with name/internal (generate-temporary #'name)
      #:with name-expander (mk-~ #'name)
-     #:with out
      #'(begin-
-         (struct name/internal (A+i ...) #:transparent)
+         (struct name/internal (i ...) #:transparent)
          (define-syntax name
            (make-variable-like-transformer
             (assign-type 
-             #'(λ/c- (A+i ...) (name/internal A+i ...))
+             #'(λ/c- (A+i ...) (name/internal i ...))
              #'ty)))
          (begin-for-syntax
-           (define/syntax-parse (_ name/internal+ . _)
-             (expand/df #'(name/internal A+i ...)))
+           (define name/internal+ (expand/df #'name/internal))
            (define-syntax name-expander
              (pattern-expander
               (syntax-parser
+                [:id #'(name-expander i ...)] ; 0-arity case; need non-id case as well?
                 [(_ A+i ...)
                  #'(~and
                     TMP
-                    (~parse ((~literal #%plain-app) name-:id A+i ...) #'TMP)
-                    (~fail #:unless (free-id=? #'name- #'name/internal+))
-                    )])))))
-;     #:do[(pretty-print (stx->datum #'out))]
-     #'out]))
+                    (~parse ((~literal #%plain-app) name-:id i ...) #'TMP)
+                    (~fail #:unless (free-id=? #'name- name/internal+))
+                    )])))
+           ))]))
 
 ;; type check relation --------------------------------------------------------
 ;; - must come after type defs
@@ -149,7 +154,6 @@
          [_ t1]))
      (or (type=? t1+ t2) ; equality
          (syntax-parse (list t1+ t2)
-           [((~Type _) ~TypeTop) #t]
            [((~Type n) (~Type m)) (<= (stx-e #'n) (stx-e #'m))]
            [((~Π ([x1 : τ_in1]) τ_out1) (~Π ([x2 : τ_in2]) τ_out2))
             (and (type=? #'τ_in1 #'τ_in2)
@@ -214,6 +218,7 @@
 ;; equality -------------------------------------------------------------------
 ;(define-internal-type-constructor =)
 ;(define-type-constructor = : (→/c Type Type Type))
+;(define-constructor = : (Π/c [A : Type] [a : A] [b : A] Type))
 (struct =- (l r) #:transparent)
 (define-typed-syntax (= t1 t2) ≫
   [⊢ t1 ≫ t1- ⇒ ty]
@@ -222,7 +227,7 @@
   [⊢ (=- t1- t2-) ⇒ Type])
 
 (define-typed-syntax (eq-refl e) ≫
-  [⊢ e ≫ e- ⇒ _]
+  [⊢ e ≫ e- ⇒ _ (⇒ ~Type)]
   ----------
   [⊢ (#%app- void-) ⇒ (= e- e-)])
 
@@ -276,7 +281,7 @@
     [:id (assign-type #'TmpTy- #'Type)]
     ;; TODO: orig will get stuck with eg, (TmpTy A)
     [(_ . args) (assign-type #'(app/eval/c TmpTy- . args) #'Type)]))
-(begin-for-syntax (define/with-syntax TmpTy+ (expand/df #'TmpTy)))
+(define-for-syntax TmpTy+ (expand/df #'TmpTy))
 
 ;; helper syntax fns
 (begin-for-syntax
@@ -335,7 +340,7 @@
        [(_ X:id pat)
         ;; un-subst tmp id in expanded stx with type X
         #'(~and TMP
-                (~parse pat (reflect (subst #'X #'TmpTy+ #'TMP free-id=?))))])))
+                (~parse pat (reflect (subst #'X TmpTy+ #'TMP free-id=?))))])))
   )
 
 (begin-for-syntax
@@ -363,19 +368,18 @@
    #:with eval-TY (format-id #'TY "eval-~a" #'TY)
    #:with TY/internal (generate-temporary #'TY)
    #:with (C-expander ...) (stx-map mk-~ #'(C ...))
+;   #:with TY-expander (mk-~ #'TY)
    --------
    [≻ (begin-
         ;; define `TY`, eg "Nat", as a valid type
-        (define-base-type TY : τ) 
-        ;; (struct TY/internal () #:transparent)
-        ;; (define-typed-syntax TY
-        ;;   [_:id ≫ --- [⊢ #,(syntax-property #'(TY/internal) 'elim-name #'elim-TY) ⇒ τ]])
+        (define-constructor TY : τ) 
         ;; define structs for `C` constructors
-        (define-data-constructor (C x ...) : τC) ...
+        (define-constructor C : τC) ...
           
         ;; elimination form
         (define-typerule/red (elim-TY v P m ...) ≫
           [⊢ v ≫ v- ⇐ TY]
+;          [⊢ v ≫ v- ⇒ TY-expander]
           [⊢ P ≫ P- ⇐ (→ TY Type)] ; prop / motive
           ;; each `m` can consume 2 sets of args:
           ;; 1) args of the constructor `x` ... 
@@ -442,23 +446,15 @@
    #:with eval-TY (format-id #'TY "match-~a" #'TY)
    #:with (τm ...) (generate-temporaries #'(m ...))
    #:with (C-expander ...) (stx-map mk-~ #'(C ...))
+   #:with n #`#,(stx-length #'(A ...))
    ;; these are all the generated definitions that implement the define-datatype
    #:with OUTPUT-DEFS
     #'(begin-
         ;; define the type
-        (define-type-constructor TY : (Π/c [A : τA] ... [i : τi] ... τ))
-        ;; (define-internal-type-constructor TY)
-        ;; ;; τi refs A ... but dont need to explicitly inst τi with A ...
-        ;; ;; due to reuse of A ... as patvars
-        ;; (define-typed-syntax (TY A ... i ...) ≫
-        ;;   [⊢ A ≫ A- ⇐ τA] ...
-        ;;   [⊢ i ≫ i- ⇐ τi] ...
-        ;;   ----------
-        ;;   [⊢ #,(syntax-property #'(TY- A- ... i- ...) 'elim-name #'elim-TY) ⇒ τ])
+        (define-constructor TY : (Π/c [A : τA] ... [i : τi] ... τ))
 
         ;; define structs for constructors
-        ;; TODO: currently i's are included in struct fields; separate i's from i+x's?
-        (define-data-constructor (C {A ...} i+x ...) : τC) ...
+        (define-constructor C : τC #:drop n) ...
 
         ;; define eliminator-form elim-TY
         ;; v = target

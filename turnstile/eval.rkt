@@ -3,11 +3,9 @@
 ;; library for specifying type-level reduction rules
 
 (provide define-typerule/red
-         define-base-type
          define-binding-type
-         define-data-constructor
          λ/c-
-         (for-syntax datum=? reflect ~plain-app/c))
+         (for-syntax datum=? reflect #;~plain-app/c))
 
 (begin-for-syntax
 
@@ -60,23 +58,10 @@
 (define-syntax (λ/c- stx)
   (syntax-parse stx
     [(_ () e) #'e]
-    [(_ (x . rst) e) #'(λ- (x) (λ/c- rst e))]))
+    [(_ (x . rst) e)
+     (syntax/loc stx (λ- (x) (λ/c- rst e)))]))
 
-(define-typed-syntax (unsafe-assign-type e (~datum :) τ) ≫ --- [⊢ e ⇒ τ])
-
-(define-typed-syntax typed-define
-  [(_ x:id e) ≫
-   ;This won't work with mutually recursive definitions
-   [⊢ e ≫ e- ⇒ _]
-   #:with y (generate-temporary #'x)
-   #:with y+props (transfer-props #'e- #'y #:except '(origin))
-   --------
-   [≻ (begin-
-        (define-syntax x (make-rename-transformer #'y+props))
-        (define- y e-))]])
-
-;; pattern expanders
-(begin-for-syntax
+#;(begin-for-syntax
   (define-syntax ~plain-app/c
     (pattern-expander
      (syntax-parser
@@ -84,57 +69,6 @@
        [(_ f e . rst)
         #'(~plain-app/c ((~literal #%plain-app) f e) . rst)])))
 )
-
-(define-syntax define-data-constructor
-  (syntax-parser
-    [(_ (C (~and As {A ...}) x ...) : ty)
-     #:when (brace? #'As)
-     #:with C/internal (generate-temporary)
-     #:with C-expander (mk-~ #'C)
-     #'(begin-
-         (struct- C/internal (x ...) #:transparent)
-         (typed-define C
-           (unsafe-assign-type
-            (λ/c- (A ... x ...) (C/internal x ...))
-            : ty))
-         (begin-for-syntax
-           (define/syntax-parse (_ C/internal+ . _)
-             (expand/df #'(C)))
-           (define-syntax C-expander
-             (pattern-expander
-              (syntax-parser
-                [(_ A ... x ...)
-                 #'(~and
-                    TMP
-                    (~parse (~plain-app/c C-:id A ... x ...) #'TMP)
-                    (~fail #:unless (free-id=? #'C- #'C/internal+))
-                    )])))))]
-    [(_ (C x ...) : ty)
-     #'(define-data-constructor (C {} x ...) : ty)]))
-
-(define-syntax define-base-type
-  (syntax-parser
-    [(_ TY (~datum :) k)
-     #:with TY/internal (generate-temporary #'TY)
-     #:with TY-expander (mk-~ #'TY)
-     #'(begin-
-         (struct- TY/internal () #:transparent)
-         (define-syntax TY
-           (make-variable-like-transformer
-            (assign-type #'(TY/internal) #'k)))
-         (begin-for-syntax
-           (define TY/internal+ (expand/df #'TY/internal))
-           (define-syntax TY-expander
-             (pattern-expander
-              (syntax-parser
-                [expander:id #'(expander)]
-                [(_ . rst)
-                 #'((~and
-                     TMP
-                     (~parse (_ TY-:id) #'TMP)
-                     (~fail #:unless (free-id=? #'TY- TY/internal+)))
-                    . rst)])))
-           ))]))
 
 (define-syntax define-binding-type
   (syntax-parser
