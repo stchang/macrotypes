@@ -35,7 +35,7 @@
 (define-syntax define-typerule/red
   (syntax-parser
     [(_ (~and rule (~not #:where)) ... #:where red-name reds ...)
-     #'(begin
+     #'(begin-
          (define-typerule rule ...)
          (define-red red-name reds ...))]))
 

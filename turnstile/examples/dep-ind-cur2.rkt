@@ -389,9 +389,9 @@
           [⊢ m ≫ m- ⇐ τm] ...
           -----------
           [⊢ (eval-TY v- P- m- ...) ⇒ (app/c P- v-)]
-          #:where eval-TY ; elim redexes
-          [((C-expander x ...) P m ...) ~> (app/eval/c m x ... (eval-TY xrec P m ...) ...)] ...)
-        ;; eval the elim redexes
+          #:where eval-TY ; elim reduction rule
+          [((C-expander x ...) P m ...) ; elim redex
+           ~> (app/eval/c m x ... (eval-TY xrec P m ...) ...)] ...)
         )]]
   ;; --------------------------------------------------------------------------
   ;; defines inductive type family `TY`, with:
@@ -513,8 +513,9 @@
           [⊢ m ≫ m- ⇐ τm] ...
           -----------
           [⊢ (eval-TY v- P- m- ...) ⇒ (app/c P- i ... v-)]
-          #:where eval-TY
-          [((C-expander CA ... i+x ...) P m ...) ~> (app/eval/c m i+x ... (eval-TY xrec P m ...) ...)] ...)
+          #:where eval-TY ; elim reduction rule
+          [((C-expander CA ... i+x ...) P m ...) ; elim redex
+           ~> (app/eval/c m i+x ... (eval-TY xrec P m ...) ...)] ...)
         )
    --------
    [≻ OUTPUT-DEFS]])
