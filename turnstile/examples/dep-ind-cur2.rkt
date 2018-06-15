@@ -104,36 +104,33 @@
   (Π/c [X : Type] ... τ))
 
 ;; TODO: move this to turnstile/eval?
+;; TODO: define in terms of define-binding-type?
+;; - currying is the problem: what is a partial application of a type defined with
+;;   define-binding-type
+;;   - requires knowlege of a function type
 (define-syntax define-constructor
   (syntax-parser
-    [(_ name (~datum :) ty
-        (~optional
-         ; n = how many args to drop from the struct
-         ; for type constructors, n = 0, bc we may need to know params
-         ; for data constructors, n = (len (A ...)), ie drop the params
-         (~seq #:drop n:exact-nonnegative-integer)
-         #:defaults ([n #'0])))
+    [(_ name (~datum :) ty)
      #:with (~Π/c [A+i : τ] ... τ-out) ((current-type-eval) #'ty)
-     #:with (i ...) (stx-drop #'(A+i ...) (stx-e #'n))
      #:with name/internal (generate-temporary #'name)
      #:with name-expander (mk-~ #'name)
      #'(begin-
-         (struct name/internal (i ...) #:transparent)
+         (struct name/internal (A+i ...) #:transparent)
          (define-syntax name
            (make-variable-like-transformer
             (assign-type 
-             #'(λ/c- (A+i ...) (name/internal i ...))
+             #'(λ/c- (A+i ...) (name/internal A+i ...))
              #'ty)))
          (begin-for-syntax
            (define name/internal+ (expand/df #'name/internal))
            (define-syntax name-expander
              (pattern-expander
               (syntax-parser
-                [:id #'(name-expander i ...)] ; 0-arity case; need non-id case as well?
+                [:id #'(name-expander A+i ...)] ; 0-arity case; need non-id case as well?
                 [(_ A+i ...)
                  #'(~and
                     TMP
-                    (~parse ((~literal #%plain-app) name-:id i ...) #'TMP)
+                    (~parse ((~literal #%plain-app) name-:id A+i ...) #'TMP)
                     (~fail #:unless (free-id=? #'name- name/internal+))
                     )])))
            ))]))
@@ -371,9 +368,10 @@
 ;   #:with TY-expander (mk-~ #'TY)
    --------
    [≻ (begin-
-        ;; define `TY`, eg "Nat", as a valid type
+        ;; define the type, eg "Nat"
         (define-constructor TY : τ) 
-        ;; define structs for `C` constructors
+
+        ;; define the data constructors, eg Z and S
         (define-constructor C : τC) ...
           
         ;; elimination form
@@ -446,15 +444,14 @@
    #:with eval-TY (format-id #'TY "match-~a" #'TY)
    #:with (τm ...) (generate-temporaries #'(m ...))
    #:with (C-expander ...) (stx-map mk-~ #'(C ...))
-   #:with n #`#,(stx-length #'(A ...))
    ;; these are all the generated definitions that implement the define-datatype
    #:with OUTPUT-DEFS
     #'(begin-
         ;; define the type
         (define-constructor TY : (Π/c [A : τA] ... [i : τi] ... τ))
 
-        ;; define structs for constructors
-        (define-constructor C : τC #:drop n) ...
+        ;; define the data constructors
+        (define-constructor C : τC) ...
 
         ;; define eliminator-form elim-TY
         ;; v = target
