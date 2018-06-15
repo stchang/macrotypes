@@ -4,6 +4,7 @@
 
 (provide define-typerule/red
          define-base-type
+         define-binding-type
          define-data-constructor
          λ/c-
          (for-syntax datum=? reflect ~plain-app/c))
@@ -123,16 +124,10 @@
             (assign-type #'(TY/internal) #'k)))
          (begin-for-syntax
            (define TY/internal+ (expand/df #'TY/internal))
-           #;(define/syntax-parse (_ TY/internal+ . _)
-             (expand/df #'(TY)))
            (define-syntax TY-expander
              (pattern-expander
               (syntax-parser
-                [:id
-                 #'(~and
-                    TMP
-                    (~parse (_ TY-:id) #'TMP)
-                    (~fail #:unless (free-id=? #'TY- TY/internal+)))]
+                [expander:id #'(expander)]
                 [(_ . rst)
                  #'((~and
                      TMP
@@ -141,12 +136,40 @@
                     . rst)])))
            ))]))
 
-#;(define-syntax define-binding-type
+(define-syntax define-binding-type
   (syntax-parser
-    [(_ (name . pat) rule ...)
-     #:with name/internal (mk-- #'name)
+    [(_ TY #:bind ([X:id (~datum :) k_in] ...) (~datum :) k_out ... (~datum ->) k)
+     #:with (τ_in ...) (generate-temporaries #'(k_in ...))
+     #:with (τ_in- ...) (generate-temporaries #'(k_in ...))
+     #:with (τ_out ...) (generate-temporaries #'(k_out ...))
+     #:with (τ_out- ...) (generate-temporaries #'(k_out ...))
+     #:with (X- ...) (generate-temporaries #'(X ...))
+     #:with TY/internal (generate-temporary #'TY)
+     #:with TY-expander (mk-~ #'TY)
      #'(begin-
-         (struct- name/internal (rep) #:transparent))]))
+         (struct- TY/internal (X ... bod) #:transparent)
+         (define-typerule (TY ([(~var X id) (~datum :) τ_in] ...) τ_out ...) ≫
+           [⊢ τ_in  ≫ τ_in- ⇐ k_in] ...
+           [[X ≫ X- : τ_in-] ... ⊢ τ_out ≫ τ_out- ⇐ k_out] ...
+           ---------------
+           [⊢ (TY/internal τ_in- ... (λ- (X- ...) τ_out- ...)) ⇒ k])
+         (begin-for-syntax
+           (define TY/internal+ (expand/df #'TY/internal))
+           (define-syntax TY-expander
+             (pattern-expander
+              (syntax-parser
+                [(_ ([(~var X id) (~datum :) τ_in] ...) τ_out ...)
+                 #'(~and ty
+                         (~parse
+                          ((~literal #%plain-app)
+                           name/internal:id
+                           τ_in ...
+                           ((~literal #%plain-lambda)
+                            (X ...)
+                            τ_out ...))
+                          #'ty)
+                         (~fail #:unless (free-id=? #'name/internal TY/internal+)))])))
+           ))]))
 
            
                        

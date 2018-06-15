@@ -55,62 +55,36 @@
         'orig
         (list #'(Type n)))]])
 
-;; TODO: is this needed?
-(define-base-type TypeTop : Type) ; a Type that is a supertype of all (Type n)
-
-;; Π expands into combination of internal →- and ∀-
-;; uses "let*" syntax where X_i is in scope for τ_i+1 ...
-;; TODO: add tests to check this
-;; (struct Π- (rep) #:transparent)
-;; (begin-for-syntax
-;;   (define/syntax-parse (_ Π/internal _)
-;;     (local-expand #'(Π- (λ (x) x)) 'expression null)))
-;; (define-binding-type (Π ([X:id : Type]) Type) ≫
-;;   [⊢ τ_in ⇒ ~Type]
-;;   [[X : τ_in] ⊢ τ_out ⇒ ~Type i]
-
-;; (define-binding-type (Π ([X:id : box]) *))
-;; (define-bindin-type (Π ([X:id : A:box]) B:box)
-
-
-(define-syntax define-binding-type
-  (syntax-parser
-    [(_ TY #:bind ([X:id (~datum :) k_in] ...) (~datum :) k_out ... (~datum ->) k)
-     #:with (τ_in ...) (generate-temporaries #'(k_in ...))
-     #:with (τ_in- ...) (generate-temporaries #'(k_in ...))
-     #:with (τ_out ...) (generate-temporaries #'(k_out ...))
-     #:with (τ_out- ...) (generate-temporaries #'(k_out ...))
-     #:with (X- ...) (generate-temporaries #'(X ...))
-     #:with TY/internal (generate-temporary #'TY)
-     #:with TY-expander (mk-~ #'TY)
-     #'(begin-
-         (struct- TY/internal (X ... bod) #:transparent)
-         (define-typerule (TY ([(~var X id) (~datum :) τ_in] ...) τ_out ...) ≫
-           [⊢ τ_in  ≫ τ_in- ⇐ k_in] ...
-           [[X ≫ X- : τ_in-] ... ⊢ τ_out ≫ τ_out- ⇐ k_out] ...
-           ---------------
-           [⊢ (TY/internal τ_in- ... (λ- (X- ...) τ_out- ...)) ⇒ k])
-         (begin-for-syntax
-           (define TY/internal+ (expand/df #'TY/internal))
-           #;(define/syntax-parse (_ TY/internal+ . _)
-             (expand/df #'(TY ([X : k_in] ...) k_out ...)))
-           (define-syntax TY-expander
-             (pattern-expander
-              (syntax-parser
-                [(_ ([(~var X id) (~datum :) τ_in] ...) τ_out ...)
-                 #'(~and ty
-                         (~parse
-                          ((~literal #%plain-app)
-                           name/internal:id
-                           τ_in ...
-                           ((~literal #%plain-lambda)
-                            (X ...)
-                            τ_out ...))
-                          #'ty)
-                         (~fail #:unless (free-id=? #'name/internal TY/internal+)))])))
-           ))]))
+;; for convenience, Type that is a supertype of all (Type n)
+;; TODO: get rid of this?
+(define-base-type TypeTop : Type)
 
 (define-binding-type Π #:bind ([X : TypeTop]) : TypeTop -> Type)
+
+;; curried version of Π
+(define-syntax (Π/c stx)
+  (syntax-parse stx
+    [(_ t) #'t]
+    [(_ (~and xty [x:id (~datum :) τ]) . rst)
+     (syntax/loc stx (Π (xty) (Π/c . rst)))]))
+
+;; curried Π pattern expander
+(begin-for-syntax
+  (define-syntax ~Π/c
+    (pattern-expander
+     (syntax-parser
+       [(_ t) #'t]
+       [(_ [x (~datum :) ty] (~and (~literal ...) ooo) t_out)
+        #'(~and TMP
+                (~parse ([x ty] ooo t_out)
+                        (let L ([ty #'TMP][xtys empty])
+                          (syntax-parse ty
+                            [(~Π ([x : τ_in]) rst)
+                             (L #'rst (cons #'[x τ_in] xtys))]
+                            [t_out
+                             (reverse (cons #'t_out xtys))]))))]
+       [(_ (~and xty [x:id : τ_in]) . rst)
+        #'(~Π (xty) (~Π/c . rst))]))))
 
 ;; abbrevs for Π
 ;; (→ τ_in τ_out) == (Π (unused : τ_in) τ_out)
@@ -121,12 +95,6 @@
 (define-simple-macro (∀ (X)  τ)
   (Π ([X : Type]) τ))
 
-(define-syntax (Π/c stx)
-  (syntax-parse stx
-    [(_ t) #'t]
-    [(_ (~and xty [x:id (~datum :) τ]) . rst)
-     (syntax/loc stx (Π (xty) (Π/c . rst)))]))
-
 ;; abbrevs for Π/c
 ;; (→ τ_in τ_out) == (Π (unused : τ_in) τ_out)
 (define-simple-macro (→/c τ_in ... τ_out)
@@ -135,37 +103,6 @@
 ;; (∀ (X) τ) == (∀ ([X : Type]) τ)
 (define-simple-macro (∀/c X ...  τ)
   (Π/c [X : Type] ... τ))
-
-;; pattern expanders
-(begin-for-syntax
-  #;(define-syntax ~Π
-    (pattern-expander
-     (syntax-parser
-       [(_ ([x:id : τ_in]) τ_out)
-        #'(~and ty
-                (~parse
-                 ((~literal #%plain-app)
-                  (~literal list)
-                  τ_in
-                  ((~literal #%plain-lambda)
-                   (x)
-                   τ_out))
-                 #'ty))])))
-  (define-syntax ~Π/c
-    (pattern-expander
-     (syntax-parser
-       [(_ t) #'t]
-       [(_ [x (~datum :) ty] (~and (~literal ...) ooo) t_out)
-        #'(~and TMP
-                (~parse ([x ty] ooo t_out)
-                        (let L ([ty #'TMP][xtys empty])
-                             (syntax-parse ty
-                               [(~Π ([x : τ_in]) rst)
-                                (L #'rst (cons #'[x τ_in] xtys))]
-                               [t_out
-                                (reverse (cons #'t_out xtys))]))))]
-       [(_ (~and xty [x:id : τ_in]) . rst)
-        #'(~Π (xty) (~Π/c . rst))]))))
 
 (define-syntax define-type-constructor
   (syntax-parser
