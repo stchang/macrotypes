@@ -32,6 +32,9 @@
 ;; - add dependent existential
 ;; - remove debugging code?
 
+
+;; type defintions ------------------------------------------------------------
+
 ;; set (Type n) : (Type n+1)
 ;; Type = (Type 0)
 (define-internal-type-constructor Type #:runtime)
@@ -49,57 +52,6 @@
           (list #'(Type n+1))))
         'orig
         (list #'(Type n)))]])
-
-(begin-for-syntax
-  (define debug? #f)
-  (define type-eq-debug? #f)
-  (define debug-match? #f)
-  (define debug-elim? #f)
-
-  ;; TODO: fix `type` stx class
-  ;; current-type and type stx class not working
-  ;; for case where var has type that is previous var
-  ;; that is not yet in tyenv
-  ;; eg in (Π ([A : *][a : A]) ...)
-  ;; expansion of 2nd type A will fail with unbound id err
-  ;;
-  ;; attempt 2
-  ;; (define old-type? (current-type?))
-  ;; (current-type?
-  ;;  (lambda (t)
-  ;;    (printf "t = ~a\n" (stx->datum t))
-  ;;    (printf "ty = ~a\n" (stx->datum (typeof t)))
-  ;;    (or (Type? (typeof t))
-  ;;        (syntax-parse (typeof t)
-  ;;          [((~literal Type-) n:exact-nonnegative-integer) #t]
-  ;;          [_ #f]))))
-  ;; attempt 1
-  ;; (define old-type? (current-type?))
-  ;; (current-type?
-  ;;  (lambda (t) (or (#%type? t) (old-type? t))))
-
-
-  (define old-relation (current-typecheck-relation))
-  (current-typecheck-relation
-   (lambda (t1 t2)
-     (define res
-       ;; expand (Type n) if unexpanded
-       (or (syntax-parse t1
-             [((~literal Type) n)
-              (typecheck? ((current-type-eval) t1) t2)]
-             [_ #f])
-           (old-relation t1 t2)))
-     (when type-eq-debug?
-       (pretty-print (stx->datum t1))
-       (pretty-print (stx->datum t2))
-       (printf "res: ~a\n" res))
-     res))
-  ;; used to attach type after app/eval
-  ;; but not all apps will have types, eg
-  ;; - internal type representation
-  ;; - intermediate elim terms
-  (define (maybe-assign-type e t)
-    (if (syntax-e t) (assign-type e t) e)))
 
 (define-internal-type-constructor → #:runtime) ; equiv to Π with no uses on rhs
 (define-internal-binding-type ∀ #:runtime)     ; equiv to Π with Type for all params
@@ -154,6 +106,43 @@
                                [t_out (reverse (cons #'t_out xtys))]))))]
        [(_ (~and xty [x:id : τ_in]) . rst)
         #'(~Π (xty) (~Π/c . rst))]))))
+
+;; type checking relation -----------------------------------------------------
+;; - must come after types
+
+(begin-for-syntax
+  (define debug? #f)
+  (define type-eq-debug? #f)
+  (define debug-match? #f)
+  (define debug-elim? #f)
+
+  (define old-relation (current-typecheck-relation))
+  (current-typecheck-relation
+   (lambda (t1 t2)
+     (define t1+
+       (syntax-parse t1 ; expand (Type n) if unexpanded
+         [((~literal Type) _) ((current-type-eval) t1)]
+         [_ t1]))
+     (define res
+       (or (type=? t1+ t2) ; equality
+           (syntax-parse (list t1+ t2)
+             [((~Type ((~literal quote) n)) (~Type ((~literal quote) m)))
+              (< (stx-e #'n) (stx-e #'m))]
+             [((~Π ([x1 : τ_in1]) τ_out1) (~Π ([x2 : τ_in2]) τ_out2))
+              (and (type=? #'τ_in1 #'τ_in2)
+                   (typecheck? (subst #'x2 #'x1 #'τ_out1) #'τ_out2))]
+             [_ #f])))
+     (when type-eq-debug?
+       (pretty-print (stx->datum t1))
+       (pretty-print (stx->datum t2))
+       (printf "res: ~a\n" res))
+     res))
+  ;; used to attach type after app/eval
+  ;; but not all apps will have types, eg
+  ;; - internal type representation
+  ;; - intermediate elim terms
+  (define (maybe-assign-type e t)
+    (if (syntax-e t) (assign-type e t) e)))
 
 ;; equality -------------------------------------------------------------------
 (define-internal-type-constructor =)

@@ -18,6 +18,8 @@
          = eq-refl eq-elim
          ann define-datatype define define-type-alias)
 
+;; type definitions -----------------------------------------------------------
+
 ;; set (Type n) : (Type n+1)
 ;; Type = (Type 0)
 (struct Type- (n) #:transparent)
@@ -35,7 +37,7 @@
             (~and C:id (~fail #:unless (free-identifier=? #'C #'Type-id)
                               (format "type mismatch, expected Type, given ~a"
                                       (syntax->datum #'C))))
-            n))]))))
+            ((~literal quote) n)))]))))
 ;(define-internal-type-constructor Type #:runtime)
 (define-typed-syntax Type
   [:id ≫ --- [≻ (Type 0)]]
@@ -51,22 +53,6 @@
           (list #'(Type n+1))))
         'orig
         (list #'(Type n)))]])
-
-(begin-for-syntax
-
-  (define old-relation (current-typecheck-relation))
-  (current-typecheck-relation
-   (lambda (t1 t2)
-     ;; (printf "t1 = ~a\n" (syntax->datum t1))
-     ;; (printf "t1 = ~a\n" (syntax->datum t2))
-     (define res
-       ;; expand (Type n) if unexpanded
-       (or (syntax-parse t1
-             [((~literal Type) n)
-              (typecheck? ((current-type-eval) t1) t2)]
-             [_ #f])
-           (old-relation t1 t2)))
-     res)))
 
 ;; Π expands into combination of internal →- and ∀-
 ;; uses "let*" syntax where X_i is in scope for τ_i+1 ...
@@ -156,6 +142,26 @@
                     )])))))
 ;     #:do[(pretty-print (stx->datum #'out))]
      #'out]))
+
+;; type check relation --------------------------------------------------------
+;; - must come after type defs
+
+(begin-for-syntax
+
+  (define old-relation (current-typecheck-relation))
+  (current-typecheck-relation
+   (lambda (t1 t2)
+     (define t1+
+       (syntax-parse t1
+         [((~literal Type) _) ((current-type-eval) t1)]
+         [_ t1]))
+     (or (type=? t1+ t2) ; equality
+         (syntax-parse (list t1+ t2)
+           [((~Type n) (~Type m)) (<= (stx-e #'n) (stx-e #'m))]
+           [((~Π ([x1 : τ_in1]) τ_out1) (~Π ([x2 : τ_in2]) τ_out2))
+            (and (type=? #'τ_in1 #'τ_in2)
+                 (typecheck? (subst #'x2 #'x1 #'τ_out1) #'τ_out2))]
+           [_ #f])))))
 
 ;; lambda and #%app -----------------------------------------------------------
 (define-typed-syntax λ
