@@ -115,11 +115,31 @@
   (syntax-parser
     [(_ TY (~datum :) k)
      #:with TY/internal (generate-temporary #'TY)
+     #:with TY-expander (mk-~ #'TY)
      #'(begin-
          (struct- TY/internal () #:transparent)
          (define-syntax TY
            (make-variable-like-transformer
-            (assign-type #'(TY/internal) #'k))))]))
+            (assign-type #'(TY/internal) #'k)))
+         (begin-for-syntax
+           (define TY/internal+ (expand/df #'TY/internal))
+           #;(define/syntax-parse (_ TY/internal+ . _)
+             (expand/df #'(TY)))
+           (define-syntax TY-expander
+             (pattern-expander
+              (syntax-parser
+                [:id
+                 #'(~and
+                    TMP
+                    (~parse (_ TY-:id) #'TMP)
+                    (~fail #:unless (free-id=? #'TY- TY/internal+)))]
+                [(_ . rst)
+                 #'((~and
+                     TMP
+                     (~parse (_ TY-:id) #'TMP)
+                     (~fail #:unless (free-id=? #'TY- TY/internal+)))
+                    . rst)])))
+           ))]))
 
 #;(define-syntax define-binding-type
   (syntax-parser
