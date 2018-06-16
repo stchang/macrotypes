@@ -58,7 +58,7 @@
 ;; TODO: get rid of this?
 (define-syntax TypeTop (make-variable-like-transformer #'(Type 99)))
 
-(define-binding-type Π #:bind ([X : TypeTop]) : TypeTop -> Type)
+(define-binding-type Π #:bind ([X : TypeTop]) : [dummy : TypeTop] -> Type)
 
 ;; curried version of Π
 (define-syntax (Π/c stx)
@@ -103,38 +103,6 @@
 (define-simple-macro (∀/c X ...  τ)
   (Π/c [X : Type] ... τ))
 
-;; TODO: move this to turnstile/eval?
-;; TODO: define in terms of define-binding-type?
-;; - currying is the problem: what is a partial application of a type defined with
-;;   define-binding-type
-;;   - requires knowlege of a function type
-(define-syntax define-constructor
-  (syntax-parser
-    [(_ name (~datum :) ty)
-     #:with (~Π/c [A+i : τ] ... τ-out) ((current-type-eval) #'ty)
-     #:with name/internal (generate-temporary #'name)
-     #:with name-expander (mk-~ #'name)
-     #'(begin-
-         (struct name/internal (A+i ...) #:transparent)
-         (define-syntax name
-           (make-variable-like-transformer
-            (assign-type 
-             #'(λ/c- (A+i ...) (name/internal A+i ...))
-             #'ty)))
-         (begin-for-syntax
-           (define name/internal+ (expand/df #'name/internal))
-           (define-syntax name-expander
-             (pattern-expander
-              (syntax-parser
-                [:id #'(name-expander A+i ...)] ; 0-arity case; need non-id case as well?
-                [(_ A+i ...)
-                 #'(~and
-                    TMP
-                    (~parse ((~literal #%plain-app) name-:id A+i ...) #'TMP)
-                    (~fail #:unless (free-id=? #'name- name/internal+))
-                    )])))
-           ))]))
-
 ;; type check relation --------------------------------------------------------
 ;; - must come after type defs
 
@@ -165,14 +133,14 @@
    ---------
    [⊢ (λ- (x-) e-)]]
   ;; both expected ty and annotations
-  [(_ ([y:id : τ_in*]) e) ⇐ (~Π ([x:id : τ_in]) τ_out) ≫
+  [(_ ([y:id (~datum :) τ_in*]) e) ⇐ (~Π ([x:id : τ_in]) τ_out) ≫
    [⊢ τ_in* ≫ τ_in** ⇐ Type]
    #:when (typecheck? #'τ_in** #'τ_in)
    [[x ≫ x- : τ_in] ⊢ #,(subst #'x #'y #'e) ≫ e- ⇐ τ_out]
    -------
    [⊢ (λ- (x-) e-)]]
   ;; annotations only
-  [(_ ([x:id : τ_in]) e) ≫
+  [(_ ([x:id (~datum :) τ_in]) e) ≫
    [[x ≫ x- : τ_in] ⊢ [e ≫ e- ⇒ τ_out] [τ_in ≫ τ_in- ⇒ _]]
    -------
    [⊢ (λ- (x-) e-) ⇒ (Π ([x- : τ_in-]) τ_out)]])
@@ -211,6 +179,61 @@
   (syntax-parse stx
     [(_ e) #'e]
     [(_ f e . rst) #`(app/eval/c (app/eval f e) . rst)]))
+
+;; TODO: move this to turnstile/eval?
+;; TODO: define in terms of define-binding-type?
+;; - currying is the problem: what is a partial application of a type defined with
+;;   define-binding-type
+;;   - requires knowlege of a function type
+(define-syntax define-constructor
+  (syntax-parser
+    [(_ name (~datum :) ty)
+     #:with (~Π/c [A+i : τ] ... τ-out) ((current-type-eval) #'ty)
+     #:with name/internal (generate-temporary #'name)
+     #:with name/internal-expander (mk-~ #'name/internal)
+     #:with name-expander (mk-~ #'name)
+     #:with OUT
+     #;#'(begin-
+         (define-binding-type name/internal #:bind () : [A+i : τ] ... -> τ-out)
+         (define-syntax name
+           (make-variable-like-transformer
+            #'(λ/c [A+i : τ] ... (name/internal () A+i ...))))
+         (begin-for-syntax
+           (define-syntax name-expander
+             (pattern-expander
+              (syntax-parser
+                [:id #'(name-expander A+i ...)] ; 0-arity case; need non-id case as well?
+                [(_ A+i ...)
+                 #'(name/internal-expander () A+i ...)
+                 #;#'(~and
+                    TMP
+                    (~parse ((~literal #%plain-app) name-:id A+i ...) #'TMP)
+                    (~fail #:unless (free-id=? #'name- name/internal+))
+                    )])))
+           ))
+        #'(begin-
+         (struct name/internal (A+i ...) #:transparent)
+         (define-syntax name
+           (make-variable-like-transformer
+            (assign-type 
+             #'(λ/c- (A+i ...) (name/internal A+i ...))
+             #'ty)))
+         (begin-for-syntax
+           (define name/internal+ (expand/df #'name/internal))
+           (define-syntax name-expander
+             (pattern-expander
+              (syntax-parser
+                [:id #'(name-expander A+i ...)] ; 0-arity case; need non-id case as well?
+                [(_ A+i ...)
+                 #'(~and
+                    TMP
+                    (~parse ((~literal #%plain-app) (~var name- id) A+i ...) #'TMP)
+                    (~fail #:unless (free-id=? #'name- name/internal+))
+                    )])))
+           ))
+;     #:do[(pretty-print (stx->datum #'OUT))]
+     #'OUT
+  ]))
 
 ;; equality -------------------------------------------------------------------
 ;(define-internal-type-constructor =)
