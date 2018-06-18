@@ -3,9 +3,9 @@
 ;; library for specifying type-level reduction rules
 
 (provide define-typerule/red
-         define-binding-type
+         define-type
          λ/c-
-         (for-syntax datum=? reflect #;~plain-app/c))
+         (for-syntax datum=? reflect))
 
 (begin-for-syntax
 
@@ -71,10 +71,13 @@
         #'(~plain-app/c ((~literal #%plain-app) f e) . rst)])))
 )
 
-(define-syntax define-binding-type
+(define-syntax define-type
   (syntax-parser
-    [(_ TY (~optional (~seq #:bind ([X:id (~datum :) k_in] ...))
-                      #:defaults ([(X 1) null] [(k_in 1) null]))
+    [(_ TY
+        ;; specifying binders (ie, a binding type) alters the output
+        ;; in 4 (numbered) places below
+        (~optional (~seq #:with-binders ([X:id (~datum :) k_in] ...))
+                   #:defaults ([(X 1) null] [(k_in 1) null]))
         (~datum :) (~or (~seq [Y:id (~datum :) k_out] ...)
                         (~and (~seq k_out ...)
                               (~parse (Y ...) (generate-temporaries #'(k_out ...)))))
@@ -88,9 +91,15 @@
      #:with (X- ...) (generate-temporaries #'(X ...))
      #:with TY/internal (generate-temporary #'TY)
      #:with TY-expander (mk-~ #'TY)
-     #'(begin-
+     #`(begin-
          (struct- TY/internal (X ... bod) #:transparent)
-         (define-typerule (TY ([(~var X id) (~datum :) τ_in] ...) τ_out ...) ≫
+         (define-typerule
+           (TY
+            ;; 1) dont require binders in constructor if there are none
+            #,@(if (stx-null? #'(X ...))
+                   null
+                   (list #'([(~var X id) (~datum :) τ_in] ...)))
+            τ_out ...) ≫
            [⊢ τ_in  ≫ τ_in- ⇐ k_in] ...
 ;           [[X ≫ X- : τ_in-] ... ⊢ τ_out ≫ τ_out- ⇐ k_out] ...
            #:with (k_out_inst ... k_inst
@@ -100,13 +109,13 @@
            ;;        (substs #'(τ_out ...) #'(Y ...) #'(τ_out ...))
            [[X ≫ X- : τ_in-] ... ⊢ τ_out_inst ≫ τ_out- ⇐ k_out_inst] ...
            #:with maybe-lambda
-                  ;; remove the λ when there are no binders
+                  ;; 2) when no binders, remove the λ in runtime rep
                   ;; - this allows comparisons at runtime
                   ;; - alternative? use prop:equal?
-                  (if (stx-null? #'(X- ...))
-                      (syntax/loc this-syntax (#%plain-app list τ_out- ...))
-                      (syntax/loc this-syntax
-                        (λ- (X- ...) (#%plain-app list τ_out- ...))))
+                  #,(if (stx-null? #'(X- ...))
+                        #'(syntax/loc this-syntax (#%plain-app list τ_out- ...))
+                        #'(syntax/loc this-syntax
+                            (λ- (X- ...) (#%plain-app list τ_out- ...))))
            ---------------
            [⊢ (TY/internal τ_in- ... maybe-lambda) ⇒ k_inst])
          (begin-for-syntax
@@ -114,20 +123,27 @@
            (define-syntax TY-expander
              (pattern-expander
               (syntax-parser
-                [(_ ([(~var X id) (~datum :) τ_in] ...) τ_out ...)
+                [(_
+                  ;; 3) dont require binders in pat expander if there are none
+                  #,@(if (stx-null? #'(X ...))
+                         null
+                         (list #' ([(~var X id) (~datum :) τ_in] ...)))
+                  τ_out ...)
                  #'(~and ty
                          (~parse
                           ((~literal #%plain-app)
                            name/internal:id
                            τ_in ...
-                           (~or ((~literal #%plain-lambda)
-                                 (X ...)
-                                 ((~literal #%plain-app)
-                                  (~literal list)
-                                  τ_out ...))
-                                ((~literal #%plain-app)
-                                 (~literal list)
-                                 τ_out ...)))
+                           ;; 4) when no binders, dont match lambda
+                           #,(if (stx-null? #'(X ...))
+                                 #'((~literal #%plain-app)
+                                    (~literal list)
+                                    τ_out ...)
+                                 #'((~literal #%plain-lambda)
+                                    (X ...)
+                                    ((~literal #%plain-app)
+                                     (~literal list)
+                                     τ_out ...))))
                           #'ty)
                          (~fail #:unless (free-id=? #'name/internal TY/internal+)))])))
            ))]))

@@ -58,7 +58,7 @@
 ;; TODO: get rid of this?
 (define-syntax TypeTop (make-variable-like-transformer #'(Type 99)))
 
-(define-binding-type Π #:bind ([X : TypeTop]) : TypeTop -> Type)
+(define-type Π #:with-binders ([X : TypeTop]) : TypeTop -> Type)
 
 ;; curried version of Π
 (define-syntax (Π/c stx)
@@ -103,12 +103,7 @@
 (define-simple-macro (∀/c X ...  τ)
   (Π/c [X : Type] ... τ))
 
-;; TODO: move this to turnstile/eval?
-;; TODO: define in terms of define-binding-type?
-;; - currying is the problem: what is a partial application of a type defined with
-;;   define-binding-type
-;;   - requires knowlege of a function type
-(define-syntax define-constructor
+(define-syntax define-cur-constructor
   (syntax-parser
     [(_ name (~datum :) ty)
      #:with (~Π/c [A+i : τ] ... τ-out) ((current-type-eval) #'ty)
@@ -116,17 +111,16 @@
      #:with name/internal-expander (mk-~ #'name/internal)
      #:with name-expander (mk-~ #'name)
       #'(begin-
-         (define-binding-type name/internal : [A+i : τ] ... -> τ-out)
+         (define-type name/internal : [A+i : τ] ... -> τ-out)
          (define-syntax name
            (make-variable-like-transformer
-            #'(λ/c [A+i : τ] ... (name/internal () A+i ...))))
+            #'(λ/c [A+i : τ] ... (name/internal A+i ...))))
          (begin-for-syntax
            (define-syntax name-expander
              (pattern-expander
               (syntax-parser
                 [:id #'(name-expander A+i ...)] ; 0-arity case; need non-id case as well?
-                [(_ A+i ...)
-                 #'(name/internal-expander () A+i ...)])))
+                [(_ A+i ...) #'(name/internal-expander A+i ...)])))
            ))]))
 
 ;; type check relation --------------------------------------------------------
@@ -363,10 +357,10 @@
    --------
    [≻ (begin-
         ;; define the type, eg "Nat"
-        (define-constructor TY : τ) 
+        (define-cur-constructor TY : τ) 
 
         ;; define the data constructors, eg Z and S
-        (define-constructor C : τC) ...
+        (define-cur-constructor C : τC) ...
           
         ;; elimination form
         (define-typerule/red (elim-TY v P m ...) ≫
@@ -442,10 +436,10 @@
    #:with OUTPUT-DEFS
     #'(begin-
         ;; define the type
-        (define-constructor TY : (Π/c [A : τA] ... [i : τi] ... τ))
+        (define-cur-constructor TY : (Π/c [A : τA] ... [i : τi] ... τ))
 
         ;; define the data constructors
-        (define-constructor C : τC) ...
+        (define-cur-constructor C : τC) ...
 
         ;; define eliminator-form elim-TY
         ;; v = target
