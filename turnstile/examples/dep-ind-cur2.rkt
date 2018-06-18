@@ -58,7 +58,7 @@
 ;; TODO: get rid of this?
 (define-syntax TypeTop (make-variable-like-transformer #'(Type 99)))
 
-(define-binding-type Π #:bind ([X : TypeTop]) : [dummy : TypeTop] -> Type)
+(define-binding-type Π #:bind ([X : TypeTop]) : TypeTop -> Type)
 
 ;; curried version of Π
 (define-syntax (Π/c stx)
@@ -116,7 +116,7 @@
      #:with name/internal-expander (mk-~ #'name/internal)
      #:with name-expander (mk-~ #'name)
       #'(begin-
-         (define-binding-type name/internal #:bind () : [A+i : τ] ... -> τ-out)
+         (define-binding-type name/internal : [A+i : τ] ... -> τ-out)
          (define-syntax name
            (make-variable-like-transformer
             #'(λ/c [A+i : τ] ... (name/internal () A+i ...))))
@@ -127,26 +127,6 @@
                 [:id #'(name-expander A+i ...)] ; 0-arity case; need non-id case as well?
                 [(_ A+i ...)
                  #'(name/internal-expander () A+i ...)])))
-           ))
-     #;#'(begin-
-         (struct name/internal (A+i ...) #:transparent)
-         (define-syntax name
-           (make-variable-like-transformer
-            (assign-type 
-             #'(λ/c- (A+i ...) (name/internal A+i ...))
-             #'ty)))
-         (begin-for-syntax
-           (define name/internal+ (expand/df #'name/internal))
-           (define-syntax name-expander
-             (pattern-expander
-              (syntax-parser
-                [:id #'(name-expander A+i ...)] ; 0-arity case; need non-id case as well?
-                [(_ A+i ...)
-                 #'(~and
-                    TMP
-                    (~parse ((~literal #%plain-app) name-:id A+i ...) #'TMP)
-                    (~fail #:unless (free-id=? #'name- name/internal+))
-                    )])))
            ))]))
 
 ;; type check relation --------------------------------------------------------

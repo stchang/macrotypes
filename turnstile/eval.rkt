@@ -73,8 +73,12 @@
 
 (define-syntax define-binding-type
   (syntax-parser
-    [(_ TY (~optional (~seq #:bind ([X:id (~datum :) k_in] ...)))
-        (~datum :) [Y:id (~datum :) k_out] ... (~datum ->) k)
+    [(_ TY (~optional (~seq #:bind ([X:id (~datum :) k_in] ...))
+                      #:defaults ([(X 1) null] [(k_in 1) null]))
+        (~datum :) (~or (~seq [Y:id (~datum :) k_out] ...)
+                        (~and (~seq k_out ...)
+                              (~parse (Y ...) (generate-temporaries #'(k_out ...)))))
+        (~datum ->) k)
      #:with (τ_in ...) (generate-temporaries #'(k_in ...))
      #:with (τ_in- ...) (generate-temporaries #'(k_in ...))
      #:with (τ_out ...) (generate-temporaries #'(k_out ...))
