@@ -179,9 +179,24 @@
              #:with [ctx ...] #'[ctx1.ctx ... ...]])
   (define-syntax-class tc-elem
     #:datum-literals (⊢ ⇒ ⇐ ≫)
-    #:attributes (e-stx e-stx-orig e-pat)
+    #:attributes (e-stx e-stx-orig e-pat var)
+    ;; telescope fold notation
+    [pattern [[X:id (~datum :) e-stx] ≫ e-pat* props:⇒-props]
+             #:with e-stx-orig #'e-stx
+             #:attr var #'X
+             #:with e-pat #'(~and props.e-pat e-pat*)]
     [pattern [e-stx ≫ e-pat* props:⇒-props]
              #:with e-stx-orig #'e-stx
+             #:attr var #f
+             #:with e-pat #'(~and props.e-pat e-pat*)]
+    ;; telescope fold notation
+    [pattern [[X:id (~datum :) e-stx*] ≫ e-pat* props:⇐-props]
+             #:with e-tmp (generate-temporary #'e-pat*)
+             #:with τ-tmp (generate-temporary 'τ)
+             #:with τ-exp-tmp (generate-temporary 'τ_expected)
+             #:with e-stx #'(add-expected e-stx* props.τ-stx)
+             #:with e-stx-orig #'e-stx*
+             #:attr var #'X
              #:with e-pat #'(~and props.e-pat e-pat*)]
     [pattern [e-stx* ≫ e-pat* props:⇐-props]
              #:with e-tmp (generate-temporary #'e-pat*)
@@ -189,23 +204,26 @@
              #:with τ-exp-tmp (generate-temporary 'τ_expected)
              #:with e-stx #'(add-expected e-stx* props.τ-stx)
              #:with e-stx-orig #'e-stx*
+             #:attr var #f
              #:with e-pat #'(~and props.e-pat e-pat*)])
   (define-splicing-syntax-class tc
-    #:attributes (depth es-stx es-stx-orig es-pat)
+    #:attributes (depth es-stx es-stx-orig es-pat var)
     [pattern (~seq tc:tc-elem ooo:elipsis ...)
              #:with depth (stx-length #'[ooo ...])
              #:with es-stx (with-depth #'tc.e-stx #'[ooo ...])
              #:with es-stx-orig (with-depth #'tc.e-stx-orig #'[ooo ...])
+             #:attr var (attribute tc.var)
              #:with es-pat
              #`(~post
                 #,(with-depth #'tc.e-pat #'[ooo ...]))])
   (define-syntax-class tc*
-    #:attributes (depth es-stx es-stx-orig es-pat wrap-computation)
+    #:attributes (depth es-stx es-stx-orig es-pat wrap-computation vars)
     [pattern tc:tc-elem
              #:with depth 0
              #:with es-stx #'tc.e-stx
              #:with es-stx-orig #'tc.e-stx-orig
              #:with es-pat #'tc.e-pat
+             #:attr vars (and (attribute tc.var) #'(tc.var))
              #:attr wrap-computation (λ (stx) stx)]
     [pattern (tc:tc ... opts:tc-post-options ...)
              #:do [(define ds (stx-map syntax-e #'[tc.depth ...]))
@@ -223,6 +241,7 @@
              #:with es-stx #'[es-stx* ...]
              #:with es-stx-orig #'[es-stx-orig* ...]
              #:with es-pat #'[es-pat* ...]
+             #:attr vars (and (stx-andmap (λ(x)x) (attribute tc.var)) #'(tc.var ...))
              #:attr wrap-computation
              (λ (stx)
                (foldr (λ (fun stx) (fun stx))
@@ -245,14 +264,20 @@
                   (~seq [(ctx:id-props+≫*) ⊢ . tc:tc*] ooo:elipsis ...
                         (~parse ((tvctx.x- tvctx.ctx) ...) #'()))
                   (~seq [(tvctx:id-props+≫*) (ctx:id-props+≫*) ⊢ . tc:tc*] ooo:elipsis ...))
+             #:with tc.es-pat2 (if (attribute tc.vars)
+                                   (substs #'tc.es-stx-orig #'tc.vars #'tc.es-pat)
+                                   #'tc.es-pat)
+             #:with tc.es-stx2 (if (attribute tc.vars)
+                                   (substs #'tc.es-stx-orig #'tc.vars #'tc.es-stx)
+                                   #'tc.es-stx)
              #:with clause-depth (stx-length #'[ooo ...])
              #:with tcs-pat
              (with-depth
-              #'[(tvctx.x- ...) (ctx.x- ...) tc.es-pat]
+              #'[(tvctx.x- ...) (ctx.x- ...) tc.es-pat2]
               #'[ooo ...])
              #:with tvctxs/ctxs/ess/origs
              (with-depth
-              #`[(tvctx.ctx ...) (ctx.ctx ...) tc.es-stx tc.es-stx-orig]
+              #`[(tvctx.ctx ...) (ctx.ctx ...) tc.es-stx2 tc.es-stx-orig]
               #'[ooo ...])
              #:with inf #'(infers/depths 'clause-depth
                                          'tc.depth

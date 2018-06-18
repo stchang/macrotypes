@@ -102,12 +102,10 @@
             τ_out ...) ≫
            [⊢ τ_in  ≫ τ_in- ⇐ k_in] ...
 ;           [[X ≫ X- : τ_in-] ... ⊢ τ_out ≫ τ_out- ⇐ k_out] ...
-           #:with (k_out_inst ... k_inst
-                   τ_out_inst ...)
-                  (substs #'(τ_out ...) #'(Y ...) #'(k_out ... k τ_out ...))
-           ;; #:with (τ_out_inst ...)
-           ;;        (substs #'(τ_out ...) #'(Y ...) #'(τ_out ...))
-           [[X ≫ X- : τ_in-] ... ⊢ τ_out_inst ≫ τ_out- ⇐ k_out_inst] ...
+           ;; "telescope", fold premise notation
+           ;; ie, subst τ_out for Y in τ_out ... and k_out ...
+           [[X ≫ X- : τ_in-] ... ⊢ [[Y : τ_out] ≫ τ_out- ⇐ k_out] ...]
+           #:with k_inst (substs #'(τ_out ...) #'(Y ...) #'k)
            #:with maybe-lambda
                   ;; 2) when no binders, remove the λ in runtime rep
                   ;; - this allows comparisons at runtime
