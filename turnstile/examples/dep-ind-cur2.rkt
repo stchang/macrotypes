@@ -193,7 +193,7 @@
      #:with name/internal-expander (mk-~ #'name/internal)
      #:with name-expander (mk-~ #'name)
      #:with OUT
-     #;#'(begin-
+     #'(begin-
          (define-binding-type name/internal #:bind () : [A+i : τ] ... -> τ-out)
          (define-syntax name
            (make-variable-like-transformer
@@ -211,7 +211,7 @@
                     (~fail #:unless (free-id=? #'name- name/internal+))
                     )])))
            ))
-        #'(begin-
+     #;#'(begin-
          (struct name/internal (A+i ...) #:transparent)
          (define-syntax name
            (make-variable-like-transformer

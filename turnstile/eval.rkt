@@ -23,7 +23,7 @@
        #:do[(define new-m (syntax-property #'m 'reflect))]
        (transfer-props
         stx
-        #`(#,(or new-m #'m) . #,(stx-map reflect #'rst))
+        (quasisyntax/loc stx (#,(or new-m #'m) . #,(stx-map reflect #'rst)))
         #:except null)]
       [_ stx]))
 
@@ -79,6 +79,7 @@
      ;; #:with (τ_out_ ...) (generate-temporaries #'(k_out ...))
      ;; #:with (τ_out_inst ...) (generate-temporaries #'(τ_out ...))
      #:with (τ_out- ...) (generate-temporaries #'(τ_out ...))
+     #:with (τ_out_inst ...) (generate-temporaries #'(τ_out ...))
      #:with (k_out_inst ...) (generate-temporaries #'(k_out ...))
      ;; #:with (k_out+ ...) (generate-temporaries #'(k_out ...))
      #:with (X- ...) (generate-temporaries #'(X ...))
@@ -112,57 +113,19 @@
 ;;            ; 1-line telescope (2x slower) ; TODO: make it faster?
 ;; ;           [[X ≫ X- : τ_in-] ... [Y ≫ _ : τ_out] ⊢ τ_out ≫ τ_out- ⇐ k_out] ...
 ;;            ; explicit (faster) fold telescope
-           #:with (k_out_inst ...)
-                  (substs #'(k_out ...) #'(Y ...) #'(k_out ...))
-           [[X ≫ X- : τ_in-] ... ⊢ τ_out ≫ τ_out- ⇐ k_out] ...
-           ;; #:with res #;((X- ...) (τ_out- ...) (k_out_actual ...))
-           ;;        (let-values
-           ;;            ([(Xs τs- ks _)
-           ;;              (for/fold
-           ;;                  ([Xs (if (stx-null? #'(X ...))
-           ;;                           #'()
-           ;;                           (stx-cdr #'(X ...)))] ; Xs are binders for τs-, same len as ctx
-           ;;                   [τs- null] [ks null] [ctx #'([X : τ_in-] ...)])
-           ;;                  ([Y* (syntax->list #'(Y ...))]
-           ;;                   [τ_out* (syntax->list #'(τ_out ...))])
-           ;;                (printf "loop: ctx: ~a\n" (stx->datum ctx))
-           ;;                (printf "loop: tout: ~a\n" (stx->datum τ_out*))
-           ;;                (define/syntax-parse (new-Xs τ_out*- k*)
-           ;;                  (infer/ctx+erase ctx τ_out*))
-           ;;                (displayln 'a)
-           ;;                (define new-τs-
-           ;;                  (map
-           ;;                   (λ (t)
-           ;;                     (substs (if (stx-null? #'new-Xs) #'() (stx-cdr #'new-Xs))
-           ;;                             Xs
-           ;;                             t))
-           ;;                   τs-))
-           ;;                (displayln 'b)
-           ;;                (values #'new-Xs
-           ;;                        (cons #'τ_out*- new-τs-)
-           ;;                        (cons #'k* ks)
-           ;;                        (cons #`[#,Y* : #,τ_out*] ctx)))])
-           ;;          (displayln 10)
-           ;;          (displayln (stx->datum Xs))
-           ;;          (displayln (stx->datum τs-))
-           ;;          (displayln (stx->datum ks))
-           ;;          (list Xs τs- ks))
-           ;; #:do[(displayln 3)]
-           ;; #:with (a b c) #'res
-           ;; #:do[(displayln '3b)]
-           ;; #:do[(displayln (stx->datum #'a))]
-           ;; #:do[(displayln (stx->datum #'b))]
-           ;; #:do[(displayln (stx->datum #'c))]
-           ;; #:do[(displayln (stx->datum #'(k_out ...)))]
-           ;; #:with ((X- ...) (τ_out- ...) (k_out_actual ...)) #'(a b c)
-           ;; #:do[(displayln '3c)]
-           ;; #:with (k_out+ ...) #`#,(stx-map (current-type-eval) #'(k_out ...))
-           ;; #:do[(displayln 4)]
-           ;; [k_out_actual τ⊑ k_out+] ...
-           ;; #:do[(displayln 5)]
+           #:with (k_out_inst ... k_inst)
+                  (substs #'(τ_out ...) #'(Y ...) #'(k_out ... k))
+           #:with (τ_out_inst ...)
+                  (substs #'(τ_out ...) #'(Y ...) #'(τ_out ...))
+           [[X ≫ X- : τ_in-] ... ⊢ τ_out_inst ≫ τ_out- ⇐ k_out_inst] ...
+           #:with wrapped (if (stx-null? #'(X- ...))
+                              (syntax/loc this-syntax (#%plain-app list τ_out- ...))
+                              (syntax/loc this-syntax
+                                (λ- (X- ...) (#%plain-app list τ_out- ...))))
+           ;; TODO: add prop:equal?, ow wont be able to compare (lambdas) at runtime
            ---------------
-           [⊢ (#%plain-app- TY/internal τ_in- ...
-                            (λ- (X- ...) (#%plain-app- list τ_out- ...))) ⇒ k])
+           [⊢ (#%plain-app- TY/internal τ_in- ... wrapped
+                            #;(λ- (X- ...) (#%plain-app- list τ_out- ...))) ⇒ k_inst])
          (begin-for-syntax
            (define TY/internal+ (expand/df #'TY/internal))
            (define-syntax TY-expander
@@ -174,11 +137,14 @@
                           ((~literal #%plain-app)
                            (~var name/internal id)
                            τ_in ...
-                           ((~literal #%plain-lambda)
-                            (X ...)
-                            ((~literal #%plain-app)
-                             (~literal list)
-                             τ_out ...)))
+                           (~or ((~literal #%plain-lambda)
+                                 (X ...)
+                                 ((~literal #%plain-app)
+                                  (~literal list)
+                                  τ_out ...))
+                                ((~literal #%plain-app)
+                                 (~literal list)
+                                 τ_out ...)))
                           #'ty)
                          (~fail #:unless (free-id=? #'name/internal TY/internal+)))])))
            ))
