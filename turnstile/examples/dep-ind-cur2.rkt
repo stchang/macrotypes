@@ -58,7 +58,7 @@
 ;; TODO: get rid of this?
 (define-syntax TypeTop (make-variable-like-transformer #'(Type 99)))
 
-(define-binding-type Π #:bind ([X : TypeTop]) : TypeTop -> Type)
+(define-binding-type Π #:bind ([X : TypeTop]) : [dummy : TypeTop] -> Type)
 
 ;; curried version of Π
 (define-syntax (Π/c stx)
@@ -113,8 +113,22 @@
     [(_ name (~datum :) ty)
      #:with (~Π/c [A+i : τ] ... τ-out) ((current-type-eval) #'ty)
      #:with name/internal (generate-temporary #'name)
+     #:with name/internal-expander (mk-~ #'name/internal)
      #:with name-expander (mk-~ #'name)
-     #'(begin-
+      #'(begin-
+         (define-binding-type name/internal #:bind () : [A+i : τ] ... -> τ-out)
+         (define-syntax name
+           (make-variable-like-transformer
+            #'(λ/c [A+i : τ] ... (name/internal () A+i ...))))
+         (begin-for-syntax
+           (define-syntax name-expander
+             (pattern-expander
+              (syntax-parser
+                [:id #'(name-expander A+i ...)] ; 0-arity case; need non-id case as well?
+                [(_ A+i ...)
+                 #'(name/internal-expander () A+i ...)])))
+           ))
+     #;#'(begin-
          (struct name/internal (A+i ...) #:transparent)
          (define-syntax name
            (make-variable-like-transformer
@@ -165,14 +179,14 @@
    ---------
    [⊢ (λ- (x-) e-)]]
   ;; both expected ty and annotations
-  [(_ ([y:id : τ_in*]) e) ⇐ (~Π ([x:id : τ_in]) τ_out) ≫
+  [(_ ([y:id (~datum :) τ_in*]) e) ⇐ (~Π ([x:id : τ_in]) τ_out) ≫
    [⊢ τ_in* ≫ τ_in** ⇐ Type]
    #:when (typecheck? #'τ_in** #'τ_in)
    [[x ≫ x- : τ_in] ⊢ #,(subst #'x #'y #'e) ≫ e- ⇐ τ_out]
    -------
    [⊢ (λ- (x-) e-)]]
   ;; annotations only
-  [(_ ([x:id : τ_in]) e) ≫
+  [(_ ([x:id (~datum :) τ_in]) e) ≫
    [[x ≫ x- : τ_in] ⊢ [e ≫ e- ⇒ τ_out] [τ_in ≫ τ_in- ⇒ _]]
    -------
    [⊢ (λ- (x-) e-) ⇒ (Π ([x- : τ_in-]) τ_out)]])

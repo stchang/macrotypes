@@ -23,7 +23,8 @@
        #:do[(define new-m (syntax-property #'m 'reflect))]
        (transfer-props
         stx
-        #`(#,(or new-m #'m) . #,(stx-map reflect #'rst))
+        (quasisyntax/loc stx
+          (#,(or new-m #'m) . #,(stx-map reflect #'rst)))
         #:except null)]
       [_ stx]))
 
@@ -72,11 +73,14 @@
 
 (define-syntax define-binding-type
   (syntax-parser
-    [(_ TY #:bind ([X:id (~datum :) k_in] ...) (~datum :) k_out ... (~datum ->) k)
+    [(_ TY (~optional (~seq #:bind ([X:id (~datum :) k_in] ...)))
+        (~datum :) [Y:id (~datum :) k_out] ... (~datum ->) k)
      #:with (τ_in ...) (generate-temporaries #'(k_in ...))
      #:with (τ_in- ...) (generate-temporaries #'(k_in ...))
      #:with (τ_out ...) (generate-temporaries #'(k_out ...))
      #:with (τ_out- ...) (generate-temporaries #'(k_out ...))
+     #:with (τ_out_inst ...) (generate-temporaries #'(τ_out ...))
+     #:with (k_out_inst ...) (generate-temporaries #'(k_out ...))
      #:with (X- ...) (generate-temporaries #'(X ...))
      #:with TY/internal (generate-temporary #'TY)
      #:with TY-expander (mk-~ #'TY)
@@ -84,9 +88,23 @@
          (struct- TY/internal (X ... bod) #:transparent)
          (define-typerule (TY ([(~var X id) (~datum :) τ_in] ...) τ_out ...) ≫
            [⊢ τ_in  ≫ τ_in- ⇐ k_in] ...
-           [[X ≫ X- : τ_in-] ... ⊢ τ_out ≫ τ_out- ⇐ k_out] ...
+;           [[X ≫ X- : τ_in-] ... ⊢ τ_out ≫ τ_out- ⇐ k_out] ...
+           #:with (k_out_inst ... k_inst
+                   τ_out_inst ...)
+                  (substs #'(τ_out ...) #'(Y ...) #'(k_out ... k τ_out ...))
+           ;; #:with (τ_out_inst ...)
+           ;;        (substs #'(τ_out ...) #'(Y ...) #'(τ_out ...))
+           [[X ≫ X- : τ_in-] ... ⊢ τ_out_inst ≫ τ_out- ⇐ k_out_inst] ...
+           #:with maybe-lambda
+                  ;; remove the λ when there are no binders
+                  ;; - this allows comparisons at runtime
+                  ;; - alternative? use prop:equal?
+                  (if (stx-null? #'(X- ...))
+                      (syntax/loc this-syntax (#%plain-app list τ_out- ...))
+                      (syntax/loc this-syntax
+                        (λ- (X- ...) (#%plain-app list τ_out- ...))))
            ---------------
-           [⊢ (TY/internal τ_in- ... (λ- (X- ...) τ_out- ...)) ⇒ k])
+           [⊢ (TY/internal τ_in- ... maybe-lambda) ⇒ k_inst])
          (begin-for-syntax
            (define TY/internal+ (expand/df #'TY/internal))
            (define-syntax TY-expander
@@ -98,9 +116,14 @@
                           ((~literal #%plain-app)
                            name/internal:id
                            τ_in ...
-                           ((~literal #%plain-lambda)
-                            (X ...)
-                            τ_out ...))
+                           (~or ((~literal #%plain-lambda)
+                                 (X ...)
+                                 ((~literal #%plain-app)
+                                  (~literal list)
+                                  τ_out ...))
+                                ((~literal #%plain-app)
+                                 (~literal list)
+                                 τ_out ...)))
                           #'ty)
                          (~fail #:unless (free-id=? #'name/internal TY/internal+)))])))
            ))]))
