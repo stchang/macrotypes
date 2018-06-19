@@ -62,21 +62,31 @@
     [(_ (x . rst) e)
      (syntax/loc stx (λ- (x) (λ/c- rst e)))]))
 
-#;(begin-for-syntax
-  (define-syntax ~plain-app/c
+(module stx-clss racket/base
+  (require syntax/parse)
+  (provide x+τ)
+
+  #;(define-syntax ~plain-app/c
     (pattern-expander
      (syntax-parser
        [(_ f) #'f]
        [(_ f e . rst)
         #'(~plain-app/c ((~literal #%plain-app) f e) . rst)])))
+
+  (define-syntax-class x+τ
+    (pattern [(~var x id) (~datum :) τ]))
 )
+
+(require (for-meta 1 'stx-clss) (for-meta 2 'stx-clss))
 
 (define-syntax define-type
   (syntax-parser
     [(_ TY
         ;; specifying binders (ie, a binding type) alters the output
         ;; in 4 (numbered) places below
-        (~optional (~seq #:with-binders ([X:id (~datum :) k_in] ...))
+        (~optional (~seq #:with-binders ([X:id (~datum :) k_in] ...
+                                         (~optional (~and #:telescope
+                                                          telescope?))))
                    #:defaults ([(X 1) null] [(k_in 1) null]))
         (~datum :) (~or (~seq [Y:id (~datum :) k_out] ...)
                         (~and (~seq k_out ...)
@@ -91,10 +101,12 @@
      #:with (X- ...) (generate-temporaries #'(X ...))
      #:with TY/internal (generate-temporary #'TY)
      #:with TY-expander (mk-~ #'TY)
+     #:with TY/1 (format-id #'TY "~a/1" #'TY)
+     #:with TY-expander/1 (mk-~ #'TY/1)
      #`(begin-
          (struct- TY/internal (X ... bod) #:transparent)
          (define-typerule
-           (TY
+           (#,(if (attribute telescope?) #'TY/1 #'TY)
             ;; 1) dont require binders in constructor if there are none
             #,@(if (stx-null? #'(X ...))
                    null
@@ -116,9 +128,17 @@
                             (λ- (X- ...) (#%plain-app list τ_out- ...))))
            ---------------
            [⊢ (TY/internal τ_in- ... maybe-lambda) ⇒ k_inst])
+         #,@(if (attribute telescope?)
+                (list
+                 #'(define-syntax (TY stx)
+                     (syntax-parse stx
+                       [(_ t) #'t]
+                       [(_ (~var b x+τ) . rst)
+                        (syntax/loc stx (TY/1 (b) (TY . rst)))])))
+                 #'())
          (begin-for-syntax
            (define TY/internal+ (expand/df #'TY/internal))
-           (define-syntax TY-expander
+           (define-syntax #,(if (attribute telescope?) #'TY-expander/1 #'TY-expander)
              (pattern-expander
               (syntax-parser
                 [(_
@@ -144,7 +164,25 @@
                                      τ_out ...))))
                           #'ty)
                          (~fail #:unless (free-id=? #'name/internal TY/internal+)))])))
-           ))]))
+           #,@(if (attribute telescope?)
+                  (list 
+                   #'(define-syntax TY-expander
+                       (pattern-expander
+                        (syntax-parser
+                          [(_ t) #'t]
+                          [(_ (~var b x+τ) (~and (~literal (... ...)) ooo) t_out)
+                           #'(~and TMP
+                                   (~parse ([b.x b.τ] ooo t_out)
+                                           (let L ([ty #'TMP][xtys empty])
+                                             (syntax-parse ty
+                                               [(TY-expander/1 ([x : τ_in_]) rst)
+                                                (L #'rst (cons #'[x τ_in_] xtys))]
+                                               [t_out
+                                                (reverse (cons #'t_out xtys))]))))]
+                          [(_ (~var b x+τ) . rst)
+                           #'(TY-expander/1 (b) (TY-expander . rst))]))))
+                  #'())
+             ))]))
 
            
                        

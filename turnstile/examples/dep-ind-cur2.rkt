@@ -14,7 +14,8 @@
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
 (provide Type (rename-out [Type *])
-         (rename-out [Π/c Π] [→/c →] [∀/c ∀] [λ/c λ] [app/c #%app])
+         Π
+         (rename-out #;[Π/c Π] [→/c →] [∀/c ∀] [λ/c λ] [app/c #%app])
          = eq-refl eq-elim
          ann define-datatype define define-type-alias)
 
@@ -58,55 +59,31 @@
 ;; TODO: get rid of this?
 (define-syntax TypeTop (make-variable-like-transformer #'(Type 99)))
 
-(define-type Π #:with-binders ([X : TypeTop]) : TypeTop -> Type)
-
-;; curried version of Π
-(define-syntax (Π/c stx)
-  (syntax-parse stx
-    [(_ t) #'t]
-    [(_ (~and xty [x:id (~datum :) τ]) . rst)
-     (syntax/loc stx (Π (xty) (Π/c . rst)))]))
-
-;; curried Π pattern expander
-(begin-for-syntax
-  (define-syntax ~Π/c
-    (pattern-expander
-     (syntax-parser
-       [(_ t) #'t]
-       [(_ [x (~datum :) ty] (~and (~literal ...) ooo) t_out)
-        #'(~and TMP
-                (~parse ([x ty] ooo t_out)
-                        (let L ([ty #'TMP][xtys empty])
-                          (syntax-parse ty
-                            [(~Π ([x : τ_in]) rst)
-                             (L #'rst (cons #'[x τ_in] xtys))]
-                            [t_out
-                             (reverse (cons #'t_out xtys))]))))]
-       [(_ (~and xty [x:id : τ_in]) . rst)
-        #'(~Π (xty) (~Π/c . rst))]))))
+;; old Π/c now Π, old Π now Π/1
+(define-type Π #:with-binders ([X : TypeTop] #:telescope) : TypeTop -> Type)
 
 ;; abbrevs for Π
 ;; (→ τ_in τ_out) == (Π (unused : τ_in) τ_out)
 (define-simple-macro (→ τ_in τ_out)
   #:with X (generate-temporary #'τ_in)
-  (Π ([X : τ_in]) τ_out))
+  (Π/1 ([X : τ_in]) τ_out))
 ;; (∀ (X) τ) == (∀ ([X : Type]) τ)
 (define-simple-macro (∀ (X)  τ)
-  (Π ([X : Type]) τ))
+  (Π/1 ([X : Type]) τ))
 
 ;; abbrevs for Π/c
 ;; (→ τ_in τ_out) == (Π (unused : τ_in) τ_out)
 (define-simple-macro (→/c τ_in ... τ_out)
   #:with (X ...) (generate-temporaries #'(τ_in ...))
-  (Π/c [X : τ_in] ... τ_out))
+  (Π [X : τ_in] ... τ_out))
 ;; (∀ (X) τ) == (∀ ([X : Type]) τ)
 (define-simple-macro (∀/c X ...  τ)
-  (Π/c [X : Type] ... τ))
+  (Π [X : Type] ... τ))
 
 (define-syntax define-cur-constructor
   (syntax-parser
     [(_ name (~datum :) ty)
-     #:with (~Π/c [A+i : τ] ... τ-out) ((current-type-eval) #'ty)
+     #:with (~Π [A+i : τ] ... τ-out) ((current-type-eval) #'ty)
      #:with name/internal (generate-temporary #'name)
      #:with name/internal-expander (mk-~ #'name/internal)
      #:with name-expander (mk-~ #'name)
@@ -140,7 +117,7 @@
      (or (type=? t1+ t2) ; equality
          (syntax-parse (list t1+ t2)
            [((~Type n) (~Type m)) (<= (stx-e #'n) (stx-e #'m))]
-           [((~Π ([x1 : τ_in1]) τ_out1) (~Π ([x2 : τ_in2]) τ_out2))
+           [((~Π/1 ([x1 : τ_in1]) τ_out1) (~Π/1 ([x2 : τ_in2]) τ_out2))
             (and (type=? #'τ_in1 #'τ_in2)
                  (typecheck? (subst #'x2 #'x1 #'τ_out1) #'τ_out2))]
            [_ #f])))))
@@ -148,12 +125,12 @@
 ;; lambda and #%app -----------------------------------------------------------
 (define-typed-syntax λ
   ;; expected ty only
-  [(_ (y:id) e) ⇐ (~Π ([x:id : τ_in]) τ_out) ≫
+  [(_ (y:id) e) ⇐ (~Π/1 ([x:id : τ_in]) τ_out) ≫
    [[x ≫ x- : τ_in] ⊢ #,(subst #'x #'y #'e) ≫ e- ⇐ τ_out]
    ---------
    [⊢ (λ- (x-) e-)]]
   ;; both expected ty and annotations
-  [(_ ([y:id (~datum :) τ_in*]) e) ⇐ (~Π ([x:id : τ_in]) τ_out) ≫
+  [(_ ([y:id (~datum :) τ_in*]) e) ⇐ (~Π/1 ([x:id : τ_in]) τ_out) ≫
    [⊢ τ_in* ≫ τ_in** ⇐ Type]
    #:when (typecheck? #'τ_in** #'τ_in)
    [[x ≫ x- : τ_in] ⊢ #,(subst #'x #'y #'e) ≫ e- ⇐ τ_out]
@@ -163,11 +140,11 @@
   [(_ ([x:id (~datum :) τ_in]) e) ≫
    [[x ≫ x- : τ_in] ⊢ [e ≫ e- ⇒ τ_out] [τ_in ≫ τ_in- ⇒ _]]
    -------
-   [⊢ (λ- (x-) e-) ⇒ (Π ([x- : τ_in-]) τ_out)]])
+   [⊢ (λ- (x-) e-) ⇒ (Π/1 ([x- : τ_in-]) τ_out)]])
 
 (define-typerule/red (app e_fn e_arg) ≫
 ;  #:do[(printf "apping: ~a ------------\n" (syntax->datum #'(app e_fn e_arg)))]
-  [⊢ e_fn ≫ e_fn- ⇒ (~Π ([X : τ_in]) τ_out)]
+  [⊢ e_fn ≫ e_fn- ⇒ (~Π/1 ([X : τ_in]) τ_out)]
   [⊢ e_arg ≫ e_arg- ⇐ τ_in]
   #:with τ-out (reflect (subst #'e_arg- #'X #'τ_out))
   -----------------------------
@@ -182,7 +159,7 @@
   [⊢ e- ⇒ τ])
 
 ;; ----------------------------------------------------------------------------
-;; auto-currying λ and #%app and Π
+;; auto-currying λ and #%app and Π/1
 ;; - requires annotations for now
 ;; TODO: add other cases?
 (define-syntax (λ/c stx)
@@ -203,7 +180,7 @@
 ;; equality -------------------------------------------------------------------
 ;(define-internal-type-constructor =)
 ;(define-type-constructor = : (→/c Type Type Type))
-;(define-constructor = : (Π/c [A : Type] [a : A] [b : A] Type))
+;(define-constructor = : (Π [A : Type] [a : A] [b : A] Type))
 (struct =- (l r) #:transparent)
 (define-typed-syntax (= t1 t2) ≫
   [⊢ t1 ≫ t1- ⇒ ty]
@@ -270,12 +247,12 @@
 
 ;; helper syntax fns
 (begin-for-syntax
-  ;; drops first n bindings in Π type
+  ;; drops first n bindings in Π/1 type
   (define (prune t n)
     (if (zero? n)
         t
         (syntax-parse t
-          [(~Π ([_ : _]) t1)
+          [(~Π/1 ([_ : _]) t1)
            (prune #'t1 (sub1 n))])))
   ;; x+τss = (([x τ] ...) ...)
   ;; returns subset of each (x ...) that is recursive, ie τ = TY
@@ -341,7 +318,7 @@
   ;; - ie, `TY` is an id with no params or indices
   [(_ TY:id (~datum :) τ:id [C:id (~datum :) τC] ...) ≫
    ;; need with-unbound and ~unbound bc `TY` name still undefined here
-   [⊢ (with-unbound TY τC) ≫ (~unbound TY (~Π/c [x : τin] ... _)) ⇐ Type] ...
+   [⊢ (with-unbound TY τC) ≫ (~unbound TY (~Π [x : τin] ... _)) ⇐ Type] ...
    ;; ---------- pre-define some pattern variables for cleaner output:
    ;; recursive args of each C; where (xrec ...) ⊆ (x ...)
    #:with ((xrec ...) ...) (find-recur #'TY #'(([x τin] ...) ...))
@@ -370,7 +347,7 @@
           ;; each `m` can consume 2 sets of args:
           ;; 1) args of the constructor `x` ... 
           ;; 2) IHs for each `x` that has type `TY`
-          #:with (τm ...) #'((Π/c [x : τin] ...
+          #:with (τm ...) #'((Π [x : τin] ...
                               (→/c (app/c P- xrec) ... (app/c P- (app/c C x ...)))) ...)
           [⊢ m ≫ m- ⇐ τm] ...
           -----------
@@ -383,14 +360,14 @@
   ;; defines inductive type family `TY`, with:
   ;; - params A ...
   ;; - indices i ...
-  ;; - ie, TY is a type constructor with type (Π [A : τA] ... [i τi] ... τ)
+  ;; - ie, TY is a type constructor with type (Π/1 [A : τA] ... [i τi] ... τ)
   ;; --------------------------------------------------------------------------
   [(_ TY:id [A:id (~datum :) τA] ... (~datum :) ; params
             [i:id (~datum :) τi] ... ; indices
             (~datum ->) τ
    [C:id (~datum :) τC] ...) ≫
    ; need to expand `τC` but `TY` is still unbound so use tmp id
-   [⊢ (with-unbound TY τC) ≫ (~unbound TY (~Π/c [A+i+x : τA+i+x] ... τout)) ⇐ Type] ...
+   [⊢ (with-unbound TY τC) ≫ (~unbound TY (~Π [A+i+x : τA+i+x] ... τout)) ⇐ Type] ...
    ;; split τC args into params and others
    ;; TODO: check that τA matches τCA (but cant do it in isolation bc they may refer to other params?)
    #:with ((([CA τCA] ...)
@@ -436,7 +413,7 @@
    #:with OUTPUT-DEFS
     #'(begin-
         ;; define the type
-        (define-cur-constructor TY : (Π/c [A : τA] ... [i : τi] ... τ))
+        (define-cur-constructor TY : (Π [A : τA] ... [i : τi] ... τ))
 
         ;; define the data constructors
         (define-cur-constructor C : τC) ...
@@ -474,7 +451,7 @@
                   #'((τin ... τout) ...))
 
           ;; τi here is τi above, instantiated with A ... from v-
-          [⊢ P ≫ P- ⇐ (Π/c [j : τi] ... (→ (app/c TY A ... j ...) Type))]
+          [⊢ P ≫ P- ⇐ (Π [j : τi] ... (→ (app/c TY A ... j ...) Type))]
 
           ;; get the params and indices in τout/A
           ;; - dont actually need τoutA, except to find τouti
@@ -492,7 +469,7 @@
           ;;             the indices may not be included, when not needed by the xs
           ;; 3) IHs - for each xrec ... (which are a subset of i+x ...)
           #:with (τm ...)
-                 #'((Π/c [i+x : τin/A] ... ; constructor args ; ASSUME: i+x includes indices
+                 #'((Π [i+x : τin/A] ... ; constructor args ; ASSUME: i+x includes indices
                          (→/c (app/c P- irec ... xrec) ... ; IHs
                               (app/c P- τouti ... (app/c C A*C ... i+x ...)))) ...)
           [⊢ m ≫ m- ⇐ τm] ...
