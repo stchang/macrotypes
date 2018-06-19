@@ -83,7 +83,7 @@
   (syntax-parser
     [(_ TY
         ;; specifying binders (ie, a binding type) alters the output
-        ;; in 4 (numbered) places below
+        ;; in 3 (numbered) places below
         (~optional (~seq #:with-binders ([X:id (~datum :) k_in] ...
                                          (~optional (~and #:telescope
                                                           telescope?))))
@@ -141,29 +141,33 @@
            (define-syntax #,(if (attribute telescope?) #'TY-expander/1 #'TY-expander)
              (pattern-expander
               (syntax-parser
-                [(_
-                  ;; 3) dont require binders in pat expander if there are none
-                  #,@(if (stx-null? #'(X ...))
-                         null
-                         (list #' ([(~var X id) (~datum :) τ_in] ...)))
-                  τ_out ...)
-                 #'(~and ty
-                         (~parse
-                          ((~literal #%plain-app)
-                           name/internal:id
-                           τ_in ...
-                           ;; 4) when no binders, dont match lambda
-                           #,(if (stx-null? #'(X ...))
-                                 #'((~literal #%plain-app)
-                                    (~literal list)
-                                    τ_out ...)
-                                 #'((~literal #%plain-lambda)
-                                    (X ...)
-                                    ((~literal #%plain-app)
-                                     (~literal list)
-                                     τ_out ...))))
-                          #'ty)
-                         (~fail #:unless (free-id=? #'name/internal TY/internal+)))])))
+                #,(if (stx-null? #'(X ...))
+                   ;; 3a) dont need binders in pat expander if none; dont match λ in runtime rep
+                   #'[(_ τ_out ...)
+                      #'(~and ty
+                              (~parse
+                               ((~literal #%plain-app)
+                                name/internal:id
+                                τ_in ...
+                                ((~literal #%plain-app)
+                                 (~literal list)
+                                 τ_out ...))
+                               #'ty)
+                              (~fail #:unless (free-id=? #'name/internal TY/internal+)))]
+                   ;; 3b) binding type case
+                   #'[(_ ([(~var X id) (~datum :) τ_in] ...) τ_out ...)
+                      #'(~and ty
+                              (~parse
+                               ((~literal #%plain-app)
+                                name/internal:id
+                                τ_in ...
+                                ((~literal #%plain-lambda)
+                                 (X ...)
+                                 ((~literal #%plain-app)
+                                  (~literal list)
+                                  τ_out ...)))
+                               #'ty)
+                              (~fail #:unless (free-id=? #'name/internal TY/internal+)))]))))
            #,@(if (attribute telescope?)
                   (list 
                    #'(define-syntax TY-expander
