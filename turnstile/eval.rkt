@@ -2,8 +2,11 @@
 
 ;; library for specifying type-level reduction rules
 
-(provide define-typerule/red
+(provide define-red
          define-type
+         define-typerule/red
+         define-nested/R
+         define-nested/L
          λ/c-
          (for-syntax datum=? reflect))
 
@@ -58,13 +61,6 @@
 ;     #:do[(pretty-print (stx->datum #'OUT))]
      #'OUT]))
 
-;; untyped
-(define-syntax (λ/c- stx)
-  (syntax-parse stx
-    [(_ () e) #'e]
-    [(_ (x . rst) e)
-     (syntax/loc stx (λ- (x) (λ/c- rst e)))]))
-
 (module stx-clss racket/base
   (require syntax/parse)
   (provide x+τ)
@@ -82,9 +78,76 @@
 
 (require (for-meta 1 'stx-clss) (for-meta 2 'stx-clss))
 
+(module helper-macros racket/base
+  (require syntax/parse
+           (for-syntax racket/base syntax/parse)
+           (for-meta 2 racket/base)
+           (for-syntax (for-syntax syntax/parse))
+           (for-meta 3 syntax/parse))
+  (provide define-nested/R define-nested/L stx-parse/fold)
+;; R = like foldr, eg λ
+;; L = like foldl, eg app
+;; usage: (define-nested name name/1 n)
+;; name = name of the curried form, eg λ/c
+;; name/1 = name of the unit form, eg λ/1
+;; n = how many elements to curry each time, eg λ: n = 1, app, n = 2
+(define-syntax define-nested/R
+  (syntax-parser
+    [(_ name:id name/1) #'(define-nested/R name name/1 #:as (λ (x) x))]
+    [(_ name:id name/1 #:as tag); n:exact-positive-integer)
+     #'(define-syntax name
+         (tag ; eg pattern-expander
+          (syntax-parser
+            [(_ e) #'e]
+            [(_ x . rst) #'(name/1 x (name . rst))]
+            ;; #:when (>= (stx-length #'es) n)
+            ;; #:with ((e (... ...)) rst) (stx-split-at #'es (sub1 n))
+            ;; #:do[(displayln (syntax->datum #'(e (... ...))))
+            ;;      (displayln (syntax->datum #'rst))]
+            ;; #'(name/1 e (... ...) (name . rst))]
+            )))]))
+(define-syntax define-nested/L
+  (syntax-parser
+    [(_ name:id name/1) #'(define-nested/L name name/1 #:as (λ (x) x))]
+    [(_ name:id name/1 #:as tag); n:exact-positive-integer)
+     #'(define-syntax name
+         (tag
+          (syntax-parser
+            [(_ e) #'e]
+            [(_ f e . rst) #'(name (name/1 f e) . rst)]
+            ;; #:when (> (stx-length #'es) n)
+            ;; #:with ((e (... ...)) rst) (stx-split-at #'es n)
+            ;; #'(name (name/1 e (... ...)) . rst)]
+            )))]))
+;; TODO: not working "illegal use of syntax" for passed pattern-expander
+(define-syntax stx-parse/fold ; foldl
+  (syntax-parser
+    ;; pat must bind pattern variable #'rst
+    ;; TODO: improve this?
+    [(_ e (a b c)) ;(~optional combine #:defaults ([combine #'cons]))
+              ;(~optional final   #:defaults ([final #'reverse])))
+;     #:with aa (syntax-local-syntax-parse-pattern-introduce #'a)
+     #`(let L ([e-rst e][acc null])
+         (syntax-parse e-rst
+           [(a b c) (L #'c (cons #'b acc))]
+           [other (reverse (cons #'other acc))]))]))
+)
+
+(require 'helper-macros (for-syntax 'helper-macros))
+
+;; untyped
+;(define-nested/R λ/c- λ- #:pos stx-car)
+(define-syntax (λ/c- stx)
+  (syntax-parse stx
+    [(_ () e) #'e]
+    [(_ (x . rst) e)
+     (syntax/loc stx (λ- (x) (λ/c- rst e)))]))
+
 (define-syntax define-type
   (syntax-parser
-    [(_ TY
+    ;; simpler cases
+    [(_ TY:id (~datum :) k) #'(define-type TY : -> k)]
+    [(_ TY:id
         ;; specifying binders (ie, a binding type) alters the output
         ;; in 3 (numbered) places below
         (~optional (~seq #:with-binders ([X:id (~datum :) k_in] ...
@@ -104,16 +167,21 @@
      #:with (X- ...) (generate-temporaries #'(X ...))
      #:with TY/internal (generate-temporary #'TY)
      #:with TY-expander (mk-~ #'TY)
+     #:with TY-expander/1/nested (format-id #'TY "~a/nested" (mk-~ #'TY/1))
      #:with TY/1 (format-id #'TY "~a/1" #'TY)
      #:with TY-expander/1 (mk-~ #'TY/1)
      #`(begin-
          (struct- TY/internal (X ... bod) #:transparent)
-         (define-typerule
-           (#,(if (attribute telescope?) #'TY/1 #'TY)
+         (define-typerule #,(if (attribute telescope?) #'TY/1 #'TY)
+           #,@(if (and (stx-null? #'(Y ...)) ; base type, allow use as just id
+                       (stx-null? #'(X ...)))
+                  (list #`[(~var _ id) ≫ --- [≻ #,(if (attribute telescope?) #'(TY/1) #'(TY))]])
+                  null)
+           [(_ ; fully explicit case
             ;; 1) dont require binders in constructor if there are none
             #,@(if (stx-null? #'(X ...))
                    null
-                   (list #'([(~var X id) (~datum :) τ_in] ...)))
+                   (list #'(~seq [(~var X id) (~datum :) τ_in] ...)))
             τ_out ...) ≫
            [⊢ τ_in  ≫ τ_in- ⇐ k_in] ...
 ;           [[X ≫ X- : τ_in-] ... ⊢ τ_out ≫ τ_out- ⇐ k_out] ...
@@ -130,10 +198,11 @@
                         #'(syntax/loc this-syntax
                             (λ- (X- ...) (#%plain-app list τ_out- ...))))
            ---------------
-           [⊢ (TY/internal τ_in- ... maybe-lambda) ⇒ k_inst])
+           [⊢ (TY/internal τ_in- ... maybe-lambda) ⇒ k_inst]])
          #,@(if (attribute telescope?)
                 (list
-                 #'(define-syntax (TY stx)
+                 #'(define-nested/R TY TY/1)
+                 #;#'(define-syntax (TY stx)
                      (syntax-parse stx
                        [(_ t) #'t]
                        [(_ (~var b x+τ) . rst)
@@ -144,6 +213,13 @@
            (define-syntax #,(if (attribute telescope?) #'TY-expander/1 #'TY-expander)
              (pattern-expander
               (syntax-parser
+;                [a #:do[(displayln (stx->datum #'a))] #:when #f #'void] ; debug
+                ; base type, allow using pat-expand as just id
+                ;; (needs extra case below to handle case when
+                ;; it's used as id, but in a head position)
+                #,@(if (and (stx-null? #'(X ...)) (stx-null? #'(Y ...)))
+                       (list #'[(~var _ id) #'(TY-expander)])
+                       null)
                 #,(if (stx-null? #'(X ...))
                    ;; 3a) dont need binders in pat expander if none; dont match λ in runtime rep
                    #'[(_ τ_out ...)
@@ -158,7 +234,7 @@
                                #'ty)
                               (~fail #:unless (free-id=? #'name/internal TY/internal+)))]
                    ;; 3b) binding type case
-                   #'[(_ ([(~var X id) (~datum :) τ_in] ...) τ_out ...)
+                   #'[(_ (~seq [(~var X id) (~datum :) τ_in] ...) τ_out ...)
                       #'(~and ty
                               (~parse
                                ((~literal #%plain-app)
@@ -170,24 +246,31 @@
                                   (~literal list)
                                   τ_out ...)))
                                #'ty)
-                              (~fail #:unless (free-id=? #'name/internal TY/internal+)))]))))
+                              (~fail #:unless (free-id=? #'name/internal TY/internal+)))])
+                ;; companion case to first (id usage) case
+                #,@(if (and (stx-null? #'(X ...)) (stx-null? #'(Y ...)))
+                       (list #'[(_ . rst) #'((TY-expander) . rst)])
+                       null)
+                )))
            #,@(if (attribute telescope?)
-                  (list 
-                   #'(define-syntax TY-expander
-                       (pattern-expander
-                        (syntax-parser
-                          [(_ t) #'t]
-                          [(_ (~var b x+τ) (~and (~literal (... ...)) ooo) t_out)
-                           #'(~and TMP
-                                   (~parse ([b.x b.τ] ooo t_out)
-                                           (let L ([ty #'TMP][xtys empty])
-                                             (syntax-parse ty
-                                               [(TY-expander/1 ([x : τ_in_]) rst)
-                                                (L #'rst (cons #'[x τ_in_] xtys))]
-                                               [t_out
-                                                (reverse (cons #'t_out xtys))]))))]
-                          [(_ (~var b x+τ) . rst)
-                           #'(TY-expander/1 (b) (TY-expander . rst))]))))
+                  (list
+;                   #'(define-nested/R TY-expander/1/nested TY-expander/1 #:as pattern-expander)
+                   #`(define-syntax TY-expander
+                         (pattern-expander
+                          (syntax-parser
+                            [(_ t) #'t]
+                            [(_ (~var b x+τ) (~and (~literal (... ...)) ooo) t_out)
+                             #'(~and TMP
+;                                     (~do (displayln (stx->datum (stx-parse/fold TMP (TY-expander/1 b rst)))))
+                                     #;(~parse ([b.x (~datum :) b.τ] ooo t_out)
+                                             (stx-parse/fold #'TMP (TY-expander/1 b rst)))
+                                     (~parse ([b.x (~datum :) b.τ] ooo t_out)
+                                             (let L ([ty #'TMP][xtys empty])
+                                               (syntax-parse ty
+                                                 [(TY-expander/1 b rst) (L #'rst (cons #'b xtys))]
+                                                 [t_out (reverse (cons #'t_out xtys))]))))]
+                            #;[(_ (~var b x+τ) . rst)
+                             #'(TY-expander/1 b (TY-expander . rst))]))))
                   #'())
              ))]))
 

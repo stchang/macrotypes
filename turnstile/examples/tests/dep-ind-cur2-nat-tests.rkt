@@ -1,23 +1,10 @@
 #lang s-exp "../dep-ind-cur2.rkt"
+(require "../dep-ind-cur2+nat.rkt")
 (require "rackunit-typechecking.rkt")
 
 ; Π → λ ∀ ≻ ⊢ ≫ ⇒
 
-; identical to dep-ind-fixed-tests.rkt
-; but with default curry/uncurry
-
-; should be similar to dep-ind-tests.rkt
-; since dep-ind-cur does not change
-; first clause of define-datatype
-
-;; examples from Prabhakar's Proust paper
-
-;; this file is like dep-peano-tests.rkt except it uses
-;; define-datatype from #lang dep-ind-cur.rkt to define Nat,
-;; instead of using the builtin Nat from #lang dep.rkt
-
-;; the examples in this file are mostly identical to dep-peano-tests.rkt,
-;; except Z is replaced with (Z)
+;; same as dep-ind-cur2-tests, except uses Nat lib instead of defining it
 
 ;; check (Type n) : (Type n+1)
 (check-type Type : (Type 1) -> (Type 0))
@@ -42,14 +29,14 @@
 
 ;; Peano nums -----------------------------------------------------------------
 
-(define-datatype Nat : *
-  [Z : Nat]
-  [S : (→ Nat Nat)])
+;; (define-datatype Nat : *
+;;   [Z : Nat]
+;;   [S : (→ Nat Nat)])
 
 (check-type Z : Nat)
 (check-type (Z) : Nat)
 (check-type Z : (→ Nat)) ;; TODO: make this err?
-(check-type S : (→ Nat Nat))
+;(check-type S : (→ Nat Nat))
 (check-type Z : Nat -> Z)
 (check-type (Z) : Nat -> (Z)) ;; TODO?
 (check-type (S (Z)) : Nat)

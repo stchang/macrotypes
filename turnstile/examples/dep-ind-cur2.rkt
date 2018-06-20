@@ -15,7 +15,7 @@
 
 (provide Type (rename-out [Type *])
          Π
-         (rename-out #;[Π/c Π] [→/c →] [∀/c ∀] [λ/c λ] [app/c #%app])
+         (rename-out #;[Π/c Π] [→/c →] [∀/c ∀] [λ/c λ] [app/c #%app] [app/eval/c app/eval])
          = eq-refl eq-elim
          ann define-datatype define define-type-alias)
 
@@ -66,10 +66,10 @@
 ;; (→ τ_in τ_out) == (Π (unused : τ_in) τ_out)
 (define-simple-macro (→ τ_in τ_out)
   #:with X (generate-temporary #'τ_in)
-  (Π/1 ([X : τ_in]) τ_out))
+  (Π/1 [X : τ_in] τ_out))
 ;; (∀ (X) τ) == (∀ ([X : Type]) τ)
 (define-simple-macro (∀ (X)  τ)
-  (Π/1 ([X : Type]) τ))
+  (Π/1 [X : Type] τ))
 
 ;; abbrevs for Π/c
 ;; (→ τ_in τ_out) == (Π (unused : τ_in) τ_out)
@@ -117,34 +117,34 @@
      (or (type=? t1+ t2) ; equality
          (syntax-parse (list t1+ t2)
            [((~Type n) (~Type m)) (<= (stx-e #'n) (stx-e #'m))]
-           [((~Π/1 ([x1 : τ_in1]) τ_out1) (~Π/1 ([x2 : τ_in2]) τ_out2))
+           [((~Π/1 [x1 : τ_in1] τ_out1) (~Π/1 [x2 : τ_in2] τ_out2))
             (and (type=? #'τ_in1 #'τ_in2)
                  (typecheck? (subst #'x2 #'x1 #'τ_out1) #'τ_out2))]
            [_ #f])))))
 
 ;; lambda and #%app -----------------------------------------------------------
-(define-typed-syntax λ
+(define-typed-syntax λ/1
   ;; expected ty only
-  [(_ (y:id) e) ⇐ (~Π/1 ([x:id : τ_in]) τ_out) ≫
+  [(_ y:id e) ⇐ (~Π/1 [x:id : τ_in] τ_out) ≫
    [[x ≫ x- : τ_in] ⊢ #,(subst #'x #'y #'e) ≫ e- ⇐ τ_out]
    ---------
    [⊢ (λ- (x-) e-)]]
   ;; both expected ty and annotations
-  [(_ ([y:id (~datum :) τ_in*]) e) ⇐ (~Π/1 ([x:id : τ_in]) τ_out) ≫
+  [(_ [y:id (~datum :) τ_in*] e) ⇐ (~Π/1 [x:id : τ_in] τ_out) ≫
    [⊢ τ_in* ≫ τ_in** ⇐ Type]
    #:when (typecheck? #'τ_in** #'τ_in)
    [[x ≫ x- : τ_in] ⊢ #,(subst #'x #'y #'e) ≫ e- ⇐ τ_out]
    -------
    [⊢ (λ- (x-) e-)]]
   ;; annotations only
-  [(_ ([x:id (~datum :) τ_in]) e) ≫
+  [(_ [x:id (~datum :) τ_in] e) ≫
    [[x ≫ x- : τ_in] ⊢ [e ≫ e- ⇒ τ_out] [τ_in ≫ τ_in- ⇒ _]]
    -------
-   [⊢ (λ- (x-) e-) ⇒ (Π/1 ([x- : τ_in-]) τ_out)]])
+   [⊢ (λ- (x-) e-) ⇒ (Π/1 [x- : τ_in-] τ_out)]])
 
 (define-typerule/red (app e_fn e_arg) ≫
 ;  #:do[(printf "apping: ~a ------------\n" (syntax->datum #'(app e_fn e_arg)))]
-  [⊢ e_fn ≫ e_fn- ⇒ (~Π/1 ([X : τ_in]) τ_out)]
+  [⊢ e_fn ≫ e_fn- ⇒ (~Π/1 [X : τ_in] τ_out)]
   [⊢ e_arg ≫ e_arg- ⇐ τ_in]
   #:with τ-out (reflect (subst #'e_arg- #'X #'τ_out))
   -----------------------------
@@ -162,22 +162,26 @@
 ;; auto-currying λ and #%app and Π/1
 ;; - requires annotations for now
 ;; TODO: add other cases?
-(define-syntax (λ/c stx)
+(define-nested/R λ/c λ/1)
+#;(define-syntax (λ/c stx)
   (syntax-parse stx
     [(_ e) #'e]
-    [(_ x . rst) #'(λ (x) (λ/c . rst))]))
+    [(_ x . rst) #'(λ/1 x (λ/c . rst))]))
 
-(define-syntax (app/c stx)
+(define-nested/L app/c app)
+(define-nested/L app/eval/c app/eval)
+#;(define-syntax (app/c stx)
   (syntax-parse stx
     [(_ e) #'e]
     [(_ f e . rst) #'(app/c (app f e) . rst)]))
 
-(define-syntax (app/eval/c stx)
+#;(define-syntax (app/eval/c stx)
   (syntax-parse stx
     [(_ e) #'e]
     [(_ f e . rst) #`(app/eval/c (app/eval f e) . rst)]))
 
 ;; equality -------------------------------------------------------------------
+;; TODO: move this to separate lang
 ;(define-internal-type-constructor =)
 ;(define-type-constructor = : (→/c Type Type Type))
 ;(define-constructor = : (Π [A : Type] [a : A] [b : A] Type))
@@ -252,7 +256,7 @@
     (if (zero? n)
         t
         (syntax-parse t
-          [(~Π/1 ([_ : _]) t1)
+          [(~Π/1 [_ : _] t1)
            (prune #'t1 (sub1 n))])))
   ;; x+τss = (([x τ] ...) ...)
   ;; returns subset of each (x ...) that is recursive, ie τ = TY
@@ -306,7 +310,9 @@
   )
 
 (begin-for-syntax
-  (define-syntax ~app/eval/c
+  (require turnstile/eval)
+  (define-nested/L ~app/eval/c (~literal app/eval) #:as pattern-expander)
+  #;(define-syntax ~app/eval/c
     (pattern-expander
      (syntax-parser
        [(_ f) #'f]
