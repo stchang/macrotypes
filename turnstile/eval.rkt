@@ -28,9 +28,9 @@
         #:except null)]
       [_ stx]))
 
-  (define (mk-reflected reflected-name)
+  (define (mk-reflected reflected-name [placeholder #'#%plain-app-])
     ;; #%plain-app- can be any core form in head position
-    (syntax-property #'#%plain-app- 'reflect reflected-name))
+    (syntax-property placeholder 'reflect reflected-name))
   )
 
 (define-syntax define-typerule/red
@@ -42,16 +42,19 @@
 
 (define-syntax define-red
   (syntax-parser
-    [(_ name [(head-pat . rst-pat) (~datum ~>) contractum] ...)
+    [(_ red-name redex (~datum ~>) contractum) ; single redex case
+     #'(define-red red-name [redex ~> contractum])]
+    [(_ red-name [(placeholder head-pat . rst-pat) (~datum ~>) contractum] ...+)
      #:with OUT
-     #'(define-syntax name
+     #'(define-syntax red-name
          (syntax-parser
            [(_ head . rst-pat2)
+            #:with placeholder1 (stx-car #'(placeholder ...))
             (transfer-type
              this-syntax
              (syntax-parse #`(#,(expand/df #'head) . rst-pat2)
                [(head-pat . rst-pat) (reflect #`contractum)] ...
-               [(f- . rst) #`(#,(mk-reflected #'name) f- . rst)]))]))
+               [es #`(#,(mk-reflected #'red-name #'placeholder1) . es)]))]))
 ;     #:do[(pretty-print (stx->datum #'OUT))]
      #'OUT]))
 

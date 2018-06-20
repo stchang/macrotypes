@@ -150,8 +150,8 @@
   -----------------------------
   [⊢ (app/eval e_fn- e_arg-) ⇒ τ-out]
   #:where app/eval
-  [(((~literal #%plain-lambda) (x) e) arg) ~> #,(subst #'arg #'x #'e)]
-  [(((~literal #%expression) ((~literal #%plain-lambda) (x) e)) arg) ~> #,(subst #'arg #'x #'e)])
+  [(#%plain-app ((~literal #%plain-lambda) (x) e) arg) ~> #,(subst #'arg #'x #'e)]
+  [(#%plain-app ((~literal #%expression) ((~literal #%plain-lambda) (x) e)) arg) ~> #,(subst #'arg #'x #'e)])
 
 (define-typed-syntax (ann e (~datum :) τ) ≫
   [⊢ e ≫ e- ⇐ τ]
@@ -318,6 +318,8 @@
   ;; - ie, `TY` is an id with no params or indices
   [(_ TY:id (~datum :) τ:id [C:id (~datum :) τC] ...) ≫
    ;; need with-unbound and ~unbound bc `TY` name still undefined here
+   ;; TODO: is with-unbound needed?
+   ;; - is it possible to defer check to define-constructor below, after TY is defined?
    [⊢ (with-unbound TY τC) ≫ (~unbound TY (~Π [x : τin] ... _)) ⇐ Type] ...
    ;; ---------- pre-define some pattern variables for cleaner output:
    ;; recursive args of each C; where (xrec ...) ⊆ (x ...)
@@ -353,7 +355,7 @@
           -----------
           [⊢ (eval-TY v- P- m- ...) ⇒ (app/c P- v-)]
           #:where eval-TY ; elim reduction rule
-          [((C-expander x ...) P m ...) ; elim redex
+          [(#%plain-app (C-expander x ...) P m ...) ; elim redex
            ~> (app/eval/c m x ... (eval-TY xrec P m ...) ...)] ...)
         )]]
   ;; --------------------------------------------------------------------------
@@ -476,7 +478,7 @@
           -----------
           [⊢ (eval-TY v- P- m- ...) ⇒ (app/c P- i ... v-)]
           #:where eval-TY ; elim reduction rule
-          [((C-expander CA ... i+x ...) P m ...) ; elim redex
+          [(#%plain-app (C-expander CA ... i+x ...) P m ...) ; elim redex
            ~> (app/eval/c m i+x ... (eval-TY xrec P m ...) ...)] ...)
         )
    --------
