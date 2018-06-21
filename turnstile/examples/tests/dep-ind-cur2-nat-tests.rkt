@@ -1,5 +1,6 @@
 #lang s-exp "../dep-ind-cur2.rkt"
-(require "../dep-ind-cur2+nat.rkt")
+(require "../dep-ind-cur2+nat.rkt"
+         "../dep-ind-cur2+eq.rkt")
 (require "rackunit-typechecking.rkt")
 
 ; Π → λ ∀ ≻ ⊢ ≫ ⇒

@@ -13,10 +13,9 @@
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
-(provide Type (rename-out [Type *])
+(provide Type (rename-out [Type *]) (for-syntax ~Type)
          Π
          (rename-out #;[Π/c Π] [→/c →] [∀/c ∀] [λ/c λ] [app/c #%app] [app/eval/c app/eval])
-         = eq-refl eq-elim
          ann define-datatype define define-type-alias)
 
 ;; type definitions -----------------------------------------------------------
@@ -163,35 +162,6 @@
 (define-nested/R λ/c λ/1)
 (define-nested/L app/c app)
 (define-nested/L app/eval/c app/eval)
-
-;; equality -------------------------------------------------------------------
-;; TODO: move this to separate lang
-(struct =- (l r) #:transparent)
-(define-typed-syntax (= t1 t2) ≫
-  [⊢ t1 ≫ t1- ⇒ ty]
-  [⊢ t2 ≫ t2- ⇐ ty]
-  ---------------------
-  [⊢ (=- t1- t2-) ⇒ Type])
-
-(define-typed-syntax (eq-refl e) ≫
-  [⊢ e ≫ e- ⇒ _ (⇒ ~Type)]
-  ----------
-  [⊢ (#%app- void-) ⇒ (= e- e-)])
-
-;; eq-elim: t : T
-;;          P : (T -> Type)
-;;          pt : (P t)
-;;          w : T
-;;          peq : (= t w)
-;;       -> (P w)
-(define-typed-syntax (eq-elim t P pt w peq) ≫
-  [⊢ t ≫ t- ⇒ ty]
-  [⊢ P ≫ P- ⇐ (→ ty Type)]
-  [⊢ pt ≫ pt- ⇐ (app P- t-)]
-  [⊢ w ≫ w- ⇐ ty]
-  [⊢ peq ≫ peq- ⇐ (= t- w-)]
-  --------------
-  [⊢ pt- ⇒ (app P- w-)])
 
 ;; top-level ------------------------------------------------------------------
 ;; TODO: shouldnt need define-type-alias, should be same as define?
