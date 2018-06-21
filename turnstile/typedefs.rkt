@@ -19,16 +19,23 @@
                                          (~optional (~and #:telescope
                                                           telescope?))))
                    #:defaults ([(X 1) null] [(k_in 1) null]))
+        ;; the first case specifies named, dependent arguments, ie a telescope
+        ;; - with careful double-use of pattern variables (Y ...)
+        ;;   we can get the desired behavior without doing an explicit fold
+        ;; - more specifically, we use Y ... as both the patvars here, and in
+        ;;   the (define-typerule TY) below (in the lattern case, use Y instead of τ_out ...)
+        ;; - since k_out may reference Y, in the define-typerule, the k_out ... 
+        ;;   are automatically instantiated
         (~datum :) (~or (~seq [Y:id (~datum :) k_out] ...)
                         (~and (~seq k_out ...)
                               (~parse (Y ...) (generate-temporaries #'(k_out ...)))))
         (~datum ->) k)
      #:with (τ_in ...) (generate-temporaries #'(k_in ...))
      #:with (τ_in- ...) (generate-temporaries #'(k_in ...))
-     #:with (τ_out ...) (generate-temporaries #'(k_out ...))
+;     #:with (τ_out ...) (generate-temporaries #'(k_out ...))
      #:with (τ_out- ...) (generate-temporaries #'(k_out ...))
-     #:with (τ_out_inst ...) (generate-temporaries #'(τ_out ...))
-     #:with (k_out_inst ...) (generate-temporaries #'(k_out ...))
+     ;; #:with (τ_out_inst ...) (generate-temporaries #'(τ_out ...))
+     ;; #:with (k_out_inst ...) (generate-temporaries #'(k_out ...))
      #:with (X- ...) (generate-temporaries #'(X ...))
      #:with TY/internal (generate-temporary #'TY)
      #:with TY-expander (mk-~ #'TY)
@@ -47,13 +54,14 @@
             #,@(if (stx-null? #'(X ...))
                    null
                    (list #'(~seq [(~var X id) (~datum :) τ_in] ...)))
-            τ_out ...) ≫
+            Y ...) ≫
            [⊢ τ_in  ≫ τ_in- ⇐ k_in] ...
 ;           [[X ≫ X- : τ_in-] ... ⊢ τ_out ≫ τ_out- ⇐ k_out] ...
            ;; "telescope", fold premise notation
            ;; ie, subst τ_out for Y in τ_out ... and k_out ...
-           [[X ≫ X- : τ_in-] ... ⊢ [[Y : τ_out] ≫ τ_out- ⇐ k_out] ...]
-           #:with k_inst (substs #'(τ_out ...) #'(Y ...) #'k)
+;           [[X ≫ X- : τ_in-] ... ⊢ [[Y : τ_out] ≫ τ_out- ⇐ k_out] ...]
+           [[X ≫ X- : τ_in-] ... ⊢ [Y ≫ τ_out- ⇐ k_out] ...]
+;           #:with k_inst (substs #'(τ_out ...) #'(Y ...) #'k)
            #:with maybe-lambda
                   ;; 2) when no binders, remove the λ in runtime rep
                   ;; - this allows comparisons at runtime
@@ -63,7 +71,7 @@
                         #'(syntax/loc this-syntax
                             (λ- (X- ...) (#%plain-app list τ_out- ...))))
            ---------------
-           [⊢ (TY/internal τ_in- ... maybe-lambda) ⇒ k_inst]])
+           [⊢ (TY/internal τ_in- ... maybe-lambda) ⇒ k]])
          #,@(if (attribute telescope?) (list #'(define-nested/R TY TY/1)) #'())
          (begin-for-syntax
            (define TY/internal+ (expand/df #'TY/internal))
@@ -78,7 +86,7 @@
                        null)
                 #,(if (stx-null? #'(X ...))
                    ;; 3a) dont need binders in pat expander if none; dont match λ in runtime rep
-                   #'[(_ τ_out ...)
+                   #'[(_ τ_out- ...)
                       #'(~and ty
                               (~parse
                                ((~literal #%plain-app)
@@ -86,11 +94,11 @@
                                 τ_in ...
                                 ((~literal #%plain-app)
                                  (~literal list)
-                                 τ_out ...))
+                                 τ_out- ...))
                                #'ty)
                               (~fail #:unless (free-id=? #'name/internal TY/internal+)))]
                    ;; 3b) binding type case
-                   #'[(_ (~seq [(~var X id) (~datum :) τ_in] ...) τ_out ...)
+                   #'[(_ (~seq [(~var X id) (~datum :) τ_in] ...) τ_out- ...)
                       #'(~and ty
                               (~parse
                                ((~literal #%plain-app)
@@ -100,7 +108,7 @@
                                  (X ...)
                                  ((~literal #%plain-app)
                                   (~literal list)
-                                  τ_out ...)))
+                                  τ_out- ...)))
                                #'ty)
                               (~fail #:unless (free-id=? #'name/internal TY/internal+)))])
                 ;; companion case to first (id usage) case

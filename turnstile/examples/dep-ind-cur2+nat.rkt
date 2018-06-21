@@ -3,7 +3,7 @@
          (only-in turnstile/typedefs define-type)
          "dep-ind-cur2+sugar.rkt")
 
-(provide Nat Z S elim-Nat eval-Nat)
+(provide Nat Z S elim-Nat)
 
 (define-type Nat : Type)
 
