@@ -6,8 +6,9 @@
 (provide = eq-refl eq-elim)
 
 ;; equality -------------------------------------------------------------------
-;; TODO: move this to separate lang
+
 (struct =- (l r) #:transparent)
+
 (define-typed-syntax (= t1 t2) ≫
   [⊢ t1 ≫ t1- ⇒ ty]
   [⊢ t2 ≫ t2- ⇐ ty]

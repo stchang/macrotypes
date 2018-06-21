@@ -1,11 +1,13 @@
 #lang s-exp "../dep-ind-cur2.rkt"
 (require "../dep-ind-cur2+nat.rkt"
-         "../dep-ind-cur2+eq.rkt")
+         "../dep-ind-cur2+eq2.rkt")
 (require "rackunit-typechecking.rkt")
 
 ; Π → λ ∀ ≻ ⊢ ≫ ⇒
 
-;; same as dep-ind-cur2-tests, except uses Nat lib instead of defining it
+;; same as dep-ind-cur2-tests, except:
+;; - uses Nat lib instead of defining it
+;; - uses eq2 lib
 
 ;; check (Type n) : (Type n+1)
 (check-type Type : (Type 1) -> (Type 0))
@@ -156,41 +158,41 @@
 (check-type (plus (S Z) (S (S Z))) : Nat -> (S (S (S Z))))
 
 ;; plus zero (left)
-(check-type (λ [n : Nat] (eq-refl n))
-          : (Π [n : Nat] (= (plus Z n) n)))
+(check-type (λ [n : Nat] (eq-refl Nat n))
+          : (Π [n : Nat] (= Nat (plus Z n) n)))
 
 ;; plus zero (right)
 (check-type
  (λ [n : Nat]
    (elim-Nat n
-             (λ [m : Nat] (= (plus m Z) m))
-             (eq-refl Z)
+             (λ [m : Nat] (= Nat (plus m Z) m))
+             (eq-refl Nat Z)
              (λ [k : Nat]
-               (λ [p : (= (plus k Z) k)]
+               (λ [p : (= Nat (plus k Z) k)]
                  (eq-elim (plus k Z)
-                          (λ [W : Nat] (= (S (plus k Z)) (S W)))
-                          (eq-refl (S (plus k Z)))
+                          (λ [W : Nat] (= Nat (S (plus k Z)) (S W)))
+                          (eq-refl Nat (S (plus k Z)))
                           k
                           p)))))
- : (Π [n : Nat] (= (plus n Z) n)))
+ : (Π [n : Nat] (= Nat (plus n Z) n)))
 
 ;; plus zero identity, no annotations
 ;; left:
-(check-type (λ n (eq-refl n))
-          : (Π [n : Nat] (= (plus Z n) n)))
+(check-type (λ n (eq-refl Nat n))
+          : (Π [n : Nat] (= Nat (plus Z n) n)))
 ;; right:
 (check-type
  (λ n
    (elim-Nat n
-             (λ m (= (plus m Z) m))
-             (eq-refl Z)
+             (λ m (= Nat (plus m Z) m))
+             (eq-refl Nat Z)
              (λ k p
                (eq-elim (plus k Z)
-                        (λ W (= (S (plus k Z)) (S W)))
-                        (eq-refl (S (plus k Z)))
+                        (λ W (= Nat (S (plus k Z)) (S W)))
+                        (eq-refl Nat (S (plus k Z)))
                         k
                         p))))
- : (Π [n : Nat] (= (plus n Z) n)))
+ : (Π [n : Nat] (= Nat (plus n Z) n)))
 
 ;; test currying
 (check-type
