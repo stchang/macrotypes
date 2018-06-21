@@ -159,32 +159,13 @@
   [⊢ e- ⇒ τ])
 
 ;; ----------------------------------------------------------------------------
-;; auto-currying λ and #%app and Π/1
-;; - requires annotations for now
-;; TODO: add other cases?
+;; auto-currying λ and #%app
 (define-nested/R λ/c λ/1)
-#;(define-syntax (λ/c stx)
-  (syntax-parse stx
-    [(_ e) #'e]
-    [(_ x . rst) #'(λ/1 x (λ/c . rst))]))
-
 (define-nested/L app/c app)
 (define-nested/L app/eval/c app/eval)
-#;(define-syntax (app/c stx)
-  (syntax-parse stx
-    [(_ e) #'e]
-    [(_ f e . rst) #'(app/c (app f e) . rst)]))
-
-#;(define-syntax (app/eval/c stx)
-  (syntax-parse stx
-    [(_ e) #'e]
-    [(_ f e . rst) #`(app/eval/c (app/eval f e) . rst)]))
 
 ;; equality -------------------------------------------------------------------
 ;; TODO: move this to separate lang
-;(define-internal-type-constructor =)
-;(define-type-constructor = : (→/c Type Type Type))
-;(define-constructor = : (Π [A : Type] [a : A] [b : A] Type))
 (struct =- (l r) #:transparent)
 (define-typed-syntax (= t1 t2) ≫
   [⊢ t1 ≫ t1- ⇒ ty]
@@ -311,13 +292,7 @@
 
 (begin-for-syntax
   (require turnstile/eval)
-  (define-nested/L ~app/eval/c (~literal app/eval) #:as pattern-expander)
-  #;(define-syntax ~app/eval/c
-    (pattern-expander
-     (syntax-parser
-       [(_ f) #'f]
-       [(_ f e . rst)
-        #'(~app/eval/c ((~literal app/eval) f e) . rst)]))))
+  (define-nested/L ~app/eval/c (~literal app/eval) #:as pattern-expander))
 
 (define-typed-syntax define-datatype
   ;; simple datatypes, eg Nat -------------------------------------------------
