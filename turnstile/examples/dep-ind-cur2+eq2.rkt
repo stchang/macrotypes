@@ -1,6 +1,7 @@
-#lang turnstile
-(require "dep-ind-cur2.rkt"
-         turnstile/typedefs)
+#lang s-exp "dep-ind-cur2.rkt"
+(require (only-in turnstile define-typed-syntax)
+         (only-in turnstile/typedefs define-type)
+         "dep-ind-cur2+sugar.rkt")
 
 ;; another equality lib for dep-ind-cur2.rkt
 ;; - unlike dep-ind-cur2+eq.rkt, this one uses define-type and define-red,

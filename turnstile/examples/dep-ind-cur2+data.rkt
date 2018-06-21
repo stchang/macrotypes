@@ -1,5 +1,6 @@
 #lang turnstile/lang
-(require "dep-ind-cur2.rkt"
+(require (except-in "dep-ind-cur2.rkt" λ #%app)
+         "dep-ind-cur2+sugar.rkt"
          turnstile/eval turnstile/typedefs turnstile/more-utils)
 
 ;; library for dep-ind-cur2 enabling definition of datatypes
@@ -9,8 +10,9 @@
 
 (provide define-datatype)
 
-;; define-cur-constructor is sugar for define-type
-;; allows writing whole type, eg (define-cur-constructor name : TY)
+;; define-cur-constructor is mostly sugar for define-type, and:
+;; - allows writing whole type in declaration, eg (define-cur-constructor name : TY)
+;; - constructor is curried (eg, can partially apply)
 (define-syntax define-cur-constructor
   (syntax-parser
     [(_ name (~datum :) ty)
@@ -25,11 +27,7 @@
             #'(λ [A+i : τ] ... (name/internal A+i ...))))
          (begin-for-syntax
            (define-syntax name-expander
-             (pattern-expander
-              (syntax-parser
-                [:id #'(name-expander A+i ...)] ; 0-arity case; need non-id case as well?
-                [(_ A+i ...) #'(name/internal-expander A+i ...)])))
-           ))]))
+             (make-rename-transformer #'name/internal-expander))))]))
 
 ;; TmpTy is a placeholder for undefined names
 (struct TmpTy- ())

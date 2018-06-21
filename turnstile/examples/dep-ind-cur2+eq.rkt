@@ -1,5 +1,6 @@
-#lang turnstile
-(require "dep-ind-cur2.rkt")
+#lang s-exp "dep-ind-cur2.rkt"
+(require (only-in turnstile struct #%app- void- define-typed-syntax)
+         "dep-ind-cur2+sugar.rkt")
 
 ;; eq lib for dep-ind-cur2.rkt
 

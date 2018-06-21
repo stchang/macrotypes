@@ -36,7 +36,6 @@
     [(_ red-name redex (~datum ~>) contractum) ; single redex case
      #'(define-red red-name [redex ~> contractum])]
     [(_ red-name [(placeholder head-pat . rst-pat) (~datum ~>) contractum] ...+)
-     #:with OUT
      #'(define-syntax red-name
          (syntax-parser
            [(_ head . rst-pat2)
@@ -45,19 +44,23 @@
              this-syntax
              (syntax-parse #`(#,(expand/df #'head) . rst-pat2)
                [(head-pat . rst-pat) (reflect #`contractum)] ...
-               [es #`(#,(mk-reflected #'red-name #'placeholder1) . es)]))]))
-;     #:do[(pretty-print (stx->datum #'OUT))]
-     #'OUT]))
+               [es #`(#,(mk-reflected #'red-name #'placeholder1) . es)]))]))]))
+
+;; use #%plain-app for no
+(define-syntax define-core-id
+  (syntax-parser
+    [(_ name:id) #'(define-core-id name #%plain-app)] ; plain-app is the default
+    [(_ name x:id)
+     #'(define-syntax name (make-rename-transformer #'x))]))
 
 ;; combination of define-typerule and define-red
 (define-syntax define-typerule/red
   (syntax-parser
-    [(_ (~and rule (~not #:where)) ... #:where red-name reds ...)
+    [(_ (name:id . in-pat) (~and rule (~not #:where)) ... #:where red-name reds ...+)
+     #:with name- (mk-- #'name)
      #'(begin-
-         (define-typerule rule ...)
+         (define-typerule (name . in-pat) rule ...)
+         (define-core-id name-) ; a placeholder to use in the red rule
          (define-red red-name reds ...))]))
 
 
-           
-                       
-     

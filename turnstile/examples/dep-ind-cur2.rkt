@@ -15,9 +15,8 @@
 
 (provide Type (rename-out [Type *]) (for-syntax ~Type)
          Π (for-syntax ~Π ~Π/1)
-         (rename-out #;[Π/c Π] [→/c →] [∀/c ∀] [λ/c λ] [app/c #%app]
-                     [app/eval app/eval/1] [app/eval/c app/eval])
-         ann define define-type-alias)
+         (rename-out [λ/1 λ] [app #%app] [app/eval app/eval/1])
+         ann define define-type-alias provide)
 
 ;; type definitions -----------------------------------------------------------
 
@@ -61,24 +60,6 @@
 
 ;; old Π/c now Π, old Π now Π/1
 (define-type Π #:with-binders ([X : TypeTop] #:telescope) : TypeTop -> Type)
-
-;; abbrevs for Π
-;; (→ τ_in τ_out) == (Π (unused : τ_in) τ_out)
-(define-simple-macro (→ τ_in τ_out)
-  #:with X (generate-temporary #'τ_in)
-  (Π/1 [X : τ_in] τ_out))
-;; (∀ (X) τ) == (∀ ([X : Type]) τ)
-(define-simple-macro (∀ (X)  τ)
-  (Π/1 [X : Type] τ))
-
-;; abbrevs for Π/c
-;; (→ τ_in τ_out) == (Π (unused : τ_in) τ_out)
-(define-simple-macro (→/c τ_in ... τ_out)
-  #:with (X ...) (generate-temporaries #'(τ_in ...))
-  (Π [X : τ_in] ... τ_out))
-;; (∀ (X) τ) == (∀ ([X : Type]) τ)
-(define-simple-macro (∀/c X ...  τ)
-  (Π [X : Type] ... τ))
 
 ;; type check relation --------------------------------------------------------
 ;; - must come after type defs
@@ -137,12 +118,6 @@
   [⊢ e ≫ e- ⇐ τ]
   --------
   [⊢ e- ⇒ τ])
-
-;; ----------------------------------------------------------------------------
-;; auto-currying λ and #%app
-(define-nested/R λ/c λ/1)
-(define-nested/L app/c app)
-(define-nested/L app/eval/c app/eval)
 
 ;; top-level ------------------------------------------------------------------
 ;; TODO: shouldnt need define-type-alias, should be same as define?
