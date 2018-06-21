@@ -1,5 +1,5 @@
 #lang turnstile/lang
-(require turnstile/eval)
+(require turnstile/eval turnstile/typedefs turnstile/more-utils)
 
 ; a basic dependently-typed calculus
 ; - with inductive datatypes
@@ -291,7 +291,7 @@
   )
 
 (begin-for-syntax
-  (require turnstile/eval)
+  (require turnstile/more-utils)
   (define-nested/L ~app/eval/c (~literal app/eval) #:as pattern-expander))
 
 (define-typed-syntax define-datatype

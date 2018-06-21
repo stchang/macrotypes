@@ -1,6 +1,6 @@
 #lang turnstile
+(require turnstile/eval turnstile/typedefs)
 (require "dep-ind-cur2.rkt")
-(require turnstile/eval)
 
 (provide Nat Z S elim-Nat eval-Nat)
 
