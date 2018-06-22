@@ -37,18 +37,18 @@
   [null : (List A)]
   [cons : [x : A] [xs : (List A)] -> (List A)])
 
-;(check-type null : (∀ A (List A)))
+(check-type null : (∀ A (List A)))
 ;; TODO? null \neq null right now
 ;; bc each reference expands to a different fn
-;(check-type null : (∀ A (List A)) );-> null)
-;(check-type cons : (∀ A (→ A (List A) (List A))))
+(check-type null : (∀ A (List A)) );-> null)
+(check-type cons : (∀ A (→ A (List A) (List A))))
 (check-type (null Nat) : (List Nat))
 (check-type (null Nat) : (List Nat) -> (null Nat))
 ;; TODO: should these next 2 work?
 (check-type (null Nat) : (→ (List Nat)))
 (check-type ((null Nat)) : (List Nat))
-;(check-type (cons Nat) : (→ Nat (List Nat) (List Nat)))
-;(check-type ((cons Nat) (Z) ((null Nat))) : (List Nat))
+(check-type (cons Nat) : (→ Nat (List Nat) (List Nat)))
+(check-type ((cons Nat) (Z) ((null Nat))) : (List Nat))
 ;; less parens
 (check-type (cons Nat Z (null Nat)) : (List Nat))
 
@@ -138,14 +138,14 @@
   [nil : (Vect A Z)]
   [cns : [k : Nat] [x99 : A] [xs99 : (Vect A k)] -> (Vect A (S k))])
 
-;(check-type nil : (Π [A : *] (Vect A Z)))
-;(check-type cns : (Π [A : *] [k : Nat] (→ A (Vect A k) (Vect A (S k)))))
+(check-type nil : (Π [A : *] (Vect A Z)))
+(check-type cns : (Π [A : *] [k : Nat] (→ A (Vect A k) (Vect A (S k)))))
 
 (check-type (nil Nat) : (→ (Vect Nat (Z))))
 (check-type (nil Nat) : (Vect Nat Z))
-;(check-type (cns Nat Z) : (→ Nat (Vect Nat Z) (Vect Nat (S Z))))
+(check-type (cns Nat Z) : (→ Nat (Vect Nat Z) (Vect Nat (S Z))))
 
-;(check-type ((cns Nat Z) Z (nil Nat)) : (Vect Nat (S Z)))
+(check-type ((cns Nat Z) Z (nil Nat)) : (Vect Nat (S Z)))
 (check-type (cns Nat Z Z (nil Nat)) : (Vect Nat (S Z)))
 (check-type (cns Nat (S Z) Z (cns Nat Z Z (nil Nat)))
             : (Vect Nat (S (S Z))))
@@ -177,7 +177,7 @@
                   (S IH)))))
  : Nat -> (S Z))
            
-#;(check-type
+(check-type
  (elim-Vect (((cns Nat) (S (Z))) (Z) (((cns Nat) (Z)) (Z) (nil Nat)))
             (λ [k : Nat] [v : (Vect Nat k)] Nat)
             Z

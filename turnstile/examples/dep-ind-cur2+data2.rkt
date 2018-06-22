@@ -1,6 +1,7 @@
 #lang turnstile/lang
 (require (except-in "dep-ind-cur2.rkt" λ #%app)
          "dep-ind-cur2+sugar.rkt"
+         (only-in "dep-ind-cur2+data.rkt" [define-datatype define-datatype1])
          turnstile/eval turnstile/typedefs turnstile/more-utils)
 
 ;; a 2nd dep-ind-cur2 library implementing define-datatype
@@ -12,13 +13,10 @@
 
 (provide define-datatype)
 
-;; define-cur-constructor is mostly sugar for define-type, and:
-;; - allows writing whole type in declaration, eg (define-cur-constructor name : TY)
-;; - constructor is curried (eg, can partially apply)
-(define-syntax define-cur-constructor
+;; define-data-constructor wraps define-type to enable currying of constructor
+(define-syntax define-data-constructor
   (syntax-parser
-    [(_ name (~datum :) ty)
-     #:with (~Π [A+i : τ] ... τ-out) ((current-type-eval) #'ty)
+    [(_ name (~datum :) [A+i:id (~datum :) τ] ... (~datum ->) τ-out)
      #:with name/internal (generate-temporary #'name)
      #:with name/internal-expander (mk-~ #'name/internal)
      #:with name-expander (mk-~ #'name)
@@ -31,149 +29,33 @@
            (define-syntax name-expander
              (make-rename-transformer #'name/internal-expander))))]))
 
-;; TmpTy is a placeholder for undefined names
-(struct TmpTy- ())
-(define-syntax TmpTy
-  (syntax-parser
-    [:id (assign-type #'TmpTy- #'Type)]
-    ;; TODO: orig will get stuck with eg, (TmpTy A)
-    [(_ . args) (assign-type #'(app/eval TmpTy- . args) #'Type)]))
-(define-for-syntax TmpTy+ (expand/df #'TmpTy))
-
-;; helper syntax fns
 (begin-for-syntax
-  ;; drops first n bindings in Π/1 type
-  (define (prune t n)
-    (if (zero? n)
-        t
-        (syntax-parse t
-          [(~Π/1 [_ : _] t1)
-           (prune #'t1 (sub1 n))])))
-  ;; x+τss = (([x τ] ...) ...)
-  ;; returns subset of each (x ...) that is recursive, ie τ = TY
-  (define (find-recur TY x+τss)
-    (stx-map
-     (λ (x+τs)
-       (stx-filtermap
-        (syntax-parser [(x τ) (and (free-id=? #'τ TY) #'x)])
-        x+τs))
-     x+τss))
   ;; x+τss = (([x τ] ...) ...)
   ;; returns subset of each (x ...) that is recursive, ie τ = (TY . args)
   ;; along with the indices needed by each recursive x
   ;; - ASSUME: the needed indices are first `num-is` arguments in x+τss
   ;; - ASSUME: the recursive arg has type (TY . args) where TY is unexpanded
-  (define (find-recur/i TY num-is x+τss)
+  (define (find-recur/is TY num-is x+τss)
     (stx-map
      (λ (x+τs)
        (define xs (stx-map stx-car x+τs))
        (stx-filtermap
         (syntax-parser
-          ;; TODO: generalize these patterns with ~plain-app/c
-          [(x (_ t:id . _)) (and (free-id=? #'t TY) (cons #'x (stx-take xs num-is)))]
-          [(x (_ (_ t:id . _) . _)) (and (free-id=? #'t TY) (cons #'x (stx-take xs num-is)))]
-          [_ #f])
-        x+τs))
-     x+τss))
-  ;; x+τss = (([x τ] ...) ...)
-  ;; returns subset of each (x ...) that is recursive, ie τ = (TY . args)
-  ;; along with the indices needed by each recursive x
-  ;; - ASSUME: the needed indices are first `num-is` arguments in x+τss
-  ;; - ASSUME: the recursive arg has type (TY . args) where TY is unexpanded
-  (define (find-recur/i2 TY num-is x+τss)
-    (stx-map
-     (λ (x+τs)
-       (define xs (stx-map stx-car x+τs))
-       (stx-filtermap
-        (syntax-parser
-;          [_ #:do[(printf "find recur2: ~a\n" (stx->datum this-syntax))] #:when #f void]
-          [(x (t:id . _)) ; unexpanded
-           (and (free-id=? #'t TY) (cons #'x (stx-take xs num-is)))]
-          ;; TODO: generalize these patterns with ~plain-app/c
-;          [(x (_ t:id . _)) (and (free-id=? #'t TY) (cons #'x (stx-take xs num-is)))]
-;          [(x (_ (_ t:id . _) . _)) (and (free-id=? #'t TY) (cons #'x (stx-take xs num-is)))]
+          [(x (t:id . _)) (and (free-id=? #'t TY) (cons #'x (stx-take xs num-is)))]
           [_ #f])
         x+τs))
      x+τss))
   )
-
-;; use this macro to expand e, which contains references to unbound X
-(define-syntax (with-unbound stx)
-  (syntax-parse stx
-    [(_ X:id e)
-     ;swap in a tmp (bound) id `TmpTy` for unbound X
-     #:with e/tmp (subst #'TmpTy #'X #'e)
-     ;; expand with the tmp id
-      (expand/df #'e/tmp)]))
-(define-syntax (drop-params stx)
-  (syntax-parse stx
-    [(_ (A ...) τ)
-     (prune #'τ (stx-length #'(A ...)))]))
-;; must be used with with-unbound
-(begin-for-syntax
-  (define-syntax ~unbound
-    (pattern-expander
-     (syntax-parser
-       [(_ X:id pat)
-        ;; un-subst tmp id in expanded stx with type X
-        #'(~and TMP
-                (~parse pat (reflect (subst #'X TmpTy+ #'TMP free-id=?))))])))
-  )
-
-(begin-for-syntax
-  (require turnstile/more-utils)
-  (define-nested/L ~app/eval/c (~literal app/eval/1) #:as pattern-expander))
 
 (define-typed-syntax define-datatype
   ;; simple datatypes, eg Nat -------------------------------------------------
   ;; - ie, `TY` is an id with no params or indices
-  [(_ TY:id (~datum :) τ:id [C:id (~datum :) τC] ...) ≫
-   ;; need with-unbound and ~unbound bc `TY` name still undefined here
-   ;; TODO: is with-unbound needed?
-   ;; - is it possible to defer check to define-constructor below, after TY is defined?
-   [⊢ (with-unbound TY τC) ≫ (~unbound TY (~Π [x : τin] ... _)) ⇐ Type] ...
-   ;; ---------- pre-define some pattern variables for cleaner output:
-   ;; recursive args of each C; where (xrec ...) ⊆ (x ...)
-   #:with ((xrec ...) ...) (find-recur #'TY #'(([x τin] ...) ...))
-   ;; elim methods and method types
-   #:with (m ...) (generate-temporaries #'(C ...))
-   #:with (m- ...) (generate-temporaries #'(m ...))
-   #:with (τm ...) (generate-temporaries #'(m ...))
-   #:with elim-TY (format-id #'TY "elim-~a" #'TY)
-   #:with eval-TY (format-id #'TY "eval-~a" #'TY)
-   #:with TY/internal (generate-temporary #'TY)
-   #:with (C-expander ...) (stx-map mk-~ #'(C ...))
-;   #:with TY-expander (mk-~ #'TY)
-   --------
-   [≻ (begin-
-        ;; define the type, eg "Nat"
-        (define-cur-constructor TY : τ) 
-
-        ;; define the data constructors, eg Z and S
-        (define-cur-constructor C : τC) ...
-          
-        ;; elimination form
-        (define-typerule/red (elim-TY v P m ...) ≫
-          [⊢ v ≫ v- ⇐ TY]
-;          [⊢ v ≫ v- ⇒ TY-expander]
-          [⊢ P ≫ P- ⇐ (→ TY Type)] ; prop / motive
-          ;; each `m` can consume 2 sets of args:
-          ;; 1) args of the constructor `x` ... 
-          ;; 2) IHs for each `x` that has type `TY`
-          #:with (τm ...) #'((Π [x : τin] ...
-                                (→ (P- xrec) ... (P- (C x ...)))) ...)
-          [⊢ m ≫ m- ⇐ τm] ...
-          -----------
-          [⊢ (eval-TY v- P- m- ...) ⇒ (P- v-)]
-          #:where eval-TY ; elim reduction rule
-          [(#%plain-app (C-expander x ...) P m ...) ; elim redex
-           ~> (app/eval m x ... (eval-TY xrec P m ...) ...)] ...)
-        )]]
+  [(_ TY:id (~datum :) τ:id [C:id (~datum :) τC] ...) ≫ --- [≻ (define-datatype1 TY : τ [C : τC] ...)]]
   ;; --------------------------------------------------------------------------
   ;; defines inductive type family `TY`, with:
   ;; - params A ...
   ;; - indices i ...
-  ;; - ie, TY is a type constructor with type (Π/1 [A : τA] ... [i τi] ... τ)
+  ;; - ie, TY is a type constructor with type (Π [A : τA] ... [i τi] ... τ)
   ;; --------------------------------------------------------------------------
   [(_ TY:id [A:id (~datum :) τA] ... (~datum :) ; params
             [i:id (~datum :) τi] ... ; indices
@@ -181,16 +63,8 @@
             (~or* (~and [C:id (~datum :) τout]
                        (~parse (i+x ...) #'())
                        (~parse (τin ...) #'()))
+                  ;; i+x may reference A
                  [C:id (~datum :)  [i+x:id (~datum :) τin] ... (~datum ->) τout]) ...) ≫
-   ;; ;; ; need to expand `τC` but `TY` is still unbound so use tmp id
-   ;; ;; [⊢ (with-unbound TY τC) ≫ (~unbound TY (~Π [A+i+x : τA+i+x] ... τout)) ⇐ Type] ...
-   ;; ;; split τC args into params and others
-   ;; ;; TODO: check that τA matches τCA (but cant do it in isolation bc they may refer to other params?)
-   ;; #:with ((([CA τCA] ...)
-   ;;          ([i+x τin] ...)) ...)
-   ;;        (stx-map
-   ;;         (λ (x+τs) (stx-split-at x+τs (stx-length #'(A ...))))
-   ;;         #'(([A+i+x τA+i+x] ...) ...))
    ;; - each (xrec ...) is subset of (x ...) that are recur args,
    ;; ie, they are not fresh ids
    ;; - each xrec is accompanied with irec ...,
@@ -199,32 +73,30 @@
    ;; ASSUME: indices cannot have type (TY ...), they are not recursive
    ;;         (otherwise, cannot include indices in args to find-recur/i)
    #:with (((xrec irec ...) ...) ...)
-          (find-recur/i2 #'TY (stx-length #'(i ...)) #'(([i+x τin] ...) ...))
+          (find-recur/is #'TY (stx-length #'(i ...)) #'(([i+x τin] ...) ...))
    ;; ---------- pre-generate other patvars; makes nested macros below easier to read
-   #:with (A- ...) (generate-temporaries #'(A ...))
-   #:with (i- ...) (generate-temporaries #'(i ...))
-   ;; inst'ed τin and τout (with A ...)
-   #:with ((τin/A ...) ...) (stx-map generate-temporaries #'((τin ...) ...))
-   #:with (τout/A ...) (generate-temporaries #'(C ...))
-   ; τoutA matches the A and τouti matches the i in τout/A,
-   ; - ie τout/A = (TY τoutA ... τouti ...)
-   ; - also, τoutA refs (ie bound-id=) CA and τouti refs i in i+x ...
-   #:with ((τoutA ...) ...) (stx-map (lambda _ (generate-temporaries #'(A ...))) #'(C ...))
-   #:with ((τouti ...) ...) (stx-map (lambda _ (generate-temporaries #'(i ...))) #'(C ...))
-   ;; i* = inferred i
+   ; τoutA matches the A and τouti matches the i in τout,
+   ; - ie τout = (TY τoutA ... τouti ...)
+   ;; #:with ((τoutA ...) ...) (stx-map (lambda _ (generate-temporaries #'(A ...))) #'(C ...))
+   ;; #:with ((τouti ...) ...) (stx-map (lambda _ (generate-temporaries #'(i ...))) #'(C ...))
+   ;; i* = inferred (concrete) i in elim
    #:with (i* ...) (generate-temporaries #'(i ...))
-   ; dup (A ...) C times, again for ellipses matching
+   ; dup (A ...) C times, for ellipses matching
    #:with ((A*C ...) ...) (stx-map (lambda _ #'(A ...)) #'(C ...))
    #:with ((τA*C ...) ...) (stx-map (λ _ #'(τA ...)) #'(C ...))
    #:with (m ...) (generate-temporaries #'(C ...))
-   #:with (τ1 ...) (generate-temporaries #'(C ...))
    #:with (m- ...) (generate-temporaries #'(C ...))
-   #:with TY- (mk-- #'TY)
    #:with TY-patexpand (mk-~ #'TY)
    #:with elim-TY (format-id #'TY "elim-~a" #'TY)
    #:with eval-TY (format-id #'TY "match-~a" #'TY)
    #:with (τm ...) (generate-temporaries #'(m ...))
    #:with (C-expander ...) (stx-map mk-~ #'(C ...))
+
+   ;; ASSUMING: τoutA has shape (TY A ... τouti ...)
+   ;; - this is the same "patvar trick" as re-using A below
+   ;; - it makes sure that the method output types properly reference the right i
+   #:with ((τouti ...) ...) (stx-map (λ (ts) (stx-drop ts (add1 (stx-length #'(A ...))))) #'(τout ...))
+
    ;; these are all the generated definitions that implement the define-datatype
    #:with OUTPUT-DEFS
     #'(begin-
@@ -232,7 +104,7 @@
         (define-type TY : [A : τA] ... [i : τi] ... -> τ)
 
         ;; define the data constructors
-        (define-type C : [A*C : τA*C] ... [i+x : τin] ... -> τout) ...
+        (define-data-constructor C : [A*C : τA*C] ... [i+x : τin] ... -> τout) ...
 
         ;; define eliminator-form elim-TY
         ;; v = target
@@ -252,35 +124,13 @@
         ;;   - maybe IH for recursive args
         (define-typerule/red (elim-TY v P m ...) ≫
           ;; target, infers A ...
+          ;; this means every patvar in define-datatype input pattern that references A
+          ;; is now instantiated with inferred A
+          ;; (see also comments below)
           [⊢ v ≫ v- ⇒ (TY-patexpand A ... i* ...)]
           
-          ;; ;; inst τin and τout with inferred A ...
-          ;; ;; - unlike in the TY def, must explicitly instantiate here
-          ;; ;; bc these types reference a different binder, ie CA instead of A
-          ;; ;; - specifically, replace CA ... with the inferred A ... params
-          ;; ;; - don't need to instantiate τi ... bc they already reference A,
-          ;; ;;   which we reused as the pattern variable above
-          ;; #:do[(displayln (stx->datum #'((CA ...) ...)))
-          ;;      (displayln (stx->datum #'((τin ... τout) ...)))]
-          ;; #:with ((τin/A ... τout/A) ...)
-          ;;        (stx-map
-          ;;         (λ (As τs) (substs #'(A ...) As τs))
-          ;;         #'((CA ...) ...)
-          ;;         #'((τin ... τout) ...))
-          ;;        #:do[(displayln (stx->datum #'((τin/A ... τout/A) ...)))]
-          ;; τi here is τi above, instantiated with A ... from v-
+          ;; τi instantiated with A ... from v-
           [⊢ P ≫ P- ⇐ (Π [i : τi] ... (→ (TY A ... i ...) Type))]
-
-          ;; get the params and indices in τout/A
-          ;; - dont actually need τoutA, except to find τouti
-          ;; - τouti dictates what what "index" args P should be applied to
-          ;;   in each method output type
-          ;;     ie, it is the (app P- τouti ...) below
-          ;;   It is the index, "unified" with its use in τout/A
-          ;;   Eg, for empty indexed list, for index n, τouti = 0
-          ;;       for non-empt indx list, for index n, τouti = (Succ 0)
-          ;; ASSUMING: τoutA has shape (TY . args) (ie, unexpanded)
-          #:with (((~literal TY) τoutA ... τouti ...) ...) #'(τout ...)
 
           ;; each m is curried fn consuming 3 (possibly empty) sets of args:
           ;; 1,2) i+x  - indices of the tycon, and args of each constructor `C`
