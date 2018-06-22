@@ -30,6 +30,12 @@
                         (~and (~seq k_out ...)
                               (~parse (Y ...) (generate-temporaries #'(k_out ...)))))
         (~datum ->) k)
+     ;; ;; TODO: how to check that k_in ... k_out ... have type `Type`?
+     ;; ;; when turnstile doesnt know about Type?
+     ;; #:with (_ _ res1) (infers/ctx+erase #'([X : k_in] ...)  #'(k_in ...))
+     ;; #:do[(displayln (stx->datum #'res1))]
+     ;; #:with (_ _ res2) (infers/ctx+erase #'([X : k_in] ... [Y : k_out] ...)  #'(k_out ... k))
+     ;; #:do[(displayln (stx->datum #'res2))]
      #:with (τ_in ...) (generate-temporaries #'(k_in ...))
      #:with (τ_in- ...) (generate-temporaries #'(k_in ...))
 ;     #:with (τ_out ...) (generate-temporaries #'(k_out ...))
