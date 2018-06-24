@@ -116,13 +116,15 @@
                   ;; i+x may reference A
                  [C:id (~datum :)  [i+x:id (~datum :) τin] ... (~datum ->) τout]) ...) ≫
    #:with (TMp ...) (generate-temporaries #'(C ...))
-   [⊢ (with-unbound TY (Π [A : τA] ... [i : τi] ... [TMp : (Π [i+x : τin] ... τout)] ... τ)) ≫
-      (~unbound2 TY (~Π [A4 : τA4] ... τ2)) ⇐ Type]
-   #:with (([A2 τA2] ...) rst11)
-          (stx-split-at #'([A4 τA4] ...) (stx-length #'(A ...)))
-   #:with (([i2 τi2] ...)
-           ([_ (~Π [i+x2 : τin2] ... τout2)] ...))
-          (stx-split-at #'rst11 (stx-length #'(i ...)))
+   [⊢ (with-unbound TY (Π [A : τA] ... [TMp1 : (Π [i : τi] ... τ)] [TMp : (Π [i+x : τin] ... τout)] ... Type)) ≫
+      (~unbound2 TY (~Π [resid : τres] ... _)) ⇐ Type]
+   #:with (([A2 τA2] ...)
+           ([_ (~Π [i2 : τi2] ... τ2)]
+            [_ (~Π [i+x2 : τin2] ... τout2)] ...))
+          (stx-split-at #'([resid τres] ...) (stx-length #'(A ...)))
+   ;; #:with (([i2 τi2] ...)
+   ;;         ([_ (~Π [i+x2 : τin2] ... τout2)] ...))
+   ;;        (stx-split-at #'rst11 (stx-length #'(i ...)))
    ;; - each (xrec ...) is subset of (x ...) that are recur args,
    ;; ie, they are not fresh ids
    ;; - each xrec is accompanied with irec ...,
