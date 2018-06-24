@@ -6,17 +6,12 @@
 
 ;; dep-ind-cur2 is dep-ind-cur cleaned up and using better abstractions
 
-; dep-ind-cur initially copied from dep-ind-fixed.rkt
-; - extended with cur-style currying as the default
-
-; dep-ind-fixed is mostly same as dep-ind.rkt but define-datatype has some fixes
-
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
 (provide Type (rename-out [Type *]) (for-syntax ~Type)
          Π (for-syntax ~Π ~Π/1)
          (rename-out [λ/1 λ] [app #%app] [app/eval app/eval/1])
-         ann define define-type-alias provide)
+         ann define provide)
 
 ;; type definitions -----------------------------------------------------------
 
@@ -120,29 +115,6 @@
   [⊢ e- ⇒ τ])
 
 ;; top-level ------------------------------------------------------------------
-;; TODO: shouldnt need define-type-alias, should be same as define?
-(define-syntax define-type-alias
+(define-syntax define
   (syntax-parser
-    [(_ alias:id τ)
-     #'(define-syntax- alias
-         (make-variable-like-transformer #'τ))]))
-
-;; TODO: delete this?
-(define-typed-syntax define
-  [(_ x:id (~datum :) τ e:expr) ≫
-   [⊢ e ≫ e- ⇐ τ]
-   #:with y (generate-temporary #'x)
-   #:with y+props (transfer-props #'e- #'y #:except '(origin))
-   --------
-   [≻ (begin-
-        (define-syntax x (make-rename-transformer #'y+props))
-        (define- y e-))]]
-  [(_ x:id e) ≫
-   ;This won't work with mutually recursive definitions
-   [⊢ e ≫ e- ⇒ _]
-   #:with y (generate-temporary #'x)
-   #:with y+props (transfer-props #'e- #'y #:except '(origin))
-   --------
-   [≻ (begin-
-        (define-syntax x (make-rename-transformer #'y+props))
-        (define- y e-))]])
+    [(_ alias:id τ) #'(define-syntax- alias (make-variable-like-transformer #'τ))]))

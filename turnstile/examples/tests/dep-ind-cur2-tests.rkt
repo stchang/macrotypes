@@ -62,7 +62,7 @@
 (check-type (S Z) : Nat -> (S Z))
 (check-type (S (S Z)) : Nat -> (S (S Z)))
 
-(define-type-alias nat-rec
+(define nat-rec
   (λ [C : *]
     (λ [zc : C][sc : (→ C C)]
       (λ [n : Nat]
@@ -101,7 +101,7 @@
 (check-type (nat-rec Nat Z (λ [n : Nat] (S n))) : (→ Nat Nat))
 
 ;; basic identity example, to test eval
-(define-type-alias id (nat-rec Nat Z (λ [n : Nat] (S n))))
+(define id (nat-rec Nat Z (λ [n : Nat] (S n))))
 (check-type (id (Z)) : Nat -> (Z))
 (check-type (id Z) : Nat -> Z)
 (check-type (id Z) : Nat -> (Z))
@@ -109,7 +109,7 @@
 (check-type (id (S Z)) : Nat)
 (check-type (id (S Z)) : Nat -> (S Z))
 
-(define-type-alias plus
+(define plus
   (λ [n : Nat]
     (((nat-rec (→ Nat Nat))
       (λ [m : Nat] m)

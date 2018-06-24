@@ -86,7 +86,7 @@
  : Nat
  -> (S (S (Z))))
 
-(define-type-alias len/Nat
+(define len/Nat
   (λ [lst : (List Nat)]
     (elim-List lst
                (λ [l : (List Nat)] Nat)
@@ -101,7 +101,7 @@
 (check-type (len/Nat (null Nat)) : Nat -> (Z))
 (check-type (len/Nat (cons Nat Z (null Nat))) : Nat -> (S (Z)))
 
-(define-type-alias len
+(define len
   (λ [A : *]
     (λ [lst : (List A)]
       (elim-List lst
@@ -151,7 +151,7 @@
 (check-type (cns Nat (S Z) Z (cns Nat Z Z (nil Nat)))
             : (Vect Nat (S (S Z))))
 
-(define-type-alias mtNatVec (nil Nat))
+(define mtNatVec (nil Nat))
 (check-type mtNatVec : (Vect Nat Z))
 
 (check-not-type (nil Nat) : (Vect Nat (S Z))) ; not length 1
@@ -199,7 +199,7 @@
                   (S IH)))))
  : Nat -> (S (S (Z))))
 
-(define-type-alias plus
+(define plus
   (λ [n : Nat] [m : Nat]
     (elim-Nat n
               (λ [k : Nat] Nat)
@@ -227,7 +227,7 @@
  : (Vect Nat Z)
  -> (nil Nat))
 
-(define-type-alias vappend
+(define vappend
   (λ [A : *]
     (λ [n : Nat][m : Nat]
       (λ [xs : (Vect A n)][ys : (Vect A m)]

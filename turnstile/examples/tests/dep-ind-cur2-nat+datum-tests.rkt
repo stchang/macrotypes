@@ -17,7 +17,7 @@
 (check-type 1 : Nat -> 1)
 (check-type 2 : Nat -> 2)
 
-(define-type-alias nat-rec
+(define nat-rec
   (λ [C : *]
     (λ [zc : C][sc : (→ C C)]
       (λ [n : Nat]
@@ -56,13 +56,13 @@
 (check-type (nat-rec Nat 0 (λ [n : Nat] (S n))) : (→ Nat Nat))
 
 ;; basic identity example, to test eval
-(define-type-alias id (nat-rec Nat 0 (λ [n : Nat] (S n))))
+(define id (nat-rec Nat 0 (λ [n : Nat] (S n))))
 (check-type (id 0) : Nat -> 0)
 ;; this example will err if eval tries to tycheck again
 (check-type (id 1) : Nat)
 (check-type (id 1) : Nat -> 1)
 
-(define-type-alias plus
+(define plus
   (λ [n : Nat]
     (((nat-rec (→ Nat Nat))
       (λ [m : Nat] m)

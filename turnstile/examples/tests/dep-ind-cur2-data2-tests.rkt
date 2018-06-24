@@ -31,14 +31,15 @@
 
 
 
+(require turnstile/rackunit-typechecking)
+
 ;; error description: another binder uses A
 (define-datatype TY [A : (Π [A : Type] Type)] : -> Type
   [C : (TY A)])
 
-;(C (λ [x : Type] x)) ; ok
+(check-type (C (λ [x : Type] x)) : (TY (λ [x : Type] x)))
 
 ;; data2 err: A gets subst with arg, eg (Π [(λ [x : Type] x) : Type] Type)
-(TY (λ [x : Type] x)) ; BAD
+(check-type (TY (λ [x : Type] x)) : Type) ; BAD ; 2018-06-24: fixed
 
-;;(require turnstile/rackunit-typechecking)
-;; (check-type (λ [x : Type]  x) : (Π [A : Type] Type))
+(check-type (λ [x : Type]  x) : (Π [A : Type] Type))

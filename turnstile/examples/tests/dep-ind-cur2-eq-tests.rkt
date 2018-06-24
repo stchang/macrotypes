@@ -21,7 +21,7 @@
   [Z : Nat]
   [S : (→ Nat Nat)])
 
-(define-type-alias plus
+(define plus
   (λ [n : Nat][m : Nat]
     (elim-Nat n
               (λ [k : Nat] Nat)
@@ -188,7 +188,7 @@
          (→ (pm= A x y)
             (pm= A x y)))))
 
-(define-type-alias pm-sym
+(define pm-sym
   (λ [A : (Type 0)]
     (λ [x : A] [y : A]
        (λ [e : (pm= A x y)]
