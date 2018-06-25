@@ -11,7 +11,7 @@
 (provide Type (rename-out [Type *]) (for-syntax ~Type)
          Π (for-syntax ~Π ~Π/1)
          (rename-out [λ/1 λ] [app #%app] [app/eval app/eval/1])
-         ann define provide)
+         ann define provide module* submod)
 
 ;; type definitions -----------------------------------------------------------
 
