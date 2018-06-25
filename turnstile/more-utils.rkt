@@ -5,16 +5,19 @@
 (require syntax/parse
          (for-syntax racket/base syntax/parse racket/syntax))
 
-(provide x+τ λ/c- (for-syntax ~plain-app/c) define-nested/R define-nested/L stx-parse/fold)
+(provide x+τ λ/c- #;~plain-app/c define-nested/R define-nested/L stx-parse/fold)
 
-(begin-for-syntax
-  (define-syntax ~plain-app/c
-    (pattern-expander
-     (syntax-parser
-       [_ #:do[(displayln (stx->datum this-syntax))] #:when #f #'debugging]
-       [(_ f) #'f]
-       [(_ f e . rst)
-        #'(~plain-app/c ((~literal #%plain-app-) f e) . rst)]))))
+#;(define-syntax ~plain-app/c
+  (pattern-expander
+   (syntax-parser
+     ;       [_ #:do[(displayln (stx->datum this-syntax))] #:when #f #'debugging]
+     [(_ f) #'f]
+     [(_ f e (~and (~literal ...) ooo))
+      #'(~and TMP
+              (~parse (f e ooo)
+                      (stx-parse/fold #'TMP ((~literal #%plain-app) x xs))))]
+     [(_ f e . rst)
+      #'(~plain-app/c ((~literal #%plain-app) f e) . rst)])))
 
 (define-syntax-class x+τ
   (pattern [(~var x id) (~datum :) τ]))

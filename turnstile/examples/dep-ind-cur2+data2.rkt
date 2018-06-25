@@ -70,6 +70,7 @@
      (prune #'τ (stx-length #'(A ...)))]))
 ;; must be used with with-unbound
 (begin-for-syntax
+  (require turnstile/more-utils)
   (define-syntax ~unbound
     (pattern-expander
      (syntax-parser
@@ -87,16 +88,37 @@
                         (let L ([stx #'TMP])
                           (syntax-parse stx
 ;                            [_ #:do[(printf "unbound2: ~a\n" (stx->datum stx))] #:when #f #'debugging]
-                            [(_ tty:id . rst)
+                            ;; TODO: use ~plain-app/c
+#;                            [(~plain-app/c tty:id x (... ...))
                              #:when (free-id=? #'tty TmpTy+)
-                             (transfer-props stx #'(X . rst) #:except null)]
-                             [(_ (_ tty:id x (... ...)) . rst)
+                             (transfer-props stx #'(X x (... ...)) #:except null)]
+                              [((~literal #%plain-app) tty:id . rst)
+                             #:when (free-id=? #'tty TmpTy+)
+                               (transfer-props stx #'(X . rst) #:except null)]
+                              [((~literal #%plain-app) ((~literal #%plain-app) tty:id x (... ...)) . rst)
                              #:when (free-id=? #'tty TmpTy+)
                              (transfer-props stx #'(X x (... ...) . rst) #:except null)]
                             [(e (... ...)) (transfer-props stx #`#,(stx-map L #'(e (... ...))) #:except null)]
                             [_ stx])))
                 #;(~parse pat (subst #'X TmpTy+ #'TMP free-id=?)))])))
+  ;; convert tscope/tscopes into Π and check Π
+  (define (check-well-formed TY tscope tscopes)
+    (syntax-parse tscope
+      [([A (~datum :) τA] ...)
+       (syntax-parse tscopes
+         [(([i (~datum :) τi] ...) ...)
+          (syntax-parse TY
+            [T
+          #:with (tmp ...) (generate-temporaries tscopes)
+          #:with ((~unbound2 T (~Π [X : τ] ... _)) _)
+                 (infer+erase #'(with-unbound T (Π [A : τA] ... [tmp : (Π [i : τi] ... Type)] ... Type)))
+          #:with (([A- τA-] ...)
+                  ([_ (~Π [i- : τi-] ... _)] ...))
+                 (stx-split-at #'([X τ] ...) (stx-length #'(A ...)))
+          #'(([A- τA-] ...)
+             (([i- τi-] ...) ...))])])]))
   )
+
 (define-typed-syntax define-datatype
   ;; simple datatypes, eg Nat -------------------------------------------------
   ;; - ie, `TY` is an id with no params or indices
@@ -115,16 +137,13 @@
                        (~parse (τin ...) #'()))
                   ;; i+x may reference A
                  [C:id (~datum :)  [i+x:id (~datum :) τin] ... (~datum ->) τout]) ...) ≫
-   #:with (TMp ...) (generate-temporaries #'(C ...))
-   [⊢ (with-unbound TY (Π [A : τA] ... [TMp1 : (Π [i : τi] ... τ)] [TMp : (Π [i+x : τin] ... τout)] ... Type)) ≫
-      (~unbound2 TY (~Π [resid : τres] ... _)) ⇐ Type]
+   #:with (dummy ...) (generate-temporaries #'(C ...))
    #:with (([A2 τA2] ...)
-           ([_ (~Π [i2 : τi2] ... τ2)]
-            [_ (~Π [i+x2 : τin2] ... τout2)] ...))
-          (stx-split-at #'([resid τres] ...) (stx-length #'(A ...)))
-   ;; #:with (([i2 τi2] ...)
-   ;;         ([_ (~Π [i+x2 : τin2] ... τout2)] ...))
-   ;;        (stx-split-at #'rst11 (stx-length #'(i ...)))
+           (([i2 τi2] ... [_ τ2])
+            ([i+x2 τin2] ... [_ τout2]) ...))
+          (check-well-formed #'TY #'([A : τA] ...)
+                             #'(([i : τi] ... [dummy1 : τ])
+                                ([i+x : τin] ... [dummy : τout]) ...))
    ;; - each (xrec ...) is subset of (x ...) that are recur args,
    ;; ie, they are not fresh ids
    ;; - each xrec is accompanied with irec ...,
@@ -135,16 +154,10 @@
    #:with (((xrec irec ...) ...) ...)
           (find-recur/is #'TY (stx-length #'(i ...)) #'(([i+x2 τin2] ...) ...))
    ;; ---------- pre-generate other patvars; makes nested macros below easier to read
-   ; τoutA matches the A and τouti matches the i in τout,
-   ; - ie τout = (TY τoutA ... τouti ...)
-   ;; #:with ((τoutA ...) ...) (stx-map (lambda _ (generate-temporaries #'(A ...))) #'(C ...))
-   ;; #:with ((τouti ...) ...) (stx-map (lambda _ (generate-temporaries #'(i ...))) #'(C ...))
    ;; i* = inferred (concrete) i in elim
    #:with (i* ...) (generate-temporaries #'(i ...))
-   #:with (i** ...) (generate-temporaries #'(i ...))
    ; dup (A ...) C times, for ellipses matching
    #:with ((A*C ...) ...) (stx-map (lambda _ #'(A2 ...)) #'(C ...))
-   #:with ((A*C2 ...) ...) (stx-map (lambda _ #'(A ...)) #'(C ...))
    #:with ((τA*C ...) ...) (stx-map (λ _ #'(τA2 ...)) #'(C ...))
    #:with (m ...) (generate-temporaries #'(C ...))
    #:with (m- ...) (generate-temporaries #'(C ...))

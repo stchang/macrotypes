@@ -106,7 +106,7 @@
   #:where app/eval
   [(#%plain-app
     (~or ((~literal #%plain-lambda) (x) e)
-         ((~literal #%expression) ((~literal #%plain-lambda) (x) e)))
+         ((~literal #%expression) ((~literal #%plain-lambda) (x) e))) ; TODO: who adds this?
     arg)
    ~> #,(subst #'arg #'x #'e)])
 
