@@ -137,6 +137,9 @@
                        (~parse (τin ...) #'()))
                   ;; i+x may reference A
                  [C:id (~datum :)  [i+x:id (~datum :) τin] ... (~datum ->) τout]) ...) ≫
+   ;; TODO: support this pattern with Turnstile, but needs fold over trees, eg
+   #;[⊢ [A ≫ A2 : τA ≫ τA2 ⇐ Type] ... ([i ≫ i2 : τi ≫ τi2 ⇐ Type] ... τ ≫ τ2 ⇐ Type)
+                                      ([i+x ≫ i+x2 : τin ≫ τin2 ⇐ Type] ... τout ≫ τout2 ⇐ Type) ...]
    #:with (dummy ...) (generate-temporaries #'(C ...))
    #:with (([A2 τA2] ...)
            (([i2 τi2] ... [_ τ2])
