@@ -99,15 +99,16 @@
    [⊢ (λ- (x-) e-) ⇒ (Π/1 [x- : τ_in-] τ_out)]])
 
 (define-typerule/red (app e_fn e_arg) ≫
-;  #:do[(printf "apping: ~a ------------\n" (syntax->datum #'(app e_fn e_arg)))]
   [⊢ e_fn ≫ e_fn- ⇒ (~Π/1 [X : τ_in] τ_out)]
   [⊢ e_arg ≫ e_arg- ⇐ τ_in]
-  #:with τ-out (reflect (subst #'e_arg- #'X #'τ_out))
   -----------------------------
-  [⊢ (app/eval e_fn- e_arg-) ⇒ τ-out]
+  [⊢ (app/eval e_fn- e_arg-) ⇒ (app/eval (λ- (X) τ_out) e_arg-)]
   #:where app/eval
-  [(#%plain-app ((~literal #%plain-lambda) (x) e) arg) ~> #,(subst #'arg #'x #'e)]
-  [(#%plain-app ((~literal #%expression) ((~literal #%plain-lambda) (x) e)) arg) ~> #,(subst #'arg #'x #'e)])
+  [(#%plain-app
+    (~or ((~literal #%plain-lambda) (x) e)
+         ((~literal #%expression) ((~literal #%plain-lambda) (x) e)))
+    arg)
+   ~> #,(subst #'arg #'x #'e)])
 
 (define-typed-syntax (ann e (~datum :) τ) ≫
   [⊢ e ≫ e- ⇐ τ]

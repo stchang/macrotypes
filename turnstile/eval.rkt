@@ -11,7 +11,10 @@
 (begin-for-syntax
 
   (define (transfer-type from to)
-    (syntax-property to ': (typeof from)))
+    (define ty (typeof from))
+    (if ty
+        (syntax-property to ': (typeof from))
+        to))
 
   ;; reflects expanded stx to surface, so evaluation may continue
   (define (reflect stx)
