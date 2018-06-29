@@ -8,7 +8,7 @@
 
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
-(provide Type (rename-out [Type *]) (for-syntax ~Type)
+(provide Type (rename-out [Type *]) (for-syntax ~Type) TypeTop
          Π (for-syntax ~Π ~Π/1)
          (rename-out [λ/1 λ] [app #%app] [app/eval app/eval/1])
          ann define provide module* submod)
@@ -101,8 +101,9 @@
 (define-typerule/red (app e_fn e_arg) ≫
   [⊢ e_fn ≫ e_fn- ⇒ (~Π/1 [X : τ_in] τ_out)]
   [⊢ e_arg ≫ e_arg- ⇐ τ_in]
+  #:with τ_out- (reflect (subst #'e_arg- #'X #'τ_out))
   -----------------------------
-  [⊢ (app/eval e_fn- e_arg-) ⇒ (app/eval (λ- (X) τ_out) e_arg-)]
+  [⊢ (app/eval e_fn- e_arg-) ⇒ τ_out- #;(app/eval (λ- (X) τ_out) e_arg-)]
   #:where app/eval
   [(#%plain-app
     (~or ((~literal #%plain-lambda) (x) e)

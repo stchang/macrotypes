@@ -967,9 +967,43 @@
   ;;       eg, what if I need separate type-eval and kind-eval fns?
   ;; - should infer be moved into define-syntax-category?
 
+  (define (ctx->idc ctx #:with-idc [existing-idc #f]
+                    #:var-assign [var-assign #'(λ (x x+ seps tys) (attachs x+ seps tys #:ev (current-type-eval)))]
+                    #:wrap-fn [wrap-fn #'(λ (x) x)]) ; eg, mk-tyvar
+    (define new-idc (or existing-idc (syntax-local-make-definition-context)))
+    (define (in-ctx s)
+      (internal-definition-context-introduce new-idc s))
+     (syntax-parse ctx
+       [([x:id (~seq sep:id τ) ...] ...)
+       (define/syntax-parse (x+ ...) (stx-map (compose in-ctx fresh) #'(x ...)))
+
+       (syntax-local-bind-syntaxes (syntax->list #'(x+ ...)) #f new-idc)
+
+       ; Bind these sequentially, so that expansion of (τ ...) for each
+       ; can depend on type variables bound earlier. Really, these should
+       ; also be in nested scopes such that they can only see earlier xs.
+       (for/fold ([idc new-idc])
+                 ([x (syntax->list #'(x ...))]
+                  [rhs (syntax->list #`((make-variable-like-transformer
+                                         (#,wrap-fn
+                                          (#,var-assign
+                                           #'x #'x+ '(sep ...) #'(τ ...))))
+                                        ...))])
+         (syntax-local-bind-syntaxes (list x) rhs idc)
+         idc)]))
+
   (define (infer es #:ctx [ctx null] #:tvctx [tvctx null]
                     #:tag [tag (current-tag)] ; the "type" to return from es
-                    #:key [kev #'(current-type-eval)]) ; kind-eval (tvk in tvctx)
+                    #:key [kev #'(current-type-eval)] ; kind-eval (tvk in tvctx)
+                    #:with-idc [idc #f])
+
+    (define/syntax-parse ([A+ Aty] ...)
+      (cond [idc
+             (for/list ([i (internal-definition-context-binding-identifiers idc)]
+                        #:when (syntax-source i)) ; generated ids have no source
+               (define i+ (local-expand i 'expression null idc))
+               (list i+ (typeof i+)))]
+            [else null]))
      (syntax-parse ctx
        [((~or X:id [x:id (~seq sep:id τ) ...]) ...) ; dont expand; τ may reference to tv
        #:with (~or (~and (tv:id ...)
@@ -979,7 +1013,7 @@
                    tvctx
        #:with (e ...) es
 
-       (define ctx (syntax-local-make-definition-context))
+       (define ctx (or idc (syntax-local-make-definition-context)))
        (define (in-ctx s)
          (internal-definition-context-introduce ctx s))
 
@@ -1026,10 +1060,29 @@
 
        (define (typeof e)
          (detach e tag))
+        
 
-       (list #'(tv+ ...) #'(X+ ... x+ ...)
+        (cond 
+          [idc
+           (define/syntax-parse
+          (tyx ...)
+          (for/list ([x (syntax->list #'(x ...))])
+            (typeof (local-expand x 'expression null ctx))))
+           #;(define/syntax-parse
+          (ktv ...)
+          (for/list ([tv (syntax->list #'(tv ...))]
+                     [tvsep (syntax->datum #'((tvsep ...) ...))])
+            (detach (local-expand tv 'expression null ctx) (car tvsep))))
+       (list #'(A+ ...)
+             #'(Aty ...)
+             #'(tv+ ...)
+             #'(X+ ... x+ ...)
+             #'(tyx ...)
              #'(e+ ...)
              (stx-map typeof #'(e+ ...)))]
+        [else (list #'(tv+ ...) #'(X+ ... x+ ...)
+             #'(e+ ...)
+             (stx-map typeof #'(e+ ...)))])]
 
       [([x τ] ...) (infer es #:ctx #`([x #,tag τ] ...) #:tvctx tvctx #:tag tag)]))
 

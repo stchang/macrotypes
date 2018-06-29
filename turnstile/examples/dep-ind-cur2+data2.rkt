@@ -96,8 +96,15 @@
                              #:when (free-id=? #'tty TmpTy+)
                                (transfer-props stx #'(X . rst) #:except null)]
                               [((~literal #%plain-app) ((~literal #%plain-app) tty:id x (... ...)) . rst)
-                             #:when (free-id=? #'tty TmpTy+)
-                             (transfer-props stx #'(X x (... ...) . rst) #:except null)]
+                               #:when (free-id=? #'tty TmpTy+)
+                               (transfer-props stx #'(X x (... ...) . rst) #:except null)]
+                              [((~literal #%plain-app) ((~literal #%plain-app) ((~literal #%plain-app) tty:id x1) x2) x3)
+                               #:when (free-id=? #'tty TmpTy+)
+                               (transfer-props stx #'(X x1 x2 x3) #:except null)]
+                                #;[((~literal #%plain-app) ((~literal #%plain-app) ((~literal #%plain-app) tty:id x1) x2) x3)
+                               #:when (free-id=? #'tty TmpTy+)
+                               #:with mk-X (format-id #'X "mk-~a" #'X)
+                               (transfer-props stx #'(mk-X x1 x2 x3) #:except null)]
                             [(e (... ...)) (transfer-props stx #`#,(stx-map L #'(e (... ...))) #:except null)]
                             [_ stx])))
                 #;(~parse pat (subst #'X TmpTy+ #'TMP free-id=?)))])))
@@ -137,16 +144,41 @@
                        (~parse (τin ...) #'()))
                   ;; i+x may reference A
                  [C:id (~datum :)  [i+x:id (~datum :) τin] ... (~datum ->) τout]) ...) ≫
-   ;; TODO: support this pattern with Turnstile, but needs fold over trees, eg
+   ;; TODO: support this pattern with Turnstile?, but needs fold over trees, eg
    #;[⊢ [A ≫ A2 : τA ≫ τA2 ⇐ Type] ... ([i ≫ i2 : τi ≫ τi2 ⇐ Type] ... τ ≫ τ2 ⇐ Type)
                                       ([i+x ≫ i+x2 : τin ≫ τin2 ⇐ Type] ... τout ≫ τout2 ⇐ Type) ...]
-   #:with (dummy ...) (generate-temporaries #'(C ...))
-   #:with (([A2 τA2] ...)
-           (([i2 τi2] ... [_ τ2])
-            ([i+x2 τin2] ... [_ τout2]) ...))
-          (check-well-formed #'TY #'([A : τA] ...)
-                             #'(([i : τi] ... [dummy1 : τ])
-                                ([i+x : τin] ... [dummy : τout]) ...))
+   
+   ;; method 3: nested telescope
+   [[A ≫ A2 : τA ≫ τA2] ... ⊢
+    [[i ≫ i2 : τi ≫ τi2] ... ⊢ τ ≫ τ2 ⇐ TypeTop]
+    [[i+x ≫ i+x2 : (with-unbound TY τin) ≫ (~unbound2 TY τin2)] ... ⊢ (with-unbound TY τout) ≫ (~unbound2 TY τout2) ⇐ TypeTop] ...]
+   ;; [[A ≫ A_ : τA] ... [i ≫ i2_ : τi] ... ⊢ [τ ≫ τ2_ ⇒ _] [A ≫ A__  ⇒ _] ... [i ≫ i2__  ⇒ _] ...] 
+   ;; #:do[(displayln (stx->datum #'(A_ ...)))
+   ;;      (displayln (stx->datum #'(τA ...)))
+   ;;      (displayln (stx->datum (stx-map typeof #'(A__ ...))))
+   ;;      (displayln (stx->datum (stx-map typeof #'(i2__ ...))))]
+;   #:with i+e-res (infer #'(τ τout ...) #:tvctx #'([A : τA] ...) #:ctxs #'(([i : τi] ...) ([i+x : τin] ...) ...))
+   
+   ;; method 2: infer + #:with-idc
+   ;; #:with (~and (~unbound2 TY i+e-res)
+   ;;              (~unbound2 TY
+   ;;                        (((A2 ...) (τA2 ...) () (i2 ...) (τi2 ...) (τ2) _)
+   ;;                         (_  _               () (i+x2 ...) (τin2 ...) (τout2) _) ...)))
+   ;; (let ([idc (ctx->idc #'(#;[TY : (Π [A : τA] ... [i : τi] ... τ)]
+   ;;                         [A : τA] ...))])
+   ;;   (for/list ([t (syntax->list #'(τ (with-unbound TY τout) ...))]
+   ;;              [ctx (syntax->list #'(([i : τi] ...) ([i+x : (with-unbound TY τin)] ...) ...))])
+   ;;     (infer (list t) #:ctx ctx #:with-idc idc)))
+   ;; #:do[(pretty-print (stx->datum #'i+e-res))]
+   
+   ;; method 1: check-well-formed and wrap with Π
+   ;; #:with (dummy ...) (generate-temporaries #'(C ...))
+   ;; #:with (([A2 τA2] ...)
+   ;;         (([i2 τi2] ... [_ τ2])
+   ;;          ([i+x2 τin2] ... [_ τout2]) ...))
+   ;;        (check-well-formed #'TY #'([A : τA] ...)
+   ;;                           #'(([i : τi] ... [dummy1 : τ])
+   ;;                              ([i+x : τin] ... [dummy : τout]) ...))
    ;; - each (xrec ...) is subset of (x ...) that are recur args,
    ;; ie, they are not fresh ids
    ;; - each xrec is accompanied with irec ...,
@@ -160,8 +192,10 @@
    ;; i* = inferred (concrete) i in elim
    #:with (i* ...) (generate-temporaries #'(i ...))
    ; dup (A ...) C times, for ellipses matching
-   #:with ((A*C ...) ...) (stx-map (lambda _ #'(A2 ...)) #'(C ...))
-   #:with ((τA*C ...) ...) (stx-map (λ _ #'(τA2 ...)) #'(C ...))
+   #:with ((A*C ...) ...) (stx-map (lambda _ #'(A ...)) #'(C ...))
+   #:with ((τA*C ...) ...) (stx-map (λ _ #'(τA ...)) #'(C ...))
+   #:with ((A*C2 ...) ...) (stx-map (lambda _ #'(A2 ...)) #'(C ...))
+   #:with ((τA*C2 ...) ...) (stx-map (λ _ #'(τA2 ...)) #'(C ...))
    #:with (m ...) (generate-temporaries #'(C ...))
    #:with (m- ...) (generate-temporaries #'(C ...))
    #:with TY-patexpand (mk-~ #'TY)
@@ -184,7 +218,7 @@
 
         ;; define the data constructors
 ;        (define-data-constructor C : [A*C : τA*C] ... [i+x : τin] ... -> τout) ...
-        (define-data-constructor C : [A*C : τA*C] ... [i+x2 : τin2] ... -> τout2) ...
+        (define-data-constructor C : [A*C2 : τA*C2] ... [i+x2 : τin2] ... -> τout2) ...
 
         ;; define eliminator-form elim-TY
         ;; v = target
@@ -219,12 +253,12 @@
           #:with (τm ...)
                  #'((Π [i+x2 : τin2] ... ; constructor args ; ASSUME: i+x includes indices
                        (→ (P- irec ... xrec) ... ; IHs
-                          (P- τouti ... (C A*C ... i+x2 ...)))) ...)
+                          (P- τouti ... (C A*C2 ... i+x2 ...)))) ...)
           [⊢ m ≫ m- ⇐ τm] ...
           -----------
           [⊢ (eval-TY v- P- m- ...) ⇒ (P- i* ... v-)]
           #:where eval-TY ; elim reduction rule
-          [(#%plain-app (C-expander A*C ... i+x2 ...) P m ...) ; elim redex
+          [(#%plain-app (C-expander A*C2 ... i+x2 ...) P m ...) ; elim redex
            ~> (app/eval m i+x2 ... (eval-TY xrec P m ...) ...)] ...)
         )
    --------

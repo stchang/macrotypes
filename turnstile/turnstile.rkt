@@ -29,17 +29,17 @@
   ;;   es*-  ; a nested list a depth given by the depth argument, with the same structure
   ;;         ; as es*, containing the expanded es*, with the types attached
   (define (infer/depth #:ctx ctx #:tvctx tvctx depth es* origs*
-                       #:tag [tag (current-tag)])
+                       #:tag [tag (current-tag)] #:with-idc [idc #f])
     (define flat (stx-flatten/depth-lens depth))
     (define es (lens-view flat es*))
     (define origs (lens-view flat origs*))
     (define/with-syntax [tvxs- xs- es- _]
-      (infer #:tvctx tvctx #:ctx ctx (stx-map pass-orig es origs) #:tag tag))
+      (infer #:tvctx tvctx #:ctx ctx (stx-map pass-orig es origs) #:tag tag #:with-idc idc))
     (define es*- (lens-set flat es* #`es-))
     (list #'tvxs- #'xs- es*-))
   ;; infers/depths
   (define (infers/depths clause-depth tc-depth tvctxs/ctxs/ess/origss*
-                         #:tag [tag (current-tag)])
+                         #:tag [tag (current-tag)] #:with-idc [idc #f])
     (define flat (stx-flatten/depth-lens clause-depth))
     (define tvctxs/ctxs/ess/origss
       (lens-view flat tvctxs/ctxs/ess/origss*))
@@ -47,7 +47,7 @@
       (for/list ([tvctx/ctx/es/origs (in-list (stx->list tvctxs/ctxs/ess/origss))])
         (match-define (list tvctx ctx es origs)
           (stx->list tvctx/ctx/es/origs))
-        (infer/depth #:tvctx tvctx #:ctx ctx tc-depth es origs #:tag tag)))
+        (infer/depth #:tvctx tvctx #:ctx ctx tc-depth es origs #:tag tag #:with-idc idc)))
     (define res
       (lens-set flat tvctxs/ctxs/ess/origss* tcs))
     res)
@@ -286,10 +286,42 @@
              #:with inf+ ((attribute tc.wrap-computation) #'inf)
              #:with pat #`(~post (~post (~parse tcs-pat inf+)))]
     )
+  (define-syntax-class tele-bind #:datum-literals (≫)
+    (pattern [A:id ≫ A-:id sep:id ty ≫ ty-]
+             #:with x+ty #'[A sep ty]
+             #:with xpat #'A-
+             #:with typat #'ty-))
   (define-splicing-syntax-class clause
     #:attributes (pat)
-    #:datum-literals (τ⊑ τ=) ; TODO: drop the τ in τ⊑ and τ=
+    #:datum-literals (τ⊑ τ= ⊢ ≫ ⇐) ; TODO: drop the τ in τ⊑ and τ=
     [pattern :tc-clause]
+    [pattern [b:tele-bind ... ooo1:elipsis  ⊢
+                          [x:tele-bind ... ooo2:elipsis ⊢ e ≫ e-pat ⇐ ty-expected] ... ooo3:elipsis]
+             
+             #:with pat #'(~and
+                           (~parse ([As Atys _ xs  tyxs  (e-) (ety)] (... ...))
+                                   (let ([idc (ctx->idc #'(b.x+ty ... ooo1))])
+                                     (stx-map
+                                      (λ (e1 ctx) (infer (list e1) #:ctx ctx #:with-idc idc))
+                                      #'(e ... ooo3)
+                                      #'((x.x+ty ... ooo2) ... ooo3))))
+                           (~parse (b.xpat ... ooo1) (stx-car #'(As (... ...))))
+                           (~parse (b.typat ... ooo1) (stx-car #'(Atys (... ...))))
+                           (~parse ((x.xpat ... ooo2) ... ooo3) #'(xs (... ...)))
+                           (~parse ((x.typat ... ooo2) ... ooo3) #'(tyxs (... ...)))
+                           (~parse (e-pat ... ooo3) #'(e- (... ...)))
+                           (~fail #:unless (let L ([ts (stx->list #'(ety (... ...)))]
+                                                   [tes (stx->list #'(ty-expected ...))])
+                                             (define t ((current-type-eval) (car ts)))
+                                             (define te ((current-type-eval) (car tes)))
+                                             (define res (typecheck? t te))
+                                             (if (null? (cdr ts))
+                                                 res
+                                                 (if (null? (cdr tes))
+                                                     (and res (L (cdr ts) (list te)))
+                                                     (and res (L (cdr ts) (cdr tes))))))
+                                  "mismatch"))]
+                                   
     [pattern [a τ⊑ b]
              #:with pat
              #'(~post

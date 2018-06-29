@@ -46,7 +46,7 @@
          (wrap-fn
           (syntax-parser
             [(_ e) #'e]
-            [(_ f e . rst) #'(name (name/1 f e) . rst)]
+            [(_ f e . rst) (quasisyntax/loc this-syntax (name #,(syntax/loc this-syntax (name/1 f e)) . rst))]
             )))]))
 
 ;; returns a flattened list of stx objs, outermost first
