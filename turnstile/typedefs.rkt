@@ -30,42 +30,17 @@
                         (~and (~seq k_out ...)
                               (~parse (Y ...) (generate-temporaries #'(k_out ...)))))
         (~datum ->) k) ; ⇒ ⇐
-     #:when (syntax-parse/typecheck null ;(list #'([X k_in] ...) #'([Y k_out] ...) #'k)
-             [_ #;(([X2:id k_in2] ...) ([Y2:id k_out2] ...) k2) ≫
-;              [[X ≫ X- : k_in] ... ⊢ [k_in ≫ k_in- ⇒ ty_k_in] ...]
+     #:when (syntax-parse/typecheck null 
+             [_ ≫ ;; TODO: use this X- and Y-?
               [[X ≫ _ : k_in ≫ k_in- ⇒ ty_k_in] ... ⊢
                [Y ≫ _ : k_out ≫ k_out- ⇒ ty_k_out] ...
                [k ≫ k- ⇒ ty_k]]
               ---
               [≻ void]])
-     ;; #:when (syntax-parse/typecheck (list #'([X k_in] ...) #'([Y k_out] ...) #'k)
-     ;;         [(~and tmp
-     ;;                (~do (displayln (stx->datum #'tmp)))
-     ;;                (([X2:id k_in2] ...) ([Y2:id k_out2] ...) k2)) ≫
-     ;;          [[X2 ≫ X- : k_in2 ≫ k_in- ⇒ ty_k_in] ... ⊢
-     ;;           [Y2 ≫ Y- : k_out2 ≫ k_out- ⇒ ty_k_out] ...
-     ;;           [Z ≫ Z- : k2 ≫ k- ⇒ ty_k]]
-     ;;          -----------------
-     ;;          [≻ (void)]])
-     ;; ;; TODO: how to check that k_in ... k_out ... have type `Type`?
-     ;; ;; when turnstile doesnt know about Type?
-     ;; #:with (_ _ res1) (infers/ctx+erase #'([X : k_in] ...)  #'(k_in ...))
-     ;; #:do[(displayln (stx->datum #'res1))]
-     ;; #:with (_ _ res2) (infers/ctx+erase #'([X : k_in] ... [Y : k_out] ...)  #'(k_out ... k))
-     ;; #:do[(displayln (stx->datum #'res2))]
      #:with (τ_in ...) (generate-temporaries #'(k_in ...))
      #:with (τ_in- ...) (generate-temporaries #'(k_in ...))
-     #:with (τ_in-- ...) (generate-temporaries #'(k_in ...))
-     #:with (τ_out ...) (generate-temporaries #'(k_out ...))
      #:with (τ_out- ...) (generate-temporaries #'(k_out ...))
-     #:with (τ_out-- ...) (generate-temporaries #'(k_out ...))
-     ;; #:with (τ_out_inst ...) (generate-temporaries #'(τ_out ...))
-     ;; #:with (k_out_inst ...) (generate-temporaries #'(k_out ...))
      #:with (X- ...) (generate-temporaries #'(X ...))
-     #:with (X-- ...) (generate-temporaries #'(X ...))
-     #:with (Z ...) (generate-temporaries #'(Y ...))
-     #:with (Y- ...) (generate-temporaries #'(Y ...))
-     #:with (Z- ...) (generate-temporaries #'(Y ...))
      #:with TY/internal (generate-temporary #'TY)
      #:with TY-expander (mk-~ #'TY)
      #:with TY-expander/1/nested (format-id #'TY "~a/nested" (mk-~ #'TY/1))
@@ -87,12 +62,10 @@
                    null
                    (list #'(~seq [(~var X id) (~datum :) τ_in] ...)))
             Y ...) ≫
+           ;; with prev Turnstile stx"
 ;;            [⊢ τ_in  ≫ τ_in- ⇐ k_in] ...
-;; ;           [[X ≫ X- : τ_in-] ... ⊢ τ_out ≫ τ_out- ⇐ k_out] ...
-;;            ;; "telescope", fold premise notation
-;;            ;; ie, subst τ_out for Y in τ_out ... and k_out ...
-;; ;           [[X ≫ X- : τ_in-] ... ⊢ [[Y : τ_out] ≫ τ_out- ⇐ k_out] ...]
 ;;            [[X ≫ X- : τ_in-] ... ⊢ [Y ≫ τ_out- ⇐ k_out] ...]
+;; dont need k_inst (or any other k_*_inst) bc we're using nested pat-var subst technique
 ;; ;          #:with k_inst (substs #'(τ_out ...) #'(Y ...) #'k)
           [⊢ [X ≫ X- : τ_in ≫ τ_in- ⇐ k_in] ... [Y ≫ τ_out- ⇐ k_out] ...]
            #:with maybe-lambda

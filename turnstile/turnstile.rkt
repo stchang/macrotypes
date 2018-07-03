@@ -417,8 +417,6 @@
                                             new-ctx))))
                            (~parse (b1.xpat ...) As1)
                            (~parse (b1.typat ...) tys1)
-                           ;; (~do (printf "expected: ~a\n" (stx->datum #'(b1.expected-k ...))))
-                           ;; (~do (printf "actual  : ~a\n" (stx->datum ks1)))
                            (~fail #:unless (typechecks? ks1 (stx-map (current-type-eval) #'(b1.expected-k ...))) "k mismatch")
                            (~do (define-values (As2 tys2 ks2 ctx2)
                                   (for/fold ([As- null] [tys- null] [ks null] [ctx ctx1]
@@ -437,8 +435,6 @@
                                             new-ctx))))
                            (~parse (b2.xpat ...) As2)
                            (~parse (b2.typat ...) tys2)
-                           ;; (~do (printf "expected: ~a\n" (stx->datum #'(b2.expected-k ...))))
-                           ;; (~do (printf "actual  : ~a\n" (stx->datum ks2)))
                            (~fail #:unless (typechecks? ks2 (stx-map (current-type-eval) #'(b2.expected-k ...))) "k mismatch")
                            (~do (define-values (As3 tys3 ks3 ctx3)
                                   (for/fold ([As- null] [tys- null] [ks null] [ctx ctx2]
@@ -456,8 +452,6 @@
                                             (cons k ks)
                                             new-ctx))))
                            (~parse (e-pat ...) tys3)
-                           ;; (~do (printf "expected: ~a\n" (stx->datum #'(expected-ty ...))))
-                           ;; (~do (printf "actual  : ~a\n" (stx->datum ks3)))
                            (~fail #:unless (typechecks? ks3 (stx-map (current-type-eval) #'(expected-ty ...))) "k mismatch")
                            )
              ]

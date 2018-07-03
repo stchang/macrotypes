@@ -152,12 +152,6 @@
    [[A ≫ A2 : τA ≫ τA2] ... ⊢
     [[i ≫ i2 : τi ≫ τi2] ... ⊢ τ ≫ τ2 ⇐ TypeTop]
     [[i+x ≫ i+x2 : (with-unbound TY τin) ≫ (~unbound2 TY τin2)] ... ⊢ (with-unbound TY τout) ≫ (~unbound2 TY τout2) ⇐ TypeTop] ...]
-   ;; [[A ≫ A_ : τA] ... [i ≫ i2_ : τi] ... ⊢ [τ ≫ τ2_ ⇒ _] [A ≫ A__  ⇒ _] ... [i ≫ i2__  ⇒ _] ...] 
-   ;; #:do[(displayln (stx->datum #'(A_ ...)))
-   ;;      (displayln (stx->datum #'(τA ...)))
-   ;;      (displayln (stx->datum (stx-map typeof #'(A__ ...))))
-   ;;      (displayln (stx->datum (stx-map typeof #'(i2__ ...))))]
-;   #:with i+e-res (infer #'(τ τout ...) #:tvctx #'([A : τA] ...) #:ctxs #'(([i : τi] ...) ([i+x : τin] ...) ...))
    
    ;; method 2: infer + #:with-idc
    ;; #:with (~and (~unbound2 TY i+e-res)
@@ -179,6 +173,7 @@
    ;;        (check-well-formed #'TY #'([A : τA] ...)
    ;;                           #'(([i : τi] ... [dummy1 : τ])
    ;;                              ([i+x : τin] ... [dummy : τout]) ...))
+
    ;; - each (xrec ...) is subset of (x ...) that are recur args,
    ;; ie, they are not fresh ids
    ;; - each xrec is accompanied with irec ...,
