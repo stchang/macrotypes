@@ -1086,6 +1086,38 @@
 
       [([x τ] ...) (infer es #:ctx #`([x #,tag τ] ...) #:tvctx tvctx #:tag tag)]))
 
+  (define (folding-infer x τ #:ctx [idc0 #f]) ; TODO: add tag argument
+    (syntax-parse (list x #': τ)
+      [(x sep τ)
+;       (displayln (stx->datum #'(x sep τ)))
+
+       (define idc (or idc0 (syntax-local-make-definition-context)))
+
+       (define (in-ctx s) (internal-definition-context-introduce idc s))
+
+       (define/syntax-parse x+ ((compose in-ctx fresh) #'x))
+
+       (syntax-local-bind-syntaxes (list #'x+) #f idc)
+
+       (syntax-local-bind-syntaxes (list #'x)
+                                   #'(make-variable-like-transformer
+                                            ((current-var-assign)
+                                             #'x #'x+ '(sep) #'(τ)))
+                                   idc)
+       
+       (define/syntax-parse τ+ (detach (local-expand #'x 'expression null idc) (stx->datum #'sep)))
+
+       (define/syntax-parse k_τ (detach #'τ+ (stx->datum #'sep)))
+
+       ;; returns:
+       ;; - x+
+       ;; - τ+
+       ;; - k_τ
+       ;; - idc
+ ;      (displayln (stx->datum #'(x+ τ+ k_τ)))
+       (values #'x+ #'τ+ #'k_τ idc)
+       ]))
+
   ;; fns derived from infer ---------------------------------------------------
   ;; some are syntactic shortcuts, some are for backwards compat
 
