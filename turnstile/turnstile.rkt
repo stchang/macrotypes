@@ -3,6 +3,7 @@
 (provide (except-out (all-from-out macrotypes/typecheck-core)
                      -define-syntax-category)
          define-typed-syntax
+         define-typed-variable
          define-typed-variable-syntax
          define-syntax-category
          define-prop
@@ -698,3 +699,20 @@
               #'(define (sig x)
                   (syntax-parameterize ([name (make-rename-transformer #'x)])
                     . rst))])))]))
+
+;; this is a variant of assign-type, but for top-lvl defs
+(define-syntax define-typed-variable
+  (syntax-parser
+    [(_ x:id e (~datum ⇐) τ) ; e typed, checked to have type τ
+     (quasisyntax/loc this-syntax (define-typed-variable x (add-expected e τ)))]
+    [(_ x:id e)
+     #:with [e- τ] (infer+erase #'e)
+     (quasisyntax/loc this-syntax (define-typed-variable x e- ⇒ τ))]
+    [(_ x:id e- (~datum ⇒) τ) ; e- untyped, assigned type τ
+     #:with x- (generate-temporary #'x)
+     #`(begin-
+         (define- x- e-)
+         #,(quasisyntax/loc this-syntax
+             (define-syntax- x
+               (make-variable-like-transformer
+                (add-orig (assign-type #'x- #'τ #:wrap? #f) #'x)))))]))
