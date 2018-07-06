@@ -287,12 +287,54 @@ A @racket[syntax-parse]-like form that supports
 
 @; define-typed-variable-rename -----------------------------------------------
 
-@defform[(define-typed-variable-rename typed-var ≫ untyped-var : type)]
+@defform[(define-typed-variable-rename typed-var ≫ untyped-var : type)]{
 
 Defines @racket[typed-var] as a variable with type @racket[type] that erases to
 @racket[untyped-var]. Supports @racket[set!]. Generally typed definition
-forms will expand to a combination of an untyped @racket[define] and this form.
+forms will expand to a combination of an untyped @racket[define] and this form.}
 
+@; define-typed-variable -----------------------------------------------
+
+@defform*[((define-typed-variable id typed-e ⇐ τ)
+           (define-typed-variable id typed-e)
+           (define-typed-variable id untyped-e ⇒ τ))]{
+
+Defines @racket[id] as a typed, top-level name. @racket[id] expands to another
+binding that is bound to the supplied expression.
+
+With the ⇐ variant, @racket[typed-e] is checked to have type τ. @racket[id]
+also has type τ.
+
+With middle variant, @racket[id] has the type of @racket[typed-e].
+
+With the ⇒ variant, both @racket[id] and @racket[untyped-e] are assigned type
+τ (using @racket[assign-type]).
+
+The difference between @racket[define-typed-variable] and
+@racket[define-typed-variable-rename] is that the latter assumes that an
+untyped name already exists. In contrast, @racket[define-typed-variable] uses
+@racket[generate-temporary] to first define an untyped name, and then uses @racket[define-typed-variable-rename] to define
+the typed name in terms of the untyped name. E.g., @racket[define-primop] essentially just uses @racket[define-typed-variable-rename], but a typed @racket[define] needs more.
+
+Here is an example @racket[typed-λ] and @racket[typed-define] that expands to 
+ @racket[typed-λ] and @racket[define-typed-variable].
+
+@racketblock[
+(define-typerule typed-λ
+  [(_ ([x:id (~datum :) τ:type] ...) e) ≫
+   [[x ≫ x- : τ.norm] ... ⊢ e ≫ e- ⇒ τout]
+   --------------
+   [⊢ (λ- (x- ...) e-) ⇒ (-> τ.norm ... τout)]]
+  [(_ (x:id ...) e) ⇐ (~-> τin ... τout) ≫
+   [[x ≫ x- : τin] ... ⊢ e ≫ e- ⇐ τout]
+   --------------
+   [⊢ (λ- (x- ...) e-)]])
+(define-typerule
+  (define (f:id [x:id (~datum :) τin:type] ...) (~datum :) τout:type e) ≫
+  --------
+  [≻ (define-typed-variable f (typed-λ (x ...) e) ⇐ (-> τin.norm ... τout.norm))])
+]
+}
 
 @; define-primop --------------------------------------------------------------
 @defform*[((define-primop typed-op-id τ)

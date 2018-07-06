@@ -713,6 +713,4 @@
      #`(begin-
          (define- x- e-)
          #,(quasisyntax/loc this-syntax
-             (define-syntax- x
-               (make-variable-like-transformer
-                (add-orig (assign-type #'x- #'τ #:wrap? #f) #'x)))))]))
+             (define-typed-variable-rename x ≫ x- : τ)))]))
