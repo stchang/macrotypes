@@ -374,6 +374,8 @@
              #'(~post
                 (~fail #:unless (=s? #'[a ooo] #'[b ooo])
                        (typecheck-fail-msg/multi #'[b ooo] #'[a ooo] #'[e ooo])))]
+    [pattern {~seq #:and pat}]
+    [pattern {~seq #:cut} #:with pat #'~!]
     [pattern (~seq #:when condition:expr)
              #:with pat
              #'(~fail #:unless condition)]
