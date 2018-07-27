@@ -799,7 +799,7 @@
                infer/ctx+erase 
                #'(ctx ...) #`((pass-expected e_body #,stx) ...))
       #:when (check-exhaust #'(pat- ...) #'τ_e)
-      (⊢ (match- e- [pat- (let- ([x- x] ...) e_body-)] ...) : (⊔ ty_body ...))
+      (⊢ (match- e- [pat- (let-values- ([(x-) x] ...) e_body-)] ...) : (⊔ ty_body ...))
       ])]))
 
 (define-typed-syntax match #:datum-literals (with)
@@ -818,8 +818,8 @@
         #:with (acc ...) (for/list ([(a i) (in-indexed (syntax->list #'(x ...)))])
                            #`(#%plain-lambda- (s) (#%plain-app- list-ref- s #,(datum->syntax #'here i))))
         #:with z (generate-temporary)
-        (⊢ (let- ([z e-])
-             (let- ([x- (#%plain-app- acc z)] ...) e_body-))
+        (⊢ (let-values- ([(z) e-])
+             (let-values- ([(x-) (#%plain-app- acc z)] ...) e_body-))
            : ty_body)])]
      [(List? #'τ_e) ;; e is List
       (syntax-parse #'clauses #:datum-literals (-> ::)
@@ -848,10 +848,10 @@
                                         #`(#%plain-lambda- (lst) (#%plain-app- list-ref- lst #,(datum->syntax #'here i)))))
                                   #'((x ...) ...))
         #:with (acc2 ...) (stx-map (lambda (l) #`(#%plain-lambda- (lst) (#%plain-app- list-tail- lst #,l))) #'(len ...))
-        (⊢ (let- ([z e-])
+        (⊢ (let-values- ([(z) e-])
              (cond-
               [(#%plain-app- pred? z)
-               (let- ([x- (#%plain-app- acc1 z)] ... [rst- (#%plain-app- acc2 z)]) e_body-)] ...))
+               (let-values- ([(x-) (#%plain-app- acc1 z)] ... [(rst-) (#%plain-app- acc2 z)]) e_body-)] ...))
            : (⊔ ty_body ...))])]
      [else  ;; e is variant
       (syntax-parse #'clauses #:datum-literals (->)
@@ -895,11 +895,12 @@
                            (Bool? (stx-car #'(τ_guard ...))))
                       "guard expression(s) must have type bool"
         #:with z (generate-temporary) ; dont duplicate eval of test expr
-        (⊢ (let- ([z e-])
+        (⊢ (let-values- ([(z) e-])
              (cond-
-              [(and- (#%plain-app- Cons? z) 
-                     (let- ([x- (#%plain-app- acc z)] ...) e_guard-))
-               (let- ([x- (#%plain-app- acc z)] ...) e_c-)] ...))
+              [(if- (#%plain-app- Cons? z) 
+                    (let-values- ([(x-) (#%plain-app- acc z)] ...) e_guard-)
+                    (quote- #f))
+               (let-values- ([(x-) (#%plain-app- acc z)] ...) e_c-)] ...))
            : (⊔ τ_ec ...))])])])
 
 ; special arrow that computes free vars; for use with tests
@@ -1097,7 +1098,7 @@
    #:with [(x- ...) body- (~× ty_k ty_v)] 
           (infer/ctx+erase #'([x : ty] ...) #'body)
    (⊢ (for/hash- ([x- e-] ...)
-        (let- ([t body-])
+        (let-values- ([(t) body-])
           (#%plain-app- values- (#%plain-app- car- t) (#%plain-app- cadr- t))))
       : #,(mk-Hash- #'(ty_k ty_v)))])
 
@@ -1132,7 +1133,7 @@
    #:fail-unless (typecheck? #'ty_body #'ty.norm)
                  (format "type of let body ~a does not match expected typed ~a"
                          (type->str #'ty_body) (type->str #'ty))
-   (⊢ (letrec- ([name- (#%plain-lambda- xs- body- ...)]) 
+   (⊢ (letrec-values- ([(name-) (#%plain-lambda- xs- body- ...)]) 
         (name- e- ...))
       : ty_body)]
   [(let ([x:id e] ...) body ...) 
@@ -1246,7 +1247,7 @@
 
 (define-typed-syntax read
   [(read)
-   (⊢ (let- ([x (#%plain-app- read-)])
+   (⊢ (let-values- ([(x) (#%plain-app- read-)])
         (cond- [(#%plain-app- eof-object?- x) ""]
                [(#%plain-app- number?- x) (#%plain-app- number->string- x)]
                [(#%plain-app- symbol?- x) (#%plain-app- symbol->string- x)])) : #,String+)])
