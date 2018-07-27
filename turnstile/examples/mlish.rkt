@@ -466,7 +466,7 @@
      ;; to ensure enough stx-parse progress for proper err msg,
      ;; ie, "invalid type" instead of "improper tycon usage"
      #:with (~! _:type ...) #'(arg- ...)
-     (add-orig (mk-type (syntax/loc this-syntax (τ- arg- ...))) this-syntax)]
+     (add-orig (mk-type (syntax/loc this-syntax (#%plain-app- τ- arg- ...))) this-syntax)]
     [_ ;; else fail with err msg
       (type-error #:src this-syntax
                   #:msg
@@ -525,16 +525,19 @@
      #:with (NameExtraInfo ...) (stx-map (λ (n) (format-id n "~a-extra-info" n)) #'(Name ...))
      #:with (n ...) (stx-map (λ (Xs) #`#,(stx-length Xs)) #'((X ...) ...))
      #:with (arg-variance-vars ...) (generate-temporaries #'(Name ...))
+     #:with (arg-var-fn ...) (generate-temporaries #'(Name ...))
      #`(begin-
          (begin-for-syntax
            ;; arg-variance-vars : (List Variance-Var ...)
            (define arg-variance-vars
-             (list (variance-var (syntax-e (generate-temporary 'X))) ...)) ...)
+             (list (variance-var (syntax-e (generate-temporary 'X))) ...)) ...
+           (define arg-var-fn
+             (make-arg-variances-proc arg-variance-vars
+                                      (list #'X ...)
+                                      (list #'c.τ ... ...))) ...)
          (define-type-constructor Name
            #:arity = n
-           #:arg-variances (make-arg-variances-proc arg-variance-vars
-                                                    (list #'X ...)
-                                                    (list #'c.τ ... ...))
+           #:arg-variances arg-var-fn
            #:extra-info 'NameExtraInfo) ...
          (define-type-rest (Name X ...) c.C ...) ...
          )]))
@@ -559,7 +562,9 @@
      #:with (exposed-Cons? ...) (stx-map mk-? #'(c.Cons ...))
      #`(begin-
          (define-syntax NameExtraInfo
-           (make-extra-info-transformer #'(X ...) #'(('c.Cons 'StructName Cons? [acc c.τ] ...) ...)))
+           (make-extra-info-transformer
+            #'(X ...)
+            #'(#%plain-app- (#%plain-app- 'c.Cons 'StructName Cons? [#%plain-app- acc c.τ] ...) ...)))
          (struct- StructName (c.fld ...) #:reflection-name 'c.Cons #:transparent) ...
          (define-syntax exposed-acc ; accessor for records
            (make-variable-like-transformer
@@ -816,109 +821,110 @@
    [[x ≫ x- : ty] ... ⊢ (pass-expected e_body #,this-syntax) ≫ e_body- ⇒ ty_body] ...
    #:when (check-exhaust #'(pat- ...) #'τ_e)
    --------
-   [⊢ (match- e- [pat- (let- ([x- x] ...) e_body-)] ...) ⇒ (⊔ ty_body ...)]])
+   [⊢ (match- e- [pat- (let-values- ([(x-) x] ...) e_body-)] ...) ⇒ (⊔ ty_body ...)]])
 
-(define-typed-syntax match #:datum-literals (with -> ::)
+(define-typed-syntax match #:datum-literals (with)
   ;; e is a tuple
-  [(match e with . clauses) ≫
+  [(_ e with . clauses) ≫
    #:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"
    [⊢ e ≫ e- ⇒ τ_e]
-   #:when (×? #'τ_e)
-   #:with ([x ... -> e_body]) #'clauses
-   #:with (~× ty ...) #'τ_e
-   #:fail-unless (stx-length=? #'(ty ...) #'(x ...))
-                 "match clause pattern not compatible with given tuple"
-   [[x ≫ x- : ty] ... ⊢ (pass-expected e_body #,this-syntax) ≫ e_body- ⇒ ty_body]
-   #:with (acc ...) (for/list ([(a i) (in-indexed (syntax->list #'(x ...)))])
-                      #`(lambda (s) (list-ref s #,(datum->syntax #'here i))))
-   #:with z (generate-temporary)
-   --------
-   [⊢ (let- ([z e-])
-        (let- ([x- (acc z)] ...) e_body-)) ⇒ ty_body]]
-  ;; e is a list
-  [(match e with . clauses) ≫
-   #:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"
-   [⊢ e ≫ e- ⇒ τ_e]
-   #:when (List? #'τ_e)
-   #:with ([(~or (~and (~and xs [x ...]) (~parse rst (generate-temporary)))
-                 (~and (~seq (~seq x ::) ... rst:id) (~parse xs #'())))
-            -> e_body] ...+)
-          #'clauses
-   #:fail-unless (stx-ormap 
-                  (lambda (xx) (and (brack? xx) (zero? (stx-length xx)))) 
-                  #'(xs ...))
-                 "match: missing empty list case"
-   #:fail-unless (not (and (stx-andmap brack? #'(xs ...))
-                           (= 1 (stx-length #'(xs ...)))))
-                 "match: missing non-empty list case"
-   #:with (~List ty) #'τ_e
-   [[x ≫ x- : ty] ... [rst ≫ rst- : (List ty)]
-    ⊢ (pass-expected e_body #,this-syntax) ≫ e_body- ⇒ ty_body] ...
-   #:with (len ...) (stx-map (lambda (p) #`#,(stx-length p)) #'((x ...) ...))
-   #:with (lenop ...) (stx-map (lambda (p) (if (brack? p) #'=- #'>=-)) #'(xs ...))
-   #:with (pred? ...) (stx-map
-                       (lambda (l lo) #`(λ- (lst) (#,lo (length lst) #,l)))
-                       #'(len ...) #'(lenop ...))
-   #:with ((acc1 ...) ...) (stx-map 
-                            (lambda (xs)
-                              (for/list ([(x i) (in-indexed (syntax->list xs))])
-                                #`(lambda- (lst) (list-ref- lst #,(datum->syntax #'here i)))))
-                            #'((x ...) ...))
-   #:with (acc2 ...) (stx-map (lambda (l) #`(lambda- (lst) (list-tail- lst #,l))) #'(len ...))
-   --------
-   [⊢ (let- ([z e-])
-        (cond-
-         [(pred? z)
-          (let- ([x- (acc1 z)] ... [rst- (acc2 z)]) e_body-)] ...))
-      ⇒ (⊔ ty_body ...)]]
-  ;; e is a variant
-  [(match e with . clauses) ≫
-   #:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"
-   [⊢ e ≫ e- ⇒ τ_e]
-   #:when (and (not (×? #'τ_e)) (not (List? #'τ_e)))
-   #:with t_expect (get-expected-type this-syntax) ; propagate inferred type
-   #:with ([Clause:id x:id ... 
-                      (~optional (~seq #:when e_guard) #:defaults ([e_guard #'(ext-stlc:#%datum . #t)]))
-                      -> e_c_un] ...+) ; un = unannotated with expected ty
-          #'clauses
-   ;; length #'clauses may be > length #'info, due to guards
-   #:with info-body (get-extra-info #'τ_e)
-   #:with (_ (_ (_ ConsAll) . _) ...) #'info-body
-   #:fail-unless (set=? (syntax->datum #'(Clause ...))
-                        (syntax->datum #'(ConsAll ...)))
-   (type-error #:src this-syntax
-               #:msg (string-append
-                      "match: clauses not exhaustive; missing: "
-                      (string-join      
-                       (map symbol->string
-                            (set-subtract 
-                             (syntax->datum #'(ConsAll ...))
-                             (syntax->datum #'(Clause ...))))
-                       ", ")))
-   #:with ((_ _ _ Cons? [_ acc τ] ...) ...)
-          (map ; ok to compare symbols since clause names can't be rebound
-           (lambda (Cl) 
-             (stx-findf
-              (syntax-parser
-                [(_ 'C . rst) (equal? Cl (syntax->datum #'C))])
-              (stx-cdr #'info-body))) ; drop leading #%app
-           (syntax->datum #'(Clause ...)))
-   ;; this commented block experiments with expanding to unsafe ops
-   ;; #:with ((acc ...) ...) (stx-map 
-   ;;                         (lambda (accs)
-   ;;                          (for/list ([(a i) (in-indexed (syntax->list accs))])
-   ;;                            #`(lambda (s) (unsafe-struct*-ref s #,(datum->syntax #'here i)))))
-   ;;                         #'((acc-fn ...) ...))
-   #:with (e_c ...+) (stx-map (lambda (ec) #`(pass-expected #,ec #,this-syntax)) #'(e_c_un ...))
-   [[x ≫ x- : τ] ... ⊢ [e_guard ≫ e_guard- ⇐ Bool] [e_c ≫ e_c- ⇒ τ_ec]] ...
-   #:with z (generate-temporary) ; dont duplicate eval of test expr
-   --------
-   [⊢ (let- ([z e-])
-        (cond-
-         [(and- (Cons? z) 
-                (let- ([x- (acc z)] ...) e_guard-))
-          (let- ([x- (acc z)] ...) e_c-)] ...))
-       ⇒ (⊔ τ_ec ...)]])
+   #:with match-expr this-syntax
+   #:with res
+   (syntax-parse/typecheck #'τ_e #:datum-literals (-> ::)
+    [(~× ~! ty ...) ≫
+     #:with ([x ... -> e_body]) #'clauses
+     #:fail-unless (stx-length=? #'(ty ...) #'(x ...))
+     "match clause pattern not compatible with given tuple"
+     [[x ≫ x- : ty] ... ⊢ (pass-expected e_body match-expr) ≫ e_body- ⇒ ty_body]
+     #:with (acc ...) (for/list ([(a i) (in-indexed (syntax->list #'(x ...)))])
+                        #`(#%plain-lambda- (s) (#%plain-app- list-ref- s #,(datum->syntax #'here i))))
+     #:with z (generate-temporary)
+     --------
+     [⊢ (let-values- ([(z) e-])
+              (let-values- ([(x-) (#%plain-app- acc z)] ...) e_body-)) ⇒ ty_body]]
+    ;; e is a list
+    [(~List ~! ty) ≫
+     #:with ([(~or (~and (~and xs [x ...]) (~parse rst (generate-temporary)))
+                   (~and (~seq (~seq x ::) ... rst:id) (~parse xs #'())))
+              -> e_body] ...+)
+     #'clauses
+     #:fail-unless (stx-ormap 
+                    (lambda (xx) (and (brack? xx) (zero? (stx-length xx)))) 
+                    #'(xs ...))
+     "match: missing empty list case"
+     #:fail-unless (not (and (stx-andmap brack? #'(xs ...))
+                             (= 1 (stx-length #'(xs ...)))))
+     "match: missing non-empty list case"
+     [[x ≫ x- : ty] ... [rst ≫ rst- : τ_e]
+      ⊢ (pass-expected e_body match-expr) ≫ e_body- ⇒ ty_body] ...
+     #:with (len ...) (stx-map (lambda (p) #`#,(stx-length p)) #'((x ...) ...))
+     #:with (lenop ...) (stx-map (lambda (p) (if (brack? p) #'=- #'>=-)) #'(xs ...))
+     #:with (pred? ...) (stx-map
+                         (lambda (l lo) #`(#%plain-lambda- (lst) (#,lo (#%plain-app- length- lst) #,l)))
+                         #'(len ...) #'(lenop ...))
+     #:with ((acc1 ...) ...) (stx-map 
+                              (lambda (xs)
+                                (for/list ([(x i) (in-indexed (syntax->list xs))])
+                                  #`(#%plain-lambda- (lst) (#%plain-app- list-ref- lst #,(datum->syntax #'here i)))))
+                              #'((x ...) ...))
+     #:with (acc2 ...) (stx-map (lambda (l) #`(#%plain-lambda- (lst) (#%plain-app- list-tail- lst #,l))) #'(len ...))
+     --------
+     [⊢ (let-values- ([(z) e-])
+          (cond-
+           [(#%plain-app- pred? z)
+            (let-values- ([(x-) (#%plain-app- acc1 z)] ...
+                          [(rst-) (#%plain-app- acc2 z)])
+              e_body-)] ...))
+        ⇒ (⊔ ty_body ...)]]
+    ;; e is a variant
+    [_ ≫
+     #:with t_expect (get-expected-type #'match-expr) ; propagate inferred type
+     #:with ([Clause:id x:id ... 
+                        (~optional (~seq #:when e_guard) #:defaults ([e_guard #'(ext-stlc:#%datum . #t)]))
+                        -> e_c_un] ...+) ; un = unannotated with expected ty
+     #'clauses
+     ;; length #'clauses may be > length #'info, due to guards
+     #:with info-body (get-extra-info #'τ_e)
+     #:with (_ (_ (_ ConsAll) . _) ...) #'info-body
+     #:do[(define Clause-symbs (syntax->datum #'(Clause ...)))]
+     #:fail-unless (set=? Clause-symbs
+                          (syntax->datum #'(ConsAll ...)))
+     (type-error #:src #'match-expr
+                 #:msg (string-append
+                        "match: clauses not exhaustive; missing: "
+                        (string-join      
+                         (map symbol->string
+                              (set-subtract 
+                               (syntax->datum #'(ConsAll ...))
+                               Clause-symbs
+                               #;(syntax->datum #'(Clause ...))))
+                         ", ")))
+     #:with ((_ _ _ Cons? [_ acc τ] ...) ...)
+     (map ; ok to compare symbols since clause names can't be rebound
+      (lambda (Cl) 
+        (stx-findf
+         (syntax-parser
+           [(_ 'C . _) (equal? Cl (syntax->datum #'C))])
+         (stx-cdr #'info-body))) ; drop leading #%app
+      Clause-symbs #;(syntax->datum #'(Clause ...)))
+     ;; this commented block experiments with expanding to unsafe ops
+     ;; #:with ((acc ...) ...) (stx-map 
+     ;;                         (lambda (accs)
+     ;;                          (for/list ([(a i) (in-indexed (syntax->list accs))])
+     ;;                            #`(lambda (s) (unsafe-struct*-ref s #,(datum->syntax #'here i)))))
+     ;;                         #'((acc-fn ...) ...))
+     #:with (e_c ...+) (stx-map (lambda (ec) #`(pass-expected #,ec match-expr)) #'(e_c_un ...))
+     [[x ≫ x- : τ] ... ⊢ [e_guard ≫ e_guard- ⇐ Bool] [e_c ≫ e_c- ⇒ τ_ec]] ...
+     #:with z (generate-temporary) ; dont duplicate eval of test expr
+     --------
+     [⊢ (let-values- ([(z) e-])
+              (cond-
+               [(and- (#%plain-app- Cons? z) 
+                      (let-values- ([(x-) (#%plain-app- acc z)] ...) e_guard-))
+                (let-values- ([(x-) (#%plain-app- acc z)] ...) e_c-)] ...))
+        ⇒ (⊔ τ_ec ...)]])
+   ------
+   [≻ res]])
 
 ; special arrow that computes free vars; for use with tests
 ; (because we can't write explicit forall
@@ -939,7 +945,7 @@
            (stx-length #'[τ_in ...]) (stx-length #'[x ...]))
    [(X ...) ([x ≫ x- : τ_in] ...) ⊢ [body ≫ body- ⇐ (ev/m τ_out)]]
    --------
-   [⊢ (λ- (x- ...) body-)]]
+   [⊢ (#%plain-lambda- (x- ...) body-)]]
   [(λ ([x : τ_x] ...) body) ⇐ (~?∀ (V ...) (~ext-stlc:→ τ_in ... τ_out)) ≫
    #:with [X ...] (compute-tyvars #'(τ_x ...))
    #:with ((X- ...) (τ_x-:type ...)) (expands/ctx #'(τ_x ...) #'(X ...))
@@ -948,7 +954,7 @@
    ;; TODO is there a way to have λs that refer to ids defined after them?
    [(V ... X- ...) ([x ≫ x- : τ_x-] ...) ⊢ body ≫ body- ⇐ τ_out]
    --------
-   [⊢ (λ- (x- ...) body-)]]
+   [⊢ (#%plain-lambda- (x- ...) body-)]]
   [(λ ([x : τ_x] ...) body) ≫
    #:with [X ...] (compute-tyvars #'(τ_x ...))
    ;; TODO is there a way to have λs that refer to ids defined after them?
@@ -957,7 +963,7 @@
    #:with τ_fn (add-orig #'(?∀ (X- ...) (ext-stlc:→ τ_x* ... τ_body))
                          #`(→ #,@(stx-map get-orig #'[τ_x* ...]) #,(get-orig #'τ_body)))
    --------
-   [⊢ (λ- (x- ...) body-) ⇒ τ_fn]])
+   [⊢ (#%plain-lambda- (x- ...) body-) ⇒ τ_fn]])
 
 
 ;; #%app --------------------------------------------------
@@ -989,9 +995,9 @@
                              #f
                              (mk-app-poly-infer-error this-syntax #'(τ_in ...) #'(τ_arg ...) #'e_fn)
                              this-syntax)))
-                        (mk-∀- #'(unsolved-X ... Y ...) #'τ_out)]))
+                        (mk-∀- #'(unsolved-X ... Y ...) #'(τ_out))]))
    --------
-   [⊢ (#%app- e_fn- e_arg- ...) ⇒ τ_out*]])
+   [⊢ (#%plain-app- e_fn- e_arg- ...) ⇒ τ_out*]])
 
 
 ;; define these explicitly (instead of typed-out), for use in desugarings
@@ -1029,7 +1035,7 @@
   [(make-channel (~and tys {ty:type})) ≫
    #:when (brace? #'tys)
    --------
-   [⊢ (make-channel-) ⇒ : #,(mk-Channel- #'(ty.norm))]])
+   [⊢ (#%plain-app- make-channel-) ⇒ : #,(mk-Channel- #'(ty.norm))]])
 
 (define-base-type Thread)
 
@@ -1044,13 +1050,13 @@
    [⊢ [n ≫ n- ⇐ : #,Int+]]
    [⊢ [rad ≫ rad- ⇐ : #,Int+]]
    --------
-   [⊢ (number->string- n- rad-) ⇒ : #,String+]])
+   [⊢ (#%plain-app- number->string- n- rad-) ⇒ : #,String+]])
 
 (define-typed-syntax string-append
   [(string-append str ...) ≫
    [⊢ [str ≫ str- ⇐ : #,String+] ...]
    --------
-   [⊢ (string-append- str- ...) ⇒ : #,String+]])
+   [⊢ (#%plain-app- string-append- str- ...) ⇒ : #,String+]])
 
 ;; vectors
 (define-type-constructor Vector)
@@ -1059,17 +1065,17 @@
   [(vector (~and tys {ty:type})) ≫
    #:when (brace? #'tys)
    --------
-   [⊢ (vector-) ⇒ : #,(mk-Vector- #'(ty.norm))]]
+   [⊢ (#%plain-app- vector-) ⇒ : #,(mk-Vector- #'(ty.norm))]]
   [(vector v ...) ⇐ : (Vector ty) ≫
    [⊢ [v ≫ v- ⇐ : ty] ...]
    --------
-   [⊢ (vector- v- ...)]]
+   [⊢ (#%plain-app- vector- v- ...)]]
   [(vector v ...) ≫
    [⊢ [v ≫ v- ⇒ : ty] ...]
    #:when (same-types? #'(ty ...))
    #:with one-ty (stx-car #'(ty ...))
    --------
-   [⊢ (vector- v- ...) ⇒ : #,(mk-Vector- #'(one-ty))]])
+   [⊢ (#%plain-app- vector- v- ...) ⇒ : #,(mk-Vector- #'(one-ty))]])
 (define-typed-syntax make-vector
   [(make-vector n) ≫
    --------
@@ -1078,7 +1084,7 @@
    [⊢ [n ≫ n- ⇐ : #,Int+]]
    [⊢ [e ≫ e- ⇒ : ty]]
    --------
-   [⊢ (make-vector- n- e-) ⇒ : #,(mk-Vector- #'(ty))]])
+   [⊢ (#%plain-app- make-vector- n- e-) ⇒ : #,(mk-Vector- #'(ty))]])
 
 ;; sequences and for loops
 
@@ -1096,7 +1102,7 @@
    [⊢ [end ≫ end- ⇐ : #,Int+]]
    [⊢ [step ≫ step- ⇐ : #,Int+]]
    --------
-   [⊢ (in-range- start- end- step-) ⇒ : #,(mk-Sequence- (list Int+))]])
+   [⊢ (#%plain-app- in-range- start- end- step-) ⇒ : #,(mk-Sequence- (list Int+))]])
 
 (define-typed-syntax in-naturals
  [(in-naturals) ≫
@@ -1105,13 +1111,13 @@
  [(in-naturals start) ≫
   [⊢ [start ≫ start- ⇐ : #,Int+]]
   --------
-  [⊢ (in-naturals- start-) ⇒ : #,(mk-Sequence- (list Int+))]])
+  [⊢ (#%plain-app- in-naturals- start-) ⇒ : #,(mk-Sequence- (list Int+))]])
 
 (define-typed-syntax in-lines
   [(in-lines e) ≫
    [⊢ [e ≫ e- ⇐ : #,String+]]
    --------
-   [⊢ (in-lines- (open-input-string- e-)) ⇒ : #,(mk-Sequence- (list String+))]])
+   [⊢ (#%plain-app- in-lines- (#%plain-app- open-input-string- e-)) ⇒ : #,(mk-Sequence- (list String+))]])
 
 (define-typed-syntax for
   [(for ([x:id e]...) b ... body) ≫
@@ -1174,8 +1180,8 @@
    [() ([x ≫ x- : ty] ...) ⊢ [body ≫ body- ⇒ : (~× ty_k ty_v)]]
    --------
    [⊢ (for/hash- ([x- e-] ...)
-             (let- ([t body-])
-               (values- (car- t) (cadr- t))))
+             (let-values- ([(t) body-])
+               (values- (#%plain-app- car- t) (#%plain-app- cadr- t))))
        ⇒ : #,(mk-Hash- #'(ty_k ty_v))]])
 
 (define-typed-syntax for/sum
@@ -1194,13 +1200,13 @@
    [⊢ [str ≫ s- ⇐ : #,String+]]
    [⊢ [e ≫ e- ⇒ : ty] ...]
    --------
-   [⊢ (printf- s- e- ...) ⇒ : #,Unit+]])
+   [⊢ (#%plain-app- printf- s- e- ...) ⇒ : #,Unit+]])
 (define-typed-syntax format
   [(format str e ...) ≫
    [⊢ [str ≫ s- ⇐ : #,String+]]
    [⊢ [e ≫ e- ⇒ : ty] ...]
    --------
-   [⊢ (format- s- e- ...) ⇒ : #,String+]])
+   [⊢ (#%plain-app- format- s- e- ...) ⇒ : #,String+]])
 
 (define-typed-syntax let
   [(let name:id (~datum :) ty:type ~! ([x:id e] ...) b ... body) ≫
@@ -1208,7 +1214,7 @@
    [() ([name ≫ name- : (→ ty_e ... ty.norm)] [x ≫ x- : ty_e] ...)
     ⊢ [b ≫ b- ⇒ : _] ... [body ≫ body- ⇐ : ty.norm]]
    --------
-   [⊢ (letrec- ([name- (λ- (x- ...) b- ... body-)])
+   [⊢ (letrec-values- ([(name-) (λ- (x- ...) b- ... body-)])
              (name- e- ...))
        ⇒ : ty.norm]]
   [(let ([x:id e] ...) body ...) ≫
@@ -1239,7 +1245,7 @@
   [(hash (~and tys {ty_key:type ty_val:type})) ≫
    #:when (brace? #'tys)
    --------
-   [⊢ (make-hash-) ⇒ : #,(mk-Hash- #'(ty_key.norm ty_val.norm))]]
+   [⊢ (#%plain-app- make-hash-) ⇒ : #,(mk-Hash- #'(ty_key.norm ty_val.norm))]]
   [(hash (~seq k v) ...) ≫
    [⊢ [k ≫ k- ⇒ : ty_k] ...]
    [⊢ [v ≫ v- ⇒ : ty_v] ...]
@@ -1248,19 +1254,19 @@
    #:with ty_key (stx-car #'(ty_k ...))
    #:with ty_val (stx-car #'(ty_v ...))
    --------
-   [⊢ (make-hash- (list- (cons- k- v-) ...)) ⇒ : #,(mk-Hash- #'(ty_key ty_val))]])
+   [⊢ (#%plain-app- make-hash- (#%plain-app- list- (#%plain-app- cons- k- v-) ...)) ⇒ : #,(mk-Hash- #'(ty_key ty_val))]])
 (define-typed-syntax hash-ref
   [(hash-ref h k) ≫
    [⊢ [h ≫ h- ⇒ : (~Hash ty_k ty_v)]]
    [⊢ [k ≫ k- ⇐ : ty_k]]
    --------
-   [⊢ (hash-ref- h- k-) ⇒ : ty_v]]
+   [⊢ (#%plain-app- hash-ref- h- k-) ⇒ : ty_v]]
   [(hash-ref h k fail) ≫
    [⊢ [h ≫ h- ⇒ : (~Hash ty_k ty_v)]]
    [⊢ [k ≫ k- ⇐ : ty_k]]
    [⊢ [fail ≫ fail- ⇐ : (→ ty_v)]]
    --------
-   [⊢ (hash-ref- h- k- fail-) ⇒ : ty_val]])
+   [⊢ (#%plain-app- hash-ref- h- k- fail-) ⇒ : ty_val]])
 
 (define-base-type String-Port)
 (define-base-type Input-Port)
@@ -1277,7 +1283,7 @@
   [⊢ [start ≫ start- ⇐ : #,Int+]]
   [⊢ [end ≫ end- ⇐ : #,Int+]]
   --------
-  [⊢ (begin- (write-string- str- out- start- end-) (void-)) ⇒ : #,Unit+]])
+  [⊢ (begin- (#%plain-app- write-string- str- out- start- end-) (#%plain-app- void-)) ⇒ : #,Unit+]])
 
 (define-typed-syntax string-copy!
   [(string-copy! dest dest-start src) ≫
@@ -1291,15 +1297,15 @@
    [⊢ [src-start ≫ src-start- ⇐ : #,Int+]]
    [⊢ [src-end ≫ src-end- ⇐ : #,Int+]]
    --------
-   [⊢ (string-copy!- dest- dest-start- src- src-start- src-end-) ⇒ : #,Unit+]])
+   [⊢ (#%plain-app- string-copy!- dest- dest-start- src- src-start- src-end-) ⇒ : #,Unit+]])
 
 (define-typed-syntax quotient+remainder
   [(quotient+remainder x y) ≫
    [⊢ [x ≫ x- ⇐ : #,Int+]]
    [⊢ [y ≫ y- ⇐ : #,Int+]]
    --------
-   [⊢ (let-values- ([[a b] (quotient/remainder- x- y-)])
-             (list- a b))
+   [⊢ (let-values- ([[a b] (#%plain-app- quotient/remainder- x- y-)])
+             (#%plain-app- list- a b))
        ⇒ : #,(mk-×- (list Int+ Int+))]])
 
 (define-typed-syntax set!
@@ -1338,9 +1344,10 @@
 (define-typed-syntax read-int
   [(read-int) ≫
    --------
-   [⊢ (let- ([x (read-)])
-             (cond- [(exact-integer?- x) x]
-                    [else (error- 'read-int "expected an int, given: ~v" x)]))
+   [⊢ (let-values- ([(x) (#%plain-app- read-)])
+        (if- (#%plain-app- exact-integer?- x)
+             x
+             (#%plain-app- error- 'read-int "expected an int, given: ~v" x)))
        ⇒ : #,Int+]])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -63,11 +63,11 @@
        (define- x- e-))])
 
 (define-typed-syntax #%datum
-  [(_ . b:boolean) (⊢ #,(syntax/loc stx (#%datum- . b)) : #,Bool+)]
-  [(_ . s:str) (⊢ #,(syntax/loc stx (#%datum- . s)) : #,String+)]
+  [(_ . b:boolean) (⊢ #,(syntax/loc stx (quote- b)) : #,Bool+)]
+  [(_ . s:str) (⊢ #,(syntax/loc stx (quote- s)) : #,String+)]
   [(_ . f) #:when (flonum? (syntax-e #'f)) 
-   (⊢ #,(syntax/loc stx (#%datum- . f)) : #,Float+)]
-  [(_ . c:char) (⊢ #,(syntax/loc stx (#%datum- . c)) : #,Char+)]
+   (⊢ #,(syntax/loc stx (quote- f)) : #,Float+)]
+  [(_ . c:char) (⊢ #,(syntax/loc stx (quote- c)) : #,Char+)]
   [(_ . x) (syntax/loc stx (stlc+lit:#%datum . x))])
 
 (define-typed-syntax and
@@ -137,7 +137,7 @@
    #:fail-unless (or (not (syntax-e #'τ-expected)) ; no expected type
                      (typecheck? #'τ_body #'τ-expected))
    (typecheck-fail-msg/1 #'τ-expected #'τ_body #'e_body)
-   (⊢ (let- ([x- e-] ...) e_body-) : τ_body)])
+   (⊢ (let-values- ([(x-) e-] ...) e_body-) : τ_body)])
 
 ; dont need to manually transfer expected type
 ; result template automatically propagates properties
@@ -155,4 +155,4 @@
           (infers/ctx+erase #'(b ...) #'((add-expected e b.type) ... e_body))
    #:fail-unless (typechecks? #'(b.type ...) #'(τ ...))
    (typecheck-fail-msg/multi #'(b.type ...) #'(τ ...) #'(e ...))
-   (⊢ (letrec- ([x- e-] ...) e_body-) : τ_body)])
+   (⊢ (letrec-values- ([(x-) e-] ...) e_body-) : τ_body)])

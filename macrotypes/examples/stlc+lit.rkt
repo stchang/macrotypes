@@ -17,7 +17,7 @@
 (define-base-type Int)
 
 (define-typed-syntax #%datum
-  [(_ . n:integer) (⊢ #,(syntax/loc stx (#%datum- . n)) : #,Int+)]
+  [(_ . n:integer) (⊢ #,(syntax/loc stx (quote- n)) : #,Int+)]
   [(_ . x)
    #:when (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)
-   #'(#%datum- . x)])
+   #'(quote x)])

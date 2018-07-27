@@ -26,7 +26,7 @@
   ;; Type assignment macro (ie assign-type) for nicer syntax
   (define-syntax (⊢ stx)
     (syntax-parse stx
-      [(_ e tag τ) #'(assign-type #`e #`τ)]
+      [(_ e tag τ) #'(#%plain-app assign-type #`e #`τ)]
       [(_ e τ) #'(⊢ e : τ)]))
 
   ;; TODO: remove? only used by macrotypes/examples/infer.rkt (and stlc+cons)
