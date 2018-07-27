@@ -458,7 +458,7 @@
      ;; to ensure enough stx-parse progress for proper err msg,
      ;; ie, "invalid type" instead of "improper tycon usage"
      #:with (~! _:type ...) #'(arg- ...)
-     (add-orig (mk-type (syntax/loc this-syntax (τ- arg- ...))) this-syntax)]
+     (add-orig (mk-type (syntax/loc this-syntax (#%plain-app- τ- arg- ...))) this-syntax)]
     [_ ;; else fail with err msg
       (type-error #:src this-syntax
                   #:msg
@@ -517,16 +517,19 @@
      #:with (NameExtraInfo ...) (stx-map (λ (n) (format-id n "~a-extra-info" n)) #'(Name ...))
      #:with (n ...) (stx-map (λ (Xs) #`#,(stx-length Xs)) #'((X ...) ...))
      #:with (arg-variance-vars ...) (generate-temporaries #'(Name ...))
+     #:with (arg-var-fn ...) (generate-temporaries #'(Name ...))
      #`(begin-
          (begin-for-syntax
            ;; arg-variance-vars : (List Variance-Var ...)
            (define arg-variance-vars
-             (list (variance-var (syntax-e (generate-temporary 'X))) ...)) ...)
+             (list (variance-var (syntax-e (generate-temporary 'X))) ...)) ...
+           (define arg-var-fn
+             (make-arg-variances-proc arg-variance-vars
+                                      (list #'X ...)
+                                      (list #'c.τ ... ...))) ...)
          (define-type-constructor Name
            #:arity = n
-           #:arg-variances (make-arg-variances-proc arg-variance-vars
-                                                    (list #'X ...)
-                                                    (list #'c.τ ... ...))
+           #:arg-variances arg-var-fn
            #:extra-info 'NameExtraInfo) ...
          (define-type-rest (Name X ...) c.C ...) ...
          )]))
@@ -551,7 +554,7 @@
      #:with (exposed-Cons? ...) (stx-map mk-? #'(c.Cons ...))
      #`(begin-
          (define-syntax NameExtraInfo
-           (make-extra-info-transformer #'(X ...) #'(('c.Cons 'StructName Cons? [acc c.τ] ...) ...)))
+           (make-extra-info-transformer #'(X ...) #'(#%plain-app- (#%plain-app- 'c.Cons 'StructName Cons? [#%plain-app- acc c.τ] ...) ...)))
          (struct- StructName (c.fld ...) #:reflection-name 'c.Cons #:transparent) ...
          (define-syntax exposed-acc ; accessor for records
            (make-variable-like-transformer
@@ -812,10 +815,10 @@
         #:with [(x- ...) e_body- ty_body] (infer/ctx+erase #'([x ty] ...) 
                                             #`(pass-expected e_body #,stx))
         #:with (acc ...) (for/list ([(a i) (in-indexed (syntax->list #'(x ...)))])
-                           #`(lambda- (s) (list-ref- s #,(datum->syntax #'here i))))
+                           #`(#%plain-lambda- (s) (#%plain-app- list-ref- s #,(datum->syntax #'here i))))
         #:with z (generate-temporary)
         (⊢ (let- ([z e-])
-             (let- ([x- (acc z)] ...) e_body-))
+             (let- ([x- (#%plain-app- acc z)] ...) e_body-))
            : ty_body)])]
      [(List? #'τ_e) ;; e is List
       (syntax-parse #'clauses #:datum-literals (-> ::)
@@ -832,22 +835,22 @@
         #:with (~List ty) #'τ_e
         #:with ([(x- ... rst-) e_body- ty_body] ...)
                (stx-map (lambda (ctx e) (infer/ctx+erase ctx e)) 
-                 #'(([x ty] ... [rst (List ty)]) ...) #`((pass-expected e_body #,stx) ...))
+                 #'(([x ty] ... [rst τ_e]) ...) #`((pass-expected e_body #,stx) ...))
         #:with (len ...) (stx-map (lambda (p) #`#,(stx-length p)) #'((x ...) ...))
         #:with (lenop ...) (stx-map (lambda (p) (if (brack? p) #'=- #'>=-)) #'(xs ...))
         #:with (pred? ...) (stx-map
-                            (lambda (l lo) #`(λ- (lst) (#,lo (length- lst) #,l)))
+                            (lambda (l lo) #`(#%plain-lambda- (lst) (#%plain-app- #,lo (#%plain-app- length- lst) #,l)))
                             #'(len ...) #'(lenop ...))
         #:with ((acc1 ...) ...) (stx-map 
                                     (lambda (xs)
                                       (for/list ([(x i) (in-indexed (syntax->list xs))])
-                                        #`(lambda- (lst) (list-ref- lst #,(datum->syntax #'here i)))))
+                                        #`(#%plain-lambda- (lst) (#%plain-app- list-ref- lst #,(datum->syntax #'here i)))))
                                   #'((x ...) ...))
-        #:with (acc2 ...) (stx-map (lambda (l) #`(lambda- (lst) (list-tail- lst #,l))) #'(len ...))
+        #:with (acc2 ...) (stx-map (lambda (l) #`(#%plain-lambda- (lst) (#%plain-app- list-tail- lst #,l))) #'(len ...))
         (⊢ (let- ([z e-])
              (cond-
-              [(pred? z)
-               (let- ([x- (acc1 z)] ... [rst- (acc2 z)]) e_body-)] ...))
+              [(#%plain-app- pred? z)
+               (let- ([x- (#%plain-app- acc1 z)] ... [rst- (#%plain-app- acc2 z)]) e_body-)] ...))
            : (⊔ ty_body ...))])]
      [else  ;; e is variant
       (syntax-parse #'clauses #:datum-literals (->)
@@ -873,7 +876,7 @@
                 (lambda (Cl) 
                   (stx-findf
                       (syntax-parser
-                        [(_ 'C . rst) (equal? Cl (syntax->datum #'C))])
+                        [(_ 'C . _) (equal? Cl (syntax->datum #'C))])
                     (stx-cdr #'info-body))) ; drop leading #%app
                 (syntax->datum #'(Clause ...)))
         ;; this commented block experiments with expanding to unsafe ops
@@ -893,9 +896,9 @@
         #:with z (generate-temporary) ; dont duplicate eval of test expr
         (⊢ (let- ([z e-])
              (cond-
-              [(and- (Cons? z) 
-                     (let- ([x- (acc z)] ...) e_guard-))
-               (let- ([x- (acc z)] ...) e_c-)] ...))
+              [(and- (#%plain-app- Cons? z) 
+                     (let- ([x- (#%plain-app- acc z)] ...) e_guard-))
+               (let- ([x- (#%plain-app- acc z)] ...) e_c-)] ...))
            : (⊔ τ_ec ...))])])])
 
 ; special arrow that computes free vars; for use with tests
@@ -955,8 +958,8 @@
                         (for ([X (in-list (syntax->list #'(unsolved-X ...)))])
                           (unless (covariant-X? X #'τ_out)
                             (raise-app-poly-infer-error stx #'(τ_in ...) #'(τ_arg ...) #'e_fn)))
-                        (mk-∀- #'(unsolved-X ... Y ...) #'τ_out)]))
-   (⊢ (#%app- e_fn- e_arg- ...) : τ_out*)])
+                        (mk-∀- #'(unsolved-X ... Y ...) #'(τ_out))]))
+   (⊢ (#%plain-app- e_fn- e_arg- ...) : τ_out*)])
 
 ;; define these explicitly (instead of typed-out), for use in desugarings
 (define-primop/unsafe void : (→ Unit))
@@ -985,7 +988,7 @@
 (define-typed-syntax make-channel
   [(_ (~and tys {ty:type}))
    #:when (brace? #'tys)
-   (⊢ (make-channel-) : #,(mk-Channel- #'(ty.norm)))])
+   (⊢ (#%plain-app- make-channel-) : #,(mk-Channel- #'(ty.norm)))])
 
 (define-base-type Thread)
 
@@ -995,12 +998,12 @@
   #'(number->string n (ext-stlc:#%datum . 10))]
  [(_ n rad)
   #:with args- (⇑s (n rad) as Int)
-  (⊢ (number->string- . args-) : #,String+)])
+  (⊢ (#%plain-app- number->string- . args-) : #,String+)])
 
 (define-typed-syntax string-append
   [(_ . strs)
    #:with strs- (⇑s strs as String)
-   (⊢ (string-append- . strs-) : #,String+)])
+   (⊢ (#%plain-app- string-append- . strs-) : #,String+)])
 
 ;; vectors
 (define-type-constructor Vector)
@@ -1008,18 +1011,18 @@
 (define-typed-syntax vector
   [(_ (~and tys {ty:type}))
    #:when (brace? #'tys)
-   (⊢ (vector-) : #,(mk-Vector- #'(ty.norm)))]
+   (⊢ (#%plain-app- vector-) : #,(mk-Vector- #'(ty.norm)))]
   [(_ v ...)
    #:with ([v- ty] ...) (infers+erase #'(v ...))
    #:when (same-types? #'(ty ...))
    #:with one-ty (stx-car #'(ty ...))
-   (⊢ (vector- v- ...) : #,(mk-Vector- #'(one-ty)))])
+   (⊢ (#%plain-app- vector- v- ...) : #,(mk-Vector- #'(one-ty)))])
 (define-typed-syntax make-vector
   [(_ n) #'(make-vector n (ext-stlc:#%datum . 0))]
   [(_ n e)
    #:with n- (⇑ n as Int)
    #:with [e- ty] (infer+erase #'e)
-   (⊢ (make-vector- n- e-) : #,(mk-Vector- #'(ty)))])
+   (⊢ (#%plain-app- make-vector- n- e-) : #,(mk-Vector- #'(ty)))])
 
 ;; sequences and for loops
 
@@ -1038,12 +1041,12 @@
  [(in-naturals) #'(in-naturals (ext-stlc:#%datum . 0))]
  [(in-naturals start)
   #:with start- (⇑ start as Int)
-  (⊢ (in-naturals- start-) : #,(mk-Sequence- (list Int+)))])
+  (⊢ (#%plain-app- in-naturals- start-) : #,(mk-Sequence- (list Int+)))])
 
 (define-typed-syntax in-lines
   [(in-lines e)
    #:with e- (⇑ e as String)
-   (⊢ (in-lines- (open-input-string e-)) : #,(mk-Sequence- (list String+)))])
+   (⊢ (#%plain-app- in-lines- (#%plain-app- open-input-string- e-)) : #,(mk-Sequence- (list String+)))])
 
 (define-typed-syntax for
   [(for ([x:id e]...) b ... body)
@@ -1094,7 +1097,7 @@
           (infer/ctx+erase #'([x : ty] ...) #'body)
    (⊢ (for/hash- ([x- e-] ...)
         (let- ([t body-])
-          (values- (car- t) (cadr- t))))
+          (#%plain-app- values- (#%plain-app- car- t) (#%plain-app- cadr- t))))
       : #,(mk-Hash- #'(ty_k ty_v)))])
 
 (define-typed-syntax for/sum
@@ -1112,12 +1115,12 @@
   [(printf str e ...)
    #:with s- (⇑ str as String)
    #:with ([e- ty] ...) (infers+erase #'(e ...))
-   (⊢ (printf- s- e- ...) : #,Unit+)])
+   (⊢ (#%plain-app- printf- s- e- ...) : #,Unit+)])
 (define-typed-syntax format
   [(format str e ...)
    #:with s- (⇑ str as String)
    #:with ([e- ty] ...) (infers+erase #'(e ...))
-   (⊢ (format- s- e- ...) : #,String+)])
+   (⊢ (#%plain-app- format- s- e- ...) : #,String+)])
 
 (define-typed-syntax let
   [(let name:id (~datum :) ty:type ~! ([x:id e] ...) b ... body)
@@ -1128,7 +1131,7 @@
    #:fail-unless (typecheck? #'ty_body #'ty.norm)
                  (format "type of let body ~a does not match expected typed ~a"
                          (type->str #'ty_body) (type->str #'ty))
-   (⊢ (letrec- ([name- (λ- xs- body- ...)]) 
+   (⊢ (letrec- ([name- (#%plain-lambda- xs- body- ...)]) 
         (name- e- ...))
       : ty_body)]
   [(let ([x:id e] ...) body ...) 
@@ -1149,7 +1152,7 @@
 (define-typed-syntax hash
   [(hash (~and tys {ty_key:type ty_val:type}))
    #:when (brace? #'tys)
-   (⊢ (make-hash-) : #,(mk-Hash- #'(ty_key.norm ty_val.norm)))]
+   (⊢ (#%plain-app- make-hash-) : #,(mk-Hash- #'(ty_key.norm ty_val.norm)))]
   [(hash (~seq k v) ...)
    #:with ([k- ty_k] ...) (infers+erase #'(k ...))
    #:with ([v- ty_v] ...) (infers+erase #'(v ...))
@@ -1157,7 +1160,7 @@
    #:when (same-types? #'(ty_v ...))
    #:with ty_key (stx-car #'(ty_k ...))
    #:with ty_val (stx-car #'(ty_v ...))
-   (⊢ (make-hash- (list- (cons- k- v-) ...)) : #,(mk-Hash- #'(ty_key ty_val)))])
+   (⊢ (#%plain-app- make-hash- (#%plain-app- list- (#%plain-app- cons- k- v-) ...)) : #,(mk-Hash- #'(ty_key ty_val)))])
 
 (define-typed-syntax hash-ref
   [(hash-ref h k)
@@ -1165,7 +1168,7 @@
    #:with [k- ty_k] (infer+erase #'k)
    #:fail-unless (typecheck? #'ty_k #'ty_key)
    (typecheck-fail-msg/1 #'ty_key #'ty_k #'k)
-   (⊢ (hash-ref- h- k-) : ty_val)]
+   (⊢ (#%plain-app- hash-ref- h- k-) : ty_val)]
   [(hash-ref h k fail)
    #:with [h- (~Hash ty_key ty_val)] (infer+erase #'h)
    #:with [k- ty_k] (infer+erase #'k)
@@ -1174,7 +1177,7 @@
    #:with [fail- (~?∀ () (~ext-stlc:→ ty_fail))] (infer+erase #'fail)
    #:fail-unless (typecheck? #'ty_fail #'ty_val)
    (typecheck-fail-msg/1 #'(→ ty_val) #'(→ ty_fail) #'fail)
-   (⊢ (hash-ref- h- k- fail-) : ty_val)])
+   (⊢ (#%plain-app- hash-ref- h- k- fail-) : ty_val)])
 
 (define-base-type String-Port)
 (define-base-type Input-Port)
@@ -1189,7 +1192,7 @@
    #:with out- (⇑ out as String-Port)
    #:with start- (⇑ start as Int)
    #:with end- (⇑ end as Int)
-   (⊢ (begin- (write-string- str- out- start- end-) (void-)) : #,Unit+)])
+   (⊢ (begin- (#%plain-app- write-string- str- out- start- end-) (#%plain-app- void-)) : #,Unit+)])
 
 (define-typed-syntax string-copy!
   [(string-copy! dest dest-start src)
@@ -1201,14 +1204,14 @@
    #:with dest-start- (⇑ dest-start as Int)
    #:with src-start- (⇑ src-start as Int)
    #:with src-end- (⇑ src-end as Int)
-   (⊢ (string-copy!- dest- dest-start- src- src-start- src-end-) : #,Unit+)])
+   (⊢ (#%plain-app- string-copy!- dest- dest-start- src- src-start- src-end-) : #,Unit+)])
 
 (define-typed-syntax quotient+remainder
   [(quotient+remainder x y)
    #:with x- (⇑ x as Int)
    #:with y- (⇑ y as Int)
-   (⊢ (let-values- ([[a b] (quotient/remainder- x- y-)])
-        (list- a b))
+   (⊢ (let-values- ([[a b] (#%plain-app- quotient/remainder- x- y-)])
+        (#%plain-app- list- a b))
       : #,(mk-×- (list Int+ Int+)))])
 
 (define-typed-syntax set!
@@ -1242,10 +1245,10 @@
 
 (define-typed-syntax read
   [(read)
-   (⊢ (let- ([x (read-)])
-        (cond- [(eof-object?- x) ""]
-               [(number?- x) (number->string- x)]
-               [(symbol?- x) (symbol->string- x)])) : #,String+)])
+   (⊢ (let- ([x (#%plain-app- read-)])
+        (cond- [(#%plain-app- eof-object?- x) ""]
+               [(#%plain-app- number?- x) (#%plain-app- number->string- x)]
+               [(#%plain-app- symbol?- x) (#%plain-app- symbol->string- x)])) : #,String+)])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

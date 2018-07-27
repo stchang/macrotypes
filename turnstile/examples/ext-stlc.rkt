@@ -81,17 +81,17 @@
 (define-typed-syntax #%datum
   [(_ . b:boolean) ≫
    --------
-   [⊢ (#%datum- . b) ⇒ #,Bool+]]
+   [⊢ (quote b) ⇒ #,Bool+]]
   [(_ . s:str) ≫
    --------
-   [⊢ (#%datum- . s) ⇒ #,String+]]
+   [⊢ (quote s) ⇒ #,String+]]
   [(_ . f) ≫
    #:when (flonum? (syntax-e #'f))
    --------
-   [⊢ (#%datum- . f) ⇒ #,Float+]]
+   [⊢ (quote f) ⇒ #,Float+]]
   [(_ . c:char) ≫
    --------
-   [⊢ (#%datum- . c) ⇒ #,Char+]]
+   [⊢ (quote c) ⇒ #,Char+]]
   [(_ . x) ≫
    --------
    [≻ (stlc+lit:#%datum . x)]])
@@ -154,12 +154,12 @@
    [⊢ e ≫ e- ⇒ : τ_x] ...
    [[x ≫ x- : τ_x] ... ⊢ (begin e_body ...) ≫ e_body- ⇐ τ_expected]
    --------
-   [⊢ (let- ([x- e-] ...) e_body-)]]
+   [⊢ (let-values- ([(x-) e-] ...) e_body-)]]
   [(_ ([x e] ...) e_body ...) ≫
    [⊢ e ≫ e- ⇒ : τ_x] ...
    [[x ≫ x- : τ_x] ... ⊢ (begin e_body ...) ≫ e_body- ⇒ τ_body]
    --------
-   [⊢ (let- ([x- e-] ...) e_body-) ⇒ τ_body]])
+   [⊢ (let-values- ([(x-) e-] ...) e_body-) ⇒ τ_body]])
 
 ; dont need to manually transfer expected type
 ; result template automatically propagates properties
@@ -178,11 +178,11 @@
    [[b.x ≫ x- : b.type] ...
     ⊢ [e ≫ e- ⇐ b.type] ... [(begin e_body ...) ≫ e_body- ⇐ τ_expected]]
    --------
-   [⊢ (letrec- ([x- e-] ...) e_body-)]]
+   [⊢ (letrec-values- ([(x-) e-] ...) e_body-)]]
   [(_ ([b:type-bind e] ...) e_body ...) ≫
    [[b.x ≫ x- : b.type] ...
     ⊢ [e ≫ e- ⇐ b.type] ... [(begin e_body ...) ≫ e_body- ⇒ τ_body]]
    --------
-   [⊢ (letrec- ([x- e-] ...) e_body-) ⇒ τ_body]])
+   [⊢ (letrec-values- ([(x-) e-] ...) e_body-) ⇒ τ_body]])
 
 

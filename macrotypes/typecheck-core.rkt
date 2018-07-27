@@ -57,7 +57,7 @@
   (syntax-parse stx
     [(_ . stuff)
      (syntax/loc this-syntax
-       (#%module-begin
+       (#%plain-module-begin
         ; auto-provide some useful racket forms
         (provide #%module-begin #%top-interaction (rename-out [tc-top #%top])
          require only-in prefix-in rename-in)
@@ -577,8 +577,8 @@
                    #`(~and expanded-τ 
                            (~Any
                             (~literal/else #,τ-internal
-                                           (format "Expected ~a ~a, got: ~a"
-                                                   '#,τ 'name (type->str #'expanded-τ))
+                                           (#%plain-app format "Expected ~a ~a, got: ~a"
+                                                   '#,τ 'name (#%plain-app type->str #'expanded-τ))
                                          #'expanded-τ)
                             . pat))])))
              (define (mk-binding-expander τ-internal τ)
@@ -601,8 +601,8 @@
                    #`(~and expanded-τ
                            (~Any/bvs 
                             (~literal/else #,τ-internal
-                                           (format "Expected ~a type, got: ~a"
-                                                   '#,τ (type->str #'expanded-τ))
+                                           (#%plain-app format "Expected ~a type, got: ~a"
+                                                   '#,τ (#%plain-app type->str #'expanded-τ))
                                            #'expanded-τ)
                             bvs . rst)
                            ;; #,(if (attribute has-annotations?)
@@ -621,8 +621,8 @@
                    #`(~and expanded-τ
                            (~Any/bvs 
                             (~literal/else #,τ-internal
-                                           (format "Expected ~a ~a, got: ~a"
-                                                   '#,τ 'name (type->str #'expanded-τ))
+                                           (#%plain-app format "Expected ~a ~a, got: ~a"
+                                                   '#,τ 'name (#%plain-app type->str #'expanded-τ))
                                            #'expanded-τ)
                             bvs-pat . pat))]))))
            (define (mk-base-transformer τ-internal key2 kind)
@@ -630,7 +630,7 @@
                [(~var TY id)
                 (add-orig 
                  (attach
-                  (quasisyntax/loc #'TY (#,τ-internal))
+                  (quasisyntax/loc #'TY (#%plain-app #,τ-internal))
                   key2 (expand/df kind))
                  #'TY)]))
            (define (mk-internal-ctor-transformer τ-internal extra-info arg-vars)
@@ -638,8 +638,9 @@
                [(_ . args)
                 #:with τ* (add-arg-variances τ-internal (arg-vars this-syntax))
                 (quasisyntax/loc this-syntax
-                  (τ* (λ () (#%expression #,extra-info) (list . args))))]))
-           (define (mk-ctor-transformer τ-internal τ op op-name op-rhs)
+                  (#%plain-app τ* (#%plain-lambda () (#%expression #,extra-info)
+                                    (#%plain-app list . args))))]))
+           (define (mk-ctor-transformer mk-τ-internal τ-internal τ op op-name op-rhs)
              (syntax-parser
                [(_ . args)
                 #:fail-unless (op (stx-length #'args) op-rhs)
@@ -648,8 +649,9 @@
                 #:with ((~var arg- type) (... ...)) #'args
                 (add-orig
                  (mk-type
-                  (quasisyntax/loc this-syntax (#,τ-internal arg- (... ...))))
-                 this-syntax)]
+;                  (quasisyntax/loc this-syntax (#,τ-internal arg- (... ...))))
+                  (mk-τ-internal #'(arg- (... ...))))
+                this-syntax)]
                [_ ;; else fail with err msg (type-error undefined here, so raise stx err directly)
                 (raise-syntax-error #f
                   (format "Improper usage of type constructor ~a: ~s, expected ~a ~a arguments"
@@ -660,8 +662,9 @@
                [(_ bvs . args)
                 #:with τ* (add-arg-variances τ-internal (arg-vars this-syntax))
                 (quasisyntax/loc this-syntax
-                  (τ* (λ bvs (#%expression #,extra-info) (list . args))))]))
-           (define (mk-binding-transformer τ-internal τ kind-ctor/#f
+                  (#%plain-app τ* (#%plain-lambda bvs
+                                    (#%expression #,extra-info) (#%plain-app list . args))))]))
+           (define (mk-binding-transformer mk-τ-internal τ-internal τ kind-ctor/#f
                                            bvop bvop-name bvop-rhs
                                            op op-name op-rhs
                                            expand-fn)
@@ -685,7 +688,10 @@
                 #:with ([_ (~datum key2) k_arg] (... ...)) #'bvs+ks
                 #:with k_result (if un-anno? #'#%tag #`(#,kind-ctor/#f k_arg (... ...)))
                 (add-orig
-                 (attach #`(#,τ-internal bvs- τ- (... ...)) 'key2 (default-type-eval #'k_result))
+                 (attach
+;                  #`(#,τ-internal bvs- τ- (... ...))
+                  (mk-τ-internal #'bvs- #'(τ- (... ...)))
+                  'key2 (default-type-eval #'k_result))
                  this-syntax)]
                [_
                 (raise-syntax-error #f
@@ -715,10 +721,10 @@
                 (define (τ-internal)
                   #,(if (attribute runtime?)
                         #''τ
-                        #'(raise
-                           (exn:fail:type:runtime
-                            (format "~a: Cannot use ~a at run time" 'τ 'tag)
-                            (current-continuation-marks)))))
+                        #'(#%plain-app raise
+                           (#%plain-app exn:fail:type:runtime
+                            (#%plain-app format "~a: Cannot use ~a at run time" 'τ 'tag)
+                            (#%plain-app current-continuation-marks)))))
                 (define-syntax τ (mk-base-transformer #'τ-internal 'new-key2 #'new-#%tag))
                 (begin-for-syntax
                   (define τ+ ((current-type-eval) #'τ))))]))
@@ -763,22 +769,23 @@
                   (define-syntax τ-expander (mk-ctor-expander #'τ-internal 'τ)))
                 (define (τ-internal args)
                   #,(if (attribute runtime?)
-                        #'(cons 'τ (args))
-                        #'(raise
-                           (exn:fail:type:runtime
-                            (format "~a: Cannot use ~a at run time" 'τ 'name)
-                            (current-continuation-marks)))))
+                        #'(#%plain-app cons 'τ (#%plain-app args))
+                        #'(#%plain-app raise
+                           (#%plain-app exn:fail:type:runtime
+                            (#%plain-app format "~a: Cannot use ~a at run time" 'τ 'name)
+                            (#%plain-app current-continuation-marks)))))
                 ; τ- is an internal constructor:
                 ; It does not validate inputs and does not attach a kind,
                 ; ie, it won't be recognized as a valid type, the programmer
                 ; must implement their own kind system on top
-                (define-syntax τ- (mk-internal-ctor-transformer #'τ-internal #'extra-info arg-var-fn))
-                (define-for-syntax (mk-τ- args) ; TODO: add arg-variances?
+                (define-syntax τ-
+                  (mk-internal-ctor-transformer #'τ-internal #'extra-info arg-var-fn))
+                (define-for-syntax (mk-τ- args)
+                  (define τ* (add-arg-variances #'τ-internal (arg-var-fn #`(_ . #,args))))
                   (mk-type
                    (add-orig
                     #`(#%plain-app
-                       τ-internal
-;                       #,(add-arg-variances #'τ-internal (arg-var-fn (cons #'τ-internal args)))
+                       #,τ*
                        (#%plain-lambda () (#%expression extra-info) (#%plain-app list . #,args)))
                     #`(τ . #,args)))))]))
          (define-syntax define-type-constructor
@@ -790,9 +797,10 @@
                  #:defaults ([op #'=] [n #'1]))
                  . (~and other-options (~not (#:arity . _))))
              #:with τ- (mk-- #'τ)
+             #:with mk-τ- (mk-mk #'τ-)
              #'(begin
                  (define-internal-type-constructor τ . other-options)
-                 (define-syntax τ (mk-ctor-transformer #'τ- 'τ op 'op 'n)))]))
+                 (define-syntax τ (mk-ctor-transformer mk-τ- #'τ- 'τ op 'op 'n)))]))
          (define-syntax define-internal-binding-type
            (syntax-parser
             [(_ (~var τ id)
@@ -821,23 +829,28 @@
                   (define-syntax τ-expander (mk-binding-expander #'τ-internal 'τ)))
                 (define (τ-internal args)
                   #,(if (attribute runtime?)
-                        #'(let ([bvs (build-list (procedure-arity args) (λ _ (gensym)))])
-                            (list* 'τ bvs (apply args bvs)))
-                        #'(raise
-                           (exn:fail:type:runtime
-                            (format "~a: Cannot use ~a at run time" 'τ 'name)
-                            (current-continuation-marks)))))
+                        #'(let ([bvs (#%plain-app build-list
+                                       (#%plain-app procedure-arity args) (#%plain-lambda _
+                                                                            (#%plain-app gensym)))])
+                            (#%plain-app list* 'τ bvs (apply args bvs)))
+                        #'(#%plain-app raise
+                           (#%plain-app exn:fail:type:runtime
+                            (#%plain-app format "~a: Cannot use ~a at run time" 'τ 'name)
+                            (#%plain-app current-continuation-marks)))))
                 ; τ- is an internal constructor:
                 ; It does not validate inputs and does not attach a kind,
                 ; ie, it won't be recognized as a valid type, the programmer
                 ; must implement their own kind system
                 (define-syntax τ-
                   (mk-internal-binding-transformer #'τ-internal #'extra-info arg-vars-fn))
-                (define-for-syntax (mk-τ- Xs arg) ; TODO: add arg-variances?
+                (define-for-syntax (mk-τ- Xs args)
+                  (define τ* (add-arg-variances #'τ-internal (arg-vars-fn #`(τ- #,Xs . #,args))))
                   (mk-type
                    (add-orig
-                    #`(#%plain-app τ-internal (#%plain-lambda #,Xs (#%expression extra-info) (#%plain-app list #,arg)))
-                    #`(τ #,Xs #,arg)))))]))
+                    #`(#%plain-app
+                       #,τ*
+                       (#%plain-lambda #,Xs (#%expression extra-info) (#%plain-app list . #,args)))
+                    #`(τ #,Xs . #,args)))))]))
          (define-syntax define-binding-type
            (syntax-parser
              [(_ (~var τ id)
@@ -857,16 +870,18 @@
                  . (~and other-options
                          (~not ((~or #:arity #:bvs #:arr) . _))))
               #:with τ- (mk-- #'τ)
+              #:with mk-τ- (mk-mk #'τ-)
               #:with kind-ctor/#f (if (attribute has-annotations?) #'#'kindcon #''#f)
               #`(begin
                  (define-internal-binding-type τ . other-options)
-                 (define-syntax τ (mk-binding-transformer #'τ- 'τ kind-ctor/#f
-                                                          bvs-op 'bvs-op 'bvs-n
-                                                          op 'op 'n
-                                                          (λ (ctx es)
-                                                             (expands/ctx
-                                                              es ctx
-                                                              #:stop-list? #f)))))])))]))
+                 (define-syntax τ
+                   (#%plain-app mk-binding-transformer mk-τ- #'τ- 'τ kind-ctor/#f
+                                bvs-op 'bvs-op 'bvs-n
+                                op 'op 'n
+                                (#%plain-lambda (ctx es)
+                                  (expands/ctx
+                                   es ctx
+                                   #:stop-list? #f)))))])))]))
 
 ;; ----------------------------------------------------------------------------
 ;; ----------------------------------------------------------------------------
@@ -1048,6 +1063,7 @@
   ;; - keep tvctx bc it's often useful to separate the returned Xs-
   (define (expands/ctxs es #:ctx [ctx null] #:tvctx [tvctx null]
                         #:stop-list? [stop-list? #t])
+    (define stop? (decide-stop-list stop-list?))
      (syntax-parse ctx
        [((~or X:id [x:id (~seq sep:id τ) ...]) ...) ; dont expand; τ may reference to tv
        #:with (~or (~and (tv:id ...)
@@ -1059,20 +1075,18 @@
 
        (define ctx (syntax-local-make-definition-context))
        (define (in-ctx s)
-         (internal-definition-context-introduce ctx s))
+         (internal-definition-context-introduce ctx (fresh s)))
 
-       (define/syntax-parse
-         ((tv+ ...) (X+ ...) (x+ ...))
-         (stx-deep-map
-           (compose in-ctx fresh)
-           #'((tv ...) (X ...) (x ...))))
+        (define/syntax-parse (tv+ ...) (map in-ctx (syntax-e #'(tv ...))))
+        (define/syntax-parse (X+ ...)  (map in-ctx (syntax-e #'(X ...))))
+        (define/syntax-parse (x+ ...)  (map in-ctx (syntax-e #'(x ...))))
 
        (syntax-local-bind-syntaxes
-         (syntax->list #'(tv+ ... X+ ... x+ ...))
+         (syntax-e #'(tv+ ... X+ ... x+ ...))
          #f ctx)
 
        (syntax-local-bind-syntaxes
-         (syntax->list #'(tv ...))
+         (syntax-e #'(tv ...))
          #`(values (make-rename-transformer
                                (mk-tyvar
                                  (attachs #'tv+ '(tvsep ...) #'(tvk ...))))
@@ -1080,7 +1094,7 @@
          ctx)
 
        (syntax-local-bind-syntaxes
-         (syntax->list #'(X ...))
+         (syntax-e #'(X ...))
          #`(values (make-variable-like-transformer
                               (mk-tyvar (attach #'X+ ':: #'#%type)))
                             ...)
@@ -1089,19 +1103,19 @@
        ; Bind these sequentially, so that expansion of (τ ...) for each
        ; can depend on type variables bound earlier. Really, these should
        ; also be in nested scopes such that they can only see earlier xs.
-       (for ([x (syntax->list #'(x ...))]
-             [rhs (syntax->list #'((make-variable-like-transformer
-                                     ((current-var-assign)
-                                      #'x #'x+ '(sep ...) #'(τ ...)))
-                                   ...))])
+       (for ([x (syntax-e #'(x ...))]
+             [rhs (syntax-e #'((make-variable-like-transformer
+                                ((current-var-assign)
+                                 #'x #'x+ '(sep ...) #'(τ ...)))
+                               ...))])
          (syntax-local-bind-syntaxes (list x) rhs ctx))
 
        (define/syntax-parse
          (e+ ...)
-         (for/list ([e (syntax->list #'(e ...))])
-           (local-expand e 'expression (decide-stop-list stop-list?) ctx)))
+         (for/list ([e (syntax-e #'(e ...))])
+           (local-expand e 'expression stop? #;(decide-stop-list stop-list?) ctx)))
 
-       (list #'(tv+ ...) #'(X+ ... x+ ...) #'(e+ ...))]
+       #'((tv+ ...) (X+ ... x+ ...) (e+ ...))]
 
       [([x τ] ...)
        (expands/ctxs es #:ctx #`([x #,(current-tag) τ] ...)
@@ -1115,16 +1129,16 @@
   ; can also use for bound tyvars in type e
   (define (expands/ctx es ctx #:stop-list? [stop-list? #t])
     (syntax-parse (expands/ctxs es #:ctx ctx #:stop-list? stop-list?)
-      [(_ xs es+) (list #'xs #'es+)]))
+      [(_ xs es+) #'(xs es+)]))
   (define (expand/ctx e ctx #:stop-list? [stop-list? #t])
     (syntax-parse (expands/ctx (list e) ctx #:stop-list? stop-list?)
-      [(_ xs (e+)) (list #'xs #'e+)]))
+      [(_ xs (e+)) #'(xs e+)]))
   (define (expands/tvctx es ctx #:stop-list? [stop-list? #t])
     (syntax-parse (expands/ctxs es #:tvctx ctx #:stop-list? stop-list?)
-      [(tvs _ es+) (list #'tvs #'es+)]))
+      [(tvs _ es+) #'(tvs es+)]))
   (define (expand/tvctx e tvctx #:stop-list? [stop-list? #t])
     (syntax-parse (expands/ctxs (list e) #:tvctx tvctx #:stop-list? stop-list?)
-      [(tvs _ (e+)) (list #'tvs #'e+)]))
+      [(tvs _ (e+)) #'(tvs e+)]))
 
   ;; full expansion fn
   ;; NOTE: this is deprecated; probably want to use expand/stop instead
@@ -1298,8 +1312,8 @@
        [(_ lit:id fail-msg:expr stx)
         #'(~and actual
                 (~parse
-                 (~fail #:unless (and (identifier? #'actual)
-                                      (free-identifier=? #'actual #'lit))
+                 (~fail #:unless (and (#%plain-app identifier? #'actual)
+                                      (#%plain-app free-identifier=? #'actual #'lit))
                         fail-msg)
                  stx))])))
 

@@ -16,6 +16,7 @@
   '("examples/tests/trivial-test.rkt"    ; needs typed/racket
     "examples/tests/mlish/sweet-map.rkt" ; needs sweet-exp
     "examples/fomega3.rkt"
+    "examples/tests/omit/"
     "examples/tests/fomega3-tests.rkt"
     "examples/tests/mlish/bg/README.md"))
 

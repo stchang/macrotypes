@@ -21,7 +21,7 @@
 (define-typed-syntax λ
   [(_ bvs:type-ctx e)
    #:with (xs- e- τ_res) (infer/ctx+erase #'bvs #'e)
-   (⊢ (λ- xs- e-) : #,(mk-→- #'(bvs.type ... τ_res)))])
+   (⊢ (#%plain-lambda- xs- e-) : #,(mk-→- #'(bvs.type ... τ_res)))])
 
 (define-typed-syntax #%app
   [(_ e_fn e_arg ...)
@@ -32,4 +32,4 @@
    #:fail-unless (typechecks? #'(τ_arg ...) #'(τ_in ...))
                  (typecheck-fail-msg/multi 
                   #'(τ_in ...) #'(τ_arg ...) #'(e_arg ...))
-   (⊢ (#%app- e_fn- e_arg- ...) : τ_out)])
+   (⊢ (#%plain-app- e_fn- e_arg- ...) : τ_out)])

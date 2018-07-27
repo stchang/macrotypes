@@ -47,11 +47,11 @@
   [(_ ([x:id : τ_in] ...) e) ≫
    [[x ≫ x- : τ_in] ... ⊢ [e ≫ e- ⇒ τ_out][τ_in ≫ τ_in- ⇒ _] ...]
    -------
-   [⊢ (λ- (x- ...) e-) ⇒ (Π ([x- : τ_in-] ...) τ_out)]]
+   [⊢ (#%plain-lambda- (x- ...) e-) ⇒ (Π ([x- : τ_in-] ...) τ_out)]]
   [(_ (y:id ...) e) ⇐ (~Π ([x:id : τ_in] ...) τ_out) ≫
    [[x ≫ x- : τ_in] ... ⊢ #,(substs #'(x ...) #'(y ...) #'e) ≫ e- ⇐ τ_out]
    ---------
-   [⊢ (λ- (x- ...) e-)]])
+   [⊢ (#%plain-lambda- (x- ...) e-)]])
 
 ;; TODO: do beta on terms?
 (define-typed-syntax #%app
@@ -69,7 +69,7 @@
                  (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
    [⊢ e_arg ≫ e_arg- ⇐ τ_in] ...
    --------
-   [⊢ (#%app- e_fn- e_arg- ...) ⇒
+   [⊢ (#%plain-app- e_fn- e_arg- ...) ⇒
       #,(substs #'(e_arg- ...) #'(X ...) #'τ_out)]])
 
 (define-typed-syntax (ann e (~datum :) τ) ≫
