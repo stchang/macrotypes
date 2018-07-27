@@ -1,3 +1,3 @@
 #lang racket/base
-(provide (all-from-out turnstile/examples/tests/rackunit-typechecking))
-(require turnstile/examples/tests/rackunit-typechecking)
+(provide (all-from-out rackunit/turnstile/typechecking))
+(require rackunit/turnstile/typechecking)
