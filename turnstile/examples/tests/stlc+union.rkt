@@ -35,6 +35,11 @@
  #:with-msg
  "expected \\(U\\), given \\(U \\(U\\) String\\)")
 
+;; check that `ann` overrides the previous type
+(typecheck-fail
+ (+ 1 (ann 2 : (U Num String)))
+ #:with-msg "expected Num, given \\(U ")
+
 
 ;; tests from stlc+sub ---------------------
 (check-type 1 : Num)
