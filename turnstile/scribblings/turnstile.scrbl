@@ -9,7 +9,9 @@
 @(author
   (author+email "Stephen Chang" "stchang@racket-lang.org" #:obfuscate? #t)
   (author+email "Alex Knauth" "alexander@knauth.org" #:obfuscate? #t)
-  (author+email "Ben Greenman" "types@ccs.neu.edu" #:obfuscate? #t))
+  (author+email "Ben Greenman" "types@ccs.neu.edu" #:obfuscate? #t)
+  (author+email "Milo Turner" "iitalics@gmail.com" #:obfuscate? #t)
+  (author+email "Michael Ballantyne" "mballantyne@ccs.neu.edu" #:obfuscate? #t))
 
 Turnstile aims to help Racket programmers create typed languages. It does so
 with extensions of Racket's macro-definition forms that facilitate
