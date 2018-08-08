@@ -998,8 +998,8 @@
                     #:with-idc [idc #f])
 
     (define/syntax-parse ([A+ Aty] ...)
-      (cond [idc ; TODO: is this reverse reliable?
-             (for/list ([i (reverse (internal-definition-context-binding-identifiers idc))]
+      (cond [idc ; TODO: dont rely on this ordering
+             (for/list ([i (internal-definition-context-binding-identifiers idc)]
                         #:when (syntax-source i)) ; generated ids have no source
                (define i+ (local-expand i 'expression null idc))
                (list i+ (typeof i+)))]
