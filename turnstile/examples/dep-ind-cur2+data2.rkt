@@ -78,6 +78,12 @@
         ;; un-subst tmp id in expanded stx with type X
         #'(~and TMP
                 (~parse pat (reflect (subst #'X TmpTy+ #'TMP free-id=?))))])))
+  (define fix-with-unbound-orig
+    (syntax-parser
+      [_
+       #:with ((~literal with-unbound) _ t) (get-orig this-syntax)
+       (add-orig this-syntax #'t)]
+      [_ this-syntax]))
   (define-syntax ~unbound2
     (pattern-expander
      (syntax-parser
@@ -85,6 +91,7 @@
         ;; un-subst tmp id in expanded stx with type X
         #'(~and TMP
                 (~parse pat
+                        (fix-with-unbound-orig
                         (let L ([stx #'TMP])
                           (syntax-parse stx
 ;                            [_ #:do[(printf "unbound2: ~a\n" (stx->datum stx))] #:when #f #'debugging]
@@ -106,7 +113,7 @@
                                #:with mk-X (format-id #'X "mk-~a" #'X)
                                (transfer-props stx #'(mk-X x1 x2 x3) #:except null)]
                             [(e (... ...)) (transfer-props stx #`#,(stx-map L #'(e (... ...))) #:except null)]
-                            [_ stx])))
+                            [_ stx]))))
                 #;(~parse pat (subst #'X TmpTy+ #'TMP free-id=?)))])))
   ;; convert tscope/tscopes into Π and check Π
   (define (check-well-formed TY tscope tscopes)
