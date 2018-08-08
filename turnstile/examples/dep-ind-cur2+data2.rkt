@@ -124,6 +124,12 @@
                  (stx-split-at #'([X τ] ...) (stx-length #'(A ...)))
           #'(([A- τA-] ...)
              (([i- τi-] ...) ...))])])]))
+  ; reflect Type type back to surface
+  ; - works around expander problem where type gets dropped during provide+require
+  (define reflect-Type
+    (syntax-parser
+      [(~Type n) #'(Type n)]
+      [t #'t]))
   )
 
 (define-typed-syntax define-datatype
@@ -149,10 +155,11 @@
                                       ([i+x ≫ i+x2 : τin ≫ τin2 ⇐ Type] ... τout ≫ τout2 ⇐ Type) ...]
    
    ;; method 3: nested telescope
-   [[A ≫ A2 : τA ≫ τA2] ... ⊢
+   [[A ≫ A2 : τA ≫ τA2_] ... ⊢
     [[i ≫ i2 : τi ≫ τi2] ... ⊢ τ ≫ τ2 ⇐ TypeTop]
     [[i+x ≫ i+x2 : (with-unbound TY τin) ≫ (~unbound2 TY τin2)] ... ⊢ (with-unbound TY τout) ≫ (~unbound2 TY τout2) ⇐ TypeTop] ...]
-   
+   ;; this fixes (some) dropped types during provide+require
+   #:with (τA2 ...) (stx-map reflect-Type #'(τA2_ ...))
    ;; method 2: infer + #:with-idc
    ;; #:with (~and (~unbound2 TY i+e-res)
    ;;              (~unbound2 TY
