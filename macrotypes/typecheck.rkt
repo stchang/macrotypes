@@ -967,6 +967,19 @@
   ;;       eg, what if I need separate type-eval and kind-eval fns?
   ;; - should infer be moved into define-syntax-category?
 
+  ;; sorts As, and their matching Atys, according to orig-As, using datum=?
+  (define (sort-As orig-As As Atys)
+    (define A+tys (stx-map list As Atys))
+    (call-with-values
+     (lambda ()
+       (for/lists (new-As new-Atys)
+                  ([orig-A (in-stx-list orig-As)])
+         (apply values
+                (stx-findf
+                 (lambda (A+ty) (stx-datum-equal? (car A+ty) orig-A))
+                 A+tys))))
+     list))
+
   (define (ctx->idc ctx #:with-idc [existing-idc #f]
                     #:var-assign [var-assign #'(λ (x x+ seps tys) (attachs x+ seps tys #:ev (current-type-eval)))]
                     #:wrap-fn [wrap-fn #'(λ (x) x)]) ; eg, mk-tyvar
@@ -998,7 +1011,7 @@
                     #:with-idc [idc #f])
 
     (define/syntax-parse ([A+ Aty] ...)
-      (cond [idc ; TODO: dont rely on this ordering
+      (cond [idc
              (for/list ([i (internal-definition-context-binding-identifiers idc)]
                         #:when (syntax-source i)) ; generated ids have no source
                (define i+ (local-expand i 'expression null idc))

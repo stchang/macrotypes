@@ -311,6 +311,7 @@
     #:attributes (pat)
     #:datum-literals (τ⊑ τ= ⊢ ≫ ⇐ ⇒) ; TODO: drop the τ in τ⊑ and τ=
     [pattern :tc-clause]
+    ;; nested telescopes
     [pattern [b:tele-bind ... ooo1:elipsis  ⊢
                           [x:tele-bind ... ooo2:elipsis ⊢ e ≫ e-pat ⇐ ty-expected] ... ooo3:elipsis]
              
@@ -321,8 +322,11 @@
                                       (λ (e1 ctx) (infer (list e1) #:ctx ctx #:with-idc idc))
                                       #'(e ... ooo3)
                                       #'((x.x+ty ... ooo2) ... ooo3))))
-                           (~parse (b.xpat ... ooo1) (stx-car #'(As (... ...))))
-                           (~parse (b.typat ... ooo1) (stx-car #'(Atys (... ...))))
+                           (~parse [(b.xpat ... ooo1)
+                                    (b.typat ... ooo1)]
+                                   (sort-As #'(b.A ... ooo1)
+                                            (stx-car #'(As (... ...)))
+                                            (stx-car #'(Atys (... ...)))))
                            (~parse ((x.xpat ... ooo2) ... ooo3) #'(xs (... ...)))
                            (~parse ((x.typat ... ooo2) ... ooo3) #'(tyxs (... ...)))
                            (~parse (e-pat ... ooo3) #'(e- (... ...)))
@@ -338,7 +342,7 @@
                                                      (and res (L (cdr ts) (cdr tes))))))
                                   "mismatch"))]
 
-    ;; synth case                                   
+    ;; synth (⇒) case
     [pattern [b1:tele-bind+synth ooo1:elipsis ⊢ b2:tele-bind+synth ooo2:elipsis [e ≫ e-pat ⇒ ty-pat] ...]
              #:with (z ...) (generate-temporaries #'(e ...))
              #:with pat #'(~and 
@@ -396,7 +400,7 @@
                            (~parse (e-pat ...) tys3)
                            (~parse (ty-pat ...) ks3))
              ]
-    ;; bind case
+    ;; chck (⇐) case
     [pattern [b1:tele-bind+check ... ⊢ b2:tele-bind+check ... [e ≫ e-pat ⇐ expected-ty] ...]
              #:with (z ...) (generate-temporaries #'(e ...))
              #:with pat #'(~and 
