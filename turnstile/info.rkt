@@ -15,8 +15,6 @@
 
 (define test-omit-paths
   '("examples/rosette"
-    "examples/dep-ind-cur2+bool.rkt"
-    "examples/tests/dep-ind-cur2-bool-tests.rkt"
     "examples/tests/dep-tests.rkt"
     "examples/tests/rosette"             ; needs rosette
     "examples/tests/trivial-test.rkt"    ; needs typed/racket
