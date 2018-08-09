@@ -1,7 +1,8 @@
 #lang turnstile
 (require (postfix-in - racket/fixnum)
          (postfix-in - racket/flonum)
-         (postfix-in - racket/match))
+         (postfix-in - racket/match)
+         (for-syntax racket/set racket/string))
 
 (extends
  "ext-stlc.rkt"
@@ -217,7 +218,7 @@
               (for/fold ([as- null] [cs initial-cs])
                         ([a (in-list (syntax->list #'args))]
                          [tyXin (in-list (syntax->list #'(τ_inX ...)))]
-                         #:break (empty? (find-unsolved-Xs Xs cs)))
+                         #:break (null? (find-unsolved-Xs Xs cs)))
                 (define/with-syntax [a- ty_a] (infer+erase a))
                 (values 
                  (cons #'a- as-)

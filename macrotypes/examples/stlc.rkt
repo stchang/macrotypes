@@ -15,7 +15,7 @@
                     (syntax-parse stx
                       [(_ τ_in ... τ_out)
                        (append
-                        (make-list (stx-length #'[τ_in ...]) contravariant)
+                        (stx-map (λ _ contravariant) #'[τ_in ...])
                         (list covariant))])))
 
 (define-typed-syntax λ

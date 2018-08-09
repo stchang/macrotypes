@@ -48,7 +48,8 @@
 (define-prop scopes #:initial (immutable-free-id-set))
 
 (begin-for-syntax
-  (require racket/set
+  (require racket/sequence
+           racket/set
            racket/generic
            turnstile/mode)
 

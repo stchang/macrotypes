@@ -1,5 +1,6 @@
 #lang turnstile/lang
 (extends "stlc+union.rkt" #:except #%app add1 sub1)
+(require (for-syntax racket/format racket/string))
 
 ;; Simply-Typed Lambda Calculus, plus union types and case-> function types
 ;; Types:

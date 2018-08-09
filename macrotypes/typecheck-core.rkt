@@ -5,7 +5,8 @@
 (require
   "postfix-in.rkt"
   (postfix-in - racket/base)
-  (for-syntax (except-in racket extends)
+  (for-syntax racket/base
+              racket/string racket/format racket/promise racket/path
               syntax/id-table
               syntax/parse racket/syntax syntax/stx
               syntax/parse/define
@@ -24,7 +25,7 @@
  (except-out (all-from-out racket/base) #%module-begin #%top)
  (all-from-out syntax/parse/define)
  (for-syntax
-  (all-from-out racket syntax/parse racket/syntax syntax/stx
+  (all-from-out racket/base racket/syntax syntax/stx
                 "stx-utils.rkt"))
  (for-meta 2 (all-from-out racket/base syntax/parse racket/syntax))
  (rename-out [define-syntax-category define-stx-category]))
@@ -1231,9 +1232,6 @@
   (define (brack? stx)
     (define paren-shape/#f (syntax-property stx 'paren-shape))
     (and paren-shape/#f (char=? paren-shape/#f #\[)))
-
-  (define (iff b1 b2)
-    (boolean=? b1 b2))
 
   ;; --------------------------------------------------------------------------
   ;; functions for customizing variance of type constructors

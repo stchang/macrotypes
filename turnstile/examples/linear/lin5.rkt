@@ -49,6 +49,7 @@
 
 (begin-for-syntax
   (require racket/set
+           racket/sequence
            racket/generic
            turnstile/mode)
 

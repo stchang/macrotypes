@@ -1,7 +1,8 @@
 #lang s-exp macrotypes/typecheck
 (reuse Int + #:from "sysf.rkt")
 (require (prefix-in sysf: (only-in "sysf.rkt" →- → #%app λ))
-         (only-in "sysf.rkt" ~→ →?))
+         (only-in "sysf.rkt" ~→ →?)
+         (for-syntax racket/string))
 (reuse define-type-alias String #%datum #:from "stlc+reco+var.rkt")
 
 ; same as fomega.rkt except λ and #%app works as both type and terms,

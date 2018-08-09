@@ -112,7 +112,7 @@
       (set-intersect/Xs Xs constrainable-vars))
     (define concrete-constrained-vars
       (for/list ([X (in-list constrainable-vars)]
-                 #:when (empty? (find-free-Xs Xs (or (lookup X cs2) X))))
+                 #:when (null? (find-free-Xs Xs (or (lookup X cs2) X))))
         X))
     (define unconstrainable-Xs
       (set-minus/Xs Xs constrainable-Xs))
@@ -120,7 +120,7 @@
     ;; pruning constraints that are useless now
     (define concrete-constrainable-Xs
       (for/list ([X (in-list constrainable-Xs)]
-                 #:when (empty? (find-free-Xs constrainable-Xs (or (lookup X cs2) X))))
+                 #:when (null? (find-free-Xs constrainable-Xs (or (lookup X cs2) X))))
         X))
     (define cs3
       (for/list ([c (in-list cs2)]

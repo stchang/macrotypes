@@ -13,7 +13,9 @@
          datum=?
          )
 
-(require syntax/parse
+(require racket/string
+         racket/match
+         syntax/parse
          syntax/stx
          (for-meta -1 "typecheck.rkt")
          "stx-utils.rkt"
@@ -126,8 +128,8 @@
   (match-define (list a b) entry)
   (cons entry
         (for/list ([subst (in-list substs)])
-          (list (first subst)
-                (inst-type/orig (list b) (list a) (second subst) datum=?)))))
+          (list (car subst)
+                (inst-type/orig (list b) (list a) (cadr subst) datum=?)))))
 
 ;; cs-substitute-entry : (List Id Type) (Stx-Listof (Stx-List Stx Stx)) -> (Listof (List Stx Stx))
 ;; substitute a -> b in each of the constraints

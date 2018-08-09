@@ -13,7 +13,7 @@
 
 (define-type-constructor × #:arity >= 0
   #:arg-variances (λ (stx)
-                    (make-list (stx-length (stx-cdr stx)) covariant)))
+                    (stx-map (λ _ covariant) (stx-cdr stx))))
 
 (define-typed-syntax tup
   [(_ e ...) ⇐ (~× τ ...) ≫

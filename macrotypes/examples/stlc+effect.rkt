@@ -1,5 +1,6 @@
 #lang s-exp macrotypes/typecheck
 (extends "stlc+box.rkt" #:except Ref ref deref := #%app λ)
+(require (for-syntax racket/set))
 
 ;; Simply-Typed Lambda Calculus, plus mutable references
 ;; Types:
@@ -28,7 +29,7 @@
     (define e-or-τ/closed (if (null? vs) e-or-τ #`(stlc+box:λ #,vs #,e-or-τ)))
     (define tytag (if (type? e-or-τ) ':: ':))
     (or (syntax-property
-          (first (infer+erase e-or-τ/closed #:tag tytag))
+          (car (infer+erase e-or-τ/closed #:tag tytag))
           tag)
         null))
   (define (get-new-effects e [vs '()]) (get-effects e 'ν vs))
@@ -37,7 +38,7 @@
   
   (define (print-effects e)
     (printf "expr ~a\n" (syntax->datum e))
-    (define e+ (first (infer+erase e)))
+    (define e+ (car (infer+erase e)))
     (printf "new locs: ~a\n" (syntax-property e+ 'ν))
     (printf "deref locs: ~a\n" (syntax-property e+ '!))
     (printf "assign locs: ~a\n" (syntax-property e+ ':=)))
