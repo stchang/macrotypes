@@ -27,6 +27,8 @@
 (require (prefix-in stlc+cons: (only-in "stlc+cons.rkt" list)))
 (require (prefix-in stlc+tup: (only-in "stlc+tup.rkt" tup)))
 
+(provide (for-syntax ~seq ...))
+
 ;; ML-like language
 ;; - top level recursive functions
 ;; - user-definable algebraic datatypes

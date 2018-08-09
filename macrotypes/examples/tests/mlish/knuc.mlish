@@ -64,4 +64,4 @@
             (deref (hash-ref table seq))
             0)))
   : (List Int) 
-  -> (list 5861 1776 176 0 0))
+  -> (list 5893 1784 186 4 4))

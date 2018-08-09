@@ -1,6 +1,10 @@
 #lang s-exp "../../mlish.rkt"
 (require "../rackunit-typechecking.rkt")
 
+;; this test is similar to fasta.mlish in the `macrotypes` collect,
+;; except here we extend the language with `Dict`, `dict` and `in-dict`
+;; (instead of using list of tuples)
+
 (define +alu+
   (string-append "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"
                  "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA"
@@ -12,18 +16,25 @@
 
 (check-type +alu+ : String)
 
+(define-type-alias (Dict X Y) (List (× X Y)))
+(require (only-in turnstile define-typed-syntax))
+(define-typed-syntax (in-dict d) ≫ --- [≻ (in-list d)])
+(define-typed-syntax (dict (~seq k v) ...) ≫ --- [≻ (list (tup k v) ...)])
+
 (define IUB
-  (hash #\a 0.27 #\c 0.12 #\g 0.12 #\t 0.27 #\B 0.02
+  (dict #\a 0.27 #\c 0.12 #\g 0.12 #\t 0.27 #\B 0.02
         #\D 0.02 #\H 0.02 #\K 0.02 #\M 0.02 #\N 0.02
         #\R 0.02 #\S 0.02 #\V 0.02 #\W 0.02 #\Y 0.02))
 
-(check-type IUB : (Hash Char Float))
+(check-type IUB : (Dict Char Float))
+(check-type IUB : (List (× Char Float)))
 
 (define HOMOSAPIEN
-  (hash #\a 0.3029549426680 #\c 0.1979883004921
+  (dict #\a 0.3029549426680 #\c 0.1979883004921
         #\g 0.1975473066391 #\t 0.3015094502008))
 
-(check-type HOMOSAPIEN : (Hash Char Float))
+(check-type HOMOSAPIEN : (Dict Char Float))
+(check-type HOMOSAPIEN : (List (× Char Float)))
 
 (define line-length 60)
 
@@ -59,12 +70,12 @@
 
 (check-type (tup 0 0.0) : (× Int Float))
 
-(check-type (in-hash IUB) : (Sequence (× Char Float)))
+(check-type (in-dict IUB) : (Sequence (× Char Float)))
 
-(define (make-lookup-table [frequency-table : (Hash Char Float)] -> String)
+(define (make-lookup-table [frequency-table : (Dict Char Float)] -> String)
   (let ([v (make-string IM)])
     (for/fold ([cs (tup 0 0.0)])
-              ([k+v (in-hash frequency-table)])
+              ([k+v (in-dict frequency-table)])
       (match cs with
        [c c. ->
         (match k+v with
@@ -99,7 +110,7 @@
           R))))
 
 (define (random-fasta [header : String] [N : Int]
-                      [table : (Hash Char Float)] [R : Int] 
+                      [table : (Dict Char Float)] [R : Int] 
                       -> (× Int String))
   (let* ([buf (make-string (add1 line-length))]
          [out (open-output-string)]
@@ -147,11 +158,11 @@
     (random-fasta ">THREE Homo sapiens frequency\n" (* n 5) HOMOSAPIEN R)]))
 
 (check-type (proj res1 1) : String
- -> ">TWO IUB ambiguity codes\nattRtBtaDtatVataKatgaatcccgDtY\n")
+ -> ">TWO IUB ambiguity codes\ncttBtatcatatgctaKggNcataaaSatg\n")
 
 (check-type (proj res2 1) : String
  -> (string-append ">THREE Homo sapiens frequency\n"
-      "atttgcggaaacgacaaatattaacacatcatcagagtaccataaaggga\n"))
+      "taaatcttgtgcttcgttagaagtctcgactacgtgtagcctagtgtttg\n"))
 
 (define (mk-fasta [n : Int] -> String)
   (let 
@@ -174,18 +185,19 @@
       "AAAAATACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCAGCTACTCGGGAG\n"
       "GCTGAGGCAGGAGAATCGCT\n"
       ">TWO IUB ambiguity codes\n"
-      "attRtBtaDtatVataKatgaatcccgDtYtcccNaNgtRttNtatttatcctSaRataW\n"
-      "taatNtNctaatctttggMtMttKtYtMHagBttagcMKMttttcWaactgcSttgaaac\n"
-      "gtcatHagHtgtaHVgtcattatgRcaVcaatctcWgaNtttVaaYcaaaataYtgWgtt\n"
-      "acttMgtHHgagtattaaaKSgtBgacaaggSaaRttVaVDHttRgctagtaaacgaaac\n"
-      "ttcRNtgcatttSagBtHttNRaatgtctattcaSaRYcgtatSattttttttgaBgagD\n"
+      "cttBtatcatatgctaKggNcataaaSatgtaaaDcDRtBggDtctttataattcBgtcg\n"
+      "tactDtDagcctatttSVHtHttKtgtHMaSattgWaHKHttttagacatWatgtRgaaa\n"
+      "NtactMcSMtYtcMgRtacttctWBacgaaatatagScDtttgaagacacatagtVgYgt\n"
+      "cattHWtMMWcStgttaggKtSgaYaaccWStcgBttgcgaMttBYatcWtgacaYcaga\n"
+      "gtaBDtRacttttcWatMttDBcatWtatcttactaBgaYtcttgttttttttYaaScYa\n"
       ">THREE Homo sapiens frequency\n"
-      "gaagacaggtgtaacgtgggaaaatctctagtaaagctttgatcagcggagacgcgatca\n"
-      "acagatcctttatatcgcgaaacttctctctatcagcgaactaaggagggcgacaatccg\n"
-      "agctgttccggaccaaaccctgaaagtacgactctgctctaataaagtcaaaacgtagaa\n"
-      "gactagatacaattatactgacaacaaaaaaaagttgcgtgcacaagagtacgatgtttg\n"
-      "accgccagttattatgacgagggtgagaacaagtcaggctaaagtagaagagcaccatag\n"
-      "gtatcagtttaactgagtaaatgcgaatgcgtgactttaaataagcctgcgtgtgtcaaa\n"
-      "actctacaatatctttgttatattattgaatcattctggatttgaggcagtggagcatac\n"
-      "tgtataaaataatttttcggtgggtcaaaaataaatttcaattaagacgttaaggataat\n"
-      "gaaatgactcaatctaaggt\n"))
+      "tgttgcgttatagtctatttgtggacacagtatggtcaaatgacgtcttttgatctgacg\n"
+      "gcgttaacaaagatactctgggcaacacacatacttctctcatgttgtttcttcggacct\n"
+      "ttcataacctttcctggcacatggttagctgcacatcacaggattgtaagggtctagtgg\n"
+      "ttcagtgagcggaatatcattcgtcggtggtgttaatctatctcggtgtagcttataaat\n"
+      "gcatccgtaagaatattatgtttatttgtcggtacgttcatggtagtggtgtcgccgatt\n"
+      "tagacgtaaaggcatgtatggatcttgatctatgcaaaggtaggtccatctatatacgtt\n"
+      "gcacagcggatacaaataagataagaatttactaacatttaaattttcttattgtcgagc\n"
+      "atagattggaggaaaaacttatttacttggtatttaaacggaagtttctaatgtttatga\n"
+      "ttggatgcacggacagttta\n"))
+
