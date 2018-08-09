@@ -1,6 +1,7 @@
 #lang s-exp macrotypes/typecheck
 (reuse λ #%app Int → + #:from "sysf.rkt")
 (reuse define-type-alias String #%datum #:from "stlc+reco+var.rkt")
+(require (for-syntax racket/string))
 
 ;; System F_omega
 ;; Types:

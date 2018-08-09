@@ -18,7 +18,7 @@
                       macrotypes/typecheck-core
                       [define-syntax-category -define-syntax-category])
                     #%module-begin)
-         (for-syntax racket/stxparam
+         (for-syntax racket/match racket/stxparam
                      "mode.rkt"
                      (only-in lens/common lens-view lens-set)
                      (only-in lens/private/syntax/stx stx-flatten/depth-lens))

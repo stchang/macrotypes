@@ -2,7 +2,8 @@
 (extends "stlc+sub.rkt" #:except #%datum)
 (extends "stlc+cons.rkt" #:except + * #%datum and tup × proj ~× list)
 (reuse tup × proj #:from "stlc+tup.rkt")
-(require (only-in "stlc+tup.rkt" ~×))
+(require (for-syntax racket/match racket/list racket/format)
+         (only-in "stlc+tup.rkt" ~×))
 
 ;; Calculus for occurrence typing.
 ;; - Types can be simple, or sets of simple types

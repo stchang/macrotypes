@@ -2,7 +2,7 @@
 
 ;; like lin1, except use manually-defined mode instead of #:mode
 
-(require (for-syntax syntax/id-set))
+(require (for-syntax racket/format racket/string syntax/id-set))
 (provide → × λ #%app ann if let
          Bool #%datum pair split free
          (for-syntax reset-USED!)) ; for testing/debugging only?

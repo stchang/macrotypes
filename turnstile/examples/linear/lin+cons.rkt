@@ -1,5 +1,6 @@
 #lang turnstile/lang
 (extends "lin+tup.rkt")
+(require (for-syntax racket/contract))
 
 (provide (type-out MList MList0)
          cons nil match-list)

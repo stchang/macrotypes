@@ -1,5 +1,6 @@
 #lang turnstile/lang
 (extends "lin.rkt")
+(require (for-syntax racket/contract racket/sequence))
 
 (provide (type-out ⊗) tup let*)
 (begin-for-syntax (provide in-cad*rs

@@ -40,6 +40,7 @@
 
 (begin-for-syntax
   (require syntax/id-set
+           racket/sequence
            racket/set
            racket/generic
            turnstile/mode)

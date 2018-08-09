@@ -7,7 +7,7 @@
 (reuse tup × proj
        #:from "stlc+tup.rkt")
 (require (only-in "sysf.rkt" ∀ ~∀ ∀? Λ))
-(require (for-syntax "../type-constraints.rkt"))
+(require (for-syntax racket/string racket/format "../type-constraints.rkt"))
 
 ;; a language with local type inference using bidirectional type checking
 
@@ -81,7 +81,7 @@
                      [τ_inX (syntax->list expected-τs)])
             (define τ_in (inst-type/cs Xs cs τ_inX))
             (define/with-syntax [e τ]
-              (infer+erase (if (empty? (find-free-Xs Xs τ_in))
+              (infer+erase (if (null? (find-free-Xs Xs τ_in))
                                (add-expected-type e_arg τ_in)
                                e_arg)))
             ;             (displayln #'(e τ))

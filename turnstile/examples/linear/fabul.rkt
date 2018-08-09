@@ -20,6 +20,7 @@
          (prefix-in U: (only-in "../stlc+tup.rkt" tup proj))
          (prefix-in L: "lin.rkt")
          (prefix-in L: "lin+cons.rkt")
+         (for-syntax racket/format racket/sequence)
          (only-in "../ext-stlc.rkt" → ~→)
          (only-in "../stlc+tup.rkt" × ~×)
          (only-in "../stlc+cons.rkt" List ~List)

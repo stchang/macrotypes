@@ -1,5 +1,6 @@
 #lang racket/base
-(require (for-syntax rackunit syntax/srcloc) rackunit macrotypes/typecheck-core
+(require (for-syntax rackunit syntax/srcloc racket/pretty racket/string)
+         rackunit macrotypes/typecheck-core
          (only-in macrotypes/typecheck infer+erase))
 (provide check-type typecheck-fail check-not-type check-props check-runtime-exn
          check-equal/rand typecheck-fail/toplvl typecheck-fail/definitions

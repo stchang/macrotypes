@@ -1,6 +1,7 @@
 #lang turnstile/lang
 (extends "lin.rkt")
-(require (only-in "lin+tup.rkt" list-destructure-syntax))
+(require (only-in "lin+tup.rkt" list-destructure-syntax)
+         (for-syntax racket/contract racket/sequence))
 
 (provide ⊕ var match)
 

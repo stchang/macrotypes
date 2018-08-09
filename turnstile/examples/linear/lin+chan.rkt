@@ -1,5 +1,6 @@
 #lang turnstile/lang
 (extends "lin+tup.rkt")
+(require (for-syntax racket/contract))
 
 (provide (type-out InChan OutChan)
          make-channel channel-put channel-get

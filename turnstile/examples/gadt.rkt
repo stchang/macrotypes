@@ -1,7 +1,7 @@
 #lang turnstile
 (require (only-in "ext-stlc.rkt" [→ ext-stlc:→] ⊔)
          (only-in "mlish.rkt" ?∀ make-extra-info-transformer Bool)
-         (for-syntax macrotypes/type-constraints))
+         (for-syntax racket/set racket/string macrotypes/type-constraints))
 
 (provide define-gadt match-gadt)
 

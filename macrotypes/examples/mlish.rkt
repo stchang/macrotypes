@@ -3,7 +3,8 @@
  (postfix-in - racket/fixnum)
  (postfix-in - racket/flonum)
  (postfix-in - racket/match)
- (for-syntax macrotypes/type-constraints macrotypes/variance-constraints))
+ (for-syntax racket/set racket/string
+             macrotypes/type-constraints macrotypes/variance-constraints))
 
 (extends
  "ext-stlc.rkt"
@@ -194,7 +195,7 @@
                          [tyXin (in-stx-list #'(τ_inX ...))])
                 (define ty_in (inst-type/cs/orig Xs cs tyXin datum=?))
                 (define/with-syntax [a- ty_a]
-                  (infer+erase (if (empty? (find-free-Xs Xs ty_in))
+                  (infer+erase (if (null? (find-free-Xs Xs ty_in))
                                    (add-expected-type a ty_in)
                                    a)))
                 (values
@@ -231,8 +232,7 @@
   ;; find-X-variance : Id Type [Variance] -> Variance
   ;; Returns the variance of X within the type ty
   (define (find-X-variance X ty [ctxt-variance covariant])
-    (match (find-variances (list X) ty ctxt-variance)
-      [(list variance) variance]))
+    (car (find-variances (list X) ty ctxt-variance)))
 
   ;; covariant-X? : Id Type -> Bool
   ;; Returns true if every place X appears in ty is a covariant position, false otherwise.
@@ -254,14 +254,14 @@
          (cond [(free-identifier=? X #'A) ctxt-variance]
                [else irrelevant]))]
       [(~Any tycons)
-       (make-list (length Xs) irrelevant)]
+       (stx-map (λ _ irrelevant) Xs)]
       [(~?∀ () (~Any tycons τ ...))
        #:when (get-arg-variances #'tycons)
        #:when (stx-length=? #'[τ ...] (get-arg-variances #'tycons))
        (define τ-ctxt-variances
          (for/list ([arg-variance (in-list (get-arg-variances #'tycons))])
            (variance-compose ctxt-variance arg-variance)))
-       (for/fold ([acc (make-list (length Xs) irrelevant)])
+       (for/fold ([acc (stx-map (λ _ irrelevant) Xs)])
                  ([τ (in-stx-list #'[τ ...])]
                   [τ-ctxt-variance (in-list τ-ctxt-variances)])
          (map variance-join
@@ -270,8 +270,8 @@
       [ty
        #:when (not (for/or ([X (in-list Xs)])
                      (stx-contains-id? #'ty X)))
-       (make-list (length Xs) irrelevant)]
-      [_ (make-list (length Xs) invariant)]))
+       (stx-map (λ _ irrelevant) Xs)]
+      [_ (stx-map (λ _ invariant) Xs)]))
 
   ;; find-variances/exprs : (Listof Id) Type [Variance-Expr] -> (Listof Variance-Expr)
   ;; Like find-variances, but works with Variance-Exprs instead of
@@ -283,14 +283,14 @@
          (cond [(free-identifier=? X #'A) ctxt-variance]
                [else irrelevant]))]
       [(~Any tycons)
-       (make-list (length Xs) irrelevant)]
+       (stx-map (λ _ irrelevant) Xs)]
       [(~?∀ () (~Any tycons τ ...))
        #:when (get-arg-variances #'tycons)
        #:when (stx-length=? #'[τ ...] (get-arg-variances #'tycons))
        (define τ-ctxt-variances
          (for/list ([arg-variance (in-list (get-arg-variances #'tycons))])
            (variance-compose/expr ctxt-variance arg-variance)))
-       (for/fold ([acc (make-list (length Xs) irrelevant)])
+       (for/fold ([acc (stx-map (λ _ irrelevant) Xs)])
                  ([τ (in-list (syntax->list #'[τ ...]))]
                   [τ-ctxt-variance (in-list τ-ctxt-variances)])
          (map variance-join/expr
@@ -299,8 +299,8 @@
       [ty
        #:when (not (for/or ([X (in-list Xs)])
                      (stx-contains-id? #'ty X)))
-       (make-list (length Xs) irrelevant)]
-      [_ (make-list (length Xs) invariant)]))
+       (stx-map (λ _ irrelevant) Xs)]
+      [_ (stx-map (λ _ invariant) Xs)]))
 
   ;; current-variance-constraints : (U False (Mutable-Setof Variance-Constraint))
   ;; If this is false, that means that infer-variances should return concrete Variance values.
@@ -316,7 +316,7 @@
       [(current-variance-constraints)
        (define variance-constraints (current-variance-constraints))
        (define variance-exprs
-         (for/fold ([exprs (make-list (length variance-vars) irrelevant)])
+         (for/fold ([exprs (stx-map (λ _ irrelevant) variance-vars)])
                    ([τ (in-list τs)])
            (define/syntax-parse (~?∀ Xs* τ*)
              ;; This can mutate variance-constraints!

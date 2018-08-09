@@ -1,6 +1,7 @@
 #lang turnstile/lang
 (extends "stlc+sub.rkt" #:except #%datum)
 (extends "stlc+reco+var.rkt" #:except #%datum + *)
+(require (for-syntax racket/set))
 
 ;; Simply-Typed Lambda Calculus, plus subtyping, plus records
 ;; Types:
