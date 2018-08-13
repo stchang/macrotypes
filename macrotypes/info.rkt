@@ -9,6 +9,3 @@
 (define test-omit-paths
   '("examples/tests/mlish/sweet-map.rkt" ; needs sweet-exp
     "examples/tests/mlish/bg/README.md"))
-
-(define test-timeouts
-  '(("examples/tests/mlish/generic.mlish" 300)))

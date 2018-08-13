@@ -5,7 +5,6 @@
 
 (define compile-omit-paths 
   '("examples/tests"
-    "rackunit-typechecking.rkt"
     "examples/trivial.rkt")) ; needs typed racket
 
 (define test-include-paths
@@ -15,7 +14,3 @@
   '("examples/tests/trivial-test.rkt"    ; needs typed/racket
     "examples/tests/mlish/sweet-map.rkt" ; needs sweet-exp
     "examples/tests/mlish/bg/README.md"))
-
-(define test-timeouts
-  '(("examples/tests/mlish/generic.mlish" 300)
-    ("examples/tests/tlb-infer-tests.rkt" 1800)))
