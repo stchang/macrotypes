@@ -4,8 +4,7 @@
   '(["scribblings/turnstile.scrbl" (multi-page)]))
 
 (define compile-omit-paths 
-  '("examples/fomega3.rkt"
-    "examples/tests"
+  '("examples/tests"
     "rackunit-typechecking.rkt"
     "examples/trivial.rkt")) ; needs typed racket
 
@@ -15,8 +14,6 @@
 (define test-omit-paths
   '("examples/tests/trivial-test.rkt"    ; needs typed/racket
     "examples/tests/mlish/sweet-map.rkt" ; needs sweet-exp
-    "examples/fomega3.rkt"
-    "examples/tests/fomega3-tests.rkt"
     "examples/tests/mlish/bg/README.md"))
 
 (define test-timeouts
