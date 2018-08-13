@@ -21,10 +21,12 @@
                      (only-in lens/common lens-view lens-set)
                      (only-in lens/private/syntax/stx stx-flatten/depth-lens))
          (for-meta 2
-                   racket/function
                    racket/base
                    racket/string
+                   racket/syntax
+                   racket/function
                    syntax/stx
+                   syntax/parse
                    macrotypes/stx-utils))
 
 (begin-for-syntax

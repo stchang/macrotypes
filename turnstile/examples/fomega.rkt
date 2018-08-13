@@ -1,6 +1,7 @@
 #lang turnstile/base
 (reuse λ #%app Int → + #:from "sysf.rkt")
 (reuse define-type-alias #%datum String #:from "ext-stlc.rkt")
+(require (for-meta 2 racket/base))
 
 ;; System F_omega
 ;; Types:

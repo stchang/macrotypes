@@ -4,7 +4,8 @@
  (postfix-in - racket/flonum)
  (postfix-in - racket/match)
  (for-syntax racket/set racket/string
-             macrotypes/type-constraints macrotypes/variance-constraints))
+             macrotypes/type-constraints macrotypes/variance-constraints)
+ (for-meta 2 racket/base))
 
 (extends
  "ext-stlc.rkt"

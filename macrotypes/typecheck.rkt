@@ -3,27 +3,8 @@
 ;; extends "typecheck-core.rkt" with "macrotypes"-only forms
 
 (require (except-in "typecheck-core.rkt")
-                    ;infer+erase
-;;                    infers+erase
-                    ;infer)
-                    ;; infer/ctx+erase
-                    ;; infers/ctx+erase
-                    ;; infer/tyctx+erase
-                    ;; infers/tyctx+erase
-                    ;; infer/tyctx
-                    ;; infer/ctx)
-         #;(prefix-in core:
-                    (only-in "typecheck-core.rkt"
-                    infer+erase
-;;                    infers+erase
-                    infer))
-                    ;; infer/ctx+erase
-                    ;; infers/ctx+erase
-                    ;; infer/tyctx+erase
-                    ;; infers/tyctx+erase
-                    ;; infer/tyctx
-                    ;; infer/ctx))
-         (for-syntax racket/stxparam))
+         (for-syntax racket/stxparam)
+         (for-meta 2 racket/base syntax/parse racket/syntax))
 (provide (all-from-out "typecheck-core.rkt")
          (all-defined-out)
          (for-syntax (all-defined-out)))

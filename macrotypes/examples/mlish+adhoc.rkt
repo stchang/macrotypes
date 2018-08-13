@@ -4,7 +4,8 @@
 (require (postfix-in - racket/fixnum)
          (postfix-in - racket/flonum)
          (postfix-in - racket/match)
-         (for-syntax racket/set racket/string))
+         (for-syntax racket/set racket/string)
+         (for-meta 2 racket/base syntax/parse racket/syntax))
 
 (extends
  "ext-stlc.rkt"

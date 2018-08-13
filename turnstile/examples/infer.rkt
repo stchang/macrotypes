@@ -6,7 +6,8 @@
 ;(require (only-in "stlc+cons.rkt" ~List))
 (reuse tup × proj #:from "stlc+tup.rkt")
 (reuse define-type-alias #:from "stlc+reco+var.rkt")
-(require (for-syntax macrotypes/type-constraints))
+(require (for-syntax macrotypes/type-constraints)
+         (for-meta 2 racket/base syntax/parse racket/syntax))
 ;(provide hd tl nil? ∀)
 
 (provide → ∀ define define/rec λ #%app)

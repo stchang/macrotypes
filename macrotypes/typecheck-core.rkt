@@ -27,7 +27,6 @@
  (for-syntax
   (all-from-out racket/base racket/syntax syntax/stx
                 "stx-utils.rkt"))
- (for-meta 2 (all-from-out racket/base syntax/parse racket/syntax))
  (rename-out [define-syntax-category define-stx-category]))
 
 (define-syntax (erased stx)

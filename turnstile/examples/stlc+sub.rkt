@@ -2,7 +2,8 @@
 (extends "stlc+lit.rkt" #:except #%datum +)
 (reuse Bool String add1 #:from "ext-stlc.rkt")
 (require (prefix-in ext: (only-in "ext-stlc.rkt" #%datum))
-         (only-in "ext-stlc.rkt" current-join))
+         (only-in "ext-stlc.rkt" current-join)
+         (for-meta 2 racket/base syntax/parse racket/syntax))
 
 ;; Simply-Typed Lambda Calculus, plus subtyping
 ;; Types:

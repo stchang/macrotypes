@@ -1,4 +1,5 @@
 #lang turnstile/base
+(require (for-meta 2 racket/base syntax/parse))
 
 (begin-for-syntax
   (current-use-stop-list? #f))

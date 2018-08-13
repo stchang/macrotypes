@@ -1,6 +1,7 @@
 #lang turnstile/base
 (extends "stlc+box.rkt" #:except Ref ref deref := #%app λ)
-(require (for-syntax racket/bool))
+(require (for-syntax racket/bool)
+         (for-meta 2 racket/base syntax/parse racket/syntax))
 
 ;; Simply-Typed Lambda Calculus, plus mutable references
 ;; Types:

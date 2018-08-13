@@ -1,5 +1,6 @@
 #lang turnstile/base
 (extends "ext-stlc.rkt")
+(require (for-meta 2 racket/base syntax/parse))
 
 ;; An updated implementation of records, using more recent Turnstile features
 

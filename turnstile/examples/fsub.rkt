@@ -1,6 +1,7 @@
 #lang turnstile/base
 (extends "stlc+reco+sub.rkt" #:except + #%app proj)
-(require (rename-in (only-in "sysf.rkt" ∀? ∀ ~∀) [~∀ ~sysf:∀] [∀ sysf:∀]))
+(require (rename-in (only-in "sysf.rkt" ∀? ∀ ~∀) [~∀ ~sysf:∀] [∀ sysf:∀])
+         (for-meta 2 racket/base syntax/parse))
  
 ;; System F<:
 ;; Types:

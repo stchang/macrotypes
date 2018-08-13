@@ -1,7 +1,8 @@
 #lang s-exp macrotypes/typecheck
 (extends "stlc+tup.rkt" #:except × ×? tup proj ~×)
-(require (only-in "stlc+tup.rkt" [~× ~stlc:×]))
-(require (postfix-in - racket/bool))
+(require (only-in "stlc+tup.rkt" [~× ~stlc:×])
+         (for-meta 2 racket/base syntax/parse)
+         (postfix-in - racket/bool))
 
 ;; Simply-Typed Lambda Calculus, plus records and variants
 ;; Types:
