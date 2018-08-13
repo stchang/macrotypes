@@ -1,4 +1,4 @@
-#lang turnstile/lang
+#lang turnstile/base
 (extends "sysf.rkt" #:except #%datum ∀ ~∀ ∀? Λ inst λ #%app →)
 (reuse String #%datum #:from "stlc+reco+var.rkt")
 

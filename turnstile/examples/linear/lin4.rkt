@@ -1,4 +1,4 @@
-#lang turnstile
+#lang turnstile/base
 
 ;; same as lin.rkt, except uses define-prop, #:post, and #:join
 ;; instead of #:mode and #:submode

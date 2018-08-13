@@ -1,4 +1,4 @@
-#lang turnstile/lang
+#lang turnstile/base
 (extends "stlc+lit.rkt")
 
 ;; System F

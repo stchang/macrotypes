@@ -1,4 +1,4 @@
-#lang turnstile
+#lang turnstile/base
 
 (require turnstile/rackunit-typechecking
          "pat-expander-tests-def.rkt")

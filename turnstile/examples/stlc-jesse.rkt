@@ -1,4 +1,4 @@
-#lang turnstile/lang
+#lang turnstile/base
 (extends "ext-stlc.rkt" #:except #%app)
 
 ;; stlc with ∀ where app also does inst

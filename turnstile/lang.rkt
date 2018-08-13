@@ -1,9 +1,13 @@
 #lang racket/base
 
-(provide (all-from-out
-          "turnstile.rkt"
-          macrotypes/typecheck-core))
+;; #%module-begin is from macrotypes/typecheck-core
+(provide (all-from-out macrotypes/typecheck-core
+                       "turnstile.rkt")
+         (for-syntax (all-from-out racket syntax/parse)))
 
-(require "turnstile.rkt"
-         (only-in macrotypes/typecheck-core #%module-begin current-use-stop-list?))
+(require (except-in macrotypes/typecheck-core define-syntax-category)
+         "turnstile.rkt"
+         (for-syntax (except-in racket extends)
+                     syntax/parse))
+         
 

@@ -1,4 +1,4 @@
-#lang turnstile/lang
+#lang turnstile/base
 (extends "stlc+tup.rkt")
 (reuse ∨ var case #:from "stlc+reco+var.rkt")
 

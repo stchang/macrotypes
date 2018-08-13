@@ -1,4 +1,4 @@
-#lang turnstile/lang
+#lang turnstile/base
 (extends "stlc+union.rkt" #:except #%app add1 sub1)
 (require (for-syntax racket/format racket/string))
 

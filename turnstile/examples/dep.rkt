@@ -1,11 +1,12 @@
-#lang turnstile/lang
+#lang turnstile/base
 
 (begin-for-syntax
   (current-use-stop-list? #f))
 
 ; Π  λ ≻ ⊢ ≫ ⇒ ∧ (bidir ⇒ ⇐)
 
-(provide * Π → ∀ λ #%app ann define define-type-alias)
+(provide * Π → ∀ λ #%app ann define define-type-alias
+         #%module-begin #%top-interaction require)
 
 #;(begin-for-syntax
   (define old-ty= (current-type=?))

@@ -1,4 +1,4 @@
-#lang turnstile/lang
+#lang turnstile/base
 (extends "stlc+lit.rkt" #:except #%datum)
 
 ;; Simply-Typed Lambda Calculus, plus extensions (TAPL ch11)

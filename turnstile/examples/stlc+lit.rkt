@@ -1,4 +1,4 @@
-#lang turnstile/lang
+#lang turnstile/base
 (extends "stlc.rkt")
 
 ;; Simply-Typed Lambda Calculus, plus numeric literals and primitives

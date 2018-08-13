@@ -4,7 +4,7 @@
 
 @title[#:style '(toc)]{The @racketmodname[turnstile] language}
 
-@defmodule[turnstile #:lang #:use-sources (turnstile/turnstile)]
+@defmodule[turnstile #:lang #:use-sources (turnstile)]
 
 @(author
   (author+email "Stephen Chang" "stchang@racket-lang.org" #:obfuscate? #t)

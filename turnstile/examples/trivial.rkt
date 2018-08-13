@@ -1,4 +1,4 @@
-#lang turnstile
+#lang turnstile/base
 (require (prefix-in tr: typed/racket))
 
 ;; This file tries to extend Ben Greenman's trivial package with lambdas

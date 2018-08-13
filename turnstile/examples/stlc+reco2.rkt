@@ -1,4 +1,4 @@
-#lang turnstile/lang
+#lang turnstile/base
 (extends "ext-stlc.rkt")
 
 ;; An updated implementation of records, using more recent Turnstile features

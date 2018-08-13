@@ -1,4 +1,4 @@
-#lang turnstile/lang
+#lang turnstile/base
 (reuse λ #%app Int → + #:from "sysf.rkt")
 (reuse define-type-alias #%datum String #:from "ext-stlc.rkt")
 
@@ -9,7 +9,8 @@
 ;; Terms:
 ;; - extend sysf with Λ inst
 
-(provide (type-out ∀) (kind-out ★ ⇒ ∀★) Λ inst tyλ tyapp)
+(provide (type-out ∀) (kind-out ★ ⇒ ∀★) Λ inst tyλ tyapp
+         #%module-begin require)
 
 (define-syntax-category :: kind)
 

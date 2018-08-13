@@ -1,4 +1,4 @@
-#lang turnstile
+#lang turnstile/base
 (extends "../ext-stlc.rkt" #:except define if begin let let* letrec λ #%app)
 
 (provide (for-syntax current-linear-type?

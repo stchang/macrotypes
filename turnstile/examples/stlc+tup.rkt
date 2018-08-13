@@ -1,4 +1,4 @@
-#lang turnstile/lang
+#lang turnstile/base
 (extends "ext-stlc.rkt")
 
 ;; Simply-Typed Lambda Calculus, plus tuples

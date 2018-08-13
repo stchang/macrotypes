@@ -1,4 +1,4 @@
-#lang turnstile
+#lang turnstile/base
 
 ;; same as lin4.rkt, except uses prop-specific keywords, eg #:fail-unless/scopes
 ;; (keep lin4 intact for comparison)

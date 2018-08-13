@@ -1,4 +1,4 @@
-#lang turnstile/lang
+#lang turnstile/base
 (extends "stlc+tup.rkt" #:except × ×? tup proj ~×)
 (require (only-in "stlc+tup.rkt" [~× ~stlc:×]))
 (require (postfix-in - racket/bool))

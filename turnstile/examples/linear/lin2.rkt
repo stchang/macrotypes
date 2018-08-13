@@ -1,4 +1,4 @@
-#lang turnstile/quicklang
+#lang turnstile/base
 
 ;; alternate implementation of linear λ-calculus
 ;; - when compared to lin.rkt
@@ -9,7 +9,8 @@
 
 (require (for-syntax syntax/id-set))
 (provide → × λ #%app ann if let
-         Bool #%datum pair split free)
+         Bool #%datum pair split free
+         #%module-begin require)
 
 (define-base-type Bool)
 (define-type-constructor → #:arity > 0)

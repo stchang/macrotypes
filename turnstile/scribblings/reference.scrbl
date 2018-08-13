@@ -4,7 +4,7 @@
           (for-label racket/base
                      syntax/id-table
                      turnstile/mode
-                     (except-in turnstile/turnstile mk-~ mk-?))
+                     (except-in turnstile/main mk-~ mk-?))
           "doc-utils.rkt" "common.rkt")
 
 @title{The Turnstile Reference}
@@ -662,7 +662,7 @@ something other than a type rule, like in a function or a syntax
 class.
 
 @(let ([ev (make-base-eval)])
-   (ev '(require turnstile/turnstile))
+   (ev '(require turnstile))
    @examples[
      #:eval ev
      (begin-for-syntax
@@ -687,7 +687,7 @@ For example the pattern @racket[(~⊢ a ≫ a- ⇒ τ_a)] typechecks
 to @racket[τ_a].
 
 @(let ([ev (make-base-eval)])
-   (ev '(require turnstile/turnstile))
+   (ev '(require turnstile))
    @examples[
      #:eval ev
      (begin-for-syntax
@@ -786,6 +786,19 @@ will automatically provide Racket's @racket[#%module-begin],
 @racket[#%top-interaction], @racket[#%top], @racket[require],
 and some require transformers, e.g., @racket[rename-in].
 
+@; Sec: turnstile/base ----------------------------------------------
+@section[#:tag "turnstilebase"]{@hash-lang[] @racketmodname[turnstile]/base}
+
+Only provides @racketmodname[racket/base] at phase 1.
+Does not provide @racketmodname[syntax/parse] at phase 1.
+
+In contrast, full @racketmodname[turnstile] provides all of
+@racketmodname[racket] and @racketmodname[syntax/parse]
+at phase 1.
+
+@racketmodname[turnstile]/base may load faster than full
+@racketmodname[turnstile] (roughly 15% for an empty file, with Racket 7).
+
 @; Sec: Lower-level functions -------------------------------------------------
 @section{Lower-level Functions}
 
@@ -853,7 +866,7 @@ traversing the syntax property @racket['orig], which can be manipulated with @ra
 @racket[type->str] is used in typechecking error messages.
 
 @(let ([ev (make-base-eval)])
-   (ev '(require turnstile/turnstile))
+   (ev '(require turnstile))
    (ev '(define-base-type Int))
    (ev '(define-type-constructor → #:arity = 2))
    @examples[#:eval ev

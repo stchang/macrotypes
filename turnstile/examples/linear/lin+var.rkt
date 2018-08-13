@@ -1,4 +1,4 @@
-#lang turnstile/lang
+#lang turnstile/base
 (extends "lin.rkt")
 (require (only-in "lin+tup.rkt" list-destructure-syntax)
          (for-syntax racket/contract racket/sequence))

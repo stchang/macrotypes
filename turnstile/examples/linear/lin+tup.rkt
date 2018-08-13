@@ -1,4 +1,4 @@
-#lang turnstile/lang
+#lang turnstile/base
 (extends "lin.rkt")
 (require (for-syntax racket/contract racket/sequence))
 

@@ -1,4 +1,4 @@
-#lang turnstile/lang
+#lang turnstile/base
 (extends "fomega.rkt" #:except tyapp tyλ)
 
 ;; not current working 2017-02-03

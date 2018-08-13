@@ -1,4 +1,4 @@
-#lang turnstile
+#lang turnstile/base
 
 (provide (all-defined-out))
 

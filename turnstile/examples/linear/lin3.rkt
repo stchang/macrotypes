@@ -1,11 +1,12 @@
-#lang turnstile/quicklang
+#lang turnstile/base
 
 ;; like lin1, except use manually-defined mode instead of #:mode
 
 (require (for-syntax racket/format racket/string syntax/id-set))
 (provide → × λ #%app ann if let
          Bool #%datum pair split free
-         (for-syntax reset-USED!)) ; for testing/debugging only?
+         (for-syntax reset-USED!) ; for testing/debugging only?
+         #%module-begin require)
 
 (define-base-type Bool)
 (define-type-constructor → #:arity > 0)

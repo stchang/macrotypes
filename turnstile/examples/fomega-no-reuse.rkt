@@ -1,4 +1,4 @@
-#lang turnstile/lang
+#lang turnstile/base
 
 ;; System F_omega, without reusing rules from other languages
 ;; - try to avoid using built-in "kind" system (ie #%type)
@@ -10,7 +10,8 @@
 (provide define-type-alias
          ★ ⇒ Int Bool String Float Char → ∀ tyλ tyapp
          (typed-out [+ : (→ Int Int Int)])
-         λ #%app #%datum Λ inst ann)
+         λ #%app #%datum Λ inst ann
+         #%module-begin require)
 
 (define-syntax-category :: kind)
 

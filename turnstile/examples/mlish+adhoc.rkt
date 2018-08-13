@@ -1,4 +1,4 @@
-#lang turnstile
+#lang turnstile/base
 (require (postfix-in - racket/fixnum)
          (postfix-in - racket/flonum)
          (postfix-in - racket/match)
@@ -14,7 +14,7 @@
 (require (only-in "sysf.rkt" ~∀ ∀ ∀? mk-∀- Λ))
 (reuse × tup proj define-type-alias #:from "stlc+rec-iso.rkt")
 (require (only-in "stlc+rec-iso.rkt" ~× ×?)) ; using current-type=? from here
-(provide (rename-out [ext-stlc:and and] [ext-stlc:#%datum #%datum]))
+(provide (rename-out [ext-stlc:and and] [ext-stlc:#%datum #%datum] [tc-top #%top]))
 (reuse member length reverse list-ref cons nil isnil head tail list #:from "stlc+cons.rkt")
 (require (prefix-in stlc+cons: (only-in "stlc+cons.rkt" list cons nil)))
 (require (only-in "stlc+cons.rkt" ~List List? List mk-List-))

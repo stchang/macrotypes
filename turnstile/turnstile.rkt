@@ -1,8 +1,6 @@
 #lang racket/base
 
-(provide (except-out (all-from-out macrotypes/typecheck-core)
-                     -define-syntax-category)
-         define-typed-syntax
+(provide define-typed-syntax
          define-typed-variable
          define-typed-variable-syntax
          define-syntax-category

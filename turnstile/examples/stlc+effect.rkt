@@ -1,4 +1,4 @@
-#lang turnstile/lang
+#lang turnstile/base
 (extends "stlc+box.rkt" #:except Ref ref deref := #%app λ)
 (require (for-syntax racket/bool))
 

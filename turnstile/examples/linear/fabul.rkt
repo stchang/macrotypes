@@ -1,4 +1,4 @@
-#lang turnstile
+#lang turnstile/base
 (require (for-syntax "fabul-utils.rkt"
                      turnstile/mode))
 
@@ -7,7 +7,7 @@
          proj isnil head tail list-ref member
          define
          %L %U
-         #%module-begin #%top-interaction require
+         #%module-begin require
          (typed-out/unsafe [= : (→ Int Int Int)]
                     [< : (→ Int Int Bool)]
                     [sub1 : (→ Int Int)]

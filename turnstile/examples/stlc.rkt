@@ -1,6 +1,6 @@
-#lang turnstile/lang
+#lang turnstile/base
 
-(provide (type-out →) λ #%app ann)
+(provide (type-out →) λ #%app ann #%module-begin #%top-interaction require)
 
 (define-type-constructor → #:arity >= 1
   #:arg-variances (λ (stx)
