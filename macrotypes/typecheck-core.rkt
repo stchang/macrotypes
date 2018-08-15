@@ -30,7 +30,7 @@
  (rename-out [define-syntax-category define-stx-category]))
 
 (define-syntax (erased stx)
-  (syntax-case stx ()
+  (syntax-parse stx
     [(_ e)
      #'e]))
 
@@ -1118,6 +1118,152 @@
                         #:tvctx tvctx
                         #:stop-list? stop-list?)]))
 
+    ;; sorts As, and their matching Atys, according to orig-As, using datum=?
+  (define (sort-As orig-As As Atys)
+    (define A+tys (stx-map list As Atys))
+    (call-with-values
+     (lambda ()
+       (for/lists (new-As new-Atys)
+                  ([orig-A (in-stx-list orig-As)])
+         (apply values
+                (stx-findf
+                 (lambda (A+ty) (stx-datum-equal? (car A+ty) orig-A))
+                 A+tys))))
+     list))
+   (define (ctx->idc ctx #:with-idc [existing-idc #f]
+                    #:var-assign [var-assign #'(λ (x x+ seps tys) (attachs x+ seps tys))]
+                    #:wrap-fn [wrap-fn #'(λ (x) x)]) ; eg, mk-tyvar
+    (define new-idc (or existing-idc (syntax-local-make-definition-context)))
+    (define (in-ctx s)
+      (internal-definition-context-introduce new-idc s))
+     (syntax-parse ctx
+       [([x:id (~seq sep:id τ) ...] ...)
+       (define/syntax-parse (x+ ...) (stx-map (compose in-ctx fresh) #'(x ...)))
+        (syntax-local-bind-syntaxes (syntax->list #'(x+ ...)) #f new-idc)
+        ; Bind these sequentially, so that expansion of (τ ...) for each
+       ; can depend on type variables bound earlier. Really, these should
+       ; also be in nested scopes such that they can only see earlier xs.
+       (for/fold ([idc new-idc])
+                 ([x (syntax->list #'(x ...))]
+                  [rhs (syntax->list #`((make-variable-like-transformer
+                                         (#,wrap-fn
+                                          (#,var-assign
+                                           #'x #'x+ '(sep ...) #'(τ ...))))
+                                        ...))])
+         (syntax-local-bind-syntaxes (list x) rhs idc)
+         idc)]))
+   (define (infer es #:ctx [ctx null] #:tvctx [tvctx null]
+                    #:tag [tag (current-tag)] ; the "type" to return from es
+                    #:key [kev #'(current-type-eval)] ; kind-eval (tvk in tvctx)
+                    #:with-idc [idc #f])
+     (define/syntax-parse ([A+ Aty] ...)
+      (cond [idc
+             (for/list ([i (internal-definition-context-binding-identifiers idc)]
+                        #:when (syntax-source i)) ; generated ids have no source
+               (define i+ (local-expand i 'expression null idc))
+               (list i+ (typeof i+)))]
+            [else null]))
+     (syntax-parse ctx
+       [((~or X:id [x:id (~seq sep:id τ) ...]) ...) ; dont expand; τ may reference to tv
+       #:with (~or (~and (tv:id ...)
+                          (~parse ([(tvsep ...) (tvk ...)] ...)
+                                  (stx-map (λ _ #'[(::) (#%type)]) #'(tv ...))))
+                    ([tv (~seq tvsep:id tvk) ...] ...))
+                   tvctx
+       #:with (e ...) es
+       (define ctx (or idc (syntax-local-make-definition-context)))
+       (define (in-ctx s)
+         (internal-definition-context-introduce ctx s))
+         (define/syntax-parse
+          ((tv+ ...) (X+ ...) (x+ ...))
+          (stx-deep-map
+            (compose in-ctx fresh)
+            #'((tv ...) (X ...) (x ...))))
+ 
+        (syntax-local-bind-syntaxes
+          (syntax->list #'(tv+ ... X+ ... x+ ...))
+          #f ctx)
+ 
+        (syntax-local-bind-syntaxes
+          (syntax->list #'(tv ...))
+          #`(values (make-rename-transformer
+                                (mk-tyvar
+                                  (attachs #'tv+ '(tvsep ...) #'(tvk ...))))
+                              ...)
+          ctx)
+ 
+        (syntax-local-bind-syntaxes
+          (syntax->list #'(X ...))
+          #`(values (make-variable-like-transformer
+                               (mk-tyvar (attach #'X+ ':: #'#%type)))
+                             ...)
+          ctx)
+ 
+        ; Bind these sequentially, so that expansion of (τ ...) for each
+        ; can depend on type variables bound earlier. Really, these should
+        ; also be in nested scopes such that they can only see earlier xs.
+        (for ([x (syntax->list #'(x ...))]
+              [rhs (syntax->list #'((make-variable-like-transformer
+                                      ((current-var-assign)
+                                       #'x #'x+ '(sep ...) #'(τ ...)))
+                                    ...))])
+          (syntax-local-bind-syntaxes (list x) rhs ctx))
+ 
+        (define/syntax-parse
+          (e+ ...)
+          (for/list ([e (syntax->list #'(e ...))])
+                    (local-expand e 'expression null ctx)))
+        (define (typeof e)
+         (detach e tag))
+
+        (cond 
+          [idc
+           (define/syntax-parse
+          (tyx ...)
+          (for/list ([x (syntax->list #'(x ...))])
+            (typeof (local-expand x 'expression null ctx))))
+           #;(define/syntax-parse
+          (ktv ...)
+          (for/list ([tv (syntax->list #'(tv ...))]
+                     [tvsep (syntax->datum #'((tvsep ...) ...))])
+            (detach (local-expand tv 'expression null ctx) (car tvsep))))
+       (list #'(A+ ...)
+             #'(Aty ...)
+             #'(tv+ ...)
+             #'(X+ ... x+ ...)
+             #'(tyx ...)
+             #'(e+ ...)
+             (stx-map typeof #'(e+ ...)))]
+        [else (list #'(tv+ ...) #'(X+ ... x+ ...)
+             #'(e+ ...)
+             (stx-map typeof #'(e+ ...)))])]
+       [([x τ] ...) (infer es #:ctx #`([x #,tag τ] ...) #:tvctx tvctx #:tag tag)]))
+
+  (define (folding-infer x τ #:ctx [idc0 #f]) ; TODO: add tag argument
+    (syntax-parse (list x #': τ)
+      [(x sep τ)
+       (define idc (or idc0 (syntax-local-make-definition-context)))
+       (define (in-ctx s) (internal-definition-context-introduce idc s))
+       (define/syntax-parse x+ ((compose in-ctx fresh) #'x))
+       (syntax-local-bind-syntaxes (list #'x+) #f idc)
+       (syntax-local-bind-syntaxes (list #'x)
+                                   #'(make-variable-like-transformer
+                                      ((current-var-assign)
+                                       #'x #'x+ '(sep) #'(τ)))
+                                   idc)
+
+       ;; TODO: use stop-list?
+       (define/syntax-parse τ+ (detach (local-expand #'x 'expression null idc) (stx->datum #'sep)))
+       (define/syntax-parse k_τ (detach #'τ+ (stx->datum #'sep)))
+       ;; returns:
+       ;; - x+
+       ;; - τ+
+       ;; - k_τ
+       ;; - idc
+       ;      (displayln (stx->datum #'(x+ τ+ k_τ)))
+       (values #'x+ #'τ+ #'k_τ idc)
+       ]))
+   
   ;; "expand" and "infer" fns derived from expands/ctxs -----------------------
   ;; some are syntactic shortcuts, some are for backwards compat
 

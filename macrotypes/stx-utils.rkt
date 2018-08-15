@@ -86,14 +86,22 @@
   (apply append (stx-map stx->list stxs)))
 (define (stx-appendmap f . stxs)
   (stx-flatten (apply stx-map f stxs)))
+(define (stx-filtermap f . stxs)
+  (apply filter-map f (stx-map stx->list stxs)))
 
 (define (stx-remove-dups Xs)
   (remove-duplicates (stx->list Xs) free-identifier=?))
 (define (stx-remove v lst [f free-id=?])
   (remove v (stx->list lst) f))
 
+(define (stx-take stx n)
+  (take (stx->list stx) n))
 (define (stx-drop stx n)
   (drop (stx->list stx) n))
+
+(define (stx-split-at stx n)
+  (let-values ([(l r) (split-at (stx->list stx) n)])
+    (list l r)))
 
 (define (stx-deep-map f stx)
   (define (deep stx)
@@ -101,6 +109,7 @@
         (f stx)
         (stx-deep-map f stx)))
   (datum->syntax #f (stx-map deep stx)))
+
 
 ; alternate to generate-temporaries, which relies on symbolic name
 (define (fresh id)
