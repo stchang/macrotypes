@@ -3,7 +3,7 @@
 (define collection 'multi)
 
 (define deps
-  '(("racket" #:version "6.7")
+  '(("racket" #:version "7.0")
     "base"
     "lens-lib"
     ))
@@ -15,4 +15,4 @@
     "racket-doc"
     ))
 
-(define version "0.2.9")
+(define version "0.3.0")

@@ -59,7 +59,7 @@
       [_ τ]))
   
   (define old-eval (current-type-eval))
-  (define (new-type-eval τ) (normalize (old-eval τ)))
+  (define (new-type-eval τ [env #f]) (normalize (old-eval τ env)))
   (current-type-eval new-type-eval)
   
   (define old-typecheck? (current-typecheck-relation))

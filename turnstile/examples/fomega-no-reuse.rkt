@@ -48,7 +48,7 @@
        (transfer-stx-props #'res τ #:ctx τ)]
       [_ τ]))
   (define old-eval (current-type-eval))
-  (current-type-eval (lambda (τ) (normalize (old-eval τ))))
+  (current-type-eval (lambda (τ [env #f]) (normalize (old-eval τ env))))
   
   (define old-typecheck? (current-typecheck-relation))
   ; ty=? == syntax eq and syntax prop eq

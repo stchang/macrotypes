@@ -8,7 +8,7 @@
 (begin-for-syntax
   (define (compute-tyvars ty)
     (syntax-parse ty
-      [X:id #:when (tyvar? #'X) #'(X)]
+      [X:id #:when (type? #'X) #'(X)]
       [X:id #'()]
       [() #'()]
       [(C t ...) (stx-appendmap compute-tyvars #'(t ...))]))
@@ -115,16 +115,18 @@
    ;; - produces constraints
    ;; TODO: dont duplicate work (already done above)
    #:with (cs ...) (stx-map
-                    (lambda (t) (add-constraints #'Xs null (list (list #'τ_e t))))
+                    (lambda (t)
+                      (add-constraints #'Xs null (list (list #'τ_e t))))
                     #'(τ_out ...))
    ;; instantiate expected type based on specific constraints of each clause
-   #:with (t_expect ...) (stx-map
-                          (lambda (cs) (inst-type/cs/orig #'Xs cs #'t_expect_un datum=?))
+   #:with (t_expect ...) (stx-map ; inst won't work with bound-id=? (see issue#3 in dep-merging branch log)
+                          (lambda (cs) (inst-type/cs/orig #'Xs cs #'t_expect_un datum=? free-id=?))
                           #'(cs ...))
    [[x ≫ x- : τ] ... ⊢ [(add-expected clause-bod t_expect) ≫ bod- ⇒ τ_bod*]] ...
    ;; "un-instantiate" τ_ec*
    #:with (post-cs ...) (stx-map
-                         (lambda (t) (add-constraints #'Xs null (list (list #'t_expect_un t))))
+                         (lambda (t)
+                           (add-constraints #'Xs null (list (list #'t_expect_un t))))
                          #'(τ_bod* ...))
    #:with (τ_bod ...) (stx-map
                        (lambda (t cs) (stx-foldr subst-stx/pair t cs))

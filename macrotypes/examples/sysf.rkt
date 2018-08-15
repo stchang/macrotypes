@@ -15,7 +15,7 @@
 
 (define-typed-syntax Λ
   [(_ (tv:id ...) e)
-   #:with [tvs- e- τ-] (infer/ctx #'(tv ...) #'e)
+   #:with [tvs- e- τ-] (infer/tyctx #'(tv ...) #'e)
    ;; can't use internal mk-∀- constructor here
    ;; - will cause the bound-id=? quirk to show up
    ;;   (when subsequent tyvar refs are expanded with `type` stx class)

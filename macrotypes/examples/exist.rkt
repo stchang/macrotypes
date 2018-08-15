@@ -67,7 +67,7 @@
      ;;
    #:with [e_packed- (~∃ (Y) τ_body)] (infer+erase #'e_packed)
    #:with τ_x (subst #'X #'Y #'τ_body)
-   #:with [(X- x-) e- τ_e] (infer/ctx+erase #'(X [x : τ_x]) #'e)
+   #:with [(X- x-) e- τ_e] (infer/ctx+erase #'([X :: #%type] [x : τ_x]) #'e)
    #:with τ_e_checked
    ;; err if values with type X escape open's body
    (let ([ctx (syntax-local-make-definition-context)])

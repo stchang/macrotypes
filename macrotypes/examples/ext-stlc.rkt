@@ -132,7 +132,7 @@
   [(_ ([x e] ...) e_body)
    #:with ((e- τ) ...) (infers+erase #'(e ...))
    #:with ((x- ...) e_body- τ_body)
-          (infer/ctx+erase #'([x τ] ...) #`(pass-expected e_body #,this-syntax))
+          (infer/ctx+erase #'([x : τ] ...) #`(pass-expected e_body #,this-syntax))
    #:with τ-expected (get-expected-type stx)
    #:fail-unless (or (not (syntax-e #'τ-expected)) ; no expected type
                      (typecheck? #'τ_body #'τ-expected))

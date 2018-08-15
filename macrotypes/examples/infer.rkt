@@ -30,16 +30,13 @@
      (add-orig #'(∀ (X ...) (ext-stlc:→ . rst)) (get-orig this-syntax))]
     [(_ . rst) (add-orig #'(∀ () (ext-stlc:→ . rst)) (get-orig this-syntax))]))
 
-(define-syntax #%type-variable (lambda stx (raise-syntax-error #f "should never be expanded" stx)))
-
 (begin-for-syntax
+  (define old-var-assign (current-var-assign))
   (current-var-assign
-    (lambda (x x+ seps τs)
-      (syntax-parse τs
-        #:literals (#%type-variable)
-        [(#%type-variable)
-         #`(infer-ref #,x #,x+ #,τs)]
-        [_ (var-assign x x+ seps τs)])))
+   (lambda (x+ sep τ)
+     (if (equal? (stx-e sep) '#%tyvar)
+         #`(infer-ref #,x+ #,τ)
+         (old-var-assign x+ sep τ))))
 
   (define (raise-infer-error stx)
     (raise
@@ -51,12 +48,12 @@
 
 (define-syntax infer-ref
   (syntax-parser
-    [(_ x x+ (τ))
+    [(_ x+ _)
      (if (get-expected-type this-syntax)
        (add-env
          (assign-type #'x+ (get-expected-type this-syntax))
          #`((x+ #,(get-expected-type this-syntax))))
-       (raise-infer-error #'x))]))
+       (raise-infer-error #'x+))]))
 
 (begin-for-syntax
   ;; find-free-Xs : (Stx-Listof Id) Type -> (Listof Id)
@@ -124,7 +121,7 @@
    #:with [fn- τ_fn] (infer+erase #'(ext-stlc:λ ([x : τ_arg] ...) e))
    (⊢ fn- : #,(add-orig #'(∀ () τ_fn) (get-orig #'τ_fn)))]
   [(_ (x:id ...) ~! e) ; no annotations, couldnt infer from ctx (eg, unapplied lam), try to infer from body
-   #:with (xs- e- τ_res) (infer/ctx+erase #'([x : #%type-variable] ...) #'e)
+   #:with (xs- e- τ_res) (infer/ctx+erase #'([x #%tyvar void] ...) #'e)
    #:with env (get-env #'e-)
    #:fail-unless (syntax-e #'env)
      (format

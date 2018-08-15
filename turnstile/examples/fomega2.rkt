@@ -79,7 +79,7 @@
       [_ τ]))
   
   (define old-eval (current-type-eval))
-  (define (type-eval τ) (normalize (old-eval τ)))
+  (define (type-eval τ [env #f]) (normalize (old-eval τ env)))
   (current-type-eval type-eval)
   
   ;; must be kind= (and not kindcheck?) since old-kind=? recurs on curr-kind=

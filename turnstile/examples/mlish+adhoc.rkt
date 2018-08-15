@@ -265,7 +265,7 @@
         ([exn:fail:syntax:unbound? (lambda (e) #t)]
          [exn:fail:type:infer? (lambda (e) #t)])
         (let ([X+ ((current-type-eval) X)])
-          (not (or (tyvar? X+) (type? X+))))))
+          (not (type? X+)))))
      (stx-remove-dups Xs))))
 
 ;; define --------------------------------------------------
