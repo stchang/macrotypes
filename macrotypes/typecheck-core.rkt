@@ -1131,7 +1131,7 @@
                  A+tys))))
      list))
    (define (ctx->idc ctx #:with-idc [existing-idc #f]
-                    #:var-assign [var-assign #'(λ (x x+ seps tys) (attachs x+ seps tys))]
+                    #:var-assign [var-assign #'(λ (x x+ seps tys) (attachs x+ seps (stx-map (current-type-eval) tys)))]
                     #:wrap-fn [wrap-fn #'(λ (x) x)]) ; eg, mk-tyvar
     (define new-idc (or existing-idc (syntax-local-make-definition-context)))
     (define (in-ctx s)

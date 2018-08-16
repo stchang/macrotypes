@@ -53,7 +53,7 @@
   (syntax-parser
     [:id (assign-type #'TmpTy- #'Type)]
     ;; TODO: orig will get stuck with eg, (TmpTy A)
-    [(_ . args) (assign-type #'(app/eval TmpTy- . args) #'Type)]))
+    [(_ . args) (assign-type (syntax/loc this-syntax (app/eval TmpTy- . args)) #'Type)]))
 (define-for-syntax TmpTy+ (expand/df #'TmpTy))
 
 ;; use this macro to expand e, which contains references to unbound X
@@ -107,7 +107,7 @@
                                (transfer-props stx #'(X x (... ...) . rst) #:except null)]
                               [((~literal #%plain-app) ((~literal #%plain-app) ((~literal #%plain-app) tty:id x1) x2) x3)
                                #:when (free-id=? #'tty TmpTy+)
-                               (transfer-props stx #'(X x1 x2 x3) #:except null)]
+                               (transfer-props stx (syntax/loc stx (X x1 x2 x3)) #:except null)]
                                 #;[((~literal #%plain-app) ((~literal #%plain-app) ((~literal #%plain-app) tty:id x1) x2) x3)
                                #:when (free-id=? #'tty TmpTy+)
                                #:with mk-X (format-id #'X "mk-~a" #'X)
@@ -160,7 +160,7 @@
    ;; TODO: support this pattern with Turnstile?, but needs fold over trees, eg
    #;[⊢ [A ≫ A2 : τA ≫ τA2 ⇐ Type] ... ([i ≫ i2 : τi ≫ τi2 ⇐ Type] ... τ ≫ τ2 ⇐ Type)
                                       ([i+x ≫ i+x2 : τin ≫ τin2 ⇐ Type] ... τout ≫ τout2 ⇐ Type) ...]
-   
+
    ;; method 3: nested telescope
    [[A ≫ A2 : τA ≫ τA2_] ... ⊢
     [[i ≫ i2 : τi ≫ τi2] ... ⊢ τ ≫ τ2 ⇐ TypeTop]

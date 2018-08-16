@@ -32,13 +32,14 @@
                         (~and (~seq k_out ...)
                               (~parse (Y ...) (generate-temporaries #'(k_out ...)))))
         (~datum ->) k) ; ⇒ ⇐
-     #:when (syntax-parse/typecheck null 
+     #:with [(Y- ...) (k_out- ...) k-]
+            (syntax-parse/typecheck null 
              [_ ≫ ;; TODO: use this X- and Y-?
               [[X ≫ _ : k_in ≫ k_in- ⇒ ty_k_in] ... ⊢
-               [Y ≫ _ : k_out ≫ k_out- ⇒ ty_k_out] ...
+               [Y ≫ Y- : k_out ≫ k_out- ⇒ ty_k_out] ...
                [k ≫ k- ⇒ ty_k]]
               ---
-              [≻ void]])
+              [≻ [(Y- ...) (k_out- ...) k-]]])
      #:with (τ_in ...) (generate-temporaries #'(k_in ...))
      #:with (τ_in- ...) (generate-temporaries #'(k_in ...))
      #:with (τ_out- ...) (generate-temporaries #'(k_out ...))
@@ -54,6 +55,7 @@
          (define-syntax mk-TY ;creates the internal struct w/o checking
            (syntax-parser [(_ . xx) #'(TY/internal (#%plain-app list . xx))]))
          (define-typerule #,(if (attribute telescope?) #'TY/1 #'TY)
+;           [a ≫ #:do[(displayln (stx->datum #'a))] #:when #f ---[≻ FOR-DEBUGGING]]
            #,@(if (and (stx-null? #'(Y ...)) ; base type, allow use as just id
                        (stx-null? #'(X ...)))
                   (list #`[(~var _ id) ≫ --- [≻ #,(if (attribute telescope?) #'(TY/1) #'(TY))]])
@@ -70,6 +72,7 @@
 ;; dont need k_inst (or any other k_*_inst) bc we're using nested pat-var subst technique
 ;; ;          #:with k_inst (substs #'(τ_out ...) #'(Y ...) #'k)
           [⊢ [X ≫ X- : τ_in ≫ τ_in- ⇐ k_in] ... [Y ≫ τ_out- ⇐ k_out] ...]
+;            [⊢ [X ≫ X- : τ_in ≫ τ_in- ⇒ _] ... [Y- ≫ τ_out- ⇒ _] ...]
            #:with maybe-lambda
                   ;; 2) when no binders, remove the λ in runtime rep
                   ;; - this allows comparisons at runtime

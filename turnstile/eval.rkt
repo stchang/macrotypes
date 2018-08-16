@@ -43,11 +43,12 @@
          (syntax-parser
            [(_ head . rst-pat2)
             #:with placeholder1 (stx-car #'(placeholder ...))
+            #:with saved-stx this-syntax
             (transfer-type
              this-syntax
              (syntax-parse #`(#,(expand/df #'head) . rst-pat2)
                [(head-pat . rst-pat) (reflect #`contractum)] ...
-               [es #`(#,(mk-reflected #'red-name #'placeholder1) . es)]))]))]))
+               [es (quasisyntax/loc #'saved-stx (#,(mk-reflected #'red-name #'placeholder1) . es))]))]))]))
 
 ;; use #%plain-app for no
 (define-syntax define-core-id
