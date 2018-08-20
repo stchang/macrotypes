@@ -1040,10 +1040,10 @@
     ty)
 
   ;; basic expansion with stop list, no context:
-  (define (expand/stop e #:stop-list? [stop-list? #t])
-    (local-expand e 'expression (decide-stop-list stop-list?)))
-  (define (expands/stop es #:stop-list? [stop-list? #t])
-    (stx-map (λ (e) (expand/stop e #:stop-list? stop-list?)) es))
+  (define (expand/stop e #:stop-list? [stop-list? #t] #:with-idc [idc/#f #f])
+    (local-expand e 'expression (decide-stop-list stop-list?) idc/#f))
+  (define (expands/stop es #:stop-list? [stop-list? #t] #:with-idc [idc/#f #f])
+    (stx-map (λ (e) (expand/stop e #:stop-list? stop-list? #:with-idc idc/#f)) es))
 
   ;; expands and returns "type" according to tag, no context:
   (define (infer+erase e #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
@@ -1058,7 +1058,8 @@
   ;;   - ie, dont need separate ctx and tvctx
   ;; - keep tvctx bc it's often useful to separate the returned Xs-
   (define (expands/ctxs es #:ctx [ctx null] #:tvctx [tvctx null]
-                        #:stop-list? [stop-list? #t])
+                        #:stop-list? [stop-list? #t]
+                        #:with-idc [idc/#f #f])
     (define stop? (decide-stop-list stop-list?))
      (syntax-parse ctx
        [((~or X:id [x:id (~seq sep:id τ) ...]) ...) ; dont expand; τ may reference to tv
@@ -1066,10 +1067,10 @@
                          (~parse ([(tvsep ...) (tvk ...)] ...)
                                  (stx-map (λ _ #'[(::) (#%type)]) #'(tv ...))))
                    ([tv (~seq tvsep:id tvk) ...] ...))
-                   tvctx
+              tvctx
        #:with (e ...) es
 
-       (define ctx (syntax-local-make-definition-context))
+       (define ctx (or idc/#f (syntax-local-make-definition-context)))
        (define (in-ctx s)
          (internal-definition-context-introduce ctx (fresh s)))
 
@@ -1116,7 +1117,8 @@
       [([x τ] ...)
        (expands/ctxs es #:ctx #`([x #,(current-tag) τ] ...)
                         #:tvctx tvctx
-                        #:stop-list? stop-list?)]))
+                        #:stop-list? stop-list?
+                        #:with-idc idc/#f)]))
 
     ;; sorts As, and their matching Atys, according to orig-As, using datum=?
   (define (sort-As orig-As As Atys)

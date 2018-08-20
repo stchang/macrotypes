@@ -394,121 +394,56 @@
                                                      (and res (L (cdr ts) (cdr tes))))))
                                   "mismatch"))]
     ;; synth (⇒) case
-     ;; TODO: use tc-elem stx class instead of explicit "e ≫ e-pat" pattern below
-    (pattern [b1:bind+synths ⊢ b2:bind+synths [e ≫ e-pat ⇒ ty-pat] ...]
-             #:with (z ...) (generate-temporaries #'(e ...))
-             #:with pat #'(~and 
+    (pattern [b1:bind+synths ⊢ b2:bind+synths tc:tc-elem ...]
+             #:with pat #`(~and 
                            (~do (define-values (As1 tys1 ks1 ctx1)
                                   (for/fold ([As- null] [tys- null] [ks null] [ctx #f]
                                              #:result (values (reverse As-)
                                                               (reverse tys-)
                                                               (reverse ks)
                                                               ctx))
-                                            ([A (syntax->list #'b1.xs)]
-                                             #;[sep (syntax->list #'(b1.tag ooo1))]
-                                             [ty (syntax->list #'b1.τs)])
+                                            ([A (stx-append #'b1.xs #'b2.xs)]
+                                             #;[sep (stx-append #'b1.tags #'b2.tags)]
+                                             [ty (stx-append #'b1.τs #'b2.τs)])
                                     (define-values (A- ty- k new-ctx)
                                       (folding-infer A #;sep ty #:ctx ctx))
                                     (values (cons A- As-)
                                             (cons ty- tys-)
                                             (cons k ks)
                                             new-ctx))))
-                           (~parse b1.xpats As1)
-                           (~parse b1.τpats tys1)
-                           (~parse b1.kpats ks1)
-                           (~do (define-values (As2 tys2 ks2 ctx2)
-                                  (for/fold ([As- null] [tys- null] [ks null] [ctx ctx1]
-                                             #:result (values (reverse As-)
-                                                              (reverse tys-)
-                                                              (reverse ks)
-                                                              ctx))
-                                            ([A (syntax->list #'b2.xs)]
-                                             #;[sep (syntax->list #'(b1.tag ooo1))]
-                                             [ty (syntax->list #'b2.τs)])
-                                    (define-values (A- ty- k new-ctx)
-                                      (folding-infer A #;sep ty #:ctx ctx))
-                                    (values (cons A- As-)
-                                            (cons ty- tys-)
-                                            (cons k ks)
-                                            new-ctx))))
-                           (~parse b2.xpats As2)
-                           (~parse b2.τpats tys2)
-                           (~parse b2.kpats ks2)
-                           (~do (define-values (As3 tys3 ks3 ctx3)
-                                  (for/fold ([As- null] [tys- null] [ks null] [ctx ctx2]
-                                             #:result (values (reverse As-)
-                                                              (reverse tys-)
-                                                              (reverse ks)
-                                                              ctx))
-                                            ([A (syntax->list #'(z ...))]
-                                             #;[sep (syntax->list #'(b1.tag ooo1))]
-                                             [ty (syntax->list #'(e ...))])
-                                    (define-values (A- ty- k new-ctx)
-                                      (folding-infer A #;sep ty #:ctx ctx))
-                                    (values (cons A- As-)
-                                            (cons ty- tys-)
-                                            (cons k ks)
-                                            new-ctx))))
-                           (~parse (e-pat ...) tys3)
-                           (~parse (ty-pat ...) ks3)))
+                           (~parse #,(stx-append #'b1.xpats #'b2.xpats) As1)
+                           (~parse #,(stx-append #'b1.τpats #'b2.τpats) tys1)
+                           (~parse #,(stx-append #'b1.kpats #'b2.kpats) ks1)
+                           (~parse (tc.e-pat ...) (expands/stop #'(tc.e-stx ...) #:with-idc ctx1))))
     ;; chck (⇐) case
-    (pattern [b1:bind+checks ⊢ b2:bind+checks [e ≫ e-pat ⇐ expected-ty] ...]
-            #:with (z ...) (generate-temporaries #'(e ...))
-             #:with pat #'(~and 
+    (pattern [b1:bind+checks ⊢ b2:bind+checks tc:tc-elem ...]
+             #:with pat #`(~and 
                            (~do (define-values (As1 tys1 ks1 ctx1)
                                   (for/fold ([As- null] [tys- null] [ks null] [ctx #f]
                                              #:result (values (reverse As-)
                                                               (reverse tys-)
                                                               (reverse ks)
                                                               ctx))
-                                            ([A (syntax->list #'b1.xs)]
-                                             #;[sep (syntax->list #'b1.tags)]
-                                             [ty (syntax->list #'b1.τs)])
+                                            ([A (stx-append #'b1.xs #'b2.xs)]
+                                             #;[sep (stx-append #'b1.tags #'b2.tags)]
+                                             [ty (stx-append #'b1.τs #'b2.τs)])
                                     (define-values (A- ty- k new-ctx)
                                       (folding-infer A #;sep ty #:ctx ctx))
                                     (values (cons A- As-)
                                             (cons ty- tys-)
                                             (cons k ks)
                                             new-ctx))))
-                           (~parse b1.xpats As1)
-                           (~parse b1.τpats tys1)
-                           (~fail #:unless (typechecks? ks1 (stx-map (current-type-eval) #'b1.expected-ks)) "k mismatch")
-                           (~do (define-values (As2 tys2 ks2 ctx2)
-                                  (for/fold ([As- null] [tys- null] [ks null] [ctx ctx1]
-                                             #:result (values (reverse As-)
-                                                              (reverse tys-)
-                                                              (reverse ks)
-                                                              ctx))
-                                            ([A (syntax->list #'b2.xs)]
-                                             #;[sep (syntax->list #'b1.tags)]
-                                             [ty (syntax->list #'b2.τs)])
-                                    (define-values (A- ty- k new-ctx)
-                                      (folding-infer A #;sep ty #:ctx ctx))
-                                    (values (cons A- As-)
-                                            (cons ty- tys-)
-                                            (cons k ks)
-                                            new-ctx))))
-                           (~parse b2.xpats As2)
-                           (~parse b2.τpats tys2)
-                           (~fail #:unless (typechecks? ks2 (stx-map (current-type-eval) #'b2.expected-ks)) "k mismatch")
-                           (~do (define-values (As3 tys3 ks3 ctx3)
-                                  (for/fold ([As- null] [tys- null] [ks null] [ctx ctx2]
-                                             #:result (values (reverse As-)
-                                                              (reverse tys-)
-                                                              (reverse ks)
-                                                              ctx))
-                                            ([A (syntax->list #'(z ...))]
-                                             #;[sep (syntax->list #'b1.tags)]
-                                             [ty (syntax->list #'(e ...))])
-                                    (define-values (A- ty- k new-ctx)
-                                      (folding-infer A #;sep ty #:ctx ctx))
-                                    (values (cons A- As-)
-                                            (cons ty- tys-)
-                                            (cons k ks)
-                                            new-ctx))))
-                           (~parse (e-pat ...) tys3)
-                           (~fail #:unless (typechecks? ks3 (stx-map (current-type-eval) #'(expected-ty ...))) "k mismatch")
-                           )))
+                           (~parse #,(stx-append #'b1.xpats #'b2.xpats) As1)
+                           (~parse #,(stx-append #'b1.τpats #'b2.τpats) tys1)
+                           ; TODO: should these checks be interleaved?
+                           (~fail #:unless
+                                  (typechecks?
+                                   ks1
+                                   (stx-map
+                                    (current-type-eval)
+                                    #'#,(stx-append #'b1.expected-ks #'b2.expected-ks)))
+                                  "k mismatch")
+                           (~parse (tc.e-pat ...) (expands/stop #'(tc.e-stx ...) #:with-idc ctx1)))))
   (define-splicing-syntax-class clause
     #:attributes (pat)
     #:datum-literals (τ⊑ τ=) ; TODO: drop the τ in τ⊑ and τ=
