@@ -72,7 +72,7 @@
 ;; dont need k_inst (or any other k_*_inst) bc we're using nested pat-var subst technique
 ;; ;          #:with k_inst (substs #'(τ_out ...) #'(Y ...) #'k)
           [⊢ [X ≫ X- : τ_in ≫ τ_in- ⇐ k_in] ... [Y ≫ τ_out- ⇐ k_out] ...]
-;            [⊢ [X ≫ X- : τ_in ≫ τ_in- ⇒ _] ... [Y- ≫ τ_out- ⇒ _] ...]
+;            [⊢ [X ≫ X- : τ_in ≫ τ_in- ⇒ _] ... [Y ≫ τ_out- ⇒ _] ...]
            #:with maybe-lambda
                   ;; 2) when no binders, remove the λ in runtime rep
                   ;; - this allows comparisons at runtime
