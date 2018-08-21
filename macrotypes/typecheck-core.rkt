@@ -1061,8 +1061,8 @@
                         #:stop-list? [stop-list? #t]
                         #:with-idc [idc/#f #f])
     (define stop? (decide-stop-list stop-list?))
-     (syntax-parse ctx
-       [((~or X:id [x:id (~seq sep:id τ) ...]) ...) ; dont expand; τ may reference to tv
+    (syntax-parse ctx
+      [((~or X:id [x:id (~seq sep:id τ) ...]) ...) ; dont expand; τ may reference to tv
        #:with (~or (~and (tv:id ...)
                          (~parse ([(tvsep ...) (tvk ...)] ...)
                                  (stx-map (λ _ #'[(::) (#%type)]) #'(tv ...))))
@@ -1074,28 +1074,26 @@
        (define (in-ctx s)
          (internal-definition-context-introduce ctx (fresh s)))
 
-        (define/syntax-parse (tv+ ...) (map in-ctx (syntax-e #'(tv ...))))
-        (define/syntax-parse (X+ ...)  (map in-ctx (syntax-e #'(X ...))))
-        (define/syntax-parse (x+ ...)  (map in-ctx (syntax-e #'(x ...))))
+       (define/syntax-parse (tv+ ...) (map in-ctx (syntax-e #'(tv ...))))
+       (define/syntax-parse (X+ ...)  (map in-ctx (syntax-e #'(X ...))))
+       (define/syntax-parse (x+ ...)  (map in-ctx (syntax-e #'(x ...))))
+
+       (syntax-local-bind-syntaxes (syntax-e #'(tv+ ... X+ ... x+ ...)) #f ctx)
 
        (syntax-local-bind-syntaxes
-         (syntax-e #'(tv+ ... X+ ... x+ ...))
-         #f ctx)
+        (syntax-e #'(tv ...))
+        #`(values (make-rename-transformer
+                   (mk-tyvar
+                    (attachs #'tv+ '(tvsep ...) #'(tvk ...))))
+                  ...)
+        ctx)
 
        (syntax-local-bind-syntaxes
-         (syntax-e #'(tv ...))
-         #`(values (make-rename-transformer
-                               (mk-tyvar
-                                 (attachs #'tv+ '(tvsep ...) #'(tvk ...))))
-                             ...)
-         ctx)
-
-       (syntax-local-bind-syntaxes
-         (syntax-e #'(X ...))
-         #`(values (make-variable-like-transformer
-                              (mk-tyvar (attach #'X+ ':: #'#%type)))
-                            ...)
-         ctx)
+        (syntax-e #'(X ...))
+        #`(values (make-variable-like-transformer
+                   (mk-tyvar (attach #'X+ ':: #'#%type)))
+                  ...)
+        ctx)
 
        ; Bind these sequentially, so that expansion of (τ ...) for each
        ; can depend on type variables bound earlier. Really, these should
@@ -1116,9 +1114,9 @@
 
       [([x τ] ...)
        (expands/ctxs es #:ctx #`([x #,(current-tag) τ] ...)
-                        #:tvctx tvctx
-                        #:stop-list? stop-list?
-                        #:with-idc idc/#f)]))
+                     #:tvctx tvctx
+                     #:stop-list? stop-list?
+                     #:with-idc idc/#f)]))
 
     ;; sorts As, and their matching Atys, according to orig-As, using datum=?
   (define (sort-As orig-As As Atys)
@@ -1132,7 +1130,8 @@
                  (lambda (A+ty) (stx-datum-equal? (car A+ty) orig-A))
                  A+tys))))
      list))
-   (define (ctx->idc ctx #:with-idc [existing-idc #f]
+
+  (define (ctx->idc ctx #:with-idc [existing-idc #f]
                     #:var-assign [var-assign #'(λ (x x+ seps tys) (attachs x+ seps (stx-map (current-type-eval) tys)))]
                     #:wrap-fn [wrap-fn #'(λ (x) x)]) ; eg, mk-tyvar
     (define new-idc (or existing-idc (syntax-local-make-definition-context)))
@@ -1154,6 +1153,7 @@
                                         ...))])
          (syntax-local-bind-syntaxes (list x) rhs idc)
          idc)]))
+
    (define (infer es #:ctx [ctx null] #:tvctx [tvctx null]
                     #:tag [tag (current-tag)] ; the "type" to return from es
                     #:key [kev #'(current-type-eval)] ; kind-eval (tvk in tvctx)
