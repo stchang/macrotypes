@@ -334,13 +334,15 @@
     (pattern [x:id ≫ x-:id sep:id τ ≫ τ-]
              #:with x+τ #'[x sep τ]
              #:with xpat #'x-
-             #:with τpat #'τ-))
+             #:with τpat #'τ-
+             #:with tag #'sep))
   (define-splicing-syntax-class tele-binds
     (pattern (~seq b:tele-bind ... (~optional ooo:elipsis))
              #:with x+τs #'(b.x+τ ... (~? ooo))
              #:with xs #'(b.x ... (~? ooo))
              #:with xpats #'(b.xpat ... (~? ooo))
-             #:with τpats #'(b.τpat ... (~? ooo))))
+             #:with τpats #'(b.τpat ... (~? ooo))
+             #:with tags #'(b.tag ... (~? ooo))))
   (define-syntax-class bind+synth #:datum-literals (≫ ⇒)
     (pattern [x:id ≫ x-:id sep:id τ ≫ τ- ⇒ kpat]
              #:with xpat #'x-
@@ -352,7 +354,8 @@
              #:with τs #'(b.τ ... (~? ooo))
              #:with xpats #'(b.xpat ... (~? ooo))
              #:with τpats #'(b.τpat ... (~? ooo))
-             #:with kpats #'(b.kpat ... (~? ooo))))
+             #:with kpats #'(b.kpat ... (~? ooo))
+             #:with tags #'(b.tag ... (~? ooo))))
   (define-syntax-class bind+check #:datum-literals (≫ ⇐)
     (pattern [x:id ≫ x-:id sep:id τ ≫ τ- ⇐ expected-k]
              #:with xpat #'x-
@@ -364,7 +367,8 @@
              #:with τs #'(b.τ ... (~? ooo))
              #:with xpats #'(b.xpat ... (~? ooo))
              #:with τpats #'(b.τpat ... (~? ooo))
-             #:with expected-ks #'(b.expected-k ... (~? ooo))))
+             #:with expected-ks #'(b.expected-k ... (~? ooo))
+             #:with tags #'(b.tag ... (~? ooo))))
   (define-splicing-syntax-class folding-tc-clause #:attributes (pat) #:datum-literals (⊢ ≫ ⇒ ⇐)
     ;; TODO: merge all these patterns?
     ;; nested telescopes
@@ -396,54 +400,38 @@
     ;; synth (⇒) case
     (pattern [b1:bind+synths ⊢ b2:bind+synths tc:tc-elem ...]
              #:with pat #`(~and 
-                           (~do (define-values (As1 tys1 ks1 ctx1)
-                                  (for/fold ([As- null] [tys- null] [ks null] [ctx #f]
-                                             #:result (values (reverse As-)
-                                                              (reverse tys-)
-                                                              (reverse ks)
-                                                              ctx))
-                                            ([A (stx-append #'b1.xs #'b2.xs)]
-                                             #;[sep (stx-append #'b1.tags #'b2.tags)]
-                                             [ty (stx-append #'b1.τs #'b2.τs)])
-                                    (define-values (A- ty- k new-ctx)
-                                      (folding-infer A #;sep ty #:ctx ctx))
-                                    (values (cons A- As-)
-                                            (cons ty- tys-)
-                                            (cons k ks)
-                                            new-ctx))))
-                           (~parse #,(stx-append #'b1.xpats #'b2.xpats) As1)
-                           (~parse #,(stx-append #'b1.τpats #'b2.τpats) tys1)
-                           (~parse #,(stx-append #'b1.kpats #'b2.kpats) ks1)
-                           (~parse (tc.e-pat ...) (expands/stop #'(tc.e-stx ...) #:with-idc ctx1))))
+                           (~do (define xs (stx-append #'b1.xs #'b2.xs))
+                                ;(define tags (stx-append #'b1.tags #'b2.tags))
+                                (define τs (stx-append #'b1.τs #'b2.τs))
+                                (define ctx (expands/bind xs #f #;tags τs))
+                                (define xs+ (stx-map (λ (x) (expand1 x #:ctx ctx)) xs))
+                                (define τs+ (stx-map typeof xs+))
+                                (define ks  (stx-map typeof τs+)))
+                           (~parse #,(stx-append #'b1.xpats #'b2.xpats) xs+)
+                           (~parse #,(stx-append #'b1.τpats #'b2.τpats) τs+)
+                           (~parse #,(stx-append #'b1.kpats #'b2.kpats) ks)
+                           (~parse (tc.e-pat ...) (expands/stop #'(tc.e-stx ...) #:with-idc ctx))))
     ;; chck (⇐) case
     (pattern [b1:bind+checks ⊢ b2:bind+checks tc:tc-elem ...]
              #:with pat #`(~and 
-                           (~do (define-values (As1 tys1 ks1 ctx1)
-                                  (for/fold ([As- null] [tys- null] [ks null] [ctx #f]
-                                             #:result (values (reverse As-)
-                                                              (reverse tys-)
-                                                              (reverse ks)
-                                                              ctx))
-                                            ([A (stx-append #'b1.xs #'b2.xs)]
-                                             #;[sep (stx-append #'b1.tags #'b2.tags)]
-                                             [ty (stx-append #'b1.τs #'b2.τs)])
-                                    (define-values (A- ty- k new-ctx)
-                                      (folding-infer A #;sep ty #:ctx ctx))
-                                    (values (cons A- As-)
-                                            (cons ty- tys-)
-                                            (cons k ks)
-                                            new-ctx))))
-                           (~parse #,(stx-append #'b1.xpats #'b2.xpats) As1)
-                           (~parse #,(stx-append #'b1.τpats #'b2.τpats) tys1)
-                           ; TODO: should these checks be interleaved?
-                           (~fail #:unless
-                                  (typechecks?
-                                   ks1
-                                   (stx-map
-                                    (current-type-eval)
-                                    #'#,(stx-append #'b1.expected-ks #'b2.expected-ks)))
+                           (~do (define xs (stx-append #'b1.xs #'b2.xs))
+                                ;(define tags (stx-append #'b1.tags #'b2.tags))
+                                (define τs (stx-append #'b1.τs #'b2.τs))
+                                (define ctx (expands/bind xs #f #;tags τs))
+                                ;; TODO: how costly is this double expand?
+                                (define xs+ (stx-map (λ (x) (expand1 x #:ctx ctx)) xs))
+                                (define τs+ (stx-map typeof xs+))
+                                (define ks  (stx-map typeof τs+)))
+                           ; TODO: interleave these checks with expansion?
+                           (~fail #:unless (typechecks?
+                                            ks
+                                            (stx-map
+                                             (current-type-eval)
+                                             #'#,(stx-append #'b1.expected-ks #'b2.expected-ks)))
                                   "k mismatch")
-                           (~parse (tc.e-pat ...) (expands/stop #'(tc.e-stx ...) #:with-idc ctx1)))))
+                           (~parse #,(stx-append #'b1.xpats #'b2.xpats) xs+)
+                           (~parse #,(stx-append #'b1.τpats #'b2.τpats) τs+)
+                           (~parse (tc.e-pat ...) (expands/stop #'(tc.e-stx ...) #:with-idc ctx)))))
   (define-splicing-syntax-class clause
     #:attributes (pat)
     #:datum-literals (τ⊑ τ=) ; TODO: drop the τ in τ⊑ and τ=

@@ -1241,30 +1241,48 @@
              (stx-map typeof #'(e+ ...)))])]
        [([x τ] ...) (infer es #:ctx #`([x #,tag τ] ...) #:tvctx tvctx #:tag tag)]))
 
-  (define (folding-infer x τ #:ctx [idc0 #f]) ; TODO: add tag argument
-    (syntax-parse (list x #': τ)
-      [(x sep τ)
-       (define idc (or idc0 (syntax-local-make-definition-context)))
-       (define (in-ctx s) (internal-definition-context-introduce idc s))
-       (define/syntax-parse x+ ((compose in-ctx fresh) #'x))
-       (syntax-local-bind-syntaxes (list #'x+) #f idc)
-       (syntax-local-bind-syntaxes (list #'x)
-                                   #'(make-variable-like-transformer
-                                      ((current-var-assign)
-                                       #'x #'x+ '(sep) #'(τ)))
-                                   idc)
+     ;; expands (presumably for typechecking) a single "term" `e` in ctx `ctx`
+   ;; - `e` is not restricted to terms, eg, can be a type,
+   ;;   but must work with local-expand `context-v` argument = 'expression
+   (define (expand1 e #:ctx [ctx #f] #:stop-list? [stop? #t])
+     (local-expand e 'expression (decide-stop-list stop?) ctx))
 
-       ;; TODO: use stop-list?
-       (define/syntax-parse τ+ (detach (local-expand #'x 'expression null idc) (stx->datum #'sep)))
-       (define/syntax-parse k_τ (detach #'τ+ (stx->datum #'sep)))
-       ;; returns:
-       ;; - x+
-       ;; - τ+
-       ;; - k_τ
-       ;; - idc
-       ;      (displayln (stx->datum #'(x+ τ+ k_τ)))
-       (values #'x+ #'τ+ #'k_τ idc)
-       ]))
+   ;; like `expand1`, but also returns the "type" of `e` (eg, the prop at tag `tag`)
+   (define (infer1 e #:ctx [ctx #f] #:stop-list? [stop? #t] #:tag [tag ':])
+     (define e+ (expand1 e #:ctx ctx #:stop-list? stop?))
+     (list e+ (detach e+ tag)))
+
+   ;; produces a fresh id named `x` for `idc`
+   (define ((idc-fresh idc) x)
+     (internal-definition-context-introduce idc (fresh x)))
+   
+   ;; extends `idc0` with `x` and `τ` at prop `tag`
+   ;; idc-add : Id Symbol Stx [Idc] -> Idc
+   (define (idc-add x_ tag τ [idc0 #f])
+     (define idc (or idc0 (syntax-local-make-definition-context)))
+     (define/syntax-parse x x_) ; TODO: just use x?
+     (define/syntax-parse sep (datum->syntax #'here tag))
+     (define/syntax-parse τ+ τ)
+     (define/syntax-parse x+ ((idc-fresh idc) #'x))
+     (syntax-local-bind-syntaxes (list #'x+) #f idc)
+     (syntax-local-bind-syntaxes (list #'x)
+       #'(make-variable-like-transformer
+          ((current-var-assign)
+           #'x #'x+ '(sep) #'(τ+)))
+       idc)
+     idc)
+
+   ;; like `expand1`, but instead of returning expansion of `e`,
+   ;; binds it to the expansion of `x` in `ctx` and returns the new ctx
+   ;; expand1+bind : Id Symbol Stx ([Idc] or #f) #:stop-list? Bool -> Idc
+   (define (expand1/bind x xtag e [ctx #f] #:stop-list? [stop? #t])
+     (define e+ (expand1 e #:ctx ctx #:stop-list? stop?))
+     (idc-add x xtag e+ ctx))
+
+   ;; folds expand1/bind given binders and "terms", returning the final idc
+   ;; - xs must not have duplicates
+   (define (expands/bind xs tags es [ctx #f] #:stop-list? [stop? #t])
+     (foldl expand1/bind ctx xs (stx-map (λ _ ':) xs) es))
    
   ;; "expand" and "infer" fns derived from expands/ctxs -----------------------
   ;; some are syntactic shortcuts, some are for backwards compat
