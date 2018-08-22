@@ -1118,21 +1118,9 @@
                      #:stop-list? stop-list?
                      #:with-idc idc/#f)]))
 
-    ;; sorts As, and their matching Atys, according to orig-As, using datum=?
-  (define (sort-As orig-As As Atys)
-    (define A+tys (stx-map list As Atys))
-    (call-with-values
-     (lambda ()
-       (for/lists (new-As new-Atys)
-                  ([orig-A (in-stx-list orig-As)])
-         (apply values
-                (stx-findf
-                 (lambda (A+ty) (stx-datum-equal? (car A+ty) orig-A))
-                 A+tys))))
-     list))
-
+  ;; start of new expand (ie, infer) fns
+  ;; TODO: merge with the above expands/ctxs
   (define (ctx->idc ctx #:with-idc [existing-idc #f]
-                    #:var-assign [var-assign #'(λ (x x+ seps tys) (attachs x+ seps (stx-map (current-type-eval) tys)))]
                     #:wrap-fn [wrap-fn #'(λ (x) x)]) ; eg, mk-tyvar
     (define new-idc (or existing-idc (syntax-local-make-definition-context)))
     (define (in-ctx s)
@@ -1148,108 +1136,25 @@
                  ([x (syntax->list #'(x ...))]
                   [rhs (syntax->list #`((make-variable-like-transformer
                                          (#,wrap-fn
-                                          (#,var-assign
+                                          ((current-var-assign)
                                            #'x #'x+ '(sep ...) #'(τ ...))))
                                         ...))])
          (syntax-local-bind-syntaxes (list x) rhs idc)
          idc)]))
 
-   (define (infer es #:ctx [ctx null] #:tvctx [tvctx null]
-                    #:tag [tag (current-tag)] ; the "type" to return from es
-                    #:key [kev #'(current-type-eval)] ; kind-eval (tvk in tvctx)
-                    #:with-idc [idc #f])
-     (define/syntax-parse ([A+ Aty] ...)
-      (cond [idc
-             (for/list ([i (internal-definition-context-binding-identifiers idc)]
-                        #:when (syntax-source i)) ; generated ids have no source
-               (define i+ (local-expand i 'expression null idc))
-               (list i+ (typeof i+)))]
-            [else null]))
-     (syntax-parse ctx
-       [((~or X:id [x:id (~seq sep:id τ) ...]) ...) ; dont expand; τ may reference to tv
-       #:with (~or (~and (tv:id ...)
-                          (~parse ([(tvsep ...) (tvk ...)] ...)
-                                  (stx-map (λ _ #'[(::) (#%type)]) #'(tv ...))))
-                    ([tv (~seq tvsep:id tvk) ...] ...))
-                   tvctx
-       #:with (e ...) es
-       (define ctx (or idc (syntax-local-make-definition-context)))
-       (define (in-ctx s)
-         (internal-definition-context-introduce ctx s))
-         (define/syntax-parse
-          ((tv+ ...) (X+ ...) (x+ ...))
-          (stx-deep-map
-            (compose in-ctx fresh)
-            #'((tv ...) (X ...) (x ...))))
- 
-        (syntax-local-bind-syntaxes
-          (syntax->list #'(tv+ ... X+ ... x+ ...))
-          #f ctx)
- 
-        (syntax-local-bind-syntaxes
-          (syntax->list #'(tv ...))
-          #`(values (make-rename-transformer
-                                (mk-tyvar
-                                  (attachs #'tv+ '(tvsep ...) #'(tvk ...))))
-                              ...)
-          ctx)
- 
-        (syntax-local-bind-syntaxes
-          (syntax->list #'(X ...))
-          #`(values (make-variable-like-transformer
-                               (mk-tyvar (attach #'X+ ':: #'#%type)))
-                             ...)
-          ctx)
- 
-        ; Bind these sequentially, so that expansion of (τ ...) for each
-        ; can depend on type variables bound earlier. Really, these should
-        ; also be in nested scopes such that they can only see earlier xs.
-        (for ([x (syntax->list #'(x ...))]
-              [rhs (syntax->list #'((make-variable-like-transformer
-                                      ((current-var-assign)
-                                       #'x #'x+ '(sep ...) #'(τ ...)))
-                                    ...))])
-          (syntax-local-bind-syntaxes (list x) rhs ctx))
- 
-        (define/syntax-parse
-          (e+ ...)
-          (for/list ([e (syntax->list #'(e ...))])
-                    (local-expand e 'expression null ctx)))
-        (define (typeof e)
-         (detach e tag))
-
-        (cond 
-          [idc
-           (define/syntax-parse
-          (tyx ...)
-          (for/list ([x (syntax->list #'(x ...))])
-            (typeof (local-expand x 'expression null ctx))))
-           #;(define/syntax-parse
-          (ktv ...)
-          (for/list ([tv (syntax->list #'(tv ...))]
-                     [tvsep (syntax->datum #'((tvsep ...) ...))])
-            (detach (local-expand tv 'expression null ctx) (car tvsep))))
-       (list #'(A+ ...)
-             #'(Aty ...)
-             #'(tv+ ...)
-             #'(X+ ... x+ ...)
-             #'(tyx ...)
-             #'(e+ ...)
-             (stx-map typeof #'(e+ ...)))]
-        [else (list #'(tv+ ...) #'(X+ ... x+ ...)
-             #'(e+ ...)
-             (stx-map typeof #'(e+ ...)))])]
-       [([x τ] ...) (infer es #:ctx #`([x #,tag τ] ...) #:tvctx tvctx #:tag tag)]))
-
-     ;; expands (presumably for typechecking) a single "term" `e` in ctx `ctx`
+   ;; expands (presumably for typechecking) a single "term" `e` in ctx `ctx`
    ;; - `e` is not restricted to terms, eg, can be a type,
    ;;   but must work with local-expand `context-v` argument = 'expression
-   (define (expand1 e #:ctx [ctx #f] #:stop-list? [stop? #t])
+   (define (expand1 e [ctx #f] #:stop-list? [stop? #t])
      (local-expand e 'expression (decide-stop-list stop?) ctx))
 
+   ;; version of `expand1` that curries the ctx
+   (define ((expand1/ctx ctx) e #:stop-list? [stop? #t])
+     (expand1 e ctx #:stop-list? stop?))
+   
    ;; like `expand1`, but also returns the "type" of `e` (eg, the prop at tag `tag`)
    (define (infer1 e #:ctx [ctx #f] #:stop-list? [stop? #t] #:tag [tag ':])
-     (define e+ (expand1 e #:ctx ctx #:stop-list? stop?))
+     (define e+ (expand1 e ctx #:stop-list? stop?))
      (list e+ (detach e+ tag)))
 
    ;; produces a fresh id named `x` for `idc`
@@ -1276,7 +1181,7 @@
    ;; binds it to the expansion of `x` in `ctx` and returns the new ctx
    ;; expand1+bind : Id Symbol Stx ([Idc] or #f) #:stop-list? Bool -> Idc
    (define (expand1/bind x xtag e [ctx #f] #:stop-list? [stop? #t])
-     (define e+ (expand1 e #:ctx ctx #:stop-list? stop?))
+     (define e+ (expand1 e ctx #:stop-list? stop?))
      (idc-add x xtag e+ ctx))
 
    ;; folds expand1/bind given binders and "terms", returning the final idc

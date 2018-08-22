@@ -344,6 +344,7 @@
              #:with τpats #'(b.τpat ... (~? ooo))
              #:with tags #'(b.tag ... (~? ooo))))
   (define-syntax-class bind+synth #:datum-literals (≫ ⇒)
+    ;; TODO: use tc-elem here?
     (pattern [x:id ≫ x-:id sep:id τ ≫ τ- ⇒ kpat]
              #:with xpat #'x-
              #:with τpat #'τ-
@@ -357,6 +358,7 @@
              #:with kpats #'(b.kpat ... (~? ooo))
              #:with tags #'(b.tag ... (~? ooo))))
   (define-syntax-class bind+check #:datum-literals (≫ ⇐)
+    ;; TODO: use tc-elem here?
     (pattern [x:id ≫ x-:id sep:id τ ≫ τ- ⇐ expected-k]
              #:with xpat #'x-
              #:with τpat #'τ-
@@ -372,31 +374,32 @@
   (define-splicing-syntax-class folding-tc-clause #:attributes (pat) #:datum-literals (⊢ ≫ ⇒ ⇐)
     ;; TODO: merge all these patterns?
     ;; nested telescopes
-    [pattern [b:tele-binds  ⊢ [x:tele-binds ⊢ e ≫ e-pat ⇐ ty-expected] ... ooo:elipsis]
+    [pattern [b:tele-binds  ⊢ [x:tele-binds ⊢ . tc:tc-elem] ... ooo:elipsis]
              #:with pat #'(~and
-                           (~parse ([As Atys _ xs  tyxs  (e-) (ety)] (... ...))
-                                   (let ([idc (ctx->idc #'b.x+τs)])
-                                     (stx-map
-                                      (λ (e1 ctx) (infer (list e1) #:ctx ctx #:with-idc idc))
-                                      #'(e ... ooo)
-                                      #'(x.x+τs ... ooo))))
-                           (~parse [b.xpats b.τpats]
-                                   (sort-As #'b.xs (stx-car #'(As (... ...)))
-                                                   (stx-car #'(Atys (... ...)))))
-                           (~parse (x.xpats ... ooo) #'(xs (... ...)))
-                           (~parse (x.τpats ... ooo) #'(tyxs (... ...)))
-                           (~parse (e-pat ... ooo) #'(e- (... ...)))
-                           (~fail #:unless (let L ([ts (stx->list #'(ety (... ...)))]
-                                                   [tes (stx->list #'(ty-expected ...))])
-                                             (define t ((current-type-eval) (car ts)))
-                                             (define te ((current-type-eval) (car tes)))
-                                             (define res (typecheck? t te))
-                                             (if (null? (cdr ts))
-                                                 res
-                                                 (if (null? (cdr tes))
-                                                     (and res (L (cdr ts) (list te)))
-                                                     (and res (L (cdr ts) (cdr tes))))))
-                                  "mismatch"))]
+                           ;; TODO: this use of ctx->idc is the same as what expands/bind does below?
+                           ;; i think the "folding" approach below is more correct
+                           (~do (define idc0 (ctx->idc #'b.x+τs))
+                                (define xs+ (stx-map (expand1/ctx idc0) #'b.xs))
+                                (define τs+ (stx-map typeof xs+))
+                                (define idcs
+                                  (stx-map
+                                   (λ(env) (ctx->idc env #:with-idc idc0))
+                                   #'(x.x+τs ... ooo)))
+                                (define xs+s
+                                  (stx-map
+                                   (λ (xs idc) (stx-map (expand1/ctx idc) xs))
+                                   #'(x.xs ... ooo)
+                                   idcs))
+                                (define τs+s
+                                  (map
+                                   (λ (xs+) (stx-map typeof xs+))
+                                   xs+s)))
+                           (~parse b.xpats xs+)
+                           (~parse b.τpats τs+)
+                           (~parse (x.xpats ... ooo) xs+s)
+                           (~parse (x.τpats ... ooo) τs+s)
+                           (~parse (tc.e-pat ... ooo)
+                                   (stx-map expand1 #'(tc.e-stx ... ooo) idcs)))]
     ;; synth (⇒) case
     (pattern [b1:bind+synths ⊢ b2:bind+synths tc:tc-elem ...]
              #:with pat #`(~and 
@@ -404,7 +407,8 @@
                                 ;(define tags (stx-append #'b1.tags #'b2.tags))
                                 (define τs (stx-append #'b1.τs #'b2.τs))
                                 (define ctx (expands/bind xs #f #;tags τs))
-                                (define xs+ (stx-map (λ (x) (expand1 x #:ctx ctx)) xs))
+                                ;; TODO: how costly is this double expand?
+                                (define xs+ (stx-map (expand1/ctx ctx) xs))
                                 (define τs+ (stx-map typeof xs+))
                                 (define ks  (stx-map typeof τs+)))
                            (~parse #,(stx-append #'b1.xpats #'b2.xpats) xs+)
@@ -419,7 +423,7 @@
                                 (define τs (stx-append #'b1.τs #'b2.τs))
                                 (define ctx (expands/bind xs #f #;tags τs))
                                 ;; TODO: how costly is this double expand?
-                                (define xs+ (stx-map (λ (x) (expand1 x #:ctx ctx)) xs))
+                                (define xs+ (stx-map (expand1/ctx ctx) xs))
                                 (define τs+ (stx-map typeof xs+))
                                 (define ks  (stx-map typeof τs+)))
                            ; TODO: interleave these checks with expansion?
