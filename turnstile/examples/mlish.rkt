@@ -948,7 +948,7 @@
    [⊢ (#%plain-lambda- (x- ...) body-)]]
   [(λ ([x : τ_x] ...) body) ⇐ (~?∀ (V ...) (~ext-stlc:→ τ_in ... τ_out)) ≫
    #:with [X ...] (compute-tyvars #'(τ_x ...))
-   #:with ((X- ...) (τ_x-:type ...)) (expands/ctx #'(τ_x ...) #'(X ...))
+   #:with ((X- ...) (τ_x-:type ...)) (expands/tvctx #'(τ_x ...) #'(X ...))
 ;   [[X ≫ X- :: #%type] ... ⊢ [τ_x ≫ τ_x- ⇐ :: #%type] ...]
    [τ_in τ⊑ τ_x- #:for x] ...
    ;; TODO is there a way to have λs that refer to ids defined after them?

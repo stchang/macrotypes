@@ -1040,10 +1040,10 @@
     ty)
 
   ;; basic expansion with stop list, no context:
-  (define (expand/stop e #:stop-list? [stop-list? #t] #:with-idc [idc/#f #f])
-    (local-expand e 'expression (decide-stop-list stop-list?) idc/#f))
-  (define (expands/stop es #:stop-list? [stop-list? #t] #:with-idc [idc/#f #f])
-    (stx-map (λ (e) (expand/stop e #:stop-list? stop-list? #:with-idc idc/#f)) es))
+  (define (expand/stop e #:stop-list? [stop-list? #t])
+    (local-expand e 'expression (decide-stop-list stop-list?)))
+  (define (expands/stop es #:stop-list? [stop-list? #t])
+    (stx-map (λ (e) (expand/stop e #:stop-list? stop-list?)) es))
 
   ;; expands and returns "type" according to tag, no context:
   (define (infer+erase e #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
@@ -1065,22 +1065,21 @@
                         #:with-idc [idc/#f #f])
     (define stop? (decide-stop-list stop-list?))
     (syntax-parse ctx
-      [((~or X:id [x:id (~seq sep:id τ) ...]) ...) ; dont expand; τ may reference to tv
+      [([x:id (~seq sep:id τ) ...] ...) ; dont expand; τ may reference to tv
        #:with (~or (~and (tv:id ...)
                          (~parse ([(tvsep ...) (tvk ...)] ...)
                                  (stx-map (λ _ #'[(::) (#%type)]) #'(tv ...))))
                    ([tv (~seq tvsep:id tvk) ...] ...))
-              tvctx
+       tvctx
        #:with (e ...) es
 
        (define ctx (or idc/#f (syntax-local-make-definition-context)))
        (define in-ctx (idc-fresh ctx))
 
        (define/syntax-parse (tv+ ...) (map in-ctx (syntax-e #'(tv ...))))
-       (define/syntax-parse (X+ ...)  (map in-ctx (syntax-e #'(X ...))))
        (define/syntax-parse (x+ ...)  (map in-ctx (syntax-e #'(x ...))))
 
-       (syntax-local-bind-syntaxes (syntax-e #'(tv+ ... X+ ... x+ ...)) #f ctx)
+       (syntax-local-bind-syntaxes (syntax-e #'(tv+ ... x+ ...)) #f ctx)
 
        (syntax-local-bind-syntaxes
         (syntax-e #'(tv ...))
@@ -1090,14 +1089,6 @@
                   ...)
         ctx)
 
-       (syntax-local-bind-syntaxes
-        (syntax-e #'(X ...))
-        #`(values (make-variable-like-transformer
-                   (mk-tyvar (attach #'X+ ':: #'#%type)))
-                  ...)
-        ctx)
-
-       
        ; Bind these sequentially, so that expansion of (τ ...) for each
        ; can depend on type variables bound earlier. Really, these should
        ; also be in nested scopes such that they can only see earlier xs.
@@ -1117,7 +1108,7 @@
          (for/list ([e (syntax-e #'(e ...))])
            (local-expand (apply-scopes scopes e) 'expression stop? ctx)))
 
-       #'((tv+ ...) (X+ ... x+ ...) (e+ ...))]
+       #'((tv+ ...) (x+ ...) (e+ ...))]
 
       [([x τ] ...)
        (expands/ctxs es #:ctx #`([x #,(current-tag) τ] ...)
