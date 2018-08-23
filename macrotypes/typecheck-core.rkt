@@ -1139,47 +1139,32 @@
   ;;   NOTE: we dont use the built-in idc support for "parents" bc that may
   ;;         not represent true nestedness
   (struct env (xs+ τs+ idc scs parent))
-  (define (mk-empty-env [parent #f])
+  (define (mk-new-env [parent #f])
     (env null
          null
          (syntax-local-make-definition-context)
          null
          parent))
-  (define (env-scopes env)
-    (if env
-        (append (env-scopes (env-parent env)) (env-scs env))
+  (define (env-scopes env/#f)
+    (if env/#f
+        (append (env-scopes (env-parent env/#f)) (env-scs env/#f))
         null))
-  (define (env-xs env) (if env (reverse (env-xs+ env)) null))
-  (define (env-τs env) (if env (reverse (env-τs+ env)) null))
-  (define (env-idcs env)
-    (if env (cons (env-idc env) (env-idcs (env-parent env))) null))
+  (define (env-xs env) (reverse (env-xs+ env)))
+  (define (env-τs env) (reverse (env-τs+ env)))
+  (define (env-idcs env/#f)
+    (if env/#f
+        (cons (env-idc env/#f) (env-idcs (env-parent env/#f)))
+        null))
   
-  ;; start of new expand (ie, infer) fns
-  ;; TODO: merge with the above expands/ctxs
-
-  ;; expands a stx obj `stx` for type checking, returning its expanded version
-  ;; wraps `local-expand`, but handles the following type-specific args:
-  ;; - env is a type environment, as defined with Env data def above
-  ;; - does not handle top-level forms
-   (define (expand1 stx [env #f] #:stop-list? [stop? #t])
-     (local-expand (if env (apply-scopes (env-scopes env) stx) stx)
-                   'expression
-                   (decide-stop-list stop?)
-                   (and env (env-idcs env))))
-
-   ;; version of `expand1` that curries the env
-   (define ((expand1/env env) e #:stop-list? [stop? #t])
-     (expand1 e env #:stop-list? stop?))
-   
    ;; produces a fresh id named `x` for `idc`
    (define ((idc-fresh idc) x)
      (internal-definition-context-introduce idc (fresh x)))
    
    ;; extends `idc0` with `x` and `τ` at prop `tag`
-   ;; idc-add : Id Id Stx [Idc] -> Idc
+   ;; idc-add : Id Id Stx Env -> Env
    ;; - τ is already expanded
-   (define (idc-add xstx tag τ [ctx #f] #:wrap-fn [wrap-fn #'(λ (x) x)])
-     (match-define (env xs τs idc scs parent) (or ctx (mk-empty-env)))
+   (define (env-add xstx tag τ env_ #:wrap-fn [wrap-fn #'(λ (x) x)])
+     (match-define (env xs τs idc scs parent) env_)
      (define new-sc (make-syntax-introducer))
      (define/syntax-parse x xstx) ; TODO: just use x?
      (define/syntax-parse sep tag)
@@ -1195,21 +1180,39 @@
       idc)
      (env (cons #'x+ xs) (cons #'τ+ τs) idc (cons new-sc scs) parent))
 
+   ;; start of new expand (ie, infer) fns ----------------------------------------
+  ;; TODO: merge with the above expands/ctxs
+
+  ;; expands `stx` for type checking, returning its expanded version
+  ;; ie, `expand1` wraps `local-expand`, incorporating the type-specific args:
+  ;; - `stx`: the term or type to expand
+  ;; - `env`: type environment, as defined with Env data def above
+  ;; - does not handle top-level forms
+   (define (expand1 stx env #:stop-list? [stop? #t])
+     (local-expand (apply-scopes (env-scopes env) stx)
+                   'expression
+                   (decide-stop-list stop?)
+                   (env-idcs env)))
+
+   ;; version of `expand1` that curries the env
+   (define ((expand1/env env) e #:stop-list? [stop? #t])
+     (expand1 e env #:stop-list? stop?))
+   
    ;; like `expand1`, but instead of returning expansion of `e`,
-   ;; binds it to the expansion of `x` in `ctx` and returns the new ctx
-   ;; expand1+bind : Id Symbol Stx ([Idc] or #f) #:stop-list? Bool -> Idc
-   (define (expand1/bind x xtag e [ctx #f] #:stop-list? [stop? #t])
-     (define e+ (expand1 e ctx #:stop-list? stop?))
-     (idc-add x xtag e+ ctx))
+   ;; binds it to (the expansion of) `x` in `env`, returning the new env
+   ;; expand1+bind : Id Symbol Stx Env #:stop-list? Bool -> Env
+   (define (expand1/bind x xtag e [env (mk-new-env)] #:stop-list? [stop? #t])
+     (define e+ (expand1 e env #:stop-list? stop?))
+     (env-add x xtag e+ env))
 
    ;; folds expand1/bind given binders and "terms", returning the final idc
    ;; - xs must not have duplicates
-   (define (expands/bind xs tags es [ctx #f] #:stop-list? [stop? #t])
-     (stx-fold expand1/bind ctx xs tags es))
+   (define (expands/bind xs tags es [env (mk-new-env)] #:stop-list? [stop? #t])
+     (stx-fold expand1/bind env xs tags es))
 
    ;; like `expands/bind` but curries the env (like `expand/env`)
    (define ((expands/bind/env env) xs tags es #:stop-list? [stop? #t])
-     (stx-fold expand1/bind env xs tags es))
+     (expands/bind xs tags es env #:stop-list? stop?))
    
   ;; "expand" and "infer" fns derived from expands/ctxs -----------------------
   ;; some are syntactic shortcuts, some are for backwards compat

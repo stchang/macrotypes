@@ -371,7 +371,7 @@
                                 (define τs+ (env-τs idc0))
                                 (define idcs
                                   (stx-map
-                                   (expands/bind/env (mk-empty-env idc0))
+                                   (expands/bind/env (mk-new-env idc0))
                                    #'(x.xs ... ooo)
                                    #'(x.tags ... ooo)
                                    #'(x.τs ... ooo))))
