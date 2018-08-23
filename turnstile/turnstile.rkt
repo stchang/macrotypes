@@ -374,32 +374,23 @@
   (define-splicing-syntax-class folding-tc-clause #:attributes (pat) #:datum-literals (⊢ ≫ ⇒ ⇐)
     ;; TODO: merge all these patterns?
     ;; nested telescopes
-    [pattern [b:tele-binds  ⊢ [x:tele-binds ⊢ . tc:tc-elem] ... ooo:elipsis]
+    (pattern [b:tele-binds  ⊢ [x:tele-binds ⊢ . tc:tc-elem] ... ooo:elipsis]
              #:with pat #'(~and
-                           ;; TODO: this use of ctx->idc is the same as what expands/bind does below?
+                           ;; TODO: this use of mk-env is the same as what expands/bind does below?
                            ;; i think the "folding" approach below is more correct
-                           (~do (define idc0 (ctx->idc #'b.x+τs))
-                                (define xs+ (stx-map (expand1/ctx idc0) #'b.xs))
-                                (define τs+ (stx-map typeof xs+))
+                           (~do (define idc0 (mk-env #'b.x+τs))
+                                (define xs+ (env-xs idc0))
+                                (define τs+ (env-τs idc0))
                                 (define idcs
                                   (stx-map
-                                   (λ(env) (ctx->idc env #:with-idc idc0))
-                                   #'(x.x+τs ... ooo)))
-                                (define xs+s
-                                  (stx-map
-                                   (λ (xs idc) (stx-map (expand1/ctx idc) xs))
-                                   #'(x.xs ... ooo)
-                                   idcs))
-                                (define τs+s
-                                  (map
-                                   (λ (xs+) (stx-map typeof xs+))
-                                   xs+s)))
+                                   (λ (env) (mk-env env #:with-idc idc0))
+                                   #'(x.x+τs ... ooo))))
                            (~parse b.xpats xs+)
                            (~parse b.τpats τs+)
-                           (~parse (x.xpats ... ooo) xs+s)
-                           (~parse (x.τpats ... ooo) τs+s)
+                           (~parse (x.xpats ... ooo) (map env-xs idcs))
+                           (~parse (x.τpats ... ooo) (map env-τs idcs))
                            (~parse (tc.e-pat ... ooo)
-                                   (stx-map expand1 #'(tc.e-stx ... ooo) idcs)))]
+                                   (stx-map expand1 #'(tc.e-stx ... ooo) idcs))))
     ;; synth (⇒) case
     (pattern [b1:bind+synths ⊢ b2:bind+synths tc:tc-elem ...]
              #:with pat #`(~and 
@@ -407,14 +398,13 @@
                                 ;(define tags (stx-append #'b1.tags #'b2.tags))
                                 (define τs (stx-append #'b1.τs #'b2.τs))
                                 (define ctx (expands/bind xs #f #;tags τs))
-                                ;; TODO: how costly is this double expand?
-                                (define xs+ (stx-map (expand1/ctx ctx) xs))
-                                (define τs+ (stx-map typeof xs+))
+                                (define xs+ (env-xs ctx))
+                                (define τs+ (env-τs ctx))
                                 (define ks  (stx-map typeof τs+)))
                            (~parse #,(stx-append #'b1.xpats #'b2.xpats) xs+)
                            (~parse #,(stx-append #'b1.τpats #'b2.τpats) τs+)
                            (~parse #,(stx-append #'b1.kpats #'b2.kpats) ks)
-                           (~parse (tc.e-pat ...) (expands/stop #'(tc.e-stx ...) #:with-idc ctx))))
+                           (~parse (tc.e-pat ...) (stx-map (expand1/ctx ctx) #'(tc.e-stx ...)))))
     ;; chck (⇐) case
     (pattern [b1:bind+checks ⊢ b2:bind+checks tc:tc-elem ...]
              #:with pat #`(~and 
@@ -422,9 +412,8 @@
                                 ;(define tags (stx-append #'b1.tags #'b2.tags))
                                 (define τs (stx-append #'b1.τs #'b2.τs))
                                 (define ctx (expands/bind xs #f #;tags τs))
-                                ;; TODO: how costly is this double expand?
-                                (define xs+ (stx-map (expand1/ctx ctx) xs))
-                                (define τs+ (stx-map typeof xs+))
+                                (define xs+ (env-xs ctx))
+                                (define τs+ (env-τs ctx))
                                 (define ks  (stx-map typeof τs+)))
                            ; TODO: interleave these checks with expansion?
                            (~fail #:unless (typechecks?
@@ -435,7 +424,7 @@
                                   "k mismatch")
                            (~parse #,(stx-append #'b1.xpats #'b2.xpats) xs+)
                            (~parse #,(stx-append #'b1.τpats #'b2.τpats) τs+)
-                           (~parse (tc.e-pat ...) (expands/stop #'(tc.e-stx ...) #:with-idc ctx)))))
+                           (~parse (tc.e-pat ...) (stx-map (expand1/ctx ctx) #'(tc.e-stx ...))))))
   (define-splicing-syntax-class clause
     #:attributes (pat)
     #:datum-literals (τ⊑ τ=) ; TODO: drop the τ in τ⊑ and τ=

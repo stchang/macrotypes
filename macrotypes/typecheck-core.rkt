@@ -6,7 +6,7 @@
   "postfix-in.rkt"
   (postfix-in - racket/base)
   (for-syntax racket/base
-              racket/string racket/format racket/promise racket/path
+              racket/string racket/format racket/promise racket/path racket/match
               syntax/id-table
               syntax/parse racket/syntax syntax/stx
               syntax/parse/define
@@ -1052,6 +1052,9 @@
   (define (infers+erase es #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
     (stx-map (λ (e) (infer+erase e #:tag tag #:stop-list? stop-list?)) es))
 
+  (define (apply-scopes scs syn)
+    (foldr (λ (sc x) (sc x 'add)) syn scs))
+
   ;; This is the main "expansion" fn, which allows supplying a ctx
   ;; ctx = vars and their types (or or any props, denoted with any "sep")
   ;; - each x in ctx is in scope for subsequent xs
@@ -1071,8 +1074,7 @@
        #:with (e ...) es
 
        (define ctx (or idc/#f (syntax-local-make-definition-context)))
-       (define (in-ctx s)
-         (internal-definition-context-introduce ctx (fresh s)))
+       (define in-ctx (idc-fresh ctx))
 
        (define/syntax-parse (tv+ ...) (map in-ctx (syntax-e #'(tv ...))))
        (define/syntax-parse (X+ ...)  (map in-ctx (syntax-e #'(X ...))))
@@ -1095,20 +1097,25 @@
                   ...)
         ctx)
 
+       
        ; Bind these sequentially, so that expansion of (τ ...) for each
        ; can depend on type variables bound earlier. Really, these should
        ; also be in nested scopes such that they can only see earlier xs.
-       (for ([x (syntax-e #'(x ...))]
-             [rhs (syntax-e #'((make-variable-like-transformer
-                                ((current-var-assign)
-                                 #'x #'x+ '(sep ...) #'(τ ...)))
-                               ...))])
-         (syntax-local-bind-syntaxes (list x) rhs ctx))
+       (define scopes
+         (for/fold ([old-scopes null])
+                   ([x (syntax-e #'(x ...))]
+                    [rhs (syntax-e #'((make-variable-like-transformer
+                                       ((current-var-assign)
+                                        #'x #'x+ '(sep ...) #'(τ ...)))
+                                      ...))])
+           (define scopes (cons (make-syntax-introducer) old-scopes))
+           (syntax-local-bind-syntaxes (list (apply-scopes scopes x)) (apply-scopes old-scopes rhs) ctx)
+           scopes))
 
        (define/syntax-parse
          (e+ ...)
          (for/list ([e (syntax-e #'(e ...))])
-           (local-expand e 'expression stop? ctx)))
+           (local-expand (apply-scopes scopes e) 'expression stop? ctx)))
 
        #'((tv+ ...) (X+ ... x+ ...) (e+ ...))]
 
@@ -1118,35 +1125,49 @@
                      #:stop-list? stop-list?
                      #:with-idc idc/#f)]))
 
+  ;; An Env is the representation of a type environment.
+  ;; It's a list of `env` nodes, where
+  ;; - xs+ : expanded versions of the xs bound in idc;
+  ;;         the bindings in the env follow a let* semantics
+  ;;         - stored in reverse order
+  ;; - τs+ : expanded versions of the τs associated with xs in idc
+  ;;         - stored in reverse order
+  ;; - idc : contains x : τ bindings as macros, where `x` is id transformer
+  ;;          that expands to some `x+` that has `τ+` as some stx prop
+  ;; - scopes : a term checked/expanded in the context of an Env must have theses scopes
+  ;; - parent : TODO: is this needed?
+  (struct env (xs+ τs+ idc scopes parent))
+  (define (mk-new-env [parent #f])
+    (env null
+         null
+         (syntax-local-make-definition-context)
+         null
+         parent))
+  
   ;; start of new expand (ie, infer) fns
   ;; TODO: merge with the above expands/ctxs
-  (define (ctx->idc ctx #:with-idc [existing-idc #f]
-                    #:wrap-fn [wrap-fn #'(λ (x) x)]) ; eg, mk-tyvar
-    (define new-idc (or existing-idc (syntax-local-make-definition-context)))
-    (define (in-ctx s)
-      (internal-definition-context-introduce new-idc s))
-     (syntax-parse ctx
-       [([x:id (~seq sep:id τ) ...] ...)
-       (define/syntax-parse (x+ ...) (stx-map (compose in-ctx fresh) #'(x ...)))
-        (syntax-local-bind-syntaxes (syntax->list #'(x+ ...)) #f new-idc)
-        ; Bind these sequentially, so that expansion of (τ ...) for each
-       ; can depend on type variables bound earlier. Really, these should
-       ; also be in nested scopes such that they can only see earlier xs.
-       (for/fold ([idc new-idc])
-                 ([x (syntax->list #'(x ...))]
-                  [rhs (syntax->list #`((make-variable-like-transformer
-                                         (#,wrap-fn
-                                          ((current-var-assign)
-                                           #'x #'x+ '(sep ...) #'(τ ...))))
-                                        ...))])
-         (syntax-local-bind-syntaxes (list x) rhs idc)
-         idc)]))
+  (define (mk-env stx-ctx #:with-idc [parent #f])
+    (stx-fold
+     (λ (x+τ ctx)
+       (syntax-parse x+τ
+         [(x:id sep:id τ)
+          (expand1/bind #'x (stx->datum #'sep) #'τ ctx)]))
+     (mk-new-env parent)
+     stx-ctx))
+  (define (env-xs env) (if env (reverse (env-xs+ env)) null))
+  (define (env-τs env) (if env (reverse (env-τs+ env)) null))
+  (define (env-idcs env)
+    (if env (cons (env-idc env) (env-idcs (env-parent env))) null))
 
-   ;; expands (presumably for typechecking) a single "term" `e` in ctx `ctx`
-   ;; - `e` is not restricted to terms, eg, can be a type,
-   ;;   but must work with local-expand `context-v` argument = 'expression
-   (define (expand1 e [ctx #f] #:stop-list? [stop? #t])
-     (local-expand e 'expression (decide-stop-list stop?) ctx))
+  ;; expands a stx obj `stx` for type checking, returning its expanded version
+  ;; wraps `local-expand`, but handles the following type-specific args:
+  ;; - env is a type environment, as defined with Env data def above
+  ;; - does not handle top-level forms
+   (define (expand1 stx [env #f] #:stop-list? [stop? #t])
+     (local-expand (if env (apply-scopes (env-scopes env) stx) stx)
+                   'expression
+                   (decide-stop-list stop?)
+                   (and env (env-idcs env))))
 
    ;; version of `expand1` that curries the ctx
    (define ((expand1/ctx ctx) e #:stop-list? [stop? #t])
@@ -1163,19 +1184,20 @@
    
    ;; extends `idc0` with `x` and `τ` at prop `tag`
    ;; idc-add : Id Symbol Stx [Idc] -> Idc
-   (define (idc-add x_ tag τ [idc0 #f])
-     (define idc (or idc0 (syntax-local-make-definition-context)))
+   (define (idc-add x_ tag τ [ctx #f] #:wrap-fn [wrap-fn #'(λ (x) x)])
+     (match-define (env xs τs idc scs parent) (or ctx (mk-new-env)))
      (define/syntax-parse x x_) ; TODO: just use x?
      (define/syntax-parse sep (datum->syntax #'here tag))
      (define/syntax-parse τ+ τ)
      (define/syntax-parse x+ ((idc-fresh idc) #'x))
      (syntax-local-bind-syntaxes (list #'x+) #f idc)
      (syntax-local-bind-syntaxes (list #'x)
-       #'(make-variable-like-transformer
-          ((current-var-assign)
-           #'x #'x+ '(sep) #'(τ+)))
+       #`(make-variable-like-transformer
+          (#,wrap-fn
+           ;           ((current-var-assign) #'x #'x+ '(sep) #'(τ+))))
+           (attach #'x+ 'sep #'τ+)))
        idc)
-     idc)
+       (env (cons #'x+ xs) (cons #'τ+ τs) idc scs parent))
 
    ;; like `expand1`, but instead of returning expansion of `e`,
    ;; binds it to the expansion of `x` in `ctx` and returns the new ctx
