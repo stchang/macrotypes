@@ -17,10 +17,10 @@
     [(_ TY:id
         ;; specifying binders with define-type (ie, a binding type)
         ;; affects the output in 3 (numbered) places (see below)
-        (~optional (~seq #:with-binders ([X:id (~datum :) k_in] ...
+        (~optional (~seq #:with-binders ([X:id Xtag:id k_in] ...
                                          (~optional (~and #:telescope
                                                           telescope?))))
-                   #:defaults ([(X 1) null] [(k_in 1) null]))
+                   #:defaults ([(X 1) null] [(Xtag 1) null] [(k_in 1) null]))
         ;; the first case specifies named, dependent arguments, ie a telescope
         ;; - with careful double-use of pattern variables (Y ...)
         ;;   we can get the desired behavior without doing an explicit fold
@@ -28,15 +28,16 @@
         ;;   the (define-typerule TY) below (in the latter case, use Y instead of τ_out ...)
         ;; - since k_out may reference Y, in the define-typerule, the k_out ... 
         ;;   are automatically instantiated
-        (~datum :) (~or (~seq [Y:id (~datum :) k_out] ...)
+        (~datum :) (~or (~seq [Y:id Ytag:id k_out] ...)
                         (~and (~seq k_out ...)
-                              (~parse (Y ...) (generate-temporaries #'(k_out ...)))))
+                              (~parse (Y ...) (generate-temporaries #'(k_out ...)))
+                              (~parse (Ytag ...) (stx-map (λ _ #':) #'(Y ...)))))
         (~datum ->) k) ; ⇒ ⇐
      #:with [(Y- ...) (k_out- ...) k-]
             (syntax-parse/typecheck null 
              [_ ≫ ;; TODO: use this X- and Y-?
-              [[X ≫ _ : k_in ≫ k_in- ⇒ ty_k_in] ... ⊢
-               [Y ≫ Y- : k_out ≫ k_out- ⇒ ty_k_out] ...
+              [[X ≫ _ Xtag k_in ≫ k_in- ⇒ ty_k_in] ... ⊢
+               [Y ≫ Y- Ytag k_out ≫ k_out- ⇒ ty_k_out] ...
                [k ≫ k- ⇒ ty_k]]
               ---
               [≻ [(Y- ...) (k_out- ...) k-]]])
@@ -64,15 +65,15 @@
             ;; 1) dont require binders in constructor if there are none
             #,@(if (stx-null? #'(X ...))
                    null
-                   (list #'(~seq [(~var X id) (~datum :) τ_in] ...)))
+                   (list #'(~seq [(~var X id) (~var Xtag id) τ_in] ...)))
             Y ...) ≫
            ;; with prev Turnstile stx"
 ;;            [⊢ τ_in  ≫ τ_in- ⇐ k_in] ...
 ;;            [[X ≫ X- : τ_in-] ... ⊢ [Y ≫ τ_out- ⇐ k_out] ...]
 ;; dont need k_inst (or any other k_*_inst) bc we're using nested pat-var subst technique
 ;; ;          #:with k_inst (substs #'(τ_out ...) #'(Y ...) #'k)
-          [⊢ [X ≫ X- : τ_in ≫ τ_in- ⇐ k_in] ... [Y ≫ τ_out- ⇐ k_out] ...]
-;            [⊢ [X ≫ X- : τ_in ≫ τ_in- ⇒ _] ... [Y ≫ τ_out- ⇒ _] ...]
+          [⊢ [X ≫ X- Xtag τ_in ≫ τ_in- ⇐ k_in] ... [Y ≫ τ_out- ⇐ k_out] ...]
+;            [⊢ [X ≫ X- Xtag τ_in ≫ τ_in- ⇒ _] ... [Y ≫ τ_out- ⇒ _] ...]
            #:with maybe-lambda
                   ;; 2) when no binders, remove the λ in runtime rep
                   ;; - this allows comparisons at runtime

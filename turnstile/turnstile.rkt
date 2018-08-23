@@ -331,60 +331,50 @@
                          #`(~post (~post (~parse tcs-pat inf+))))]
     )
   (define-syntax-class tele-bind #:datum-literals (≫)
-    (pattern [x:id ≫ x-:id sep:id τ ≫ τ-]
-             #:with x+τ #'[x sep τ]
-             #:with xpat #'x-
-             #:with τpat #'τ-
-             #:with tag #'sep))
+    (pattern [x:id ≫ xpat:id tag:id τ ≫ τpat]))
   (define-splicing-syntax-class tele-binds
     (pattern (~seq b:tele-bind ... (~optional ooo:elipsis))
-             #:with x+τs #'(b.x+τ ... (~? ooo))
              #:with xs #'(b.x ... (~? ooo))
              #:with xpats #'(b.xpat ... (~? ooo))
-             #:with τpats #'(b.τpat ... (~? ooo))
-             #:with tags #'(b.tag ... (~? ooo))))
+             #:with tags #'(b.tag ... (~? ooo))
+             #:with τs #'(b.τ ... (~? ooo))
+             #:with τpats #'(b.τpat ... (~? ooo))))
   (define-syntax-class bind+synth #:datum-literals (≫ ⇒)
     ;; TODO: use tc-elem here?
-    (pattern [x:id ≫ x-:id sep:id τ ≫ τ- ⇒ kpat]
-             #:with xpat #'x-
-             #:with τpat #'τ-
-             #:with tag #'sep))
+    (pattern [x:id ≫ xpat:id tag:id τ ≫ τpat ⇒ kpat]))
   (define-splicing-syntax-class bind+synths
     (pattern (~seq b:bind+synth ... (~optional ooo:elipsis))
              #:with xs #'(b.x ... (~? ooo))
-             #:with τs #'(b.τ ... (~? ooo))
              #:with xpats #'(b.xpat ... (~? ooo))
+             #:with tags #'(b.tag ... (~? ooo))
+             #:with τs #'(b.τ ... (~? ooo))
              #:with τpats #'(b.τpat ... (~? ooo))
-             #:with kpats #'(b.kpat ... (~? ooo))
-             #:with tags #'(b.tag ... (~? ooo))))
+             #:with kpats #'(b.kpat ... (~? ooo))))
   (define-syntax-class bind+check #:datum-literals (≫ ⇐)
     ;; TODO: use tc-elem here?
-    (pattern [x:id ≫ x-:id sep:id τ ≫ τ- ⇐ expected-k]
-             #:with xpat #'x-
-             #:with τpat #'τ-
-             #:with tag #'sep))
+    (pattern [x:id ≫ xpat:id tag:id τ ≫ τpat ⇐ expected-k]))
   (define-splicing-syntax-class bind+checks
     (pattern (~seq b:bind+check ... (~optional ooo:elipsis))
              #:with xs #'(b.x ... (~? ooo))
-             #:with τs #'(b.τ ... (~? ooo))
              #:with xpats #'(b.xpat ... (~? ooo))
+             #:with tags #'(b.tag ... (~? ooo))
+             #:with τs #'(b.τ ... (~? ooo))
              #:with τpats #'(b.τpat ... (~? ooo))
-             #:with expected-ks #'(b.expected-k ... (~? ooo))
-             #:with tags #'(b.tag ... (~? ooo))))
+             #:with expected-ks #'(b.expected-k ... (~? ooo))))
   (define-splicing-syntax-class folding-tc-clause #:attributes (pat) #:datum-literals (⊢ ≫ ⇒ ⇐)
     ;; TODO: merge all these patterns?
     ;; nested telescopes
     (pattern [b:tele-binds  ⊢ [x:tele-binds ⊢ . tc:tc-elem] ... ooo:elipsis]
              #:with pat #'(~and
-                           ;; TODO: this use of mk-env is the same as what expands/bind does below?
-                           ;; i think the "folding" approach below is more correct
-                           (~do (define idc0 (mk-env #'b.x+τs))
+                           (~do (define idc0 (expands/bind #'b.xs #'b.tags #'b.τs))
                                 (define xs+ (env-xs idc0))
                                 (define τs+ (env-τs idc0))
                                 (define idcs
                                   (stx-map
-                                   (λ (env) (mk-env env #:with-idc idc0))
-                                   #'(x.x+τs ... ooo))))
+                                   (expands/bind/env (mk-empty-env idc0))
+                                   #'(x.xs ... ooo)
+                                   #'(x.tags ... ooo)
+                                   #'(x.τs ... ooo))))
                            (~parse b.xpats xs+)
                            (~parse b.τpats τs+)
                            (~parse (x.xpats ... ooo) (map env-xs idcs))
@@ -395,23 +385,23 @@
     (pattern [b1:bind+synths ⊢ b2:bind+synths tc:tc-elem ...]
              #:with pat #`(~and 
                            (~do (define xs (stx-append #'b1.xs #'b2.xs))
-                                ;(define tags (stx-append #'b1.tags #'b2.tags))
+                                (define tags (stx-append #'b1.tags #'b2.tags))
                                 (define τs (stx-append #'b1.τs #'b2.τs))
-                                (define ctx (expands/bind xs #f #;tags τs))
+                                (define ctx (expands/bind xs tags τs))
                                 (define xs+ (env-xs ctx))
                                 (define τs+ (env-τs ctx))
                                 (define ks  (stx-map typeof τs+)))
                            (~parse #,(stx-append #'b1.xpats #'b2.xpats) xs+)
                            (~parse #,(stx-append #'b1.τpats #'b2.τpats) τs+)
                            (~parse #,(stx-append #'b1.kpats #'b2.kpats) ks)
-                           (~parse (tc.e-pat ...) (stx-map (expand1/ctx ctx) #'(tc.e-stx ...)))))
+                           (~parse (tc.e-pat ...) (stx-map (expand1/env ctx) #'(tc.e-stx ...)))))
     ;; chck (⇐) case
     (pattern [b1:bind+checks ⊢ b2:bind+checks tc:tc-elem ...]
              #:with pat #`(~and 
                            (~do (define xs (stx-append #'b1.xs #'b2.xs))
-                                ;(define tags (stx-append #'b1.tags #'b2.tags))
+                                (define tags (stx-append #'b1.tags #'b2.tags))
                                 (define τs (stx-append #'b1.τs #'b2.τs))
-                                (define ctx (expands/bind xs #f #;tags τs))
+                                (define ctx (expands/bind xs tags τs))
                                 (define xs+ (env-xs ctx))
                                 (define τs+ (env-τs ctx))
                                 (define ks  (stx-map typeof τs+)))
@@ -424,7 +414,7 @@
                                   "k mismatch")
                            (~parse #,(stx-append #'b1.xpats #'b2.xpats) xs+)
                            (~parse #,(stx-append #'b1.τpats #'b2.τpats) τs+)
-                           (~parse (tc.e-pat ...) (stx-map (expand1/ctx ctx) #'(tc.e-stx ...))))))
+                           (~parse (tc.e-pat ...) (stx-map (expand1/env ctx) #'(tc.e-stx ...))))))
   (define-splicing-syntax-class clause
     #:attributes (pat)
     #:datum-literals (τ⊑ τ=) ; TODO: drop the τ in τ⊑ and τ=

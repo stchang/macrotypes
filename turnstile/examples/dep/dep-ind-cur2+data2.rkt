@@ -16,12 +16,12 @@
 ;; define-data-constructor wraps define-type to enable currying of constructor
 (define-syntax define-data-constructor
   (syntax-parser
-    [(_ name (~datum :) [A+i:id (~datum :) τ] ... (~datum ->) τ-out)
+    [(_ name (~datum :) [A+i:id Atag:id τ] ... (~datum ->) τ-out)
      #:with name/internal (generate-temporary #'name)
      #:with name/internal-expander (mk-~ #'name/internal)
      #:with name-expander (mk-~ #'name)
       #'(begin-
-         (define-type name/internal : [A+i : τ] ... -> τ-out)
+         (define-type name/internal : [A+i Atag τ] ... -> τ-out)
          (define-syntax name
            (make-variable-like-transformer
             #'(λ [A+i : τ] ... (name/internal A+i ...))))
@@ -149,22 +149,23 @@
   ;; - indices i ...
   ;; - ie, TY is a type constructor with type (Π [A : τA] ... [i τi] ... τ)
   ;; --------------------------------------------------------------------------
-  [(_ TY:id [A:id (~datum :) τA] ... (~datum :) ; params
-            [i:id (~datum :) τi] ... ; indices
+  [(_ TY:id [A:id Atag:id τA] ... (~datum :) ; params
+            [i:id itag:id τi] ... ; indices
             (~datum ->) τ
             (~or* (~and [C:id (~datum :) τout]
-                       (~parse (i+x ...) #'())
-                       (~parse (τin ...) #'()))
+                        (~parse ([i+x i+xtag τin]...) #'())
+                                #;(~parse (i+xtag ...) #'())
+                        #;(~parse (τin ...) #'()))
                   ;; i+x may reference A
-                 [C:id (~datum :)  [i+x:id (~datum :) τin] ... (~datum ->) τout]) ...) ≫
+                 [C:id (~datum :) [i+x:id i+xtag:id τin] ... (~datum ->) τout]) ...) ≫
    ;; TODO: support this pattern with Turnstile?, but needs fold over trees, eg
    #;[⊢ [A ≫ A2 : τA ≫ τA2 ⇐ Type] ... ([i ≫ i2 : τi ≫ τi2 ⇐ Type] ... τ ≫ τ2 ⇐ Type)
                                       ([i+x ≫ i+x2 : τin ≫ τin2 ⇐ Type] ... τout ≫ τout2 ⇐ Type) ...]
 
    ;; method 3: nested telescope
-   [[A ≫ A2 : τA ≫ τA2_] ... ⊢
-    [[i ≫ i2 : τi ≫ τi2] ... ⊢ τ ≫ τ2 ⇐ TypeTop]
-    [[i+x ≫ i+x2 : (with-unbound TY τin) ≫ (~unbound2 TY τin2)] ... ⊢ (with-unbound TY τout) ≫ (~unbound2 TY τout2) ⇐ TypeTop] ...]
+   [[A ≫ A2 Atag τA ≫ τA2_] ... ⊢
+    [[i ≫ i2 itag τi ≫ τi2] ... ⊢ τ ≫ τ2 ⇐ TypeTop]
+    [[i+x ≫ i+x2 i+xtag (with-unbound TY τin) ≫ (~unbound2 TY τin2)] ... ⊢ (with-unbound TY τout) ≫ (~unbound2 TY τout2) ⇐ TypeTop] ...]
    ;; this fixes (some) dropped types during provide+require
    #:with (τA2 ...) (stx-map reflect-Type #'(τA2_ ...))
    ;; method 2: infer + #:with-idc
@@ -202,6 +203,7 @@
    #:with (i* ...) (generate-temporaries #'(i ...))
    ; dup (A ...) C times, for ellipses matching
    #:with ((A*C ...) ...) (stx-map (lambda _ #'(A ...)) #'(C ...))
+   #:with ((Atag*C ...) ...) (stx-map (lambda _ #'(Atag ...)) #'(C ...))
    #:with ((τA*C ...) ...) (stx-map (λ _ #'(τA ...)) #'(C ...))
    #:with ((A*C2 ...) ...) (stx-map (lambda _ #'(A2 ...)) #'(C ...))
    #:with ((τA*C2 ...) ...) (stx-map (λ _ #'(τA2 ...)) #'(C ...))
@@ -223,11 +225,11 @@
     #'(begin-
         ;; define the type
 ;        (define-type TY : [A : τA] ... [i : τi] ... -> τ)
-        (define-type TY : [A2 : τA2] ... [i2 : τi2] ... -> τ2)
+        (define-type TY : [A2 Atag τA2] ... [i2 itag τi2] ... -> τ2)
 
         ;; define the data constructors
 ;        (define-data-constructor C : [A*C : τA*C] ... [i+x : τin] ... -> τout) ...
-        (define-data-constructor C : [A*C2 : τA*C2] ... [i+x2 : τin2] ... -> τout2) ...
+        (define-data-constructor C : [A*C2 Atag*C τA*C2] ... [i+x2 i+xtag τin2] ... -> τout2) ...
 
         ;; define eliminator-form elim-TY
         ;; v = target
@@ -253,14 +255,14 @@
           [⊢ v ≫ v- ⇒ (TY-patexpand A2 ... i* ...)]
           
           ;; τi instantiated with A ... from v-
-          [⊢ P ≫ P- ⇐ (Π [i2 : τi2] ... (→ (TY A2 ... i2 ...) Type))]
+          [⊢ P ≫ P- ⇐ (Π [i2 itag τi2] ... (→ (TY A2 ... i2 ...) Type))]
 
           ;; each m is curried fn consuming 3 (possibly empty) sets of args:
           ;; 1,2) i+x  - indices of the tycon, and args of each constructor `C`
           ;;             the indices may not be included, when not needed by the xs
           ;; 3) IHs - for each xrec ... (which are a subset of i+x ...)
           #:with (τm ...)
-                 #'((Π [i+x2 : τin2] ... ; constructor args ; ASSUME: i+x includes indices
+                 #'((Π [i+x2 i+xtag τin2] ... ; constructor args ; ASSUME: i+x includes indices
                        (→ (P- irec ... xrec) ... ; IHs
                           (P- τouti ... (C A*C2 ... i+x2 ...)))) ...)
           [⊢ m ≫ m- ⇐ τm] ...
