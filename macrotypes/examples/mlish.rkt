@@ -631,7 +631,7 @@
        #:with (_ (_ (_ C) . _) ...) (get-extra-info #'ty)
        #:when (member (syntax->datum #'A) (syntax->datum #'(C ...)))
        #'()]
-      [(x:id ty)  #'((x ty))]
+      [(x:id ty)  #'((x : ty))]
       [((p1 (unq p) ...) ty) ; comma tup stx
        #:when (not (stx-null? #'(p ...)))
        #:when (andmap (lambda (u) (equal? u 'unquote)) (syntax->datum #'(unq ...)))
@@ -793,11 +793,12 @@
       #:with (pat ...) (stx-map ; use brace to indicate root pattern
                          (lambda (ps) (syntax-parse ps [(pp ...) (syntax/loc stx {pp ...})]))
                          #'((p ...) ...)) 
-      #:with ([(~and ctx ([x ty] ...)) pat-] ...) (compile-pats #'(pat ...) #'τ_e)
+      #:with ([(~and ctx ([x _ ty] ...)) pat-] ...) (compile-pats #'(pat ...) #'τ_e)
       #:with ([(x- ...) e_body- ty_body] ...) 
              (stx-map 
-               infer/ctx+erase 
-               #'(ctx ...) #`((pass-expected e_body #,stx) ...))
+              infer/ctx+erase 
+              #'(ctx ...)
+              #`((pass-expected e_body #,stx) ...))
       #:when (check-exhaust #'(pat- ...) #'τ_e)
       (⊢ (match- e- [pat- (let-values- ([(x-) x] ...) e_body-)] ...) : (⊔ ty_body ...))
       ])]))
@@ -813,7 +814,7 @@
         #:with (~× ty ...) #'τ_e
         #:fail-unless (stx-length=? #'(ty ...) #'(x ...))
                       "match clause pattern not compatible with given tuple"
-        #:with [(x- ...) e_body- ty_body] (infer/ctx+erase #'([x ty] ...) 
+        #:with [(x- ...) e_body- ty_body] (infer/ctx+erase #'([x : ty] ...) 
                                             #`(pass-expected e_body #,stx))
         #:with (acc ...) (for/list ([(a i) (in-indexed (syntax->list #'(x ...)))])
                            #`(#%plain-lambda- (s) (#%plain-app- list-ref- s #,(datum->syntax #'here i))))
@@ -835,8 +836,10 @@
                     "match: missing non-empty list case"
         #:with (~List ty) #'τ_e
         #:with ([(x- ... rst-) e_body- ty_body] ...)
-               (stx-map (lambda (ctx e) (infer/ctx+erase ctx e)) 
-                 #'(([x ty] ... [rst τ_e]) ...) #`((pass-expected e_body #,stx) ...))
+               (stx-map
+                infer/ctx+erase
+                #'(([x : ty] ... [rst : τ_e]) ...)
+                #`((pass-expected e_body #,stx) ...))
         #:with (len ...) (stx-map (lambda (p) #`#,(stx-length p)) #'((x ...) ...))
         #:with (lenop ...) (stx-map (lambda (p) (if (brack? p) #'=- #'>=-)) #'(xs ...))
         #:with (pred? ...) (stx-map
@@ -889,8 +892,9 @@
         #:with (e_c ...+) (stx-map (lambda (ec) #`(pass-expected #,ec #,stx)) #'(e_c_un ...))
         #:with (((x- ...) (e_guard- e_c-) (τ_guard τ_ec)) ...)
                (stx-map 
-                   (λ (bs eg+ec) (infers/ctx+erase bs eg+ec)) 
-                 #'(([x : τ] ...) ...) #'((e_guard e_c) ...))
+                infers/ctx+erase
+                #'(([x : τ] ...) ...)
+                #'((e_guard e_c) ...))
         #:fail-unless (and (same-types? #'(τ_guard ...))
                            (Bool? (stx-car #'(τ_guard ...))))
                       "guard expression(s) must have type bool"

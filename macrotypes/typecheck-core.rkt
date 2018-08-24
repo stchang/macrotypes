@@ -984,25 +984,17 @@
 
   ;; var-assign :
   ;; Id (Listof Sym) (StxListof TypeStx) -> Stx
-  (define (var-assign x x+ seps τs)
-    ;; not using checked-type-eval bc
-    ;; too many examples require re-expansion of a τ that is already
-    ;; expanded, but has been manually tampered, eg:
-    ;; - langs that use subst on expanded taus
-    ;;   - eg exist, fomega
-    ;; - langs that that need to simultaneously bind tyvars and annotations
-    ;;   that reference those tyvars, eg mlish
-    (attachs x+ seps (stx-map (current-type-eval) τs)))
-
-  ;; macro-var-assign : Id -> (Id (Listof Sym) (StxListof TypeStx) -> Stx)
-  ;; generate a function for current-var-assign that expands
-  ;; to an invocation of the macro by the given identifier
-  ;; e.g.
-  ;;   > (current-var-assign (macro-var-assign #'foo))
-  ;;   > ((current-var-assign) #'x '(:) #'(τ))
-  ;;   #'(foo x : τ)
-  (define ((macro-var-assign mac-id) x x+ seps τs)
-    (datum->syntax x `(,mac-id ,x+ . ,(stx-appendmap list seps τs))))
+  (define (var-assign x+ seps+τs)
+    (syntax-parse seps+τs
+      [(sep:id τ)
+       ;; not using checked-type-eval bc
+       ;; too many examples require re-expansion of a τ that is already
+       ;; expanded, but has been manually tampered, eg:
+       ;; - langs that use subst on expanded taus
+       ;;   - eg exist, fomega
+       ;; - langs that that need to simultaneously bind tyvars and annotations
+       ;;   that reference those tyvars, eg mlish
+       (attach x+ (stx-e #'sep) ((current-type-eval) #'τ))]))
 
   ;; current-var-assign :
   ;; (Parameterof [Id Id (Listof Sym) (StxListof TypeStx) -> Stx])
@@ -1065,11 +1057,11 @@
                         #:with-idc [idc/#f #f])
     (define stop? (decide-stop-list stop-list?))
     (syntax-parse ctx
-      [([x:id (~seq sep:id τ) ...] ...) ; dont expand; τ may reference to tv
+      [([x:id . sep+τ] ...) ; dont expand; τ may reference to tv
        #:with (~or (~and (tv:id ...)
-                         (~parse ([(tvsep ...) (tvk ...)] ...)
-                                 (stx-map (λ _ #'[(::) (#%type)]) #'(tv ...))))
-                   ([tv (~seq tvsep:id tvk) ...] ...))
+                         (~parse ([tvsep tvk] ...)
+                                 (stx-map (λ _ #'[:: #%type]) #'(tv ...))))
+                   ([tv tvsep:id tvk] ...))
        tvctx
        #:with (e ...) es
 
@@ -1085,7 +1077,7 @@
         (syntax-e #'(tv ...))
         #`(values (make-rename-transformer
                    (mk-tyvar
-                    (attachs #'tv+ '(tvsep ...) #'(tvk ...))))
+                    (attach #'tv+ 'tvsep #'tvk)))
                   ...)
         ctx)
 
@@ -1097,7 +1089,7 @@
                    ([x (syntax-e #'(x ...))]
                     [rhs (syntax-e #'((make-variable-like-transformer
                                        ((current-var-assign)
-                                        #'x #'x+ '(sep ...) #'(τ ...)))
+                                         #'x+ #'sep+τ))
                                       ...))])
            (define scopes (cons (make-syntax-introducer) old-scopes))
            (syntax-local-bind-syntaxes (list (apply-scopes scopes x)) (apply-scopes old-scopes rhs) ctx)
@@ -1108,13 +1100,7 @@
          (for/list ([e (syntax-e #'(e ...))])
            (local-expand (apply-scopes scopes e) 'expression stop? ctx)))
 
-       #'((tv+ ...) (x+ ...) (e+ ...))]
-
-      [([x τ] ...)
-       (expands/ctxs es #:ctx #`([x #,(current-tag) τ] ...)
-                     #:tvctx tvctx
-                     #:stop-list? stop-list?
-                     #:with-idc idc/#f)]))
+       #'((tv+ ...) (x+ ...) (e+ ...))]))
 
   ;; An Env is the representation of a type environment.
   ;; It's a list of `env` nodes, where

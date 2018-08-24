@@ -41,6 +41,15 @@
 (begin-for-syntax
   (current-type? (λ (t) (or (type? t) (<:? (typeof t))))))
 
+(define-typed-variable-syntax
+  [(_ x:id tag τ) ≫
+   ----------
+   [⊢ x ⇒ tag τ]]
+  [(_ x:id tag1:id τ1 tag2:id τ2) ≫
+   ----------
+   [⊢ x (⇒ tag1 τ1)
+        (⇒ tag2 #,((current-type-eval) #'τ2))]])
+
 ;; Type annotations used in two places:
 ;; 1) typechecking the body of 
 ;; 2) instantiation of ∀

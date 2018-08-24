@@ -34,12 +34,12 @@
 
 (begin-for-syntax
   (current-var-assign
-    (lambda (x x+ seps τs)
-      (syntax-parse τs
+    (lambda (x+ seps+τs)
+      (syntax-parse seps+τs
         #:literals (#%type-variable)
-        [(#%type-variable)
-         #`(infer-ref #,x #,x+ #,τs)]
-        [_ (var-assign x x+ seps τs)])))
+        [(_ #%type-variable)
+         #`(infer-ref #,x+ #,(stx-cdr seps+τs))]
+        [_ (var-assign x+ seps+τs)])))
 
   (define (raise-infer-error stx)
     (raise
@@ -51,12 +51,12 @@
 
 (define-syntax infer-ref
   (syntax-parser
-    [(_ x x+ (τ))
+    [(_ x+ (τ))
      (if (get-expected-type this-syntax)
        (add-env
          (assign-type #'x+ (get-expected-type this-syntax))
          #`((x+ #,(get-expected-type this-syntax))))
-       (raise-infer-error #'x))]))
+       (raise-infer-error #'x+))]))
 
 (begin-for-syntax
   ;; find-free-Xs : (Stx-Listof Id) Type -> (Listof Id)

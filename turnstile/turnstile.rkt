@@ -582,8 +582,8 @@
                                     (quasisyntax/loc this-syntax e-stx))])
                        ([k (in-stx-list #'[props.tag ...])]
                         [v (in-stx-list #'[props.tag-expr ...])])
-                       (with-syntax ([body body] [k k] [v v])
-                         #`(attach body `k v)))]
+               (with-syntax ([body body] [k k] [v v])
+                 #`(attach body (stx-e #'k) v)))] ; stx-e needed if k is a patvar instead of literal tag
     ;; ⇐ conclusion
     [pattern [⊢ e-stx]
              #:with τ (generate-temporary #'τ)
@@ -721,6 +721,17 @@
            (syntax-parameterize ([current-tag-stx 'tag1]
                                  [current-tag2-stx 'tag2])
              (syntax-parse/typecheck stx kw-stuff ... rule ...))))]))
+
+;; macro-var-assign : Id -> (Id (Listof Sym) (StxListof TypeStx) -> Stx)
+;; generate a function for current-var-assign that expands
+;; to an invocation of the macro by the given identifier
+;; e.g.
+;;   > (current-var-assign (macro-var-assign #'foo))
+;;   > ((current-var-assign) #'x #'(: τ))
+;;   #'(foo x : τ)
+(define-for-syntax ((macro-var-assign mac-id) x+ seps+τs)
+  (datum->syntax x+ `(,mac-id ,x+ . ,seps+τs)))
+
 
 (define-syntax define-typed-variable-syntax
   (syntax-parser

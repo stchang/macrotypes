@@ -34,7 +34,14 @@
   (define stlc:sub? (current-sub?))
   (define (sub? t1 t2) (stlc:sub? (expose t1) t2))
   (current-sub? sub?)
-  (current-typecheck-relation (current-sub?)))
+  (current-typecheck-relation (current-sub?))
+  (current-var-assign
+   (λ (x tags+τs)
+     (syntax-parse tags+τs
+       [((~seq tag:id τ) ...)
+        (attachs x
+                 (stx->datum #'(tag ...))
+                 (stx-map (current-type-eval) #'(τ ...)))]))))
 
 ; quasi-kind, but must be type constructor because its arguments are types
 (define-type-constructor <: #:arity >= 0) 
