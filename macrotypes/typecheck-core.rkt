@@ -1127,7 +1127,7 @@
     (stx-cdr (expands/ctxs es #:ctx ctx #:stop-list? stop-list?)))
   (define (expand/ctx e ctx #:stop-list? [stop-list? #t])
     (syntax-parse (expands/ctx (list e) ctx #:stop-list? stop-list?)
-      [(_ xs (e+)) #'(xs e+)]))
+      [(xs (e+)) #'(xs e+)]))
   (define (expands/tvctx es ctx #:stop-list? [stop-list? #t])
     (syntax-parse (expands/ctxs es #:tvctx ctx #:stop-list? stop-list?)
       [(tvs _ es+) #'(tvs es+)]))
