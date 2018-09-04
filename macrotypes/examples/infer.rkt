@@ -30,15 +30,11 @@
      (add-orig #'(∀ (X ...) (ext-stlc:→ . rst)) (get-orig this-syntax))]
     [(_ . rst) (add-orig #'(∀ () (ext-stlc:→ . rst)) (get-orig this-syntax))]))
 
-(define-syntax #%type-variable (lambda stx (raise-syntax-error #f "should never be expanded" stx)))
-
 (begin-for-syntax
   (current-var-assign
     (lambda (x+ seps+τs)
       (syntax-parse seps+τs
-        #:literals (#%type-variable)
-        [(_ #%type-variable)
-         #`(infer-ref #,x+ #,(stx-cdr seps+τs))]
+        [((~datum #%tyvar) _) #`(infer-ref #,x+ #,(stx-cdr seps+τs))]
         [_ (var-assign x+ seps+τs)])))
 
   (define (raise-infer-error stx)
@@ -124,7 +120,7 @@
    #:with [fn- τ_fn] (infer+erase #'(ext-stlc:λ ([x : τ_arg] ...) e))
    (⊢ fn- : #,(add-orig #'(∀ () τ_fn) (get-orig #'τ_fn)))]
   [(_ (x:id ...) ~! e) ; no annotations, couldnt infer from ctx (eg, unapplied lam), try to infer from body
-   #:with (xs- e- τ_res) (infer/ctx+erase #'([x : #%type-variable] ...) #'e)
+   #:with (xs- e- τ_res) (infer/ctx+erase #'([x #%tyvar void] ...) #'e)
    #:with env (get-env #'e-)
    #:fail-unless (syntax-e #'env)
      (format

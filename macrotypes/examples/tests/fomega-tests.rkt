@@ -60,13 +60,13 @@
 
 (typecheck-fail
  (Λ ([tyf :: (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) (f 1)))
- #:with-msg "Expected → type, got: \\(tyapp tyf String\\)")
+ #:with-msg "Expected → type, got: \\(#%app tyf String\\)")
 ;; applied f too early
 (typecheck-fail
  (inst
   (Λ ([tyf :: (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) (f 1)))
   (tyapp (tyλ ([arg :: ★]) (tyλ ([res :: ★]) (→ arg res))) Int))
- #:with-msg "Expected → type, got: \\(tyapp tyf String\\)")
+ #:with-msg "Expected → type, got: \\(#%app tyf String\\)")
 (check-type ((inst
               (Λ ([tyf :: (⇒ ★ ★)]) (λ ([f : (tyapp tyf String)]) f))
               (tyapp (tyλ ([arg :: ★]) (tyλ ([res :: ★]) (→ arg res))) Int))

@@ -200,7 +200,7 @@
 
 ;; macro version of current-type-eval
 ;; sometimes needed to delay eval until in some scope, eg see exist.rkt
-(define-syntax ev/m ; macro version of current-type-eval\
+(define-syntax ev/m ; macro version of current-type-eval
   (syntax-parser
     [(_ t) ((current-type-eval) #'t)]))  
 
@@ -994,6 +994,8 @@
        ;;   - eg exist, fomega
        ;; - langs that that need to simultaneously bind tyvars and annotations
        ;;   that reference those tyvars, eg mlish
+       ;; TODO: is the type-eval needed at all?
+       ;; 2018-09-01: currently yes, for langs where type-eval \neq expand, eg fomega
        (attach x+ (stx-e #'sep) ((current-type-eval) #'τ))]))
 
   ;; current-var-assign :
@@ -1055,8 +1057,9 @@
   (define (expands/ctxs es #:ctx [ctx null] #:tvctx [tvctx null]
                         #:stop-list? [stop-list? #t]
                         #:with-idc [idc/#f #f])
-    (define stop? (decide-stop-list stop-list?))
-    (syntax-parse ctx
+    ;    (define stop? (decide-stop-list stop-list?))
+    ;; TODO: delete me after final design is settled
+    #;(syntax-parse ctx
       [([x:id . sep+τ] ...) ; dont expand; τ may reference to tv
        #:with (~or (~and (tv:id ...)
                          (~parse ([tvsep tvk] ...)
@@ -1100,7 +1103,24 @@
          (for/list ([e (syntax-e #'(e ...))])
            (local-expand (apply-scopes scopes e) 'expression stop? ctx)))
 
-       #'((tv+ ...) (x+ ...) (e+ ...))]))
+       #'((tv+ ...) (x+ ...) (e+ ...))])
+    (syntax-parse ctx
+      [([x:id . sep+τ] ...) ; dont expand; τ may reference to tv
+       #:with (~or (~and (tv:id ...)
+                         (~parse (tvsep+tvk ...)
+                                 (stx-map (λ _ #'[:: #%type]) #'(tv ...))))
+                   ([tv . tvsep+tvk] ...))
+       tvctx
+       (define tvenv (expands/bind/block #'(tv ...) #'(tvsep+tvk ...)
+                                         #:stop-list? #f
+                                         #:wrap-fn #'mk-tyvar))
+       (define env (expands/bind/block #'(x ...) #'(sep+τ ...) (mk-new-env tvenv)
+                                       #:stop-list? #f))
+
+       (list (env-xs tvenv)
+             (env-xs env)
+             (for/list ([e (in-stx-list es)])
+               (expand1 e env #:stop-list? stop-list?)))]))
 
   ;; An Env is the representation of a type environment.
   ;; It's a list of `env` nodes, where
@@ -1153,7 +1173,7 @@
       (apply-scopes scs
        #`(make-variable-like-transformer
           (#,wrap-fn
-           (attach #'x+ 'sep #'τ+))))
+           ((current-var-assign) #'x+ #'(sep τ+)))))
       idc)
      (env (cons #'x+ xs) (cons #'τ+ τs) idc (cons new-sc scs) parent))
 
@@ -1178,18 +1198,44 @@
    ;; like `expand1`, but instead of returning expansion of `e`,
    ;; binds it to (the expansion of) `x` in `env`, returning the new env
    ;; expand1+bind : Id Symbol Stx Env #:stop-list? Bool -> Env
-   (define (expand1/bind x xtag e [env (mk-new-env)] #:stop-list? [stop? #t])
+   (define (expand1/bind x xtag e [env (mk-new-env)] #:stop-list? [stop? #t]
+                                                     #:wrap-fn [wrap-fn #'(λ (x) x)])
      (define e+ (expand1 e env #:stop-list? stop?))
-     (env-add x xtag e+ env))
+     (env-add x xtag e+ env #:wrap-fn wrap-fn))
 
    ;; folds expand1/bind given binders and "terms", returning the final idc
    ;; - xs must not have duplicates
-   (define (expands/bind xs tags es [env (mk-new-env)] #:stop-list? [stop? #t])
-     (stx-fold expand1/bind env xs tags es))
+   (define (expands/bind xs tags es [env (mk-new-env)]
+                         #:stop-list? [stop? #t]
+                         #:wrap-fn [wrap-fn #'(λ (x) x)])
+     (stx-fold
+      (λ (x t e acc)
+        (expand1/bind x t e acc #:stop-list? stop? #:wrap-fn wrap-fn))
+      env xs tags es))
+
+   (define (expands/bind/block xs tags+es [env (mk-new-env)]
+                               #:stop-list? [stop? #t]
+                               #:wrap-fn [wrap-fn #'(λ (x) x)])
+     #;(syntax-parse tags+es
+       [([(~seq tag:id e) ...] ...)
+        (stx-map
+         (λ (x tags+es)
+           (stx-map
+            (syntax-parser
+              [(tag:id e)
+               (expand1 #'e env)])
+            tags+es))
+           )
+         xs
+         #'(((tag e) ...) ...)])
+     (syntax-parse tags+es
+       [([tag:id e] ...)
+        (expands/bind xs #'(tag ...) #'(e ...) env #:stop-list? stop? #:wrap-fn wrap-fn)]))
 
    ;; like `expands/bind` but curries the env (like `expand/env`)
-   (define ((expands/bind/env env) xs tags es #:stop-list? [stop? #t])
-     (expands/bind xs tags es env #:stop-list? stop?))
+   (define ((expands/bind/env env) xs tags es #:stop-list? [stop? #t]
+                                              #:wrap-fn [wrap-fn #'(λ (x) x)])
+     (expands/bind xs tags es env #:stop-list? stop? #:wrap-fn wrap-fn))
    
   ;; "expand" and "infer" fns derived from expands/ctxs -----------------------
   ;; some are syntactic shortcuts, some are for backwards compat

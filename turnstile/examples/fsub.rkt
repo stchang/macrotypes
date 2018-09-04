@@ -39,16 +39,10 @@
 ; quasi-kind, but must be type constructor because its arguments are types
 (define-type-constructor <: #:arity >= 0) 
 (begin-for-syntax
-  (current-type? (λ (t) (or (type? t) (<:? (typeof t))))))
-
-(define-typed-variable-syntax
-  [(_ x:id tag τ) ≫
-   ----------
-   [⊢ x ⇒ tag τ]]
-  [(_ x:id tag1:id τ1 tag2:id τ2) ≫
-   ----------
-   [⊢ x (⇒ tag1 τ1)
-        (⇒ tag2 #,((current-type-eval) #'τ2))]])
+  (current-type?
+   (λ (t) (or (type? t)
+              (syntax-property t '<:) ; bounded tyvars
+              (<:? (typeof t))))))    ; ∀s
 
 ;; Type annotations used in two places:
 ;; 1) typechecking the body of 
@@ -88,7 +82,7 @@
   ;; environment with a syntax property using another tag: '<:
   ;; The "expose" function looks for this tag to enforce the bound,
   ;; as in TaPL (fig 28-1)
-  [[tv ≫ tv- :: #%type <: τsub] ... ⊢ e ≫ e- ⇒ τ_e]
+  [[tv ≫ tv- <: τsub] ... ⊢ e ≫ e- ⇒ τ_e]
   --------
   [⊢ e- ⇒ (∀ ([tv- <: τsub] ...) τ_e)])
 (define-typed-syntax (inst e τ:type ...) ≫

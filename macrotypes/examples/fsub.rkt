@@ -25,6 +25,9 @@
 ; only need expose during
 ; 1) subtype checking
 ; 2) pattern matching -- including base types
+;; TODO: call expose during var-assign?
+;; - dont think this will work, since promotion is specified *per-rule*
+;;   e.g., λ body must *not* promote
 (begin-for-syntax
   (define (expose t)
     (cond [(identifier? t)
@@ -34,19 +37,15 @@
   (define stlc:sub? (current-sub?))
   (define (sub? t1 t2) (stlc:sub? (expose t1) t2))
   (current-sub? sub?)
-  (current-typecheck-relation (current-sub?))
-  (current-var-assign
-   (λ (x tags+τs)
-     (syntax-parse tags+τs
-       [((~seq tag:id τ) ...)
-        (attachs x
-                 (stx->datum #'(tag ...))
-                 (stx-map (current-type-eval) #'(τ ...)))]))))
+  (current-typecheck-relation (current-sub?)))
 
 ; quasi-kind, but must be type constructor because its arguments are types
 (define-type-constructor <: #:arity >= 0) 
 (begin-for-syntax
-  (current-type? (λ (t) (or (type? t) (<:? (typeof t))))))
+  (current-type?
+   (λ (t) (or (type? t)
+              (syntax-property t '<:) ; bounded tyvars
+              (<:? (typeof t)))))) ; ∀s
 
 ;; Type annotations used in two places:
 ;; 1) typechecking the body of 
@@ -87,7 +86,7 @@
    ;; "environment", ie, a syntax property with another tag: '<:
    ;; The "expose" function looks for this tag to enforce the bound,
    ;; as in TaPL (fig 28-1)
-   #:with ((X- ...) e- τ_e) (infer/ctx #'([X :: #%type <: τsub] ...) #'e)
+   #:with ((X- ...) e- τ_e) (infer/ctx #'([X <: τsub] ...) #'e)
    (⊢ e- : (∀ ([X- <: τsub] ...) τ_e))])
 (define-typed-syntax inst
   [(_ e τ:type ...)

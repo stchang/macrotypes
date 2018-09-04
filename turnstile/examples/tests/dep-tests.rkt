@@ -7,7 +7,7 @@
 
 (check-type (λ ([x : *]) x) : (Π ([x : *]) *))
 (typecheck-fail ((λ ([x : *]) x) (λ ([x : *]) x))
- #:verb-msg "expected *, given (Π ([x : *]) *)")
+ #:verb-msg "expected *, given (Π ([x : *]) #%type)")
 
 ;; transitivity of implication
 (check-type (λ ([A : *][B : *][C : *])
