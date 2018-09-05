@@ -8,7 +8,7 @@
 (begin-for-syntax
   (define (compute-tyvars ty)
     (syntax-parse ty
-      [X:id #:when (tyvar? #'X) #'(X)]
+      [X:id #:when (type? #'X) #'(X)]
       [X:id #'()]
       [() #'()]
       [(C t ...) (stx-appendmap compute-tyvars #'(t ...))]))
