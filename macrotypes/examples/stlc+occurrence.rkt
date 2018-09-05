@@ -105,7 +105,7 @@
                    (error '∪ (format "Cannot discriminate types in the union ~a. Multiple functions have arity ~a." (cons '∪ (map syntax->datum τ*)) arity)))
                  (cons arity seen)]
                 [_ seen])))])
-    (lambda (τ-stx)
+    (lambda (τ-stx [env #f])
      (syntax-parse (τ-eval τ-stx)
       [(~∪ τ-stx* ...)
        ;; Recursively evaluate members

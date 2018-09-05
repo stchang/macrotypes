@@ -508,18 +508,19 @@
            ;;     - could parse types but separate parser leads to duplicate code
            ;;   - later, expanding enables reuse of same mechanisms for kind checking
            ;;     and type application
-           (define (default-type-eval τ)
+           (define (default-type-eval τ [env #f])
              ; TODO: optimization: don't expand if expanded
              ; - but this causes problems when combining unexpanded and
              ;   expanded types to create new types
              ; - alternative: use syntax-local-expand-expression?
-             (define expanded (expand/df τ))
+             (define expanded (expand/df τ env))
              ; - Must disarm because we reconstruct expanded syntax that may have
              ;   come from syntax-rules macros that do a syntax-protect. Doesn't bother
              ;   to rearm; I'm not sure it matters.
              ; - Must reexpand to ensure different bindings are distinct for free=?,
              ;   as that is how they are compared in type=?.
-             (define reconstructed (expand/df (reconstruct (syntax-disarm expanded #f))))
+             ;; eg, removing this causes instantiation failure in some mlish tests
+             (define reconstructed (expand/df (reconstruct (syntax-disarm expanded #f)) env))
              (add-orig reconstructed τ))
 
            (define current-type-eval (make-parameter default-type-eval))
@@ -994,9 +995,7 @@
        ;;   - eg exist, fomega
        ;; - langs that that need to simultaneously bind tyvars and annotations
        ;;   that reference those tyvars, eg mlish
-       ;; TODO: is the type-eval needed at all?
-       ;; 2018-09-01: currently yes, for langs where type-eval \neq expand, eg fomega
-       (attach x+ (stx-e #'sep) ((current-type-eval) #'τ))]))
+       (attach x+ (stx-e #'sep) #'τ)]))
 
   ;; current-var-assign :
   ;; (Parameterof [Id Id (Listof Sym) (StxListof TypeStx) -> Stx])
@@ -1046,6 +1045,8 @@
   (define (infers+erase es #:tag [tag (current-tag)] #:stop-list? [stop-list? #t])
     (stx-map (λ (e) (infer+erase e #:tag tag #:stop-list? stop-list?)) es))
 
+  ;; NB: "unbound id" errors (especially tyvars) are often due to
+  ;; forgetting this fn (before expansion)
   (define (apply-scopes scs syn)
     (foldr (λ (sc x) (sc x 'add)) syn scs))
 
@@ -1105,16 +1106,16 @@
 
        #'((tv+ ...) (x+ ...) (e+ ...))])
     (syntax-parse ctx
-      [([x:id . sep+τ] ...) ; dont expand; τ may reference to tv
+      [([x:id sep:id τ] ...) ; dont expand; τ may reference to tv
        #:with (~or (~and (tv:id ...)
-                         (~parse (tvsep+tvk ...)
+                         (~parse ([tvsep tvk] ...)
                                  (stx-map (λ _ #'[:: #%type]) #'(tv ...))))
-                   ([tv . tvsep+tvk] ...))
+                   ([tv tvsep:id tvk] ...))
        tvctx
-       (define tvenv (expands/bind/block #'(tv ...) #'(tvsep+tvk ...)
+       (define tvenv (expands/bind #'(tv ...) #'(tvsep ...) #'(tvk ...)
                                          #:stop-list? #f
                                          #:wrap-fn #'mk-tyvar))
-       (define env (expands/bind/block #'(x ...) #'(sep+τ ...) (mk-new-env tvenv)
+       (define env (expands/bind #'(x ...) #'(sep ...) #'(τ ...) (mk-new-env tvenv)
                                        #:stop-list? #f))
 
        (list (env-xs tvenv)
@@ -1195,12 +1196,14 @@
    (define ((expand1/env env) e #:stop-list? [stop? #t])
      (expand1 e env #:stop-list? stop?))
    
-   ;; like `expand1`, but instead of returning expansion of `e`,
-   ;; binds it to (the expansion of) `x` in `env`, returning the new env
-   ;; expand1+bind : Id Symbol Stx Env #:stop-list? Bool -> Env
+   ;; like `expand1`, but:
+   ;; 1) use current-type-eval instead of expand1
+   ;; 2) instead of returning expansion of `e`,
+   ;;    bind it to (the expansion of) `x` in `env`, returning the new env
+   ;; expand1/bind : Id Symbol Stx Env #:stop-list? Bool -> Env
    (define (expand1/bind x xtag e [env (mk-new-env)] #:stop-list? [stop? #t]
                                                      #:wrap-fn [wrap-fn #'(λ (x) x)])
-     (define e+ (expand1 e env #:stop-list? stop?))
+     (define e+ ((current-type-eval) e env))
      (env-add x xtag e+ env #:wrap-fn wrap-fn))
 
    ;; folds expand1/bind given binders and "terms", returning the final idc
@@ -1212,25 +1215,6 @@
       (λ (x t e acc)
         (expand1/bind x t e acc #:stop-list? stop? #:wrap-fn wrap-fn))
       env xs tags es))
-
-   (define (expands/bind/block xs tags+es [env (mk-new-env)]
-                               #:stop-list? [stop? #t]
-                               #:wrap-fn [wrap-fn #'(λ (x) x)])
-     #;(syntax-parse tags+es
-       [([(~seq tag:id e) ...] ...)
-        (stx-map
-         (λ (x tags+es)
-           (stx-map
-            (syntax-parser
-              [(tag:id e)
-               (expand1 #'e env)])
-            tags+es))
-           )
-         xs
-         #'(((tag e) ...) ...)])
-     (syntax-parse tags+es
-       [([tag:id e] ...)
-        (expands/bind xs #'(tag ...) #'(e ...) env #:stop-list? stop? #:wrap-fn wrap-fn)]))
 
    ;; like `expands/bind` but curries the env (like `expand/env`)
    (define ((expands/bind/env env) xs tags es #:stop-list? [stop? #t]
@@ -1255,9 +1239,10 @@
       [(tvs _ (e+)) #'(tvs e+)]))
 
   ;; full expansion fn
-  ;; NOTE: this is deprecated; probably want to use expand/stop instead
-  (define (expand/df e)
-    (local-expand e 'expression null))
+  ;; NOTE: this is deprecated (but still used by current-type-eval);
+  ;;       probably want to use expand/stop instead
+  (define (expand/df e [env #f])
+    (local-expand (apply-scopes (env-scopes env) e) 'expression null (env-idcs env)))
 
   ;; --------------------------------------------------------------------------
   ;; err msg helper fns
