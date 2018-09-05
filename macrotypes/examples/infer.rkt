@@ -31,11 +31,12 @@
     [(_ . rst) (add-orig #'(∀ () (ext-stlc:→ . rst)) (get-orig this-syntax))]))
 
 (begin-for-syntax
+  (define old-var-assign (current-var-assign))
   (current-var-assign
-    (lambda (x+ seps+τs)
-      (syntax-parse seps+τs
-        [((~datum #%tyvar) _) #`(infer-ref #,x+ #,(stx-cdr seps+τs))]
-        [_ (var-assign x+ seps+τs)])))
+   (lambda (x+ sep τ)
+     (if (equal? (stx-e sep) '#%tyvar)
+         #`(infer-ref #,x+ #,τ)
+         (old-var-assign x+ sep τ))))
 
   (define (raise-infer-error stx)
     (raise
@@ -47,7 +48,7 @@
 
 (define-syntax infer-ref
   (syntax-parser
-    [(_ x+ (τ))
+    [(_ x+ _)
      (if (get-expected-type this-syntax)
        (add-env
          (assign-type #'x+ (get-expected-type this-syntax))

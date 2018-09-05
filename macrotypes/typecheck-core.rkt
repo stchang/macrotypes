@@ -984,17 +984,9 @@
   ;; --------------------------------------------------------------------------
   ;; var-assign allows customizing "T-Var" rule
 
-  ;; var-assign :
-  ;; Id (Listof Sym) (StxListof TypeStx) -> Stx
-  (define (var-assign x+ seps+τs)
-    (syntax-parse seps+τs
-      [(sep:id τ)
-       (attach x+ (stx-e #'sep) #'τ)]))
-
-  ;; current-var-assign :
-  ;; (Parameterof [Id Id (Listof Sym) (StxListof TypeStx) -> Stx])
+  ;; (Parameterof [Id TagId Stx -> Id])
   (define current-var-assign
-    (make-parameter var-assign))
+    (make-parameter (λ (x+ tag τ) (attach x+ (stx-e tag) τ))))
 
   ;; --------------------------------------------------------------------------
   ;; "infer" and "expand" fns
@@ -1110,12 +1102,11 @@
       (list (apply-scopes (cons new-sc scs) #'x))
       (apply-scopes scs
        #`(make-variable-like-transformer
-          ((current-var-assign) #'x+ #'(sep τ+))))
+          ((current-var-assign) #'x+ #'sep #'τ+)))
       idc)
      (env (cons #'x+ xs) (cons #'τ+ τs) idc (cons new-sc scs) parent))
 
    ;; start of new expand (ie, infer) fns ----------------------------------------
-  ;; TODO: merge with the above expands/ctxs
 
   ;; expands `stx` for type checking, returning its expanded version
   ;; ie, `expand1` wraps `local-expand`, incorporating the type-specific args:
@@ -1141,7 +1132,7 @@
    ;; 1) use current-type-eval instead of expand1
    ;; 2) instead of returning expansion of `e`,
    ;;    bind it to (the expansion of) `x` in `env`, returning the new env
-   ;; expand1/bind : Id Symbol Stx Env #:stop-list? Bool -> Env
+   ;; expand1/bind : Id TagId Stx Env -> Env
    (define (expand1/bind x xtag e [env (mk-new-env)])
      (define e+ ((current-type-eval) e env))
      (env-add x xtag e+ env))

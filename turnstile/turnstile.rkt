@@ -729,14 +729,14 @@
 ;;   > (current-var-assign (macro-var-assign #'foo))
 ;;   > ((current-var-assign) #'x #'(: τ))
 ;;   #'(foo x : τ)
-(define-for-syntax ((macro-var-assign mac-id) x+ seps+τs)
-  (datum->syntax x+ `(,mac-id ,x+ . ,seps+τs)))
-
+(define-for-syntax ((macro-var-assign mac-id) x+ sep τ)
+  (datum->syntax x+ `(,mac-id ,x+ ,sep ,τ)))
 
 (define-syntax define-typed-variable-syntax
   (syntax-parser
     ;; single-clause def
-    [(_ (name . pats) (~datum ≫) . rst) #'(define-typed-variable-syntax #:name name [(_ . pats) ≫ . rst])]
+    [(_ (name . pats) (~datum ≫) . rst)
+     #'(define-typed-variable-syntax #:name name [(_ . pats) ≫ . rst])]
     [(_ (~optional (~seq #:name name:id) #:defaults ([name (generate-temporary '#%var)]))
         (~and (~seq kw-stuff ...) :stxparse-kws)
         rule ...+)
