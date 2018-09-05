@@ -513,14 +513,15 @@
              ; - but this causes problems when combining unexpanded and
              ;   expanded types to create new types
              ; - alternative: use syntax-local-expand-expression?
-             (define expanded (expand/df τ env))
+             (define expanded (expand1/nostop τ env))
              ; - Must disarm because we reconstruct expanded syntax that may have
              ;   come from syntax-rules macros that do a syntax-protect. Doesn't bother
              ;   to rearm; I'm not sure it matters.
              ; - Must reexpand to ensure different bindings are distinct for free=?,
              ;   as that is how they are compared in type=?.
              ;; eg, removing this causes instantiation failure in some mlish tests
-             (define reconstructed (expand/df (reconstruct (syntax-disarm expanded #f)) env))
+             (define reconstructed
+               (expand1/nostop (reconstruct (syntax-disarm expanded #f)) env))
              (add-orig reconstructed τ))
 
            (define current-type-eval (make-parameter default-type-eval))
@@ -1113,10 +1114,8 @@
                    ([tv tvsep:id tvk] ...))
        tvctx
        (define tvenv (expands/bind #'(tv ...) #'(tvsep ...) #'(tvk ...)
-                                         #:stop-list? #f
                                          #:wrap-fn #'mk-tyvar))
-       (define env (expands/bind #'(x ...) #'(sep ...) #'(τ ...) (mk-new-env tvenv)
-                                       #:stop-list? #f))
+       (define env (expands/bind #'(x ...) #'(sep ...) #'(τ ...) (mk-new-env tvenv)))
 
        (list (env-xs tvenv)
              (env-xs env)
@@ -1192,6 +1191,11 @@
                    (decide-stop-list stop?)
                    (env-idcs env)))
 
+   ;; calls `expand1` with stop-list? = #f
+   ;; convenient where kw fns not allowed, eg forward references, eg in default-type-eval
+   ;; - ow, results in err "identifier treated as variable, but later defined as syntax"
+   (define (expand1/nostop stx env) (expand1 stx env #:stop-list? #f))
+
    ;; version of `expand1` that curries the env
    (define ((expand1/env env) e #:stop-list? [stop? #t])
      (expand1 e env #:stop-list? stop?))
@@ -1201,25 +1205,22 @@
    ;; 2) instead of returning expansion of `e`,
    ;;    bind it to (the expansion of) `x` in `env`, returning the new env
    ;; expand1/bind : Id Symbol Stx Env #:stop-list? Bool -> Env
-   (define (expand1/bind x xtag e [env (mk-new-env)] #:stop-list? [stop? #t]
-                                                     #:wrap-fn [wrap-fn #'(λ (x) x)])
+   (define (expand1/bind x xtag e [env (mk-new-env)] #:wrap-fn [wrap-fn #'(λ (x) x)])
      (define e+ ((current-type-eval) e env))
      (env-add x xtag e+ env #:wrap-fn wrap-fn))
 
    ;; folds expand1/bind given binders and "terms", returning the final idc
    ;; - xs must not have duplicates
    (define (expands/bind xs tags es [env (mk-new-env)]
-                         #:stop-list? [stop? #t]
                          #:wrap-fn [wrap-fn #'(λ (x) x)])
      (stx-fold
       (λ (x t e acc)
-        (expand1/bind x t e acc #:stop-list? stop? #:wrap-fn wrap-fn))
+        (expand1/bind x t e acc #:wrap-fn wrap-fn))
       env xs tags es))
 
    ;; like `expands/bind` but curries the env (like `expand/env`)
-   (define ((expands/bind/env env) xs tags es #:stop-list? [stop? #t]
-                                              #:wrap-fn [wrap-fn #'(λ (x) x)])
-     (expands/bind xs tags es env #:stop-list? stop? #:wrap-fn wrap-fn))
+   (define ((expands/bind/env env) xs tags es #:wrap-fn [wrap-fn #'(λ (x) x)])
+     (expands/bind xs tags es env #:wrap-fn wrap-fn))
    
   ;; "expand" and "infer" fns derived from expands/ctxs -----------------------
   ;; some are syntactic shortcuts, some are for backwards compat
@@ -1239,10 +1240,9 @@
       [(tvs _ (e+)) #'(tvs e+)]))
 
   ;; full expansion fn
-  ;; NOTE: this is deprecated (but still used by current-type-eval);
+  ;; NOTE: this is deprecated, expand1 is the main "infer" fn
   ;;       probably want to use expand/stop instead
-  (define (expand/df e [env #f])
-    (local-expand (apply-scopes (env-scopes env) e) 'expression null (env-idcs env)))
+  (define (expand/df e) (local-expand e 'expression null))
 
   ;; --------------------------------------------------------------------------
   ;; err msg helper fns
