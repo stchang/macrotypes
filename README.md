@@ -14,7 +14,7 @@ Racket versions
 
 ## Issue 1
 
-- commit [96437b85f81d4149957d204a2369396f605b4c77](https://github.com/stchang/macrotypes/commit/96437b85f81d4149957d204a2369396f605b4c77)
+- fixed in commit [96437b85f81d4149957d204a2369396f605b4c77](https://github.com/stchang/macrotypes/commit/96437b85f81d4149957d204a2369396f605b4c77)
 
 ### Description
 terms still get wrapped, even with `current-use-stop-list?` = `#f`
@@ -50,7 +50,7 @@ In `turnstile.rkt`, `last-clause` syntax class, only wrap the `e-stx` in the con
 
 ## Issue 2
 
-- commit ???
+- fixed in commit [09f3cbeec19ffcd4ffa4e52705752d7958e539e3](https://github.com/stchang/macrotypes/commit/09f3cbeec19ffcd4ffa4e52705752d7958e539e3)
 
 ### Description
 
@@ -94,3 +94,69 @@ pattern-based telescope instantiation in type constructor not working
 
 ### Solution
 - in `typecheck-core.rkt`, for `ctx->idc`fn, fix `var-assign` argument to call `(current-type-eval)` on the types
+
+## Issue 3
+
+- fixed in commit [29f6d0f977e03ff1a82fb9356f65848df77ce54a](https://github.com/stchang/macrotypes/commit/29f6d0f977e03ff1a82fb9356f65848df77ce54a)
+
+### Problem
+`mlish` GADT example match body types not getting properly refined
+
+### Failing Example
+
+In `turnstile/examples/tests/mlish+gadt-tests.rkt`, comment out
+everything except `Expr` data definition and `eval` function.
+
+E.g.,
+```racket
+(define-gadt (Expr A)
+  [I   :: Int -> (Expr Int)]
+  [B   :: Bool -> (Expr Bool)]
+  [Add :: (Expr Int) (Expr Int) -> (Expr Int)]
+  [Mul :: (Expr Int) (Expr Int) -> (Expr Int)]
+  [Eq  :: (Expr Int) (Expr Int) -> (Expr Bool)])
+
+(define {A} (eval [e : (Expr A)] -> A)
+  (match-gadt e with
+    [I n       -> n] ; Int
+    [B b       -> b] ; Bool
+    [Add e1 e2 -> (+ (eval e1) (eval e2))] ; Int
+    [Mul e1 e2 -> (* (eval e1) (eval e2))] ; Int
+    [Eq e1 e2  -> (= (eval e1) (eval e2))])) ; Bool
+```
+
+#### Error msg
+
+```racket
+TYPE-ERROR: /home/stchang/macrotypes-dep-merge/turnstile/examples/mlish.rkt (43:43): couldn't unify Int and Int
+  expected: Int
+  given: Int
+```
+
+refers to third match clause
+
+### Cause
+- previously, in `expands/ctxs`, when creating the type env(s), the `syntax-local-bind-syntaxes` rhs called `current-type-eval`
+- now, those typed are pre-expanded (by the `current-type-eval` in `expand1/bind`)
+  - and the rhs of `syntax-local-bind-syntaxes` has no call to `current-type-eval`
+- as a result, some types (eg, the `(Expr A)` annotation of `e` above)
+  have an extra `intdef` scope from the internal definition context that that type would be added to
+  - because `syntax-local-bind-syntaxes` adds its `intdef` scope to the rhss too
+  - to check what scope an internal-def-ctx adds, do `(displayln (syntax-debug-info (internal-definition-context-introduce the-idc (datum->syntax #f 'dummy))))`
+- previously, that extra `intdef` scope got removed by the call to `current-type-eval`
+  - because the type does not reference anything in the int def ctx
+  
+- the result type `A` does not have the same `intdef` scope because it is `type-eval`ed with a different def ctx, so that scope gets removed
+
+### Solution
+
+1. call `current-type-eval` again on (components of) `(Expr A)`, to remove the extra `intdef` scope
+2. use `free-id=?` instead of `bound-id=?` to compare the ids in question
+
+## Issue 4
+
+### Problem
+
+Trying to call `expand` from `default-type-eval` results in error:
+`identifier treated as variable, but later defined as syntax`
+
