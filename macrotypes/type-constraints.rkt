@@ -171,13 +171,14 @@
 ;; inst-type : (Listof Type) (Listof Id) Type -> Type
 ;; Instantiates ty with the tys-solved substituted for the Xs, where the ith
 ;; identifier in Xs is associated with the ith type in tys-solved
-(define (inst-type tys-solved Xs ty)
-  (substs tys-solved Xs ty))
+(define (inst-type tys-solved Xs ty [var=? bound-identifier=?])
+  (substs tys-solved Xs ty var=?))
 ;; inst-type/orig : (Listof Type) (Listof Id) Type (Id Id -> Bool) -> Type
 ;; like inst-type, but also substitutes within the orig property
-(define (inst-type/orig tys-solved Xs ty [var=? free-identifier=?])
-  (add-orig (inst-type tys-solved Xs ty)
-            (substs (stx-map get-orig tys-solved) Xs (get-orig ty) var=?)))
+(define (inst-type/orig tys-solved Xs ty [orig-var=? free-identifier=?]
+                                         [inst-var=? bound-identifier=?])
+  (add-orig (inst-type tys-solved Xs ty inst-var=?)
+            (substs (stx-map get-orig tys-solved) Xs (get-orig ty) orig-var=?)))
 
 ;; inst-type/cs : (Stx-Listof Id) Constraints Type-Stx -> Type-Stx
 ;; Instantiates ty, substituting each identifier in Xs with its mapping in cs.
@@ -192,9 +193,10 @@
 ;; inst-type/cs/orig :
 ;; (Stx-Listof Id) Constraints Type-Stx (Id Id -> Bool) -> Type-Stx
 ;; like inst-type/cs, but also substitutes within the orig property
-(define (inst-type/cs/orig Xs cs ty [var=? free-identifier=?])
+(define (inst-type/cs/orig Xs cs ty [orig-var=? free-identifier=?]
+                                    [inst-var=? bound-identifier=?])
   (define tys-solved (lookup-Xs/keep-unsolved Xs cs))
-  (inst-type/orig tys-solved Xs ty var=?))
+  (inst-type/orig tys-solved Xs ty orig-var=? inst-var=?))
 ;; inst-types/cs/orig :
 ;; (Stx-Listof Id) Constraints (Stx-Listof Type-Stx) (Id Id -> Bool) -> (Listof Type-Stx)
 ;; the plural version of inst-type/cs/orig

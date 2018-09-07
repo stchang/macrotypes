@@ -70,8 +70,7 @@
   [(match e with . clauses) ≫
    #:fail-unless (not (null? (syntax->list #'clauses))) "no clauses"
    [⊢ e ≫ e- ⇒ τ_e]
-   ;; without the extra ty-eval below, subsequent substs (ie bound-id=?) won't work; why?
-   #:with Xs (stx-map (current-type-eval) (compute-tyvars #'τ_e))
+   #:with Xs (compute-tyvars #'τ_e)
    #:with t_expect_un (get-expected-type this-syntax) ; "un" = may have tyvars
    ;; filter out impossible infos, based on type of match target `e`
    #:with (info/unordered ...)
@@ -120,8 +119,8 @@
                       (add-constraints #'Xs null (list (list #'τ_e t))))
                     #'(τ_out ...))
    ;; instantiate expected type based on specific constraints of each clause
-   #:with (t_expect ...) (stx-map
-                          (lambda (cs) (inst-type/cs/orig #'Xs cs #'t_expect_un datum=?))
+   #:with (t_expect ...) (stx-map ; inst won't work with bound-id=? (see issue#3 in dep-merging branch log)
+                          (lambda (cs) (inst-type/cs/orig #'Xs cs #'t_expect_un datum=? free-id=?))
                           #'(cs ...))
    [[x ≫ x- : τ] ... ⊢ [(add-expected clause-bod t_expect) ≫ bod- ⇒ τ_bod*]] ...
    ;; "un-instantiate" τ_ec*
