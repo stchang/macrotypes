@@ -19,7 +19,9 @@ Racket versions
 - fixed in commit [96437b85f81d4149957d204a2369396f605b4c77](https://github.com/stchang/macrotypes/commit/96437b85f81d4149957d204a2369396f605b4c77)
 
 ### Symptom
-attaching type to term with existing type results in (expander) merged type stx property
+- attaching type to term with existing type results in (expander) merged type stx property
+- merged types appear out of order (ie, ca*r-most type is not the proper one)
+  - this is due to merging caused by `erased` wrapper
 
 ### Symptom source
 result type of `eq-elim` in `dep-ind-cur2+eq.rkt`
