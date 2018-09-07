@@ -14,13 +14,12 @@ Racket versions
 
 ## Issue 1
 
+### Description
+- terms still get wrapped, even with `current-use-stop-list?` = `#f`
 - fixed in commit [96437b85f81d4149957d204a2369396f605b4c77](https://github.com/stchang/macrotypes/commit/96437b85f81d4149957d204a2369396f605b4c77)
 
-### Description
-terms still get wrapped, even with `current-use-stop-list?` = `#f`
-
 ### Symptom
-attaching another type to term with existing type results in (expander) merged type stx property
+attaching type to term with existing type results in (expander) merged type stx property
 
 ### Symptom source
 result type of `eq-elim` in `dep-ind-cur2+eq.rkt`
@@ -46,29 +45,18 @@ It wrongly has type:
 ```
 
 ### Solution
-In `turnstile.rkt`, `last-clause` syntax class, only wrap the `e-stx` in the conclusion if `(current-use-stop-list?)` = `#t`
+In `turnstile.rkt`, `last-clause` syntax class, only wrap `e-stx` in conclusion if `(current-use-stop-list?)` = `#t`
 
 ## Issue 2
 
+### Description
+- `dep-ind-cur2` (`data2`-declared) type constructor errors
+  - but only for parameter arguments
+  - indices still working properly
 - fixed in commit [09f3cbeec19ffcd4ffa4e52705752d7958e539e3](https://github.com/stchang/macrotypes/commit/09f3cbeec19ffcd4ffa4e52705752d7958e539e3)
 
-### Description
-
-in `typecheck-core.rkt`, for `ctx->idc` fn, `var-assign` argument, forgot to `type-eval` arguments
-
-### Symptom
-
-pattern-based telescope instantiation in type constructor not working
-- but only for parameter arguments
-- it was strange that indices still working properly
-
-### Symptom source
-- in `turnstile/typedefs.rkt`
-  - in `define-type`, the initial `Y ...` and `k_out ...` that references `Y`, and
-  - the `mk-TY` in its output that re-uses `Y ...`
-
 ### Failing Example
-- in `dep-ind-cur2-eq-tests2.rkt`, declaration of `pm=` datatype errors
+- in `dep-ind-cur2-eq-tests2.rkt`, declaration of `pm=` datatype errors (`A unbound`)
   
 ```racket
 (define-datatype pm= [A : (Type 0)] [a : A] : [b : A] -> (Type 0)
@@ -76,8 +64,13 @@ pattern-based telescope instantiation in type constructor not working
 ```
 - (`my=` was still working properly)
 
-#### 2 places to observe error:
-##### when validating the annotations:
+### Failing Example source
+- in `turnstile/typedefs.rkt`
+  - in `define-type`, the initial `Y ...` and `k_out ...` that references `Y`, and
+  - the `mk-TY` in its output that re-uses `Y ...`
+
+### 2 more places to observe the problem:
+#### when validating the annotations:
 
 ```racket
    [[A ≫ A2 : τA ≫ τA2_] ... ⊢
@@ -88,7 +81,7 @@ pattern-based telescope instantiation in type constructor not working
 - `A ...` binds `A` references in `τA ...`
 - and `A2 ...` should bind `A` references `τA2 ...` but it doesn't
 
-##### when expanding (validating) `(pm= A a a)` result type of `pm-refl`
+#### when expanding (validating) `(pm= A a a)` result type of `pm-refl`
 - the second `a`'s expected type `A` is properly instantiated to the `A` argument given to `pm=` *call*
 - but the first `a`'s expected type `A` still wrongly refers to the `A` from the `pm=` *declaration*
 
@@ -97,10 +90,9 @@ pattern-based telescope instantiation in type constructor not working
 
 ## Issue 3
 
+### Description
+- `mlish` GADT example match body types not getting properly refined
 - fixed in commit [29f6d0f977e03ff1a82fb9356f65848df77ce54a](https://github.com/stchang/macrotypes/commit/29f6d0f977e03ff1a82fb9356f65848df77ce54a)
-
-### Problem
-`mlish` GADT example match body types not getting properly refined
 
 ### Failing Example
 
@@ -133,12 +125,12 @@ TYPE-ERROR: /home/stchang/macrotypes-dep-merge/turnstile/examples/mlish.rkt (43:
   given: Int
 ```
 
-refers to third match clause
+(refers to third match clause)
 
 ### Cause
 - previously, in `expands/ctxs`, when creating the type env(s), the `syntax-local-bind-syntaxes` rhs called `current-type-eval`
-- now, those typed are pre-expanded (by the `current-type-eval` in `expand1/bind`)
-  - and the rhs of `syntax-local-bind-syntaxes` has no call to `current-type-eval`
+- now, those types are pre-expanded (by the `current-type-eval` in `expand1/bind`)
+  - so the rhs of `syntax-local-bind-syntaxes` has no call to `current-type-eval`
 - as a result, some types (eg, the `(Expr A)` annotation of `e` above)
   have an extra `intdef` scope from the internal definition context that that type would be added to
   - because `syntax-local-bind-syntaxes` adds its `intdef` scope to the rhss too
@@ -155,8 +147,33 @@ refers to third match clause
 
 ## Issue 4
 
-### Problem
+### Description
 
-Trying to call `expand` from `default-type-eval` results in error:
-`identifier treated as variable, but later defined as syntax`
+- Trying to call `expand1` from `default-type-eval` results in error:
+```
+identifier treated as variable, but later defined as syntax
+```
+- fixed in commit [9125ca1e0727285d36d70a2a98e9a62abac0f2de](https://github.com/stchang/macrotypes/commit/9125ca1e0727285d36d70a2a98e9a62abac0f2de)
 
+### Small Test Case
+
+```racket
+#lang racket
+(require (for-meta 2 racket/base))
+
+(define-syntax (m stx)
+  #'(define-syntax (f stx) (f stx)))
+
+(m 1)
+
+(begin-for-syntax
+  (define-syntax (f stx) #'1))
+```
+
+### Cause
+
+`expand1`'s keyword args means that is it actually a macro defintion
+
+### Solution
+
+implement `expand1/nostop` wrapper with no keyword args
