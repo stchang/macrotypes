@@ -589,7 +589,11 @@
              #:with τ (generate-temporary #'τ)
              #:with tag (syntax-parameter-value #'current-tag-stx)
              #:with pat #'(~expected-type τ)
-             #:with body:expr #'(attach (quasisyntax/loc this-syntax (erased e-stx)) 'tag #'τ)]
+             #:with body:expr #'(attach
+                                 (if (current-use-stop-list?)
+                                     (quasisyntax/loc this-syntax (erased e-stx))
+                                     (quasisyntax/loc this-syntax e-stx))
+                                 'tag #'τ)]
     ;; macro invocations
     [pattern [≻ e-stx]
              #:with pat #'_
