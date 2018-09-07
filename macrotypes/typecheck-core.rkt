@@ -1087,24 +1087,21 @@
    (define ((idc-fresh idc) x)
      (internal-definition-context-introduce idc (fresh x)))
    
-   ;; extends `idc0` with `x` and `τ` at prop `tag`
-   ;; idc-add : Id Id Stx Env -> Env
+   ;; extends `env0` with `x` and `τ` at prop `tag`
+   ;; idc-add : Id TagId Stx Env -> Env
    ;; - τ is already expanded
-   (define (env-add xstx tag τ env_)
-     (match-define (env xs τs idc scs parent) env_)
+   (define (env-add x tag τ env0)
+     (match-define (env xs+ τs idc scs parent) env0)
      (define new-sc (make-syntax-introducer))
-     (define/syntax-parse x xstx) ; TODO: just use x?
-     (define/syntax-parse sep tag)
-     (define/syntax-parse τ+ τ)
-     (define/syntax-parse x+ ((idc-fresh idc) #'x))
-     (syntax-local-bind-syntaxes (list #'x+) #f idc)
+     (define x+ ((idc-fresh idc) x))
+     (syntax-local-bind-syntaxes (list x+) #f idc)
      (syntax-local-bind-syntaxes
-      (list (apply-scopes (cons new-sc scs) #'x))
+      (list (apply-scopes (cons new-sc scs) x))
       (apply-scopes scs
        #`(make-variable-like-transformer
-          ((current-var-assign) #'x+ #'sep #'τ+)))
+          ((current-var-assign) #'#,x+ #'#,tag #'#,τ)))
       idc)
-     (env (cons #'x+ xs) (cons #'τ+ τs) idc (cons new-sc scs) parent))
+     (env (cons x+ xs+) (cons τ τs) idc (cons new-sc scs) parent))
 
    ;; start of new expand (ie, infer) fns ----------------------------------------
 
