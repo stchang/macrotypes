@@ -7,10 +7,27 @@ A Racket language for creating typed embedded DSLs
 - from: `dep` (originally branched from `master` [88f90bf278171bcabc3343c82d8cf26aebf67b13](https://github.com/stchang/macrotypes/commit/88f90bf278171bcabc3343c82d8cf26aebf67b13))
 - to: `master` [c5b663f7e663c564cb2baf0e0a352d5fde4d2bd7](https://github.com/stchang/macrotypes/commit/c5b663f7e663c564cb2baf0e0a352d5fde4d2bd7)
 
-Racket versions
-- 7.0
-- 6.12
-- 6.11
+- Merge result requires Racket 7.0:
+  - uses features originally in `syntax/experimental/tempate`
+
+- Remaining issues to explore
+  - restore 6.12 compatibility?
+    - mainly for performance
+	- but just using `syntax/experimental/tempate` instead of the default `syntax` template is not enough
+	  - other tests failing - due to expander differences?
+  - dont create empty definition contexts; see if it affects performance
+  - use `checked-type-eval` instead of `current-type-eval` in `expand1/bind`
+  - more generally, make the optimization heuristic in `checked-type-eval` more robust
+    - eg, an `'expanded` tag or property
+	- the hard part is invalidating this tag
+	  - should happen in `subst` and other syntax "tampering" functions
+	  - I think it should process all sub-stx-objs? not just outer one
+	  - but preliminary experiments (in `subst`) show that this affects performance noticeably
+	  - also need some global `force-type-eval` parameter to turn off the optimization?
+  - clean up `subst`
+    - I think the `syntax-track-origin` is not needed
+	- in general, the seems to be some redundant "transferring properties" actions
+
 
 ## Issue 1
 
@@ -18,15 +35,9 @@ Racket versions
 - terms still get wrapped, even with `current-use-stop-list?` = `#f`
 - fixed in commit [96437b85f81d4149957d204a2369396f605b4c77](https://github.com/stchang/macrotypes/commit/96437b85f81d4149957d204a2369396f605b4c77)
 
-### Symptom
-- attaching type to term with existing type results in (expander) merged type stx property
-- merged types appear out of order (ie, ca*r-most type is not the proper one)
-  - this is due to merging caused by `erased` wrapper
+### Symptom 1: terms have the wrong (typically unreduced) type
 
-### Symptom source
-result type of `eq-elim` in `dep-ind-cur2+eq.rkt`
-
-### Failing example
+#### Failing example
 - from `dep-ind-cur2-tests.rkt`
 
 ```racket
@@ -45,9 +56,17 @@ It wrongly has type:
 ```
 (Π [k : Nat] [p : (= (plus k Z) k)] (= (S (plus k Z)) (S (plus k Z))))
 ```
+### Symptom 2: terms have a merged `':` syntax property (in the wrong order)
+- ie, the `ca*r`-most type is not the proper one
+- this is due to merging caused by `erased` wrapper
+
+#### Example
+See result type of `eq-elim` in `dep-ind-cur2+eq.rkt`
+
 
 ### Solution
 In `turnstile.rkt`, `last-clause` syntax class, only wrap `e-stx` in conclusion if `(current-use-stop-list?)` = `#t`
+
 
 ## Issue 2
 
@@ -146,6 +165,7 @@ TYPE-ERROR: /home/stchang/macrotypes-dep-merge/turnstile/examples/mlish.rkt (43:
 
 1. call `current-type-eval` again on (components of) `(Expr A)`, to remove the extra `intdef` scope
 2. use `free-id=?` instead of `bound-id=?` to compare the ids in question
+- couldnt quite get this working (why?)
 
 ## Issue 4
 
