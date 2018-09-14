@@ -12,8 +12,9 @@
 
 (define-syntax define-type
   (syntax-parser
+    [(_ (~and x (~not #:extra)) ...) #'(define-type x ... #:extra ())]
     ;; simpler cases
-    [(_ TY:id (~datum :) k) #'(define-type TY : -> k)]
+    [(_ TY:id (~datum :) k #:extra . ei) #'(define-type TY : -> k #:extra . ei)]
     [(_ TY:id
         ;; specifying binders with define-type (ie, a binding type)
         ;; affects the output in 3 (numbered) places (see below)
@@ -32,7 +33,9 @@
                         (~and (~seq k_out ...)
                               (~parse (Y ...) (generate-temporaries #'(k_out ...)))
                               (~parse (Ytag ...) (stx-map (λ _ #':) #'(Y ...)))))
-        (~datum ->) k) ; ⇒ ⇐
+        (~datum ->) k
+        #:extra . extra-info
+        ) ; ⇒ ⇐
      #:with [(Y- ...) (k_out- ...) k-]
             (syntax-parse/typecheck null 
              [_ ≫ ;; TODO: use this X- and Y-?
@@ -83,7 +86,7 @@
                         #'(syntax/loc this-syntax
                             (λ- (X- ...) (#%plain-app list τ_out- ...))))
            ---------------
-           [⊢ (TY/internal τ_in- ... maybe-lambda) ⇒ k]])
+           [⊢ (TY/internal τ_in- ... maybe-lambda) (⇒ : k) (⇒ extra extra-info)]])
          #,@(if (attribute telescope?) (list #'(define-nested/R TY TY/1)) #'())
          (begin-for-syntax
            (define TY/internal+ (expand/df #'TY/internal))
