@@ -25,8 +25,9 @@
        #:do[(define new-m (syntax-property #'m 'reflect))]
        (transfer-props
         stx
-        (quasisyntax/loc stx
-          (#,(or new-m #'m) . #,(stx-map reflect #'rst)))
+        (datum->syntax stx ; this datum->stx ensures correct #%app inserted
+                       (cons (or new-m (reflect #'m)) (stx-map reflect #'rst))
+                       stx)
         #:except null)]
       [_ stx]))
 
@@ -38,17 +39,38 @@
   (syntax-parser
     [(_ red-name redex (~datum ~>) contractum) ; single redex case
      #'(define-red red-name [redex ~> contractum])]
+    ;; NOTE: be careful about "pattern passing" for this macro-defining macro:
+    ;; Specifically, if `head-pat` is an id expander and `rst-pat` is null,
+    ;; then `head-pat` wont expand to its paren-wrapped nullary-constructor call
+    ;; (as defined by define-type in turnstile/eval),
+    ;;  bc it will already have parens in the stx-parse clauses below,
+    ;; so the match will fail
+    ;; eg, see `zero?` in stdlib/nat
     [(_ red-name [(placeholder head-pat . rst-pat) (~datum ~>) contractum] ...+)
+     #:with placeholder1 (stx-car #'(placeholder ...))
      #'(define-syntax red-name
          (syntax-parser
            [(_ head . rst-pat2)
-            #:with placeholder1 (stx-car #'(placeholder ...))
             #:with saved-stx this-syntax
             (transfer-type
              this-syntax
              (syntax-parse #`(#,(expand/df #'head) . rst-pat2)
-               [(head-pat . rst-pat) (reflect #`contractum)] ...
-               [es (quasisyntax/loc #'saved-stx (#,(mk-reflected #'red-name #'placeholder1) . es))]))]))]))
+               [(head-pat . rst-pat)
+                ;; #:do[(displayln 'red-name)
+                ;;      (pretty-print (stx->datum this-syntax))
+                ;;      (displayln '~>)
+                ;;      (pretty-print (stx->datum #`contractum))]
+                (reflect #`contractum)] ...
+               [es
+                ;; #:do[(display "no match: ") (displayln 'red-name)
+                ;;                      (pretty-print (stx->datum #'es))
+                ;;                      (displayln 'head)
+                ;;                      (pretty-print (stx->datum #'head))
+                ;;                      (displayln 'otherpats)
+                ;;                      (stx-map
+                ;;                       (λ (ps) (pretty-print (stx->datum ps)))
+                ;;                       #'((head-pat . rst-pat) ...))]
+                (quasisyntax/loc #'saved-stx (#,(mk-reflected #'red-name #'placeholder1) . es))]))]))]))
 
 ;; use #%plain-app for no
 (define-syntax define-core-id
