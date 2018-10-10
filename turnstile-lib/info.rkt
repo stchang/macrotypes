@@ -5,12 +5,12 @@
 (define deps
   '(("base" #:version "7.0")
     ("macrotypes-lib" #:version "0.3.1")
-    ("macrotypes-example" #:version "0.3.1")
+    "lens-lib"
     ))
 
 (define build-deps '())
 
-(define pkg-desc "A meta-package for macrotypes-lib and macrotypes-example.")
+(define pkg-desc "A language for defining type systems as macros.")
 (define pkg-authors '(stchang))
 
 (define version "0.3.1")

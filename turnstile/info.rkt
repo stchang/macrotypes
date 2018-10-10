@@ -1,16 +1,17 @@
 #lang info
 
-(define scribblings
-  '(["scribblings/turnstile.scrbl" (multi-page)]))
+(define collection 'multi)
 
-(define compile-omit-paths 
-  '("examples/tests"
-    "examples/trivial.rkt")) ; needs typed racket
+(define deps
+  '(("turnstile-lib" #:version "0.3.1")
+    ("turnstile-example" #:version "0.3.1")
+    ("turnstile-doc" #:version "0.3.1")
+    ("turnstile-test" #:version "0.3.1")
+    ))
 
-(define test-include-paths
-  '("examples/tests/mlish")) ; to include .mlish files
+(define build-deps '())
 
-(define test-omit-paths
-  '("examples/tests/trivial-test.rkt"    ; needs typed/racket
-    "examples/tests/mlish/sweet-map.rkt" ; needs sweet-exp
-    "examples/tests/mlish/bg/README.md"))
+(define pkg-desc "A meta-package for turnstile-lib, turnstile-example, turnstile-doc, turnstile-test.")
+(define pkg-authors '(stchang))
+
+(define version "0.3.1")
