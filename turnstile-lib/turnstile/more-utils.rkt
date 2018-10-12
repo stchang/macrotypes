@@ -36,7 +36,7 @@
          (wrap-fn ; eg pattern-expander
           (syntax-parser
             [(_ e) #'e]
-            [(_ x . rst) #'(name/1 x (name . rst))]
+            [(_ x . rst) (syntax/loc this-syntax (name/1 x (name . rst)))]
             )))]))
 (define-syntax define-nested/L
   (syntax-parser
