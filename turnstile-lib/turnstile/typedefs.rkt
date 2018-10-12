@@ -6,15 +6,25 @@
          (for-syntax syntax/parse "more-utils.rkt")
          (for-meta 2 syntax/parse "more-utils.rkt"))
 
-(provide define-type)
+(provide define-type (for-syntax get-type-info))
 
-(begin-for-syntax (current-use-stop-list? #f))
+(begin-for-syntax
+  (current-use-stop-list? #f)
+  (define (get-type-info t)
+;    (printf "getting type info for: ~a\n" t)
+    (syntax-parse t
+      [(_ TY+:id . _)
+       ;; #:do[(displayln (syntax-property-symbol-keys #'TY+))
+       ;;      (map (λ (x) (displayln (syntax-property #'TY+ x))) (syntax-property-symbol-keys #'TY+))]
+       (eval-syntax #'TY+)])))
 
+;; TODO: split out a separate `define-binding-type` from this `define-type`
+;; - this macro has too many #,(if ...)s
 (define-syntax define-type
   (syntax-parser
-    [(_ (~and x (~not #:extra)) ...) #'(define-type x ... #:extra ())]
-    ;; simpler cases
-    [(_ TY:id (~datum :) k #:extra . ei) #'(define-type TY : -> k #:extra . ei)]
+    ;; simple case
+    [(_ TY:id (~datum :) k (~optional (~seq #:extra ei ...) #:defaults ([(ei 1) '()])))
+     #'(define-type TY : -> k #:extra ei ...)]
     [(_ TY:id
         ;; specifying binders with define-type (ie, a binding type)
         ;; affects the output in 3 (numbered) places (see below)
@@ -34,7 +44,7 @@
                               (~parse (Y ...) (generate-temporaries #'(k_out ...)))
                               (~parse (Ytag ...) (stx-map (λ _ #':) #'(Y ...)))))
         (~datum ->) k
-        #:extra . extra-info
+        (~optional (~seq #:extra ei ...) #:defaults ([(ei 1) '()]))
         ) ; ⇒ ⇐
      #:with [(Y- ...) (k_out- ...) k-]
             (syntax-parse/typecheck null 
@@ -48,45 +58,44 @@
      #:with (τ_in- ...) (generate-temporaries #'(k_in ...))
      #:with (τ_out- ...) (generate-temporaries #'(k_out ...))
      #:with (X- ...) (generate-temporaries #'(X ...))
-     #:with TY/internal (generate-temporary #'TY)
+     #:with TY/internal (fresh #'TY)
      #:with TY-expander (mk-~ #'TY)
      #:with TY-expander/1/nested (format-id #'TY "~a/nested" (mk-~ #'TY/1))
      #:with TY/1 (format-id #'TY "~a/1" #'TY)
      #:with TY-expander/1 (mk-~ #'TY/1)
-     #:with mk-TY (format-id #'TY "mk-~a" #'TY)
      #`(begin-
-         (struct- TY/internal (X ... bod) #:transparent)
-         (define-syntax mk-TY ;creates the internal struct w/o checking
-           (syntax-parser [(_ . xx) #'(TY/internal (#%plain-app list . xx))]))
-         (define-typerule #,(if (attribute telescope?) #'TY/1 #'TY)
+         (struct- TY/internal (X ... bod) #:transparent #:omit-define-syntaxes)
+         ;; "extra info" is defined as a phase 1 (non-transformer) binding
+         (define-for-syntax TY/internal #'(ei ...))
+         (define-typed-syntax #,(if (attribute telescope?) #'TY/1 #'TY)
 ;           [a ≫ #:do[(displayln (stx->datum #'a))] #:when #f ---[≻ FOR-DEBUGGING]]
            #,@(if (and (stx-null? #'(Y ...)) ; base type, allow use as just id
                        (stx-null? #'(X ...)))
                   (list #`[(~var _ id) ≫ --- [≻ #,(if (attribute telescope?) #'(TY/1) #'(TY))]])
                   null)
            [(_ ; fully explicit case
-            ;; 1) dont require binders in constructor if there are none
-            #,@(if (stx-null? #'(X ...))
-                   null
-                   (list #'(~seq [(~var X id) (~var Xtag id) τ_in] ...)))
-            Y ...) ≫
-           ;; with prev Turnstile stx"
-;;            [⊢ τ_in  ≫ τ_in- ⇐ k_in] ...
-;;            [[X ≫ X- : τ_in-] ... ⊢ [Y ≫ τ_out- ⇐ k_out] ...]
-;; dont need k_inst (or any other k_*_inst) bc we're using nested pat-var subst technique
-;; ;          #:with k_inst (substs #'(τ_out ...) #'(Y ...) #'k)
-          [⊢ [X ≫ X- Xtag τ_in ≫ τ_in- ⇐ k_in] ... [Y ≫ τ_out- ⇐ k_out] ...]
-;            [⊢ [X ≫ X- Xtag τ_in ≫ τ_in- ⇒ _] ... [Y ≫ τ_out- ⇒ _] ...]
-           #:with maybe-lambda
-                  ;; 2) when no binders, remove the λ in runtime rep
-                  ;; - this allows comparisons at runtime
-                  ;; - alternative? use prop:equal?
-                  #,(if (stx-null? #'(X- ...))
-                        #'(syntax/loc this-syntax (#%plain-app list τ_out- ...))
-                        #'(syntax/loc this-syntax
-                            (λ- (X- ...) (#%plain-app list τ_out- ...))))
-           ---------------
-           [⊢ (TY/internal τ_in- ... maybe-lambda) (⇒ : k) (⇒ extra extra-info)]])
+             ;; 1) dont require binders in constructor if there are none
+             #,@(if (stx-null? #'(X ...))
+                    null
+                    (list #'(~seq [(~var X id) (~var Xtag id) τ_in] ...)))
+             Y ...) ≫
+            ;; with prev Turnstile stx"
+            ;;            [⊢ τ_in  ≫ τ_in- ⇐ k_in] ...
+            ;;            [[X ≫ X- : τ_in-] ... ⊢ [Y ≫ τ_out- ⇐ k_out] ...]
+            ;; dont need k_inst (or any other k_*_inst) bc we're using nested pat-var subst technique
+            ;; ;          #:with k_inst (substs #'(τ_out ...) #'(Y ...) #'k)
+            [⊢ [X ≫ X- Xtag τ_in ≫ τ_in- ⇐ k_in] ... [Y ≫ τ_out- ⇐ k_out] ...]
+            ;            [⊢ [X ≫ X- Xtag τ_in ≫ τ_in- ⇒ _] ... [Y ≫ τ_out- ⇒ _] ...]
+            #:with maybe-lambda
+            ;; 2) when no binders, remove the λ in runtime rep
+            ;; - this allows comparisons at runtime
+            ;; - alternative? use prop:equal?
+            #,(if (stx-null? #'(X- ...))
+                  #'(syntax/loc this-syntax (#%plain-app list τ_out- ...))
+                  #'(syntax/loc this-syntax
+                      (λ- (X- ...) (#%plain-app list τ_out- ...))))
+            ---------------
+            [⊢ (#%plain-app TY/internal τ_in- ... maybe-lambda) ⇒ k]])
          #,@(if (attribute telescope?) (list #'(define-nested/R TY TY/1)) #'())
          (begin-for-syntax
            (define TY/internal+ (expand/df #'TY/internal))
