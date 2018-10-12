@@ -72,7 +72,7 @@
                 ;;                       #'((head-pat . rst-pat) ...))]
                 (quasisyntax/loc #'saved-stx (#,(mk-reflected #'red-name #'placeholder1) . es))]))]))]))
 
-;; use #%plain-app for no
+;; use #%plain-app for now
 (define-syntax define-core-id
   (syntax-parser
     [(_ name:id) #'(define-core-id name #%plain-app)] ; plain-app is the default
