@@ -16,8 +16,14 @@ before_install:
   - export PATH="${RACKET_DIR}/bin:${PATH}"
 
 install:
- - raco pkg install --auto -n turnstile
+ - raco pkg install --auto macrotypes-lib/
+ - raco pkg install --auto macrotypes-example/
+ - raco pkg install --auto rackunit-macrotypes-lib/
+ - raco pkg install --auto macrotypes-test/
+ - raco pkg install --auto turnstile-lib/
+ - raco pkg install --auto turnstile-example/
+ - raco pkg install --auto turnstile-test/
 
 script:
- - raco test --package turnstile
+ - raco test --package macrotypes-test turnstile-test
  - raco setup
