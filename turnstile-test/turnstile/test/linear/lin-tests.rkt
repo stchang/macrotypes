@@ -1,5 +1,5 @@
 #lang s-exp turnstile/examples/linear/lin
-(require macrotypesunit/rackunit-typechecking
+(require rackunit/turnstile
          (only-in racket/base quote))
 
 (check-type #t : Bool)

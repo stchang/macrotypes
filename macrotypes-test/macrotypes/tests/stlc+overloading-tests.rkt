@@ -1,5 +1,5 @@
 #lang s-exp macrotypes/examples/stlc+overloading
-(require macrotypesunit/rackunit-typechecking)
+(require rackunit/macrotypes)
 
 ;; -----------------------------------------------------------------------------
 ;; --- syntax for ψ types

@@ -1,5 +1,5 @@
 #lang s-exp turnstile/examples/linear/fabul
-(require macrotypesunit/rackunit-typechecking)
+(require rackunit/turnstile)
 
 (%U (define birthday : (× Int Int Int)
      (tup 10 10 97)))

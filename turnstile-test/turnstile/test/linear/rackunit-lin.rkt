@@ -1,8 +1,8 @@
 #lang racket
-(require macrotypesunit/rackunit-typechecking
+(require rackunit/turnstile
          (for-syntax syntax/parse)
          turnstile/examples/linear/lin3)
-(provide (all-from-out macrotypesunit/rackunit-typechecking)
+(provide (all-from-out rackunit/turnstile)
          typecheck-fail/reset-lin)
 
 (define-syntax (typecheck-fail/reset-lin stx)

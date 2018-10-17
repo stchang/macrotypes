@@ -1,5 +1,5 @@
 #lang s-exp macrotypes/examples/stlc+occurrence
-(require macrotypesunit/rackunit-typechecking)
+(require rackunit/macrotypes)
 
 ;; -----------------------------------------------------------------------------
 ;; basic types & syntax

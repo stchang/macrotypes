@@ -1,5 +1,5 @@
 #lang s-exp macrotypes/examples/infer
-(require macrotypesunit/rackunit-typechecking)
+(require rackunit/macrotypes)
 
 (typecheck-fail (λ (x) x) #:with-msg "could not infer type of x; add annotation\\(s\\)")
 

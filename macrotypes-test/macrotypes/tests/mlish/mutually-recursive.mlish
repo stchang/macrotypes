@@ -1,6 +1,5 @@
 #lang s-exp macrotypes/examples/mlish
-(require macrotypesunit/rackunit-typechecking)
-(require (only-in racket [let let-]))
+(require rackunit/macrotypes)
 
 (define (even? [n : Int] -> Bool)
   (if (zero? n)

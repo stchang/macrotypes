@@ -1,5 +1,5 @@
 #lang s-exp turnstile/examples/simple/ext-stlc
-(require macrotypesunit/rackunit-typechecking)
+(require rackunit/turnstile)
 
 ;; tests for stlc extensions
 ;; new literals and base types

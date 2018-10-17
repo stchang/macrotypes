@@ -1,5 +1,5 @@
 #lang s-exp turnstile/examples/simple/stlc
-(require macrotypesunit/rackunit-typechecking)
+(require rackunit/turnstile)
 
 ;; cannot write any terms without base types, but can check some errors
 

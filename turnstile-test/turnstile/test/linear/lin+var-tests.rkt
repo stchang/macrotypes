@@ -1,5 +1,5 @@
 #lang s-exp turnstile/examples/linear/lin+var
-(require macrotypesunit/rackunit-typechecking)
+(require rackunit/turnstile)
 
 (check-type (var [left 3]) : (⊕ [left Int] [right String]))
 (check-type (var [right "a"]) : (⊕ [left Int] [right String]))

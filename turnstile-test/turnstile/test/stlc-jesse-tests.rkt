@@ -1,5 +1,5 @@
 #lang s-exp turnstile/examples/stlc-jesse
-(require macrotypesunit/rackunit-typechecking)
+(require rackunit/turnstile)
 
 (define-type-alias CNat (all (A) (→ (→ A A) A A)))
 

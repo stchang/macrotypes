@@ -1,6 +1,5 @@
 #lang s-exp turnstile/examples/linear/lin+cons
-(require macrotypesunit/rackunit-typechecking)
-
+(require rackunit/turnstile)
 
 (define (length [lst : (MList Int)]) Int
   (match-list lst

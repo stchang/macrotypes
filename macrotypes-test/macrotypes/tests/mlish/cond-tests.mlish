@@ -1,5 +1,5 @@
 #lang s-exp macrotypes/examples/mlish
-(require macrotypesunit/rackunit-typechecking)
+(require rackunit/macrotypes)
 
 (typecheck-fail (when 1 2)
  #:with-msg "Expected expression 1 to have Bool type, got: Int")

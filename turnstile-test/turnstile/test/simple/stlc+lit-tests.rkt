@@ -1,5 +1,5 @@
 #lang s-exp turnstile/examples/simple/stlc+lit
-(require macrotypesunit/rackunit-typechecking)
+(require rackunit/turnstile)
 
 ;; thunk
 (check-type (λ () 1) : (→ Int))

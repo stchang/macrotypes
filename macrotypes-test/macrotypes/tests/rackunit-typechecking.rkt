@@ -1,3 +1,4 @@
 #lang racket/base
-(provide (all-from-out macrotypesunit/rackunit-typechecking))
-(require macrotypesunit/rackunit-typechecking)
+;; alias for rackunit/macrotypes; for backwards compat
+(provide (all-from-out rackunit/macrotypes))
+(require rackunit/macrotypes)

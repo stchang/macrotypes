@@ -1,5 +1,5 @@
 #lang s-exp turnstile/examples/dep/dep-ind-cur2
-(require macrotypesunit/rackunit-typechecking)
+(require rackunit/turnstile)
 
 (check-type
  ((λ (f : (Π (x : (Type 0)) (Type 1))) f)

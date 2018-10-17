@@ -1,5 +1,5 @@
 #lang s-exp turnstile/examples/linear/lin2
-(require macrotypesunit/rackunit-typechecking)
+(require rackunit/turnstile)
 
 ;; very basic tests -------------------------------------------------
 

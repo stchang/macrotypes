@@ -2,7 +2,7 @@
 
 ;; same as lin-tests, except it uses lin4.rkt instead of lin.rkt
 
-(require macrotypesunit/rackunit-typechecking
+(require rackunit/turnstile
          (only-in racket/base quote))
 
 (check-type #t : Bool)

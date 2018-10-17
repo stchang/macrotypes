@@ -1,5 +1,5 @@
 #lang s-exp turnstile/examples/linear/lin+chan
-(require macrotypesunit/rackunit-typechecking)
+(require rackunit/turnstile)
 
 (check-type
  (let* ([(c c-out) (make-channel {Int})])

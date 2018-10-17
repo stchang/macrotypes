@@ -1,3 +1,4 @@
 #lang racket/base
-(require macrotypesunit/rackunit-typechecking)
-(provide (all-from-out macrotypesunit/rackunit-typechecking))
+;; alias for rackunit/turnstile; for backwards compat
+(require rackunit/turnstile)
+(provide (all-from-out rackunit/turnstile))

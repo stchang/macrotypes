@@ -1,6 +1,6 @@
 #lang s-exp turnstile/examples/linear/lin+tup
 
-(require macrotypesunit/rackunit-typechecking
+(require rackunit/turnstile
          (only-in racket/base quote for-syntax))
 (require
  (only-in racket/base begin-for-syntax)
