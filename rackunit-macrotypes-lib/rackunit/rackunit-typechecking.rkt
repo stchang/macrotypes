@@ -1,7 +1,5 @@
 #lang racket/base
 
-;; Should maybe split this into "macrotypes-unit" or something
-
 (require (for-syntax rackunit syntax/srcloc racket/pretty racket/string)
          rackunit macrotypes/typecheck-core
          (only-in macrotypes/typecheck infer+erase))
@@ -43,7 +41,8 @@
       "Expression ~a [loc ~a:~a] has type ~a, expected ~a"
       (syntax->datum #'e) (syntax-line #'e) (syntax-column #'e)
       (type->str #'τ) (type->str #'τ-expected))
-     #'(void)]))
+     ;; count this test case in the test count
+     (syntax/loc stx (check-true #t))]))
 
 ;; for checking properties other than types
 (define-syntax (check-props stx)
@@ -70,7 +69,8 @@
       "(~a:~a) Expression ~a has type ~a; should not typecheck with ~a"
       (syntax-line stx) (syntax-column stx)
       (syntax->datum #'e) (type->str #'τ) (type->str #'not-τ))
-     #'(void)]))
+     ;; count this test case in the test count
+     (syntax/loc stx (check-true #t))]))
 
 (define-syntax (typecheck-fail stx)
   (syntax-parse stx #:datum-literals (:)
@@ -95,7 +95,8 @@
                        (regexp-match? (syntax-e #'msg) (exn-message ex))))
                 (λ ()
                   (expand/df #'e)))))
-     #'(void)]))
+     ;; count this test case in the test count
+     (syntax/loc stx (check-true #t))]))
 
 (define-syntax typecheck-fail/definitions
   (syntax-parser

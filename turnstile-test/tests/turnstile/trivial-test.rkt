@@ -1,6 +1,6 @@
 #lang typed/racket
 (require turnstile/examples/trivial
-         "rackunit-typechecking.rkt"
+         "typed-rackunit-typechecking.rkt"
          typed/rackunit)
 
 ; testing #%datum (check no loop)
