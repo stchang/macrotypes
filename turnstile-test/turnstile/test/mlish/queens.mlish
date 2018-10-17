@@ -1,4 +1,4 @@
-#lang s-exp "../../mlish.rkt"
+#lang s-exp turnstile/examples/mlish
 (require "../rackunit-typechecking.rkt")
 
 ;; function polymorphic in list element

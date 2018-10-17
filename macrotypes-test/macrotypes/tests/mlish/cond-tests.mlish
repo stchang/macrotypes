@@ -1,5 +1,5 @@
-#lang s-exp "../../mlish.rkt"
-(require turnstile/rackunit-typechecking)
+#lang s-exp macrotypes/examples/mlish
+(require macrotypesunit/rackunit-typechecking)
 
 (typecheck-fail (when 1 2)
  #:with-msg "Expected expression 1 to have Bool type, got: Int")

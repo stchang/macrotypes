@@ -1,4 +1,4 @@
-#lang s-exp "../../mlish.rkt"
+#lang s-exp macrotypes/examples/mlish
 (require "../rackunit-typechecking.rkt")
 
 ;; tests for instantiation of polymorphic functions and constructors

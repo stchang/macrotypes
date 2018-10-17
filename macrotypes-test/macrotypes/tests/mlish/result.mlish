@@ -1,5 +1,6 @@
-#lang s-exp "../../mlish.rkt"
-(require "../rackunit-typechecking.rkt" "../../mlish-do.rkt")
+#lang s-exp macrotypes/examples/mlish
+(require macrotypes/examples/mlish-do
+	 "../rackunit-typechecking.rkt")
 
 (define-type (Result A B)
   (Ok A)

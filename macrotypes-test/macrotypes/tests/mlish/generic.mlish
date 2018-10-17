@@ -1,4 +1,4 @@
-#lang s-exp "../../mlish+adhoc.rkt"
+#lang s-exp macrotypes/examples/mlish+adhoc
 (require "../rackunit-typechecking.rkt")
 
 (define-typeclass (Eq X)

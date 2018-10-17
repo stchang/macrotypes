@@ -1,4 +1,4 @@
-#lang s-exp "../../mlish.rkt"
+#lang s-exp turnstile/examples/mlish
 (require "../rackunit-typechecking.rkt")
 (require "trees.mlish")
 

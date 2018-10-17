@@ -1,5 +1,6 @@
 #lang s-exp turnstile/examples/mlish
-(require "../rackunit-typechecking.rkt" turnstile/examples/mlish-do)
+(require "../rackunit-typechecking.rkt"
+	 turnstile/examples/mlish-do)
 
 (define-type (Result A B)
   (Ok A)
