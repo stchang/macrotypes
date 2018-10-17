@@ -6,6 +6,7 @@
   '(("base" #:version "7.0")
     ("macrotypes-lib" #:version "0.3.1")
     ("macrotypes-example" #:version "0.3.1")
+    ("macrotypes-test" #:version "0.3.1")
     ))
 
 (define build-deps '())
