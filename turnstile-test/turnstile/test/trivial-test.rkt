@@ -1,18 +1,14 @@
-#lang turnstile/base
+#lang typed/racket
 (require turnstile/examples/trivial
          "rackunit-typechecking.rkt"
-         (prefix-in tr: typed/racket)
          typed/rackunit)
 
-;; TODO: These seem to be failing due to broken tests; the tests in this file
-;; were previously disabled due to depending on typed/racket.
-;; Since the packages are properly split up, I've re-enabled them.
 ; testing #%datum (check no loop)
 (check-equal? 9 9)
 (check-type 9 : (Int 9))
 (check-type "9" : Any)
 
-(define vec10 (build-vector 10 (lambda (x) x)))
+(define vec10 (build-vector 10 (λ (x) x)))
 
 ;; testing make-vector and vector-ref
 (check-equal? (make-vector 10) (make-vector 10))

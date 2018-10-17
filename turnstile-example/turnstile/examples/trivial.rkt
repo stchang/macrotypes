@@ -51,8 +51,7 @@
           [-
            : (→ (E F)
                 []
-                (Int E) (Int F) (Int (- E F)))])
-         procedure?)
+                (Int E) (Int F) (Int (- E F)))]))
 
 (define-base-type Any) ; different from tr:Any
 (define-internal-type-constructor Vec)
@@ -128,8 +127,8 @@
   ;; current-type-eval
   ;; reduce numberic expressions when possible
   (define old-teval (current-type-eval))
-  (define (new-teval t)
-    (define t+ (old-teval t))
+  (define (new-teval t [env #f])
+    (define t+ (old-teval t env))
     (syntax-parse t+
       [(~Int (_ e:integer)) t+] ; already reduced
       [(~Int e)
@@ -315,6 +314,7 @@
 ;; #%app --------------------------------------------------------------------
 (define-typed-syntax app/tc
   [(_ e_fn e_arg ...) ≫
+   #:when (typeof (expand/df #'e_fn)) ; fall through if no turnstile type
 ;  #:when (begin (displayln "applying: ----------------------")
 ;                (displayln (syntax->datum #'e_fn)))
    ;; TODO: propagate constraints from the function expression
@@ -368,13 +368,6 @@
    -------
    [⊢ (tr:#%datum . x) ⇒ Any]])
   
-(define-typed-syntax procedure?
-  [(_ e) ≫ 
-   [⊢ e ≫ e- ⇒ _]
-   -------
-   [⊢ (tr:procedure? e-) ⇒ Any]])
-   
-   
 ;; TODO: resolve clash between TR and my annotations
 ;; currently, no annotations allowed
 (define-typed-syntax define

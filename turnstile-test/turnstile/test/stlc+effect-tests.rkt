@@ -1,15 +1,10 @@
 #lang s-exp turnstile/examples/stlc+effect
 (require "rackunit-typechecking.rkt")
 
-;; TODO: Compiling these tests was previously disabled.
-;; Maybe why they're failing now?
-;; But disabling compiling this test does not make it pass; just makes it fail
-;; differently.
-
-(check-props ν (ref 11) : (88))
-(check-props ! (deref (ref 11)) : (120))
-(check-props ν (deref (ref 11)) : (168))
-(check-props ν ((λ ([x : Int]) (ref x)) 21) : (218))
+(check-props ν (ref 11) : (98))
+(check-props ! (deref (ref 11)) : (130))
+(check-props ν (deref (ref 11)) : (178))
+(check-props ν ((λ ([x : Int]) (ref x)) 21) : (228))
              
 (define x (ref 10))
 (check-type x : (Ref Int))
