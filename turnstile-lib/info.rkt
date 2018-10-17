@@ -5,8 +5,7 @@
 (define deps
   '(("base" #:version "7.0")
     ("macrotypes-lib" #:version "0.3.1")
-    "lens-lib"
-    ))
+    "lens-lib"))
 
 (define build-deps '())
 

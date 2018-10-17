@@ -2,10 +2,7 @@
 
 (define collection 'multi)
 
-(define deps
-  '(("base" #:version "7.0")
-    "lens-lib"
-    ))
+(define deps '(("base" #:version "7.0")))
 
 (define build-deps '())
 (define pkg-desc "A library for defining type systems as macros.")
