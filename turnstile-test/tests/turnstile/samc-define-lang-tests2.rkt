@@ -1,5 +1,7 @@
-#lang s-exp turnstile/examples/samc-define-lang
+#lang s-exp turnstile/examples/samc-define-lang2
 (require rackunit/turnstile)
+
+;; same as samc-define-lang-tests
 
 (define (add2 [x : Int])
   (define almost (+ x 1))
@@ -18,6 +20,7 @@
   (+ (add8 almost) 1))    
 
 (check-type (add10 10) : Int -> 20)
+
 
 (define/broken (f [x : Int])
   (+ x 1))
