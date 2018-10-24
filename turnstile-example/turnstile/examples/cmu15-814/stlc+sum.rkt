@@ -1,18 +1,18 @@
 #lang turnstile/quicklang
 
-;; stlc+sum.rkt extends stlc with pairs and sums
+;; stlc+sum.rkt extends stlc with pairs and sums, and other basic features
 
 ;; re-use (ie import and re-export) types and terms from stlc;
 ;; - exclude #%datum bc we extend it here
 ;; - rename + to plus, so we can use + for sum type
 (extends "stlc.rkt" #:except #%datum +)
 
-(provide × pair ×* pair* fst snd
+(provide × pair ×* pair* fst snd tup proj
          + inl inr case
          Bool String Unit
-         zero? if void #%datum / number->string
+         or and not zero? if void #%datum / number->string
          (rename-out [stlc:+ plus] [- sub] [* mult])
-         define define-type-alias)
+         define define-type-alias let letrec)
 
 (require (postfix-in - racket/promise)) ; need delay and force
 
@@ -36,6 +36,7 @@
 (define-primop - (→ Int Int Int))
 (define-primop * (→ Int Int Int))
 (define-primop zero? (→ Int Bool))
+(define-primop not (→ Bool Bool))
 (define-primop number->string (→ Int String))
 (define-primop void (→ Unit))
 
@@ -44,16 +45,29 @@
    [⊢ e1 ≫ e1- ⇒ τ]
    [⊢ e2 ≫ e2- ⇐ τ]
    --------
-   [⊢ (if- e_tst- e1- e2-) ⇒ τ])
+  [⊢ (if- e_tst- e1- e2-) ⇒ τ])
+
+(define-typed-syntax (or e ...) ≫
+  [⊢ e ≫ e- ⇐ Bool] ...
+  --------
+  [⊢ (or- e- ...) ⇒ Bool])
+
+(define-typed-syntax (and e ...) ≫
+  [⊢ e ≫ e- ⇐ Bool] ...
+  --------
+  [⊢ (and- e- ...) ⇒ Bool])
+
 
 ;; eager pairs
-(define-type-constructor × #:arity = 2)
+;; (define in terms of general tuples, which will be more useful later)
+(define-type-constructor × #:arity >= 0)
 
-(define-typed-syntax (pair e1 e2) ≫
-  [⊢ e1 ≫ e1- ⇒ τ1]
-  [⊢ e2 ≫ e2- ⇒ τ2]
+(define-typed-syntax (tup e ...) ≫
+  [⊢ e ≫ e- ⇒ τ] ...
   --------
-  [⊢ (list- e1- e2-) ⇒ (× τ1 τ2)])
+  [⊢ (list- e- ...) ⇒ (× τ ...)])
+
+(define-simple-macro (pair e1 e2) (tup e1 e2))
 
 ;; lazy pairs
 (define-type-constructor ×* #:arity = 2)
@@ -64,26 +78,25 @@
   --------
   [⊢ (list- (delay- e1-) (delay- e2-)) ⇒ (×* τ1 τ2)])
 
-;; fst and snd are generic
-(define-typed-syntax fst
-  [(_ e) ≫ ; eager
-   [⊢ e ≫ e- ⇒ (~× τ _)]
+;; proj, fst and snd are generic
+(define-typed-syntax proj
+  [(_ e n:nat) ≫
+   [⊢ e ≫ e- ⇒ (~× τ ...)] ; eager
+   #:do[(define i (stx-e #'n))]
+   #:fail-unless (< i (stx-length #'[τ ...])) "index too large"
+   #:with τout (stx-list-ref #'[τ ...] i)
    --------
-   [⊢ (car- e-) ⇒ τ]]
-  [(_ e) ≫ ; lazy
-   [⊢ e ≫ e- ⇒ (~×* τ _)]
+   [⊢ (list-ref- e- n) ⇒ τout]]
+  [(_ e n:nat) ≫
+   [⊢ e ≫ e- ⇒ (~×* τ ...)] ; lazy
+   #:do[(define i (stx-e #'n))]
+   #:fail-unless (< i (stx-length #'[τ ...])) "index too large"
+   #:with τout (stx-list-ref #'[τ ...] i)
    --------
-   [⊢ (force- (car- e-)) ⇒ τ]])
+   [⊢ (force- (list-ref- e- n)) ⇒ τout]])
 
-(define-typed-syntax snd
-  [(_ e) ≫ ; eager
-   [⊢ e ≫ e- ⇒ (~× _ τ)]
-   --------
-   [⊢ (cadr- e-) ⇒ τ]]
-  [(_ e) ≫ ; lazy
-   [⊢ e ≫ e- ⇒ (~×* _ τ)]
-   --------
-   [⊢ (force- (cadr- e-)) ⇒ τ]])
+(define-simple-macro (fst e) (proj e 0))
+(define-simple-macro (snd e) (proj e 1))
 
 ;; sums
 (define-type-constructor + #:arity = 2)
@@ -127,3 +140,16 @@
 
 (define-simple-macro (define x:id e)
   (define-typed-variable x e))
+
+(define-typed-syntax let
+  [(_ ([x e] ...) body) ≫
+   [⊢ e ≫ e- ⇒ τ_x] ...
+   [[x ≫ x- : τ_x] ... ⊢ body ≫ body- ⇒ τ_body]
+   --------
+   [⊢ (let- ([x- e-] ...) body-) ⇒ τ_body]])
+
+(define-typed-syntax letrec
+  [(_ ([b:type-bind e] ...) bod) ≫
+   [[b.x ≫ x- : b.type] ... ⊢ [e ≫ e- ⇐ b.type] ... [bod ≫ bod- ⇒ τ]]
+   --------
+   [⊢ (letrec- ([x- e-] ...) bod-) ⇒ τ]])

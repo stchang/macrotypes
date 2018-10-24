@@ -95,58 +95,6 @@
    [bad z => z])
  #:with-msg "unexpected term.*at: \\(bad z => z\\)")
 
-;; (check-type
-;;  (case (var coffee = 1 as (∨ [coffee : Int] [tea : Unit]))
-;;    [coffee x => x]
-;;    [tea x => 2]) : Int ⇒ 1)
-;; (define-type-alias Drink (∨ [coffee : Int] [tea : Unit] [coke : Bool]))
-;; (check-type ((λ ([x : Int]) (+ x x)) 10) : Int ⇒ 20)
-;; (check-type (λ ([x : Int]) (+ (+ x x) (+ x x))) : (→ Int Int))
-;; (check-type
-;;  (case ((λ ([d : Drink]) d)
-;;         (var coffee = 1 as (∨ [coffee : Int] [tea : Unit] [coke : Bool])))
-;;    [coffee x => (+ (+ x x) (+ x x))]
-;;    [tea x => 2]
-;;    [coke y => 3])
-;;  : Int ⇒ 4)
-
-;; (check-type
-;;  (case ((λ ([d : Drink]) d) (var coffee = 1 as Drink))
-;;    [coffee x => (+ (+ x x) (+ x x))]
-;;    [tea x => 2]
-;;    [coke y => 3])
-;;  : Int ⇒ 4)
-
-;; ;; variant errors
-;; (typecheck-fail
-;;  (var name = "Steve" as Int)
-;;  #:with-msg
-;;  "Expected the expected type to be a ∨ type, got: Int")
-;; (typecheck-fail
-;;  (case 1 [racket x => 1])
-;;  #:with-msg
-;;  "Expected ∨ type, got: Int")
-;; (typecheck-fail
-;;  (λ ([x : (∨)]) x)
-;;  #:with-msg "Improper usage of type constructor ∨: \\(∨\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
-;; (typecheck-fail
-;;  (λ ([x : (∨ 1)]) x)
-;;  #:with-msg "Improper usage of type constructor ∨: \\(∨ 1\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
-;; (typecheck-fail
-;;  (λ ([x : (∨ [1 2])]) x)
-;;  #:with-msg "Improper usage of type constructor ∨: \\(∨ \\(1 2\\)\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
-;; (typecheck-fail
-;;  (λ ([x : (∨ [a 2])]) x)
-;;  #:with-msg "Improper usage of type constructor ∨: \\(∨ \\(a 2\\)\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
-;; (typecheck-fail
-;;  (λ ([x : (∨ [a Int])]) x)
-;;  #:with-msg "Improper usage of type constructor ∨: \\(∨ \\(a Int\\)\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
-;; (typecheck-fail
-;;  (λ ([x : (∨ [1 : Int])]) x)
-;;  #:with-msg "Improper usage of type constructor ∨: \\(∨ \\(1 : Int\\)\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
-;; (typecheck-fail
-;;  (λ ([x : (∨ [a : 1])]) x)
-;;  #:with-msg "Improper usage of type constructor ∨: \\(∨ \\(a : 1\\)\\), expected \\(∨ \\[label:id : τ:type\\] ...+\\)")
 
 
 ;; old stlc tests:
