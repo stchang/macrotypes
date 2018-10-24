@@ -1,6 +1,6 @@
 #lang turnstile/quicklang
 
-(provide → Int λ #%app #%datum ann +)
+(provide (type-out →) Int λ #%app #%datum ann +)
 
 ;; use Racket for dynamic semantics;
 ;; add "-" suffix to base Racket forms

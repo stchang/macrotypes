@@ -4,9 +4,7 @@
 
 (extends "stlc+sum.rkt")
 
-(provide μ unfld fld
-         Unit void
-         define-type-alias define)
+(provide μ unfld fld)
 
 (define-binding-type μ #:bvs = 1)
 
@@ -23,16 +21,3 @@
   [⊢ e ≫ e- ⇐ τ*]
   --------
   [⊢ e- ⇒ τ.norm])
-
-(define-base-type Unit)
-(define-primop void (→ Unit))
-
-;; some sugar, type alias and top-lvl define, to make things easier to read;
-;; a type alias is just regular Racket macro
-
-(define-simple-macro (define-type-alias alias:id τ)
-  (define-syntax alias
-    (make-variable-like-transformer #'τ)))
-
-(define-simple-macro (define x:id e)
-  (define-typed-variable x e))

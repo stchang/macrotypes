@@ -9,13 +9,15 @@
 
 (provide × pair ×* pair* fst snd
          + inl inr case
-         Bool String
-         #%datum / number->string (rename-out [stlc:+ plus]))
+         Bool String Unit
+         zero? if void #%datum / number->string
+         (rename-out [stlc:+ plus] [- sub] [* mult])
+         define define-type-alias)
 
 (require (postfix-in - racket/promise)) ; need delay and force
 
-;; add Bool and String literals, for more interesting test cases
-(define-base-types Bool String)
+;; add more base types, for more interesting test cases
+(define-base-types Bool String Unit)
 
 ;; extend type rule for literals
 (define-typed-syntax #%datum
@@ -31,8 +33,18 @@
 
 ;; add div, for testing laziness
 (define-primop / (→ Int Int Int))
+(define-primop - (→ Int Int Int))
+(define-primop * (→ Int Int Int))
 (define-primop zero? (→ Int Bool))
 (define-primop number->string (→ Int String))
+(define-primop void (→ Unit))
+
+(define-typed-syntax (if e_tst e1 e2) ≫
+   [⊢ e_tst ≫ e_tst- ⇐ Bool]
+   [⊢ e1 ≫ e1- ⇒ τ]
+   [⊢ e2 ≫ e2- ⇐ τ]
+   --------
+   [⊢ (if- e_tst- e1- e2-) ⇒ τ])
 
 ;; eager pairs
 (define-type-constructor × #:arity = 2)
@@ -105,3 +117,13 @@
        [(L) (let- ([x- (cadr- e-)]) el-)]
        [(R) (let- ([y- (cadr- e-)]) er-)])
      ⇒ τout])
+
+;; some sugar, type alias and top-lvl define, to make things easier to read;
+;; a type alias is just regular Racket macro
+
+(define-simple-macro (define-type-alias alias:id τ)
+  (define-syntax alias
+    (make-variable-like-transformer #'τ)))
+
+(define-simple-macro (define x:id e)
+  (define-typed-variable x e))
