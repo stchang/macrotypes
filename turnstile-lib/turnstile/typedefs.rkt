@@ -6,20 +6,41 @@
 
 (require (for-syntax "more-utils.rkt"))
 
-(provide define-type (for-syntax get-type-info))
+(provide define-type (for-syntax (all-defined-out)))
 
 (begin-for-syntax
   (current-use-stop-list? #f)
 
-  ;; TODO: generalize this "extra" info, eg
-  ;; (struct type-info (match resugar))
-  
+  ;; assorted phase 1 info for types
+  ;; match: for pattern matching, analogous to Racket struct-info
+  ;; resugar: fn that resugars an elaborated type to surface stx
+  (struct type-info (match resugar) #:omit-define-syntaxes)
+
+  ;; queries whether stx has associated type info
+  (define has-type-info?
+    (syntax-parser
+      [(_ TY+:id . _) (with-handlers ([exn? (λ _ #f)]) (eval-syntax #'TY+))]
+      [_ #f]))
+
   ;; get-type-info: consumes expanded type with shape (#%plain-app TY:id . rst)
   ;; - returns info useful for pattern matching
-  (define get-type-info
+  (define get-resugar-info
     (syntax-parser
       [(_ TY+:id . _)
-       (eval-syntax #'TY+)])))
+       (type-info-resugar (eval-syntax #'TY+))]))
+
+  ;; TODO: first check for presence of get-resugar-info ?
+  (define resugar-type
+    (syntax-parser
+      [TY:id #'TY]
+      [ty ((get-resugar-info #'ty) #'ty)]))
+
+  ;; get-type-info: consumes expanded type with shape (#%plain-app TY:id . rst)
+  ;; - returns info useful for pattern matching
+  (define get-match-info
+    (syntax-parser
+      [(_ TY+:id . _)
+       (type-info-match (eval-syntax #'TY+))])))
 
 (define-syntax define-type
   (syntax-parser
@@ -44,21 +65,19 @@
      ;; - it must be language agnostic?
      #:when (syntax-parse/typecheck null 
              [_ ≫ [⊢ [Y ≫ _ Ytag k_out ≫ _ ⇒ _] ... [k ≫ _ ⇒ _]] --- [≻ (void)]])
-     #:with (τ_out- ...) (generate-temporaries #'(k_out ...))
+     #:with (τ ...) (generate-temporaries #'(k_out ...)) ; predefine patvars
      #:with TY/internal (fresh #'TY)
      #:with TY-expander (mk-~ #'TY)
      #:do[(define basety? (stx-null? #'(Y ...))) ; nullary constructor, eg base type
           (define (IF-BASE stx) (if basety? `(,stx) '()))]
      #`(begin-
          (struct- TY/internal (Y ...) #:transparent #:omit-define-syntaxes)
-         ;; "extra info" is defined as a phase 1 (non-transformer) binding
-         (define-for-syntax TY/internal #'(ei ...))
          (define-typed-syntax TY
            #,@(IF-BASE #'[(~var _ id) ≫ --- [≻ (TY)]])
            [(_ Y ...) ≫
-            [⊢ [Y ≫ τ_out- ⇐ k_out] ...]
+            [⊢ [Y ≫ τ ⇐ k_out] ...]
             ---------------
-            [⊢ (#%plain-app TY/internal τ_out- ...) ⇒ k]])
+            [⊢ (#%plain-app TY/internal τ ...) ⇒ k]])
          (begin-for-syntax
            (define TY/internal+ (expand/df #'TY/internal))
            (define-syntax TY-expander
@@ -68,14 +87,21 @@
                 ;; (still need extra case below to handle case when
                 ;;  it's used as id, but in a head position)
                 #,@(IF-BASE #'[(~var _ id) #'(TY-expander)])
-                [(_ τ_out- ...)
+                [(_ τ ...)
                  #'(~and ty-to-match
                          (~parse
-                          ((~literal #%plain-app) name/internal:id τ_out- ...)
+                          ((~literal #%plain-app) name/internal:id τ ...)
                           #'ty-to-match)
                          (~fail #:unless (free-id=? #'name/internal TY/internal+)))]
                 ;; companion case to first (id usage) case
-                #,@(IF-BASE #'[(_ . rst) #'((TY-expander) . rst)]))))))]))
+                #,@(IF-BASE #'[(_ . rst) #'((TY-expander) . rst)]))))
+           (define TY/internal
+             (type-info
+              #'(ei ...)     ; match info
+              (syntax-parser ; resugar fn
+                #,@(IF-BASE #'[TY-expander #'TY])
+                [(TY-expander τ ...)
+                 #`(TY . #,(stx-map resugar-type #'(τ ...)))])))))]))
 
 (define-typed-syntax (define-binding-type TY:id [X:id Xtag:id k_in] (~datum :) k_out (~datum ->) k) ≫
   ;; TODO: need to validate k_in, k_out, and k; what should be their required type?
@@ -104,4 +130,13 @@
                          τ_in
                          ((~literal #%plain-lambda) (X) τ_out))
                         #'ty-to-match)
-                       (~fail #:unless (free-id=? #'name/internal TY/internal+)))])))))])
+                       (~fail #:unless (free-id=? #'name/internal TY/internal+)))])))
+         (define TY/internal
+           (type-info
+            #f       ; match info
+            (λ (stx) ; resugar fn, uncurries binders
+              #`(TY . #,(let L ([ty stx])
+                         (syntax-parse ty
+                           [(TY-expander [X Xtag τ] rst)
+                            #`([X Xtag #,(resugar-type #'τ)] . #,(L #'rst))]
+                           [_ (list (resugar-type ty))]))))))))])
