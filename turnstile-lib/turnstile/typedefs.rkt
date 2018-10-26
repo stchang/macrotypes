@@ -1,158 +1,107 @@
 #lang turnstile
 
-;; turnstile library for defining types
+;; Turnstile library for defining types
+;; - this lib experiments with alternatives to similar forms in typecheck-core
+;; - currently used by `dep` examples and Cur lang
 
-(require "more-utils.rkt"
-         (for-syntax syntax/parse "more-utils.rkt")
-         (for-meta 2 syntax/parse "more-utils.rkt"))
+(require (for-syntax "more-utils.rkt"))
 
 (provide define-type (for-syntax get-type-info))
 
 (begin-for-syntax
   (current-use-stop-list? #f)
-  (define (get-type-info t)
-;    (printf "getting type info for: ~a\n" t)
-    (syntax-parse t
+
+  ;; TODO: generalize this "extra" info, eg
+  ;; (struct type-info (match resugar))
+  
+  ;; get-type-info: consumes expanded type with shape (#%plain-app TY:id . rst)
+  ;; - returns info useful for pattern matching
+  (define get-type-info
+    (syntax-parser
       [(_ TY+:id . _)
-       ;; #:do[(displayln (syntax-property-symbol-keys #'TY+))
-       ;;      (map (λ (x) (displayln (syntax-property #'TY+ x))) (syntax-property-symbol-keys #'TY+))]
        (eval-syntax #'TY+)])))
 
-;; TODO: split out a separate `define-binding-type` from this `define-type`
-;; - this macro has too many #,(if ...)s
 (define-syntax define-type
   (syntax-parser
-    ;; simple case
+    [(_ TY:id #:with-binders . rst) (syntax/loc this-syntax (define-binding-type TY . rst))] ; binding type
     [(_ TY:id (~datum :) k (~optional (~seq #:extra ei ...) #:defaults ([(ei 1) '()])))
-     #'(define-type TY : -> k #:extra ei ...)]
-    [(_ TY:id
-        ;; specifying binders with define-type (ie, a binding type)
-        ;; affects the output in 3 (numbered) places (see below)
-        (~optional (~seq #:with-binders ([X:id Xtag:id k_in] ...
-                                         (~optional (~and #:telescope
-                                                          telescope?))))
-                   #:defaults ([(X 1) null] [(Xtag 1) null] [(k_in 1) null]))
-        ;; the first case specifies named, dependent arguments, ie a telescope
-        ;; - with careful double-use of pattern variables (Y ...)
-        ;;   we can get the desired behavior without doing an explicit fold
+     #'(define-type TY : -> k #:extra ei ...)] ; simple case
+    [(_ TY:id (~datum :)
+        ;; [Y Ytag k_out] ... is a telescope
+        ;; - with careful double-use of pattern variables (Y ...) in output macro defs,
+        ;;   we can get the desired inst behavior without the (verbose) explicit fold
         ;; - more specifically, we use Y ... as both the patvars here, and in
         ;;   the (define-typerule TY) below (in the latter case, use Y instead of τ_out ...)
         ;; - since k_out may reference Y, in the define-typerule, the k_out ... 
         ;;   are automatically instantiated
-        (~datum :) (~or (~seq [Y:id Ytag:id k_out] ...)
-                        (~and (~seq k_out ...)
-                              (~parse (Y ...) (generate-temporaries #'(k_out ...)))
-                              (~parse (Ytag ...) (stx-map (λ _ #':) #'(Y ...)))))
+        (~or (~seq [Y:id Ytag:id k_out] ...)
+             (~and (~seq k_out ...)
+                   (~parse (Y ...) (generate-temporaries #'(k_out ...)))
+                   (~parse (Ytag ...) (stx-map (λ _ #':) #'(Y ...)))))
         (~datum ->) k
-        (~optional (~seq #:extra ei ...) #:defaults ([(ei 1) '()]))
-        ) ; ⇒ ⇐
-     #:with [(Y- ...) (k_out- ...) k-]
-            (syntax-parse/typecheck null 
-             [_ ≫ ;; TODO: use this X- and Y-?
-              [[X ≫ _ Xtag k_in ≫ k_in- ⇒ ty_k_in] ... ⊢
-               [Y ≫ Y- Ytag k_out ≫ k_out- ⇒ ty_k_out] ...
-               [k ≫ k- ⇒ ty_k]]
-              ---
-              [≻ [(Y- ...) (k_out- ...) k-]]])
-     #:with (τ_in ...) (generate-temporaries #'(k_in ...))
-     #:with (τ_in- ...) (generate-temporaries #'(k_in ...))
+        (~optional (~seq #:extra ei ...) #:defaults ([(ei 1) '()])))
+     ;; TODO: need to validate k_out and k; what should be their required type?
+     ;; - it must be language agnostic?
+     #:when (syntax-parse/typecheck null 
+             [_ ≫ [⊢ [Y ≫ _ Ytag k_out ≫ _ ⇒ _] ... [k ≫ _ ⇒ _]] --- [≻ (void)]])
      #:with (τ_out- ...) (generate-temporaries #'(k_out ...))
-     #:with (X- ...) (generate-temporaries #'(X ...))
      #:with TY/internal (fresh #'TY)
      #:with TY-expander (mk-~ #'TY)
-     #:with TY-expander/1/nested (format-id #'TY "~a/nested" (mk-~ #'TY/1))
-     #:with TY/1 (format-id #'TY "~a/1" #'TY)
-     #:with TY-expander/1 (mk-~ #'TY/1)
+     #:do[(define basety? (stx-null? #'(Y ...))) ; nullary constructor, eg base type
+          (define (IF-BASE stx) (if basety? `(,stx) '()))]
      #`(begin-
-         (struct- TY/internal (X ... bod) #:transparent #:omit-define-syntaxes)
+         (struct- TY/internal (Y ...) #:transparent #:omit-define-syntaxes)
          ;; "extra info" is defined as a phase 1 (non-transformer) binding
          (define-for-syntax TY/internal #'(ei ...))
-         (define-typed-syntax #,(if (attribute telescope?) #'TY/1 #'TY)
-;           [a ≫ #:do[(displayln (stx->datum #'a))] #:when #f ---[≻ FOR-DEBUGGING]]
-           #,@(if (and (stx-null? #'(Y ...)) ; base type, allow use as just id
-                       (stx-null? #'(X ...)))
-                  (list #`[(~var _ id) ≫ --- [≻ #,(if (attribute telescope?) #'(TY/1) #'(TY))]])
-                  null)
-           [(_ ; fully explicit case
-             ;; 1) dont require binders in constructor if there are none
-             #,@(if (stx-null? #'(X ...))
-                    null
-                    (list #'(~seq [(~var X id) (~var Xtag id) τ_in] ...)))
-             Y ...) ≫
-            ;; with prev Turnstile stx"
-            ;;            [⊢ τ_in  ≫ τ_in- ⇐ k_in] ...
-            ;;            [[X ≫ X- : τ_in-] ... ⊢ [Y ≫ τ_out- ⇐ k_out] ...]
-            ;; dont need k_inst (or any other k_*_inst) bc we're using nested pat-var subst technique
-            ;; ;          #:with k_inst (substs #'(τ_out ...) #'(Y ...) #'k)
-            [⊢ [X ≫ X- Xtag τ_in ≫ τ_in- ⇐ k_in] ... [Y ≫ τ_out- ⇐ k_out] ...]
-            ;            [⊢ [X ≫ X- Xtag τ_in ≫ τ_in- ⇒ _] ... [Y ≫ τ_out- ⇒ _] ...]
-            #:with maybe-lambda
-            ;; 2) when no binders, remove the λ in runtime rep
-            ;; - this allows comparisons at runtime
-            ;; - alternative? use prop:equal?
-            #,(if (stx-null? #'(X- ...))
-                  #'(syntax/loc this-syntax (#%plain-app list τ_out- ...))
-                  #'(syntax/loc this-syntax
-                      (λ- (X- ...) (#%plain-app list τ_out- ...))))
+         (define-typed-syntax TY
+           #,@(IF-BASE #'[(~var _ id) ≫ --- [≻ (TY)]])
+           [(_ Y ...) ≫
+            [⊢ [Y ≫ τ_out- ⇐ k_out] ...]
             ---------------
-            [⊢ (#%plain-app TY/internal τ_in- ... maybe-lambda) ⇒ k]])
-         #,@(if (attribute telescope?) (list #'(define-nested/R TY TY/1)) #'())
+            [⊢ (#%plain-app TY/internal τ_out- ...) ⇒ k]])
          (begin-for-syntax
            (define TY/internal+ (expand/df #'TY/internal))
-           (define-syntax #,(if (attribute telescope?) #'TY-expander/1 #'TY-expander)
+           (define-syntax TY-expander
              (pattern-expander
               (syntax-parser
                 ; base type, allow using pat-expand as just id
-                ;; (needs extra case below to handle case when
-                ;; it's used as id, but in a head position)
-                #,@(if (and (stx-null? #'(X ...)) (stx-null? #'(Y ...)))
-                       (list #'[(~var _ id) #'(TY-expander)])
-                       null)
-                #,(if (stx-null? #'(X ...))
-                   ;; 3a) dont need binders in pat expander if none; dont match λ in runtime rep
-                   #'[(_ τ_out- ...)
-                      #'(~and ty
-                              (~parse
-                               ((~literal #%plain-app)
-                                name/internal:id
-                                τ_in ...
-                                ((~literal #%plain-app)
-                                 (~literal list)
-                                 τ_out- ...))
-                               #'ty)
-                              (~fail #:unless (free-id=? #'name/internal TY/internal+)))]
-                   ;; 3b) binding type case
-                   #'[(_ (~seq [(~var X id) (~datum :) τ_in] ...) τ_out- ...)
-                      #'(~and ty
-                              (~parse
-                               ((~literal #%plain-app)
-                                name/internal:id
-                                τ_in ...
-                                ((~literal #%plain-lambda)
-                                 (X ...)
-                                 ((~literal #%plain-app)
-                                  (~literal list)
-                                  τ_out- ...)))
-                               #'ty)
-                              (~fail #:unless (free-id=? #'name/internal TY/internal+)))])
+                ;; (still need extra case below to handle case when
+                ;;  it's used as id, but in a head position)
+                #,@(IF-BASE #'[(~var _ id) #'(TY-expander)])
+                [(_ τ_out- ...)
+                 #'(~and ty-to-match
+                         (~parse
+                          ((~literal #%plain-app) name/internal:id τ_out- ...)
+                          #'ty-to-match)
+                         (~fail #:unless (free-id=? #'name/internal TY/internal+)))]
                 ;; companion case to first (id usage) case
-                #,@(if (and (stx-null? #'(X ...)) (stx-null? #'(Y ...)))
-                       (list #'[(_ . rst) #'((TY-expander) . rst)])
-                       null)
-                )))
-           #,@(if (attribute telescope?)
-                  (list
-                   #`(define-syntax TY-expander
-                       (pattern-expander
-                        (syntax-parser
-                          [(_ t) #'t]
-                          [(_ (~var b x+τ) (~and (~literal (... ...)) ooo) t_out)
-                           #'(~and TMP
-                                   (~parse ([b.x (~datum :) b.τ] ooo t_out)
-                                           (stx-parse/fold #'TMP (TY-expander/1 b rst))))]))))
-                  #'())
-             ))]))
+                #,@(IF-BASE #'[(_ . rst) #'((TY-expander) . rst)]))))))]))
 
-           
-                       
-     
+(define-typed-syntax (define-binding-type TY:id [X:id Xtag:id k_in] (~datum :) k_out (~datum ->) k) ≫
+  ;; TODO: need to validate k_in, k_out, and k; what should be their required type?
+  ;; - it must be language agnostic?
+  [[X ≫ _ Xtag k_in] ⊢ [k_out ≫ _ ⇒ _] [k ≫ _ ⇒ _]]
+  #:with TY/internal (fresh #'TY)
+  #:with TY-expander (mk-~ #'TY)
+  --------
+  [≻ (begin-
+       (struct- TY/internal (X bod) #:transparent #:omit-define-syntaxes)
+       (define-typed-syntax TY
+         [(_ [(~var X id) (~datum Xtag) τ_in] τ_out) ≫
+          [⊢ [X ≫ X- Xtag τ_in ≫ τ_in- ⇐ k_in] [τ_out ≫ τ_out- ⇐ k_out]]
+          ---------------
+          [⊢ (#%plain-app TY/internal τ_in- (#%plain-lambda (X-) τ_out-)) ⇒ k]])
+       (begin-for-syntax
+         (define TY/internal+ (expand/df #'TY/internal))
+         (define-syntax TY-expander
+           (pattern-expander
+            (syntax-parser
+              [(_ [(~var X id) (~datum Xtag) τ_in] τ_out)
+               #'(~and ty-to-match
+                       (~parse
+                        ((~literal #%plain-app)
+                         name/internal:id
+                         τ_in
+                         ((~literal #%plain-lambda) (X) τ_out))
+                        #'ty-to-match)
+                       (~fail #:unless (free-id=? #'name/internal TY/internal+)))])))))])

@@ -9,7 +9,7 @@
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
 (provide Type (rename-out [Type *]) (for-syntax ~Type) TypeTop
-         Π (for-syntax ~Π ~Π/1)
+         (rename-out [Π/1 Π]) (for-syntax ~Π/1)
          (rename-out [λ/1 λ] [app #%app] [app/eval app/eval/1])
          ann define provide module* submod for-syntax begin-for-syntax)
 
@@ -56,7 +56,7 @@
 (define-syntax TypeTop (make-variable-like-transformer #'(Type 99)))
 
 ;; old Π/c now Π, old Π now Π/1
-(define-type Π #:with-binders ([X : TypeTop] #:telescope) : TypeTop -> Type)
+(define-type Π/1 #:with-binders [X : TypeTop] : TypeTop -> Type)
 
 ;; type check relation --------------------------------------------------------
 ;; - must come after type defs
