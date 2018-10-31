@@ -31,8 +31,11 @@
         #:except null)]
       [_ stx]))
 
-  (define (mk-reflected reflected-name [placeholder #'#%plain-app-])
-    (syntax-property placeholder 'reflect reflected-name))
+  (define (mk-reflected reflected-name placeholder [display-as #f])
+    (syntax-property
+     placeholder
+     'reflect
+     (syntax-property reflected-name 'display-as display-as)))
   )
 
 (define-syntax define-red
@@ -46,7 +49,9 @@
     ;;  bc it will already have parens in the stx-parse clauses below,
     ;; so the match will fail
     ;; eg, see `zero?` in stdlib/nat
-    [(_ red-name [(placeholder head-pat . rst-pat) (~datum ~>) contractum] ...+)
+    [(_ red-name
+        (~optional (~seq #:display-as orig) #:defaults ([orig #'red-name]))
+        [(placeholder head-pat . rst-pat) (~datum ~>) contractum] ...+)
      #:with placeholder1 (stx-car #'(placeholder ...))
      #'(define-syntax red-name
          (syntax-parser
@@ -70,7 +75,8 @@
                 ;;                      (stx-map
                 ;;                       (λ (ps) (pretty-print (stx->datum ps)))
                 ;;                       #'((head-pat . rst-pat) ...))]
-                (quasisyntax/loc #'saved-stx (#,(mk-reflected #'red-name #'placeholder1) . es))]))]))]))
+                (quasisyntax/loc #'saved-stx
+                  (#,(mk-reflected #'red-name #'placeholder1 #'orig) . es))]))]))]))
 
 ;; use #%plain-app for now
 (define-syntax define-core-id
@@ -82,11 +88,14 @@
 ;; combination of define-typerule and define-red
 (define-syntax define-typerule/red
   (syntax-parser
-    [(_ (name:id . in-pat) (~and rule (~not #:where)) ... #:where red-name reds ...+)
+    [(_ (name:id . in-pat) (~and rule (~not #:where)) ...
+        #:where red-name
+        (~optional (~seq #:display-as orig) #:defaults ([orig #'red-name]))
+        reds ...+)
      #:with name- (mk-- #'name)
      #'(begin-
          (define-typerule (name . in-pat) rule ...)
          (define-core-id name-) ; a placeholder to use in the red rule
-         (define-red red-name reds ...))]))
+         (define-red red-name #:display-as orig reds ...))]))
 
 

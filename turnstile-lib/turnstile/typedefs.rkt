@@ -27,13 +27,29 @@
   (define get-resugar-info
     (syntax-parser
       [(_ TY+:id . _)
-       (type-info-resugar (eval-syntax #'TY+))]))
+       (type-info-resugar (eval-syntax #'TY+))]
+      [_ #f]))
 
-  ;; TODO: first check for presence of get-resugar-info ?
+  ;; `name` is stx identifier
+  (define (resugar-reflect-name name)
+    (or (syntax-property name 'display-as) name))
+
   (define resugar-type
     (syntax-parser
+;      [t #:when (printf "resugar: ~a\n" (syntax->datum #'t)) #:when #f #'debug]
       [TY:id #'TY]
-      [ty ((get-resugar-info #'ty) #'ty)]))
+      [ty #:when (has-type-info? #'ty) ((get-resugar-info #'ty) #'ty)]
+      [((~and (~literal #%plain-app) app) . rst)
+       #:do[(define reflect-name (syntax-property #'app 'reflect))]
+       #:when reflect-name
+       (datum->syntax
+        this-syntax
+        (cons (resugar-reflect-name reflect-name) (stx-map resugar-type #'rst))
+        this-syntax)]
+      [((~literal #%plain-app) . rst)
+       (datum->syntax this-syntax (stx-map resugar-type #'rst) this-syntax)]
+      [((~literal #%plain-lambda) (x:id) body)
+       (quasisyntax/loc this-syntax (λ (x) #,(resugar-type #'body)))]))
 
   ;; get-type-info: consumes expanded type with shape (#%plain-app TY:id . rst)
   ;; - returns info useful for pattern matching
