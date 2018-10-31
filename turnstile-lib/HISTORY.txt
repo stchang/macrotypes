@@ -1,5 +1,8 @@
 Revision history for turnstile-lib
 
+0.3.1 (2018-10-19)
+- split packages into macrotypes-lib, turnstile-lib, etc
+
 0.3.2 (2018-11-14)
 - `typed-variable-syntax` input pattern(s) must have shape (_ x ≫ x- : τ)
 
@@ -15,3 +18,19 @@ Revision history for turnstile-lib
 
 0.3.6 (2018-12-05)
 - add turnstile/no-unicode
+
+0.4.2 (2018-10-26)
+- turnstile/typedefs:
+  - separate (and simplify) representations for binding and non-binding types
+- start of `cur` branch
+
+0.4.3 (2018-10-26)
+- turnstile/typedefs:
+  - generalize "extra" info to extensible type-info struct, currently:
+    - match info (ie, the old "extra" info)
+    - resugar fn
+
+0.4.4 (2018-10-31)
+- turnstile/eval: define-red supports #:display-as name
+- turnstile/typedefs:
+  - resugar-type supports app and lambda terms, and uses display-as name
