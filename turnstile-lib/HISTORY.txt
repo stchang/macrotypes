@@ -34,3 +34,6 @@ Revision history for turnstile-lib
 - turnstile/eval: define-red supports #:display-as name
 - turnstile/typedefs:
   - resugar-type supports app and lambda terms, and uses display-as name
+
+0.4.5 (2018-11-01)
+- turnstile/eval: define-red output macro expands all, not just head
