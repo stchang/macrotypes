@@ -49,7 +49,9 @@
       [((~literal #%plain-app) . rst)
        (datum->syntax this-syntax (stx-map resugar-type #'rst) this-syntax)]
       [((~literal #%plain-lambda) (x:id) body)
-       (quasisyntax/loc this-syntax (λ (x) #,(resugar-type #'body)))]))
+       (quasisyntax/loc this-syntax (λ (x) #,(resugar-type #'body)))]
+      [other
+       (datum->syntax this-syntax (stx-map resugar-type #'other) this-syntax)]))
 
   ;; get-type-info: consumes expanded type with shape (#%plain-app TY:id . rst)
   ;; - returns info useful for pattern matching
