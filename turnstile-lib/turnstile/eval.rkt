@@ -51,32 +51,28 @@
     ;; eg, see `zero?` in stdlib/nat
     [(_ red-name
         (~optional (~seq #:display-as orig) #:defaults ([orig #'red-name]))
-        [(placeholder head-pat . rst-pat) (~datum ~>) contractum] ...+)
+        [(placeholder . pats) (~datum ~>) contractum] ...+)
      #:with placeholder1 (stx-car #'(placeholder ...))
      #'(define-syntax red-name
-         (syntax-parser
-           [(_ head . rst-pat2)
-            #:with saved-stx this-syntax
-            (transfer-type
-             this-syntax
-             (syntax-parse #`(#,(expand/df #'head) . rst-pat2)
-               [(head-pat . rst-pat)
-                ;; #:do[(displayln 'red-name)
-                ;;      (pretty-print (stx->datum this-syntax))
-                ;;      (displayln '~>)
-                ;;      (pretty-print (stx->datum #`contractum))]
-                (reflect #`contractum)] ...
-               [es
-                ;; #:do[(display "no match: ") (displayln 'red-name)
-                ;;                      (pretty-print (stx->datum #'es))
-                ;;                      (displayln 'head)
-                ;;                      (pretty-print (stx->datum #'head))
-                ;;                      (displayln 'otherpats)
-                ;;                      (stx-map
-                ;;                       (λ (ps) (pretty-print (stx->datum ps)))
-                ;;                       #'((head-pat . rst-pat) ...))]
-                (quasisyntax/loc #'saved-stx
-                  (#,(mk-reflected #'red-name #'placeholder1 #'orig) . es))]))]))]))
+         (λ (stx)
+           (transfer-type
+            stx
+            (syntax-parse (stx-map expand/df (stx-cdr stx)) ; drop macro name
+              [pats
+               ;; #:do[(displayln 'red-name)
+               ;;      (pretty-print (stx->datum this-syntax))
+               ;;      (displayln '~>)
+               ;;      (pretty-print (stx->datum #`contractum))]
+               (reflect #`contractum)] ...
+              [es
+               ;; #:do[(display "no match: ") (displayln 'red-name)
+               ;;                      (pretty-print (stx->datum #'es))
+               ;;                      (displayln 'expected)
+               ;;                      (stx-map
+               ;;                       (λ (ps) (pretty-print (stx->datum ps)))
+               ;;                       #'(pats ...))]
+               (quasisyntax/loc stx
+                 (#,(mk-reflected #'red-name #'placeholder1 #'orig) . es))]))))]))
 
 ;; use #%plain-app for now
 (define-syntax define-core-id
