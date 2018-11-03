@@ -43,7 +43,7 @@
 @; https://docs.racket-lang.org/drracket/Keyboard_Shortcuts.html
 Turnstile utilizes unicode. Here are DrRacket keyboard shortcuts for the
 relevant characters. Type (any unique prefix of) the following
-and then press Control-@litchar{\}.
+and then press Control-@litchar{\} or Alt-@litchar{\}.
 
 @itemlist[
   @item{@litchar{\vdash} → @litchar{⊢}}
