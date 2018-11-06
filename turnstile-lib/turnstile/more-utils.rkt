@@ -2,10 +2,16 @@
 
 ;; turnstile library of extra stx helpers
 
-(provide (for-syntax x+τ stx-parse/fold)
+(provide (for-syntax x+τ stx-parse/fold transfer-type)
          define-nested/R define-nested/L)
 
 (begin-for-syntax
+
+  (define (transfer-type from to)
+    (if (typeof from)
+        (syntax-property to ': (typeof from))
+        to))
+
   ;; syntax class matching [x : τ], ie a parameter with type annotation
   ;; TODO: generalize to arbitrary tags (not always :)?
   (define-syntax-class x+τ
@@ -42,6 +48,7 @@
             [(_ x . rst)
              (quasisyntax/loc this-syntax
                (name/1 x #,(syntax/loc this-syntax (name . rst))))])))]))
+
 (define-syntax define-nested/L
   (syntax-parser
     [(_ name:id name/1) #'(define-nested/L name name/1 #:as (λ (x) x))]
@@ -49,7 +56,8 @@
      #'(define-syntax name
          (wrap-fn
           (syntax-parser
-            [(_ e) #'e]
+            [(_ e) (transfer-type this-syntax #'e)]
             [(_ f e . rst)
              (quasisyntax/loc this-syntax
-               (name #,(syntax/loc this-syntax (name/1 f e)) . rst))])))]))
+               (name
+                #,(syntax/loc this-syntax (name/1 f e)) . rst))])))]))

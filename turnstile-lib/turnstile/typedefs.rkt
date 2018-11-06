@@ -40,11 +40,11 @@
       [TY:id #'TY]
       [ty #:when (has-type-info? #'ty) ((get-resugar-info #'ty) #'ty)]
       [((~and (~literal #%plain-app) app) . rst)
-       #:do[(define reflect-name (syntax-property #'app 'reflect))]
-       #:when reflect-name
+       #:do[(define reflect-name (syntax-property #'app 'display-as))]
+       #:when (stx-e reflect-name)
        (datum->syntax
         this-syntax
-        (cons (resugar-reflect-name reflect-name) (stx-map resugar-type #'rst))
+        (cons reflect-name (stx-map resugar-type #'rst))
         this-syntax)]
       [((~literal #%plain-app) . rst)
        (datum->syntax this-syntax (stx-map resugar-type #'rst) this-syntax)]
@@ -132,7 +132,10 @@
        (struct- TY/internal (X bod) #:transparent #:omit-define-syntaxes)
        (define-typed-syntax TY
          [(_ [(~var X id) (~datum Xtag) τ_in] τ_out) ≫
-          [⊢ [X ≫ X- Xtag τ_in ≫ τ_in- ⇐ k_in] [τ_out ≫ τ_out- ⇐ k_out]]
+          [⊢ [X ≫ X-- Xtag τ_in ≫ τ_in- ⇐ k_in] [τ_out ≫ τ_out- ⇐ k_out]]
+          #:with X- (transfer-prop 'display-as
+                                   #'X
+                                   (transfer-prop 'tmp #'X #'X--))
           ---------------
           [⊢ (#%plain-app TY/internal τ_in- (#%plain-lambda (X-) τ_out-)) ⇒ k]])
        (begin-for-syntax
@@ -151,10 +154,26 @@
                        (~fail #:unless (free-id=? #'name/internal TY/internal+)))])))
          (define TY/internal
            (type-info
-            #f       ; match info
-            (λ (stx) ; resugar fn, uncurries binders
-              #`(TY . #,(let L ([ty stx])
-                         (syntax-parse ty
-                           [(TY-expander [X Xtag τ] rst)
-                            #`([X Xtag #,(resugar-type #'τ)] . #,(L #'rst))]
-                           [_ (list (resugar-type ty))]))))))))])
+            #f             ; match info
+            (syntax-parser ; resugar-fn
+              [(TY-expander [X Xtag _] _)
+               #:when (syntax-property #'X 'tmp) ; drop binders
+               #`(#,(syntax-property #'X 'display-as) ; use alternate display name
+                  . #,(letrec ([resugar-anno ; resugar and uncurry annotations, drop binder
+                                (syntax-parser
+                                  [(TY-expander [X Xtag τ] rst)
+                                   #:when (syntax-property #'X 'tmp)
+                                   #`(#,(resugar-type #'τ)
+                                      . #,(resugar-anno #'rst))]
+                                  [_ (list (resugar-type this-syntax))])])
+                        (resugar-anno this-syntax)))]
+              [_
+               #`(TY
+                  . #,(letrec ([resugar-anno/binder ; resugar and uncurry annos, keep binder
+                                (syntax-parser
+                                  [(TY-expander [X Xtag τ] rst)
+                                   #:when (not (syntax-property #'X 'tmp))
+                                   #`([X Xtag #,(resugar-type #'τ)]
+                                      . #,(resugar-anno/binder #'rst))]
+                                  [_ (list (resugar-type this-syntax))])])
+                        (resugar-anno/binder this-syntax)))])))))])

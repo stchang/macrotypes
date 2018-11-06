@@ -10,15 +10,8 @@
 
 (begin-for-syntax
 
-  (define (transfer-type from to)
-    (define ty (typeof from))
-    (if ty
-        (syntax-property to ': (typeof from))
-        to))
-
   ;; reflects expanded stx to surface, so evaluation may continue
   (define (reflect stx)
-;    (printf "reflect: ~a\n" (syntax->datum stx))
     (syntax-parse stx
       [:id stx]
       [(m . rst)
@@ -33,9 +26,11 @@
 
   (define (mk-reflected reflected-name placeholder [display-as #f])
     (syntax-property
-     placeholder
-     'reflect
-     (syntax-property reflected-name 'display-as display-as)))
+     (syntax-property
+      placeholder
+      'reflect
+      reflected-name)
+     'display-as display-as))
   )
 
 (define-syntax define-red
@@ -50,7 +45,7 @@
     ;; so the match will fail
     ;; eg, see `zero?` in stdlib/nat
     [(_ red-name
-        (~optional (~seq #:display-as orig) #:defaults ([orig #'red-name]))
+        (~optional (~seq #:display-as orig) #:defaults ([orig #'#f]))
         [(placeholder . pats) (~datum ~>) contractum] ...+)
      #:with placeholder1 (stx-car #'(placeholder ...))
      #'(define-syntax red-name
@@ -66,11 +61,11 @@
                (reflect #`contractum)] ...
               [es
                ;; #:do[(display "no match: ") (displayln 'red-name)
-               ;;                      (pretty-print (stx->datum #'es))
-               ;;                      (displayln 'expected)
-               ;;                      (stx-map
-               ;;                       (λ (ps) (pretty-print (stx->datum ps)))
-               ;;                       #'(pats ...))]
+               ;;                             (pretty-print (stx->datum #'es))
+               ;;                             (displayln 'expected)
+               ;;                             (stx-map
+               ;;                              (λ (ps) (pretty-print (stx->datum ps)))
+               ;;                              #'(pats ...))]
                (quasisyntax/loc stx
                  (#,(mk-reflected #'red-name #'placeholder1 #'orig) . es))]))))]))
 
@@ -86,7 +81,7 @@
   (syntax-parser
     [(_ (name:id . in-pat) (~and rule (~not #:where)) ...
         #:where red-name
-        (~optional (~seq #:display-as orig) #:defaults ([orig #'red-name]))
+        (~optional (~seq #:display-as orig) #:defaults ([orig #'#f]))
         reds ...+)
      #:with name- (mk-- #'name)
      #'(begin-
