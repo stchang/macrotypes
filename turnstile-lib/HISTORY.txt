@@ -37,3 +37,6 @@ Revision history for turnstile-lib
 
 0.4.5 (2018-11-01)
 - turnstile/eval: define-red output macro expands all, not just head
+
+0.4.6 (2018-11-06)
+- turnstile/typedefs: more resugar options for binding types: 'display-as, 'tmp
