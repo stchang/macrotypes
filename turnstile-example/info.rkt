@@ -6,7 +6,7 @@
   '(("base" #:version "7.0")
     "typed-racket"
     ("turnstile-lib" #:version "0.4.2")
-    ("macrotypes-lib" #:version "0.4.2")))
+    ("macrotypes-lib" #:version "0.3.2")))
 
 (define pkg-desc "Example languages for \"turnstile\".")
 (define pkg-authors '(stchang))
