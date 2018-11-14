@@ -43,7 +43,7 @@
 
 (define-typed-variable-syntax
   #:name #%lin-var
-  [(~and stx (#%var x- (~datum :) τ)) ⇐ USED used-vars ≫
+  [(_ _ ≫ x- (~datum :) τ) ⇐ USED used-vars ≫
 ;   #:do[(printf "#%var: ~a\n" #'used-vars)]
    #:fail-when (and (stx-e #'used-vars) (stx-member #'x- #'used-vars))
                (format "attempting to use linear var twice: ~a" (stx->datum #'x-))

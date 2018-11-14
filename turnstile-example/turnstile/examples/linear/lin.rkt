@@ -241,7 +241,7 @@
 
 (define-typed-variable-syntax
   #:name #%lin-var
-  [(#%var x- : σ) ≫
+  [(_ _ ≫ x- : σ) ≫
    #:do [(linear-use-var! #'x- #'σ)]
    ----------
    [⊢ x- ⇒ σ]])

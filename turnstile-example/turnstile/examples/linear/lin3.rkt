@@ -85,11 +85,11 @@
 ;   #:update used-vars (use #'x)
    ----------
    [⊢ x ⇒ τ] #:update used-vars (use #'x)])
-(define-typed-variable-syntax (#%lin-var x (~datum :) τ) ≫
-   #:fail-when/used-vars (used? #'x) (format "attempting to use linear var twice: ~a" (stx->datum #'x))
-;   #:update used-vars (use #'x)
+(define-typed-variable-syntax (#%lin-var x ≫ x- (~datum :) τ) ≫
+   #:fail-when/used-vars (used? #'x-) (format "attempting to use linear var twice: ~a" (stx->datum #'x-))
+;   #:update used-vars (use #'x-)
    ----------
-   [⊢ x ⇒ τ] #:update used-vars (use #'x))
+   [⊢ x- ⇒ τ] #:update used-vars (use #'x-))
 
 ;; binding forms ----------------------------------------------------
 

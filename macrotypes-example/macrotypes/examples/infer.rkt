@@ -33,10 +33,10 @@
 (begin-for-syntax
   (define old-var-assign (current-var-assign))
   (current-var-assign
-   (lambda (x+ sep τ)
+   (lambda (x x+ sep τ)
      (if (equal? (stx-e sep) '#%tyvar)
          #`(infer-ref #,x+ #,τ)
-         (old-var-assign x+ sep τ))))
+         (old-var-assign x x+ sep τ))))
 
   (define (raise-infer-error stx)
     (raise

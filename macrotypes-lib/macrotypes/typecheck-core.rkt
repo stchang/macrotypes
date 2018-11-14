@@ -982,7 +982,7 @@
 
   ;; (Parameterof [Id TagId Stx -> Id])
   (define current-var-assign
-    (make-parameter (λ (x+ tag τ) (attach x+ (stx-e tag) τ))))
+    (make-parameter (λ (x x+ tag τ) (attach x+ (stx-e tag) τ))))
 
   ;; --------------------------------------------------------------------------
   ;; "infer" and "expand" fns
@@ -1095,7 +1095,7 @@
       (list (apply-scopes (cons new-sc scs) x))
       (apply-scopes scs
        #`(make-variable-like-transformer
-          ((current-var-assign) #'#,x+ #'#,tag #'#,τ)))
+          ((current-var-assign) #'#,(apply-scopes (cons new-sc scs) x) #'#,x+ #'#,tag #'#,τ)))
       idc)
      (env (cons x+ xs+) (cons τ τs) idc (cons new-sc scs) parent))
 

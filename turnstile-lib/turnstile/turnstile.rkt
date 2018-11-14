@@ -737,16 +737,8 @@
                                  [current-tag2-stx 'tag2])
              (syntax-parse/typecheck stx kw-stuff ... rule ...))))]))
 
-;; macro-var-assign : Id -> (Id (Listof Sym) (StxListof TypeStx) -> Stx)
-;; generate a function for current-var-assign that expands
-;; to an invocation of the macro by the given identifier
-;; e.g.
-;;   > (current-var-assign (macro-var-assign #'foo))
-;;   > ((current-var-assign) #'x #'(: τ))
-;;   #'(foo x : τ)
-(define-for-syntax ((macro-var-assign mac-id) x+ sep τ)
-  (datum->syntax x+ `(,mac-id ,x+ ,sep ,τ)))
-
+;; define-typed-variable-syntax: allows custom variable type rule
+;; - input pattern(s) must have shape (_ x ≫ x- : τ)
 (define-syntax define-typed-variable-syntax
   (syntax-parser
     ;; single-clause def
@@ -754,11 +746,12 @@
      #'(define-typed-variable-syntax #:name name [(_ . pats) ≫ . rst])]
     [(_ (~optional (~seq #:name name:id) #:defaults ([name (generate-temporary '#%var)]))
         (~and (~seq kw-stuff ...) :stxparse-kws)
-        rule ...+)
+        (~and [(_ _ (~datum ≫) . _) . _] rule) ...+)
      #'(begin
          (define-typed-syntax name kw-stuff ... rule ...)
          (begin-for-syntax
-           (current-var-assign (macro-var-assign #'name))))]))
+           (current-var-assign ; var-assign invokes the new `name` macro
+            (λ (x . rst) (datum->syntax x (list* #'name  x '≫ rst))))))]))
 
 (define-syntax define-syntax-category
   (syntax-parser

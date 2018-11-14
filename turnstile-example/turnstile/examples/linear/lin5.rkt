@@ -270,7 +270,7 @@
 
 (define-typed-variable-syntax
   #:name #%lin-var
-  [(#%var x- : σ) ≫
+  [(#%var _ ≫ x- : σ) ≫
 ;   #:do [(linear-use-var! #'x- #'σ)]
    #:fail-when/scopes (used? #'x- #'σ)
      (format "~a: linear variable used more than once" (stx->datum #'x-))

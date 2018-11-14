@@ -184,17 +184,17 @@
 ; variable syntax
 (define-typed-variable-syntax
   #:datum-literals (:)
-  [(_ x- : τ) ≫
+  [(_ _ ≫ x- : τ) ≫
    #:when (eq? (current-language) 'U)
    #:fail-unless (fully-unrestricted? #'τ)
    (raise-syntax-error #f "cannot use linear variable from unrestricted language" #'x-)
    --------
    [⊢ x- ⇒ τ]]
 
-  [(_ x- : σ) ≫
+  [(_ x ≫ x- : σ) ≫
    #:when (eq? (current-language) 'L)
    --------
-   [≻ (#%lin-var x- : σ)]])
+   [≻ (#%lin-var x ≫ x- : σ)]])
 
 ; define syntax
 (define-typed-syntax define
