@@ -83,10 +83,15 @@
              (type->str existing-type))
      ⇐-stx
      body))
-  )
+  (define (typechecks-fail-msg ts1 ts2 [es #f])
+    (if es
+        (typecheck-fail-msg/multi ts1 ts2 es)
+        (typecheck-fail-msg/multi/no-exprs ts1 ts2)))
+)
+
 
 (begin-for-syntax (begin-for-syntax
-  (define-syntax-class ---
+  (define-syntax-class --- #:description "conclusion line dashes"
     [pattern dashes:id
              #:do [(define str-dashes (symbol->string (syntax->datum #'dashes)))]
              #:fail-unless (for/and ([d (in-string str-dashes)])
@@ -180,12 +185,6 @@
   (define-splicing-syntax-class id+props+≫
     #:datum-literals (≫)
     #:attributes ([x- 1] [ctx 1])
-    [pattern (~seq (~and X:id (~not _:elipsis)))
-             #:with [x- ...] #'[_]
-             #:with [ctx ...] #'[[X :: #%type]]]
-    [pattern (~seq X:id ooo:elipsis)
-             #:with [x- ...] #'[_ ooo]
-             #:with [ctx ...] #'[[X :: #%type] ooo]]
     [pattern (~seq [x:id ≫ x--:id props:props])
              #:with [x- ...] #'[x--]
              #:with [ctx ...] #'[[x props.stuff ...]]]
@@ -426,51 +425,43 @@
                            (~parse #,(stx-append #'b1.xpats #'b2.xpats) xs+)
                            (~parse #,(stx-append #'b1.τpats #'b2.τpats) τs+)
                            (~parse (tc.e-pat ...) (stx-map (expand1/env ctx) #'(tc.e-stx ...))))))
-  (define-splicing-syntax-class clause
+
+  ;; stx-classes for premises, ie "clause"
+
+  ;; the extra ~! specifies that a matched premise is always accepted
+  ;; ie, turnstile not try to re-match successful matches if a later
+  ;; premise is malformed
+  (define-splicing-syntax-class clause #:description "a well-formed premise"
     #:attributes (pat)
-    #:datum-literals (τ⊑ τ=) ; TODO: drop the τ in τ⊑ and τ=
-    [pattern :tc-clause]
-    [pattern :folding-tc-clause]
-    [pattern [a τ⊑ b]
+    [pattern (~and :⊢-clause ~!)]
+    [pattern (~and :pred-clause ~!)]
+    [pattern (~and :kw-clause ~!)])
+  (define-splicing-syntax-class ⊢-clause #:description "a well-formed ⊢ premise"
+    #:attributes (pat)
+    [pattern (~seq (~and prem [_ ... (~datum ⊢) ~! . _])
+                   (~optional (~seq ooo:elipsis ...) #:defaults ([(ooo 1) '()])))
+             #:with (~and (~or (:tc-clause)
+                               (:folding-tc-clause)) ~!) #'(prem ooo ...)])
+  (define-splicing-syntax-class pred-clause #:description "a well-formed type predicate premise"
+    #:attributes (pat) #:datum-literals (τ⊑ τ=) ; TODO: drop the τ in τ⊑ and τ=?
+    [pattern (~seq [a τ⊑ ~! b (~optional (~seq #:for e))]
+                   (~optional ooo:elipsis))
+             #:with as #'(a (~? ooo))
+             #:with bs #'(b (~? ooo))
              #:with pat
              #'(~post
-                (~fail #:unless (check? #'a #'b)
-                       (typecheck-fail-msg/1/no-expr #'b #'a)))]
-    [pattern [a τ⊑ b #:for e]
+                (~fail #:unless (checks? #'as #'bs)
+                       (typechecks-fail-msg #'bs #'as #'(~? (e (~? ooo))))))]
+    [pattern (~seq [a τ= ~! b (~optional (~seq #:for e))]
+                   (~optional ooo:elipsis))
+             #:with as #'(a (~? ooo))
+             #:with bs #'(b (~? ooo))
              #:with pat
              #'(~post
-                (~fail #:unless (check? #'a #'b)
-                       (typecheck-fail-msg/1 #'b #'a #'e)))]
-    [pattern (~seq [a τ⊑ b] ooo:elipsis)
-             #:with pat
-             #'(~post
-                (~fail #:unless (checks? #'[a ooo] #'[b ooo])
-                       (typecheck-fail-msg/multi/no-exprs #'[b ooo] #'[a ooo])))]
-    [pattern (~seq [a τ⊑ b #:for e] ooo:elipsis)
-             #:with pat
-             #'(~post
-                (~fail #:unless (checks? #'[a ooo] #'[b ooo])
-                       (typecheck-fail-msg/multi #'[b ooo] #'[a ooo] #'[e ooo])))]
-    [pattern [a τ= b]
-             #:with pat
-             #'(~post
-                (~fail #:unless ((current=?) #'a #'b)
-                       (typecheck-fail-msg/1/no-expr #'b #'a)))]
-    [pattern [a τ= b #:for e]
-             #:with pat
-             #'(~post
-                (~fail #:unless ((current=?) #'a #'b)
-                       (typecheck-fail-msg/1 #'b #'a #'e)))]
-    [pattern (~seq [a τ= b] ooo:elipsis)
-             #:with pat
-             #'(~post
-                (~fail #:unless (=s? #'[a ooo] #'[b ooo])
-                       (typecheck-fail-msg/multi/no-exprs #'[b ooo] #'[a ooo])))]
-    [pattern (~seq [a τ= b #:for e] ooo:elipsis)
-             #:with pat
-             #'(~post
-                (~fail #:unless (=s? #'[a ooo] #'[b ooo])
-                       (typecheck-fail-msg/multi #'[b ooo] #'[a ooo] #'[e ooo])))]
+                (~fail #:unless (=s? #'as #'bs)
+                       (typechecks-fail-msg #'bs #'as (~? #'(e (~? ooo))))))])
+  (define-splicing-syntax-class kw-clause #:description "a well-formed keyword premise"
+    #:attributes (pat)
     [pattern (~seq #:when condition:expr)
              #:with pat
              #'(~fail #:unless condition)]
@@ -668,11 +659,15 @@
 
   ;; --------------------------------------------------------------------------
   ;; turnstile RULE stx class, ie, a clause in define-typed-stx ---------------
-  (define-syntax-class rule #:datum-literals (≫)
-    [pattern [pat:pat ≫
-              clause:clause ...
+  (define-syntax-class rule
+    [pattern [maybe-pat ... (~datum ≫)
+              maybe-clause ...
               :---
-              last-clause:last-clause opt-kws:conclusion-kws]
+              maybe-last-clause maybe-opt-kws ...]
+             #:with (pat:pat) #'(maybe-pat ...)
+             #:with (clause:clause ...) #'(maybe-clause ...)
+             #:with last-clause:last-clause #'maybe-last-clause
+             #:with (opt-kws:conclusion-kws) #'(maybe-opt-kws ...)
              #:with norm
              #'[(~and pat.pat
                       last-clause.pat
@@ -728,14 +723,15 @@
         rule ...+)
      #:with tag1 (current-tag)
      #:with tag2 (current-tag2)
-     #'(define-syntax (rulename stx)
+     #`(define-syntax (rulename stx)
          (parameterize ([current-check-relation (current-typecheck-relation)]
                         [current-ev (current-type-eval)]
                         [current-tag (type-key1)]
                         [current-tag2 (type-key2)])
            (syntax-parameterize ([current-tag-stx 'tag1]
                                  [current-tag2-stx 'tag2])
-             (syntax-parse/typecheck stx kw-stuff ... rule ...))))]))
+             #,(syntax/loc this-syntax
+                 (syntax-parse/typecheck stx kw-stuff ... rule ...)))))]))
 
 ;; define-typed-variable-syntax: allows custom variable type rule
 ;; - input pattern(s) must have shape (_ x ≫ x- : τ)

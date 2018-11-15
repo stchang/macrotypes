@@ -96,8 +96,7 @@ and then press Control-@litchar{\}.
             (code:line #:submode fn-expr (premise ...))
             (code:line @#,racket[syntax-parse] @#,tech:pat-directive)]
    [ctx (ctx-elem ...)]
-   [ctx-elem (code:line [id ≫ id key template ... ...] ooo ...)
-             (code:line id ooo ...)]
+   [ctx-elem (code:line [id ≫ id key template ... ...] ooo ...)]
    [tc (code:line tc-elem ooo ...)]
    [tc-elem [expr-template ≫ expr-pattern ⇒ type-pattern]
              [expr-template ≫ expr-pattern ⇒ key pattern]

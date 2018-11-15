@@ -8,10 +8,10 @@
   '("racket-doc"
     "sandbox-lib"
     "scribble-lib"
-    ("turnstile-lib" #:version "0.3.1")
+    ("turnstile-lib" #:version "0.3.3")
     ("turnstile-example" #:version "0.3.1")))
 
 (define pkg-desc "Documentation for \"Turnstile\".")
 (define pkg-authors '(stchang))
 
-(define version "0.3.1")
+(define version "0.3.3")
