@@ -31,3 +31,6 @@ Revision history for turnstile-lib
 
 0.4.6 (2018-11-06)
 - turnstile/typedefs: more resugar options for binding types: 'display-as, 'tmp
+
+0.4.7 (2018-11-16)
+- add turnstile/type-constraints for turnstile/typedefs type defs
