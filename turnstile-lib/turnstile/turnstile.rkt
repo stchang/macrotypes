@@ -742,12 +742,20 @@
      #'(define-typed-variable-syntax #:name name [(_ . pats) ≫ . rst])]
     [(_ (~optional (~seq #:name name:id) #:defaults ([name (generate-temporary '#%var)]))
         (~and (~seq kw-stuff ...) :stxparse-kws)
-        (~and [(_ _ (~datum ≫) . _) . _] rule) ...+)
+        (~and [(_ _:id (~datum ≫) ~! _:id . _) . _] rule) ...+) ; includes unexpanded x
      #'(begin
          (define-typed-syntax name kw-stuff ... rule ...)
          (begin-for-syntax
            (current-var-assign ; var-assign invokes the new `name` macro
-            (λ (x . rst) (datum->syntax x (list* #'name  x '≫ rst))))))]))
+            (λ (x . rst) (datum->syntax x (list* #'name  x '≫ rst))))))]
+    [(_ (~optional (~seq #:name name:id) #:defaults ([name (generate-temporary '#%var)]))
+        (~and (~seq kw-stuff ...) :stxparse-kws)
+        rule ...+) ; no unexpanded x
+     #'(begin
+         (define-typed-syntax name kw-stuff ... rule ...)
+         (begin-for-syntax
+           (current-var-assign ; var-assign invokes the new `name` macro
+            (λ (x . rst) (datum->syntax x (cons #'name rst))))))]))
 
 (define-syntax define-syntax-category
   (syntax-parser

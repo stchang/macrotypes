@@ -6,3 +6,6 @@ Revision history for turnstile-lib
 0.3.3 (2018-11-15)
 - disallow lone ids on lhs of ⊢ premise
 - improve err msgs from `define-typed-syntax`
+
+0.3.4 (2018-11-19)
+- restore support for old `typed-variable-syntax` input (_ x- : τ)
