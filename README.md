@@ -6,8 +6,8 @@ A Racket language for creating typed embedded DSLs
 ## Installation
 
 1. clone the repo
-2. `raco pkg install --auto <repo dir> -n turnstile`
-- where `<repo dir>` contains the cloned repo
+2. `cd` into repo root dir
+3. `raco pkg install --auto turnstile/`
 
 Alternatively, `raco pkg install --auto turnstile` installs from the Racket package server
 
@@ -20,8 +20,8 @@ To run the entire test suite: `raco test --drdr -p turnstile`
 
 ## Other notes
 
-- all languages from the paper are in implemented with both Racket syntax (in `macrotypes/examples/`) and Turnstile syntax (in `turnstile/examples/`)
+- all languages from the paper are in implemented with both Racket syntax (in `macrotypes-examples/`) and Turnstile syntax (in `turnstile-examples/`)
 
-- see `macrotypes/examples/README.md` for language reuse information
+- see `macrotypes-examples/macrotypes/examples/README.md` for language reuse information
 
-- tests are in `macrotypes/examples/tests/` and `turnstile/examples/tests/` directories
+- tests are in `macrotypes-tests/` and `turnstile-tests/` directories
