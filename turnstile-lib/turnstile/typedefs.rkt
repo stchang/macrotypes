@@ -64,7 +64,9 @@
   (syntax-parser
     [(_ TY:id #:with-binders . rst) (syntax/loc this-syntax (define-binding-type TY . rst))] ; binding type
     [(_ TY:id (~datum :) k (~optional (~seq #:extra ei ...) #:defaults ([(ei 1) '()])))
-     #'(define-type TY : -> k #:extra ei ...)] ; simple case
+     #'(define-base-type TY : k #:extra ei ...)] ; base type
+    [(_ TY:id (~datum :) (~datum ->) k (~optional (~seq #:extra ei ...) #:defaults ([(ei 1) '()])))
+     #'(define-base-type TY : k #:extra ei ...)] ; base type
     [(_ TY:id (~datum :)
         ;; [Y Ytag k_out] ... is a telescope
         ;; - with careful double-use of pattern variables (Y ...) in output macro defs,
@@ -86,12 +88,9 @@
      #:with (τ ...) (generate-temporaries #'(k_out ...)) ; predefine patvars
      #:with TY/internal (fresh #'TY)
      #:with TY-expander (mk-~ #'TY)
-     #:do[(define basety? (stx-null? #'(Y ...))) ; nullary constructor, eg base type
-          (define (IF-BASE stx) (if basety? `(,stx) '()))]
      #`(begin-
          (struct- TY/internal (Y ...) #:transparent #:omit-define-syntaxes)
          (define-typed-syntax TY
-           #,@(IF-BASE #'[(~var _ id) ≫ --- [≻ (TY)]])
            [(_ Y ...) ≫
             [⊢ [Y ≫ τ ⇐ k_out] ...]
             ---------------
@@ -101,25 +100,56 @@
            (define-syntax TY-expander
              (pattern-expander
               (syntax-parser
-                ; base type, allow using pat-expand as just id
-                ;; (still need extra case below to handle case when
-                ;;  it's used as id, but in a head position)
-                #,@(IF-BASE #'[(~var _ id) #'(TY-expander)])
                 [(_ τ ...)
                  #'(~and ty-to-match
                          (~parse
                           ((~literal #%plain-app) name/internal:id τ ...)
                           #'ty-to-match)
-                         (~fail #:unless (free-id=? #'name/internal TY/internal+)))]
-                ;; companion case to first (id usage) case
-                #,@(IF-BASE #'[(_ . rst) #'((TY-expander) . rst)]))))
+                         (~fail #:unless (free-id=? #'name/internal TY/internal+)))])))
            (define TY/internal
              (type-info
               #'(ei ...)     ; match info
               (syntax-parser ; resugar fn
-                #,@(IF-BASE #'[TY-expander #'TY])
                 [(TY-expander τ ...)
                  #`(TY . #,(stx-map resugar-type #'(τ ...)))])))))]))
+
+;; base type is separate bc the expander must accommodate id case
+(define-syntax define-base-type
+  (syntax-parser
+    [(_ TY:id (~datum :) k (~optional (~seq #:extra ei ...) #:defaults ([(ei 1) '()])))
+     #:when (syntax-parse/typecheck null 
+             [_ ≫ [⊢ k ≫ _ ⇒ _] --- [≻ (void)]])
+     #:with TY/internal (fresh #'TY)
+     #:with TY-expander (mk-~ #'TY)
+     #`(begin-
+         (struct- TY/internal () #:transparent #:omit-define-syntaxes)
+         (define-typed-syntax TY
+           [(~var _ id) ≫ --- [≻ (TY)]]
+           [(_) ≫ ----------- [⊢ (#%plain-app TY/internal) ⇒ k]])
+         (begin-for-syntax
+           (define TY/internal+ (expand/df #'TY/internal))
+           (define-syntax TY-expander
+             (pattern-expander
+              (syntax-parser
+                [(~var _ id)
+                 #'(~and ty-to-match
+                         (~parse
+                          ((~literal #%plain-app) name/internal:id)
+                          #'ty-to-match)
+                         (~fail #:unless (free-id=? #'name/internal TY/internal+)))]
+                [(_ other-pat (... ...))
+                 #'((~and ty-to-match
+                         (~parse
+                          ((~literal #%plain-app) name/internal:id)
+                          #'ty-to-match)
+                         (~fail #:unless (free-id=? #'name/internal TY/internal+)))
+                    other-pat (... ...))])))
+           (define TY/internal
+             (type-info
+              #'(ei ...)     ; match info
+              (syntax-parser ; resugar fn
+                [TY-expander #'TY]
+                [(TY-expander) #'(TY)])))))]))
 
 (define-typed-syntax (define-binding-type TY:id [X:id Xtag:id k_in] (~datum :) k_out (~datum ->) k) ≫
   ;; TODO: need to validate k_in, k_out, and k; what should be their required type?
