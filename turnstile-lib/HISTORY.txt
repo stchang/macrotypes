@@ -34,3 +34,8 @@ Revision history for turnstile-lib
 
 0.4.7 (2018-11-16)
 - add turnstile/type-constraints for turnstile/typedefs type defs
+
+0.4.8 (2018-11-27)
+- turnstile/typedefs: split out define-base-type
+  - only allow id case in pattern expander
+  - disallow nullary application to disambiguate certain cases
