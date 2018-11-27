@@ -120,8 +120,9 @@
    #:with elim-TY (format-id #'TY "elim-~a" #'TY)
    #:with eval-TY (format-id #'TY "eval-~a" #'TY)
    #:with TY/internal (generate-temporary #'TY)
-   #:with (C-expander ...) (stx-map mk-~ #'(C ...))
-;   #:with TY-expander (mk-~ #'TY)
+   #:with (C-pat ...) (for/list ([C-expander (stx-map mk-~ #'(C ...))]
+                                 [xs (stx->list #'((x ...) ...))])
+                        (if (stx-null? xs) C-expander #`(#,C-expander . #,xs)))
    --------
    [≻ (begin-
         ;; define the type, eg "Nat"
@@ -133,7 +134,6 @@
         ;; elimination form
         (define-typerule/red (elim-TY v P m ...) ≫
           [⊢ v ≫ v- ⇐ TY]
-;          [⊢ v ≫ v- ⇒ TY-expander]
           [⊢ P ≫ P- ⇐ (→ TY Type)] ; prop / motive
           ;; each `m` can consume 2 sets of args:
           ;; 1) args of the constructor `x` ... 
@@ -144,7 +144,7 @@
           -----------
           [⊢ (eval-TY v- P- m- ...) ⇒ (P- v-)]
           #:where eval-TY ; elim reduction rule
-          [(#%plain-app (C-expander x ...) P m ...) ; elim redex
+          [(#%plain-app C-pat P m ...) ; elim redex
            ~> (app/eval m x ... (eval-TY xrec P m ...) ...)] ...)
         )]]
   ;; --------------------------------------------------------------------------
@@ -199,7 +199,9 @@
    #:with elim-TY (format-id #'TY "elim-~a" #'TY)
    #:with eval-TY (format-id #'TY "match-~a" #'TY)
    #:with (τm ...) (generate-temporaries #'(m ...))
-   #:with (C-expander ...) (stx-map mk-~ #'(C ...))
+   #:with (C-pat ...) (for/list ([C-expander (stx-map mk-~ #'(C ...))]
+                                 [xs (stx->list #'((CA ... i+x ...) ...))])
+                        (if (stx-null? xs) C-expander #`(#,C-expander . #,xs)))
    ;; these are all the generated definitions that implement the define-datatype
    #:with OUTPUT-DEFS
     #'(begin-
@@ -267,7 +269,7 @@
           -----------
           [⊢ (eval-TY v- P- m- ...) ⇒ (P- i ... v-)]
           #:where eval-TY ; elim reduction rule
-          [(#%plain-app (C-expander CA ... i+x ...) P m ...) ; elim redex
+          [(#%plain-app C-pat P m ...) ; elim redex
            ~> (app/eval m i+x ... (eval-TY xrec P m ...) ...)] ...)
         )
    --------

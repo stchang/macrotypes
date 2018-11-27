@@ -31,6 +31,7 @@
 (check-type (my-refl Nat Z) : (my= Nat Z Z)) ; 0=0
 (check-not-type (my-refl Nat (S Z)) : (my= Nat Z Z)) ; 1 \neq 0
 (check-type (my-refl Nat (S Z)) : (my= Nat (S Z) (S Z))) ; 1=1
+(check-type (plus (S Z) Z) : Nat -> (S Z))
 (check-type (my-refl Nat (S Z)) : (my= Nat (S Z) (plus (S Z) Z))) ; 1=1+0
 (check-type (my-refl Nat (S Z)) : (my= Nat (plus (S Z) Z) (plus (S Z) Z))) ; 1+0=1+0
 (check-type (my-refl Nat (S Z)) : (my= Nat (plus Z (S Z)) (plus (S Z) Z))) ; 1+0=0+1
