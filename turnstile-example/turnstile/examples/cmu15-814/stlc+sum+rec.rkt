@@ -4,7 +4,7 @@
 
 (extends "stlc+sum.rkt")
 
-(provide μ unfld fld)
+(provide μ unfld fld (rename-out [μ mu]))
 
 (define-binding-type μ #:bvs = 1)
 

@@ -8,6 +8,7 @@
 ;; nil
 (define nil (fld {IntList} (inl (void) as ILBody)))
 (check-type nil : IntList)
+(check-type nil : (mu (X) (+ Unit (x Int X))))
 
 ;; cons
 (define cons

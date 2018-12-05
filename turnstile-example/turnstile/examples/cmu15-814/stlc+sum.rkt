@@ -8,6 +8,7 @@
 (extends "stlc.rkt" #:except #%datum +)
 
 (provide × pair ×* pair* fst snd tup proj
+         (rename-out [× x] [×* x*])
          + inl inr case
          Bool String Unit
          or and not zero? if void #%datum / number->string

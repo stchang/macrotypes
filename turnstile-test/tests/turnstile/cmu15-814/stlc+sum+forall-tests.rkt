@@ -4,6 +4,7 @@
 
 
 (check-type (Λ (X) (λ ([x : X]) x)) : (∀ (X) (→ X X)))
+(check-type (Lambda (X) (lambda ([x : X]) x)) : (forall (X) (→ X X)))
 
 (check-type (Λ (X) (λ ([t : X] [f : X]) t)) : (∀ (X) (→ X X X))) ; true
 (check-type (Λ (X) (λ ([t : X] [f : X]) f)) : (∀ (X) (→ X X X))) ; false

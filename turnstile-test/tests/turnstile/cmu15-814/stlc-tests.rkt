@@ -18,6 +18,7 @@
 (typecheck-fail #f #:with-msg "Unsupported literal")
 
 (check-type (λ ([x : Int] [y : Int]) x) : (→ Int Int Int))
+(check-type (lambda ([x : Int] [y : Int]) x) : (-> Int Int Int))
 (check-not-type (λ ([x : Int]) x) : Int)
 (check-type (λ ([x : Int]) x) : (→ Int Int))
 

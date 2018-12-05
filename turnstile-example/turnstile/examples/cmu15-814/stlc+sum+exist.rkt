@@ -4,7 +4,7 @@
 
 (extends "stlc+sum.rkt")
 
-(provide ∃ pack open)
+(provide ∃ pack open (rename-out [∃ exists]))
 
 (define-binding-type ∃ #:bvs = 1)
 
