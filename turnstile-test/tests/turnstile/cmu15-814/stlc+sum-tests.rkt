@@ -4,6 +4,7 @@
 
 ;; tests for pairs
 (check-type (pair 1 2) : (× Int Int))
+(check-type (pair 1 2) : (x Int Int))
 (check-type (pair 1 #f) : (× Int Bool))
 (check-type (pair #f plus) : (× Bool (→ Int Int Int)))
 
@@ -16,6 +17,7 @@
 
 ;; lazy pairs
 (check-type (pair* 1 2) : (×* Int Int))
+(check-type (pair* 1 2) : (x* Int Int))
 (check-type (pair* 1 #f) : (×* Int Bool))
 (check-type (pair* #f plus) : (×* Bool (→ Int Int Int)))
 

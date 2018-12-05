@@ -3,6 +3,7 @@
 (require rackunit/turnstile)
 
 (check-type (pack (Int 0) as (∃ (X) X)) : (∃ (X) X))
+(check-type (pack (Int 0) as (exists (X) X)) : (exists (X) X))
 (check-type (pack (Int 0) as (∃ (X) X)) : (∃ (Y) Y))
 (typecheck-fail (pack (Int 0) as (∃ (X) Y)))
 (check-type (pack (Bool #t) as (∃ (X) X)) : (∃ (X) X))

@@ -4,7 +4,7 @@
 
 (extends "stlc+sum.rkt")
 
-(provide ∀ Λ inst)
+(provide ∀ Λ inst (rename-out [∀ forall] [Λ Lambda]))
 
 (define-binding-type ∀)
 

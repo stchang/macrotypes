@@ -1,6 +1,7 @@
 #lang turnstile/quicklang
 
-(provide (type-out →) Int λ #%app #%datum ann +)
+(provide (type-out →) Int λ #%app #%datum ann +
+         (rename-out [→ ->] [λ lambda]))
 
 ;; use Racket for dynamic semantics;
 ;; add "-" suffix to base Racket forms
