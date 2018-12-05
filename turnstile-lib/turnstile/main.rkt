@@ -6,8 +6,7 @@
          (for-syntax (all-from-out racket syntax/parse))
          (for-meta 2 (all-from-out racket/base syntax/parse racket/syntax)))
 
-(require (except-in macrotypes/typecheck-core #%module-begin
-                                              define-syntax-category)
+(require (except-in macrotypes/typecheck-core #%module-begin define-syntax-category)
          "turnstile.rkt"
          (for-syntax (except-in racket extends)
                      syntax/parse)

@@ -9,3 +9,6 @@ Revision history for turnstile-lib
 
 0.3.4 (2018-11-19)
 - restore support for old `typed-variable-syntax` input (_ x- : τ)
+
+0.3.5 (2018-12-05)
+- convert Turnstile datum symbols to identifiers, eg ≫ ⊢ ⇒ ⇐ ≻

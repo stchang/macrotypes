@@ -903,6 +903,8 @@ The different possible variances.
 
 @section{Modes}
 
+WARNING: experimental
+
 @defmodule[turnstile/mode #:use-sources (turnstile/mode)]
 @(define mode-ev
    (let ([ev (make-base-eval)])
@@ -972,3 +974,14 @@ These are all phase 1 functions.
  Returns true if two syntax objects are of equal length.}
 @defproc[(stx-andmap [p? (-> syntax? boolean?)] [stx syntax?]) (listof syntax?)]{
 Analogous to @racket[andmap].}
+
+@section{Special Identifiers}
+
+The following identifiers are bound (at phase 1) but are only valid within
+other Turnstile forms like @racket[define-typed-syntax].
+
+@defidform[⇐]{This and the following ids throw a syntax error when used in an invalid context.}
+@defidform[⇒]{}
+@defidform[≫]{}
+@defidform[≻]{}
+@defidform[⊢]{}

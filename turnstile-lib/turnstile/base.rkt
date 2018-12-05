@@ -15,8 +15,7 @@
                "turnstile.rkt"))
 
 (require
- (except-in macrotypes/typecheck-core #%module-begin
-                                      define-syntax-category)
+ (except-in macrotypes/typecheck-core #%module-begin define-syntax-category)
  "turnstile.rkt") ; turnstile re-defines define-syntax-category
          
 
