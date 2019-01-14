@@ -6,7 +6,7 @@
 
 (provide define-red
          define-typerule/red
-         (for-syntax reflect))
+         (for-syntax reflect mk-reflected))
 
 (begin-for-syntax
 
