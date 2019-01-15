@@ -96,7 +96,7 @@
   (syntax-parser
     [(_ v:id (~datum ≫) v-:id (~datum :) τ)
      #'(define-syntax v
-         (make-rename-transformer
+         (make-variable-like-transformer
            (add-orig (assign-type #'v- #`τ #:wrap? #f) #'v)))]))
 
 ;; need options for
