@@ -64,10 +64,9 @@
    ;This won't work with mutually recursive definitions
    [⊢ e ≫ e- ⇒ τ]
    #:with y (generate-temporary #'x)
-   #:with y+props (transfer-props #'e- (assign-type #'y #'τ #:wrap? #f))
    --------
    [≻ (begin-
-        (define-syntax x (make-rename-transformer #'y+props))
+        (define-syntax x (make-rename-transformer (transfer-props #'e- (assign-type #'y #'τ #:wrap? #f))))
         (define- y e-))]]
   [(_ (f [x (~datum :) ty] ... (~or (~datum →) (~datum ->)) ty_out) e ...+) ≫
    #:with f- (add-orig (generate-temporary #'f) #'f)
