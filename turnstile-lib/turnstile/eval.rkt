@@ -46,8 +46,10 @@
     ;; eg, see `zero?` in stdlib/nat
     [(_ red-name
         (~optional (~seq #:display-as orig) #:defaults ([orig #'#f]))
-        [(placeholder . pats) (~datum ~>) contractum] ...+)
-     #:with placeholder1 (stx-car #'(placeholder ...))
+        [(placeholder:id . pats) (~datum ~>) contractum] ...)
+     #:with placeholder1 (if (stx-null? #'(placeholder ...))
+                             #'#%plain-app
+                             (stx-car #'(placeholder ...)))
      #'(define-syntax red-name
          (λ (stx)
            (transfer-type
@@ -82,7 +84,7 @@
     [(_ (name:id . in-pat) (~and rule (~not #:where)) ...
         #:where red-name
         (~optional (~seq #:display-as orig) #:defaults ([orig #'#f]))
-        reds ...+)
+        (~and (~not #:display-as) reds) ...)
      #:with name- (mk-- #'name)
      #`(begin-
          #,(quasisyntax/loc this-syntax
