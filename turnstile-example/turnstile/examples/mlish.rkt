@@ -1310,7 +1310,7 @@
    [⊢ [x ≫ x- ⇒ : ty_x]]
    [⊢ [e ≫ e- ⇐ : ty_x]]
    --------
-   [⊢ (set!- x e-) ⇒ : #,Unit+]])
+   [⊢ (set!- x- e-) ⇒ : #,Unit+]])
 
 (define-typed-syntax provide-type
   [(provide-type ty ...) ≫
