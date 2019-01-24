@@ -14,6 +14,7 @@
   ;; assorted phase 1 info for types
   ;; match: for pattern matching, analogous to Racket struct-info
   ;; resugar: fn that resugars an elaborated type to surface stx
+  ;; - resugar fn must return list of stx objs, not a stx obj
   (struct type-info (match resugar) #:omit-define-syntaxes)
 
   ;; queries whether stx has associated type info
@@ -34,24 +35,29 @@
   (define (resugar-reflect-name name)
     (or (syntax-property name 'display-as) name))
 
-  (define resugar-type
+  ;; returns list of stx objs
+  (define unexpand
     (syntax-parser
-;      [t #:when (printf "resugar: ~a\n" (syntax->datum #'t)) #:when #f #'debug]
+;      [t #:when (printf "unexpanding: ~a\n" (syntax->datum #'t)) #:when #f #'debug]
       [TY:id #'TY]
       [ty #:when (has-type-info? #'ty) ((get-resugar-info #'ty) #'ty)]
       [((~and (~literal #%plain-app) app) . rst)
        #:do[(define reflect-name (syntax-property #'app 'display-as))]
        #:when (stx-e reflect-name)
-       (datum->syntax
-        this-syntax
-        (cons reflect-name (stx-map resugar-type #'rst))
-        this-syntax)]
+       ;; this must be list not stx obj, ow ctx (for #%app) will be wrong
+       ;; in other words, *caller* must create stx obj
+       ;; TODO: is the src loc right?
+       (cons reflect-name (stx-map unexpand #'rst))]
       [((~literal #%plain-app) . rst)
-       (datum->syntax this-syntax (stx-map resugar-type #'rst) this-syntax)]
+       ;; this must be list not stx obj, ow ctx (for #%app) will be wrong
+       ;; in other words, *caller* must create stx obj
+       ;; TODO: is the src loc right?
+       (stx-map unexpand #'rst)]
       [((~literal #%plain-lambda) (x:id) body)
-       (quasisyntax/loc this-syntax (λ (x) #,(resugar-type #'body)))]
+       (list #'λ #'(x) (unexpand #'body))]
       [other
-       (datum->syntax this-syntax (stx-map resugar-type #'other) this-syntax)]))
+       (stx-map unexpand #'other)]))
+  (define resugar-type unexpand)
 
   ;; get-type-info: consumes expanded type with shape (#%plain-app TY:id . rst)
   ;; - returns info useful for pattern matching
@@ -111,7 +117,7 @@
               #'(ei ...)     ; match info
               (syntax-parser ; resugar fn
                 [(TY-expander τ ...)
-                 #`(TY . #,(stx-map resugar-type #'(τ ...)))])))))]))
+                 (cons #'TY (stx-map resugar-type #'(τ ...)))])))))]))
 
 ;; base type is separate bc the expander must accommodate id case
 (define-syntax define-base-type
@@ -149,7 +155,7 @@
               #'(ei ...)     ; match info
               (syntax-parser ; resugar fn
                 [TY-expander #'TY]
-                [(TY-expander) #'(TY)])))))]))
+                [(TY-expander) (list #'TY)])))))]))
 
 (define-typed-syntax (define-binding-type TY:id [X:id Xtag:id k_in] (~datum :) k_out (~datum ->) k) ≫
   ;; TODO: need to validate k_in, k_out, and k; what should be their required type?
@@ -185,25 +191,27 @@
          (define TY/internal
            (type-info
             #f             ; match info
+            ;; this must return list not stx obj, ow ctx (for #%app) will be wrong
+            ;; in other words, *caller* must create stx obj
             (syntax-parser ; resugar-fn
               [(TY-expander [X Xtag _] _)
                #:when (syntax-property #'X 'tmp) ; drop binders
-               #`(#,(syntax-property #'X 'display-as) ; use alternate display name
-                  . #,(letrec ([resugar-anno ; resugar and uncurry annotations, drop binder
+               (cons (syntax-property #'X 'display-as) ; use alternate display name
+                  (letrec ([resugar-anno ; resugar and uncurry annotations, drop binder
                                 (syntax-parser
                                   [(TY-expander [X Xtag τ] rst)
                                    #:when (syntax-property #'X 'tmp)
-                                   #`(#,(resugar-type #'τ)
-                                      . #,(resugar-anno #'rst))]
+                                   (cons (resugar-type #'τ)
+                                         (resugar-anno #'rst))]
                                   [_ (list (resugar-type this-syntax))])])
                         (resugar-anno this-syntax)))]
               [_
-               #`(TY
-                  . #,(letrec ([resugar-anno/binder ; resugar and uncurry annos, keep binder
+               (cons #'TY
+                     (letrec ([resugar-anno/binder ; resugar and uncurry annos, keep binder
                                 (syntax-parser
                                   [(TY-expander [X Xtag τ] rst)
                                    #:when (not (syntax-property #'X 'tmp))
-                                   #`([X Xtag #,(resugar-type #'τ)]
-                                      . #,(resugar-anno/binder #'rst))]
+                                   (cons (list #'X #'Xtag (resugar-type #'τ))
+                                         (resugar-anno/binder #'rst))]
                                   [_ (list (resugar-type this-syntax))])])
                         (resugar-anno/binder this-syntax)))])))))])
