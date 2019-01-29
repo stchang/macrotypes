@@ -102,7 +102,7 @@
        [else
         (syntax-parse #'[a b]
           [_
-           #:when (typecheck? #'a #'b)
+           #:when (or (typecheck? #'a #'b) (typecheck? #'b #'a))
            (add-constraints/var? Xs
                                  var?
                                  substs
