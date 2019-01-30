@@ -14,8 +14,11 @@
   ;; assorted phase 1 info for types
   ;; match: for pattern matching, analogous to Racket struct-info
   ;; resugar: fn that resugars an elaborated type to surface stx
-  ;; - resugar fn must return list of stx objs, not a stx obj
-  (struct type-info (match resugar) #:omit-define-syntaxes)
+  ;; unexpand: fn that unexpands an elaborated type to surface stx
+  ;; - `resugar` can be more aggressive than `unexpand`,
+  ;;    eg showing nested binders as a flat list, bc it wont be expanded again
+  ;; - unexpand fn must return list of stx objs, not a stx obj
+  (struct type-info (match resugar unexpand) #:omit-define-syntaxes)
 
   ;; queries whether stx has associated type info
   (define has-type-info?
@@ -25,10 +28,25 @@
 
   ;; get-type-info: consumes expanded type with shape (#%plain-app TY:id . rst)
   ;; - returns info useful for pattern matching
+  (define get-match-info
+    (syntax-parser
+      [(_ TY+:id . _)
+       (type-info-match (eval-syntax #'TY+))]))
+
+  ;; get-resugar-info: consumes expanded type with shape (#%plain-app TY:id . rst)
+  ;; - returns resugar fn for the type
   (define get-resugar-info
     (syntax-parser
       [(_ TY+:id . _)
        (type-info-resugar (eval-syntax #'TY+))]
+      [_ #f]))
+
+  ;; get-unexpand-info: consumes expanded type with shape (#%plain-app TY:id . rst)
+  ;; - returns unexpand fn for the type
+  (define get-unexpand-info
+    (syntax-parser
+      [(_ TY+:id . _)
+       (type-info-unexpand (eval-syntax #'TY+))]
       [_ #f]))
 
   ;; `name` is stx identifier
@@ -40,7 +58,7 @@
     (syntax-parser
 ;      [t #:when (printf "unexpanding: ~a\n" (syntax->datum #'t)) #:when #f #'debug]
       [TY:id #'TY]
-      [ty #:when (has-type-info? #'ty) ((get-resugar-info #'ty) #'ty)]
+      [ty #:when (has-type-info? #'ty) ((get-unexpand-info #'ty) #'ty)]
       [((~and (~literal #%plain-app) app) . rst)
        #:do[(define reflect-name (syntax-property #'app 'display-as))]
        #:when (stx-e reflect-name)
@@ -55,16 +73,31 @@
        (stx-map unexpand #'rst)]
       [((~literal #%plain-lambda) (x:id) body)
        (list #'λ #'(x) (unexpand #'body))]
-      [other
-       (stx-map unexpand #'other)]))
-  (define resugar-type unexpand)
-
-  ;; get-type-info: consumes expanded type with shape (#%plain-app TY:id . rst)
-  ;; - returns info useful for pattern matching
-  (define get-match-info
+      [(other ...) (stx-map unexpand #'(other ...))]
+      [other #'other])) ; datums
+  ;; returns list of stx objs
+  (define resugar-type
     (syntax-parser
-      [(_ TY+:id . _)
-       (type-info-match (eval-syntax #'TY+))])))
+;      [t #:when (printf "resugaring: ~a\n" (syntax->datum #'t)) #:when #f #'debug]
+      [TY:id #'TY]
+      [ty #:when (has-type-info? #'ty) ((get-resugar-info #'ty) #'ty)]
+      [((~and (~literal #%plain-app) app) . rst)
+       #:do[(define reflect-name (syntax-property #'app 'display-as))]
+       #:when (stx-e reflect-name)
+       ;; this must be list not stx obj, ow ctx (for #%app) will be wrong
+       ;; in other words, *caller* must create stx obj
+       ;; TODO: is the src loc right?
+       (cons reflect-name (stx-map resugar-type #'rst))]
+      [((~literal #%plain-app) . rst)
+       ;; this must be list not stx obj, ow ctx (for #%app) will be wrong
+       ;; in other words, *caller* must create stx obj
+       ;; TODO: is the src loc right?
+       (stx-map resugar-type #'rst)]
+      [((~literal #%plain-lambda) (x:id) body)
+       (list #'λ #'(x) (resugar-type #'body))]
+      [(other ...) (stx-map resugar-type #'(other ...))]
+      [other #'other])) ; datums
+  )
 
 (define-syntax define-type
   (syntax-parser
@@ -117,7 +150,10 @@
               #'(ei ...)     ; match info
               (syntax-parser ; resugar fn
                 [(TY-expander τ ...)
-                 (cons #'TY (stx-map resugar-type #'(τ ...)))])))))]))
+                 (cons #'TY (stx-map resugar-type #'(τ ...)))])
+              (syntax-parser ; unexpand
+                [(TY-expander τ ...)
+                 (cons #'TY (stx-map unexpand #'(τ ...)))])))))]))
 
 ;; base type is separate bc the expander must accommodate id case
 (define-syntax define-base-type
@@ -154,6 +190,9 @@
              (type-info
               #'(ei ...)     ; match info
               (syntax-parser ; resugar fn
+                [TY-expander #'TY]
+                [(TY-expander) (list #'TY)])
+              (syntax-parser ; unexpand fn
                 [TY-expander #'TY]
                 [(TY-expander) (list #'TY)])))))]))
 
@@ -214,4 +253,18 @@
                                    (cons (list #'X #'Xtag (resugar-type #'τ))
                                          (resugar-anno/binder #'rst))]
                                   [_ (list (resugar-type this-syntax))])])
-                        (resugar-anno/binder this-syntax)))])))))])
+                       (resugar-anno/binder this-syntax)))])
+            (syntax-parser ; unexpand
+              [(TY-expander [X Xtag _] _)
+               #:when (syntax-property #'X 'tmp) ; drop binders
+               (cons (syntax-property #'X 'display-as) ; use alternate display name
+                  (letrec ([unexpand-anno ; resugar and uncurry annotations, drop binder
+                                (syntax-parser
+                                  [(TY-expander [X Xtag τ] rst)
+                                   #:when (syntax-property #'X 'tmp)
+                                   (cons (unexpand #'τ)
+                                         (unexpand-anno #'rst))]
+                                  [_ (list (unexpand this-syntax))])])
+                        (unexpand-anno this-syntax)))]
+              [(TY-expander [X Xtag τ] rst)
+               (list #'TY (list #'X #'Xtag (unexpand #'τ)) (unexpand #'rst))])))))])
