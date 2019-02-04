@@ -116,6 +116,14 @@
                                  substs
                                  #'((τ1 τ2) ... . rst)
                                  orig-cs)]
+          [(((~literal #%plain-lambda) (x1) e1) ((~literal #%plain-lambda) (x2) e2))
+           #:with x3 (generate-temporary)
+           (add-constraints/var? Xs
+                                 var?
+                                 substs
+                                 #`((#,(subst #'x3 #'x1 #'e1)
+                                     #,(subst #'x3 #'x2 #'e2)) . rst)
+                                 orig-cs)]
           [else
            (type-error #:src (get-orig #'b)
                        #:msg (format "couldn't unify ~~a and ~~a\n  expected: ~a\n  given: ~a"
