@@ -72,7 +72,11 @@
        ;; TODO: is the src loc right?
        (stx-map unexpand #'rst)]
       [((~literal #%plain-lambda) (x:id) body)
-       (list #'λ #'(x) (unexpand #'body))]
+       ;; TODO: how to unexpand uninferred, ie annotated, lams?
+       ;; - specifically, can only use (typeof this-syntax) if it does not
+       ;;   have unbound tyvar references
+       ;; - see fold tests, eg fold-length-correct, in cur-tests/Poly-pairs.rkt
+       (list 'λ #'x (unexpand #'body))]
       [(other ...) (stx-map unexpand #'(other ...))]
       [other #'other])) ; datums
   ;; returns list of stx objs
