@@ -39,3 +39,6 @@ Revision history for turnstile-lib
 - turnstile/typedefs: split out define-base-type
   - only allow id case in pattern expander
   - disallow nullary application to disambiguate certain cases
+
+0.4.9 (2019-03-25)
+- turnstile: use current-resugar

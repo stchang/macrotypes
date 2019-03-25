@@ -410,7 +410,7 @@
                                             (stx-map
                                              (current-type-eval)
                                              #'#,(stx-append #'b1.expected-ks #'b2.expected-ks)))
-                                  (apply format "k mismatch: ~a has type ~a, expected ~a"
+                                  (apply format "type mismatch: ~a has type ~a, expected ~a"
                                           (for/first
                                               ([ty (in-stx-list τs)]
                                                [k (in-stx-list ks)]
@@ -419,9 +419,9 @@
                                                  (current-type-eval)
                                                  #'#,(stx-append #'b1.expected-ks #'b2.expected-ks))]
                                                #:unless (typecheck? k kexpect))
-                                            (list (stx->datum ty)
-                                                  (stx->datum k)
-                                                  (stx->datum kexpect)))))
+                                            (list ((current-resugar) ty)
+                                                  ((current-resugar) k)
+                                                  ((current-resugar) kexpect)))))
                            (~parse #,(stx-append #'b1.xpats #'b2.xpats) xs+)
                            (~parse #,(stx-append #'b1.τpats #'b2.τpats) τs+)
                            (~parse (tc.e-pat ...) (stx-map (expand1/env ctx) #'(tc.e-stx ...))))))
