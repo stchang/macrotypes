@@ -670,8 +670,8 @@
              #:with (opt-kws:conclusion-kws) #'(maybe-opt-kws ...)
              #:with norm
              #'[(~and pat.pat
-                      last-clause.pat
-                      clause.pat ...)
+                      clause.pat ...
+                      last-clause.pat)
                 opt-kws.stuff ...
                 last-clause.body]])
   ))
