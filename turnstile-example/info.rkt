@@ -4,7 +4,7 @@
 
 (define deps
   '(("base" #:version "7.0")
-    "typed-racket"
+    "typed-racket-lib"
     ("turnstile-lib" #:version "0.4.9")
     ("macrotypes-lib" #:version "0.3.3")))
 
