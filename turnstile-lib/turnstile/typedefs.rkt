@@ -101,6 +101,8 @@
        (list #'λ #'(x) (resugar-type #'body))]
       [(other ...) (stx-map resugar-type #'(other ...))]
       [other #'other])) ; datums
+
+  (current-resugar (λ (t) (format "~s" (stx->datum (resugar-type t)))))
   )
 
 (define-syntax define-type
