@@ -2,3 +2,5 @@ Revision history for macrotypes-lib
 
 0.3.2 (2018-11-14)
 - var-assign function: first arg is unexpanded var
+0.3.3 (2019-03-25)
+- add current-resugar (generalizes type->str)
