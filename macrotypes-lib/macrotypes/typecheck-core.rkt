@@ -1168,16 +1168,16 @@
   ;; typecheck-fail-msg/1 : Type Type Stx -> String
   (define (typecheck-fail-msg/1 τ_expected τ_given expression)
     (format "type mismatch: expected ~a, given ~a\n  expression: ~s"
-            (type->str τ_expected)
-            (or (and (syntax-e τ_given) (type->str τ_given))
+            ((current-resugar) τ_expected)
+            (or (and (syntax-e τ_given) ((current-resugar) τ_given))
                 "an invalid expression")
             (syntax->datum (get-orig expression))))
 
   ;; typecheck-fail-msg/1/no-expr : Type Type Stx -> String
   (define (typecheck-fail-msg/1/no-expr τ_expected τ_given)
     (format "type mismatch: expected ~a, given ~a"
-            (type->str τ_expected)
-            (type->str τ_given)))
+            ((current-resugar) τ_expected)
+            ((current-resugar) τ_given)))
 
   ;; typecheck-fail-msg/multi : (Stx-Listof Type) (Stx-Listof Type) (Stx-Listof Stx) -> String
   (define (typecheck-fail-msg/multi τs_expected τs_given expressions)
@@ -1185,8 +1185,8 @@
                            "  expected:    ~a\n"
                            "  given:       ~a\n"
                            "  expressions: ~a")
-            (string-join (stx-map type->str τs_expected) ", ")
-            (string-join (stx-map type->str τs_given) ", ")
+            (string-join (stx-map (current-resugar) τs_expected) ", ")
+            (string-join (stx-map (current-resugar) τs_given) ", ")
             (string-join (map ~s (stx-map syntax->datum expressions)) ", ")))
 
   ;; typecheck-fail-msg/multi/no-exprs : (Stx-Listof Type) (Stx-Listof Type) -> String
@@ -1194,8 +1194,8 @@
     (format (string-append "type mismatch\n"
                            "  expected:    ~a\n"
                            "  given:       ~a")
-            (string-join (stx-map type->str τs_expected) ", ")
-            (string-join (stx-map type->str τs_given) ", ")))
+            (string-join (stx-map (current-resugar) τs_expected) ", ")
+            (string-join (stx-map (current-resugar) τs_given) ", ")))
 
   ;; no-expected-type-fail-msg : -> String
   (define (no-expected-type-fail-msg)
@@ -1208,7 +1208,7 @@
                            "  arguments: ~a")
             (syntax->datum (get-orig fn))
             (stx-length τs_expected) (stx-length arguments)
-            (string-join (stx-map type->str τs_expected) ", ")
+            (string-join (stx-map (current-resugar) τs_expected) ", ")
             (string-join (map ~s (map syntax->datum (stx-map get-orig arguments))) ", ")))
 
   (struct exn:fail:type:check exn:fail:user ())
@@ -1225,7 +1225,7 @@
      (exn:fail:type:check
       (format (string-append "TYPE-ERROR: ~a (~a:~a): " msg) 
               (syntax-source stx-src) (syntax-line stx-src) (syntax-column stx-src) 
-              (type->str args) ...)
+              ((current-resugar) args) ...)
       contmarks)))
 
   ;; --------------------------------------------------------------------------
@@ -1251,10 +1251,13 @@
                                   #:before-first "("
                                   #:after-last ")")]
       [else (format "~s" (syntax->datum τ))]))
-  (define (types->str tys #:sep [sep ", "])
-    (string-join (stx-map type->str tys) sep))
 
-  ;; --------------------------------------------------------------------------
+  (define current-resugar (make-parameter type->str))
+  
+  (define (types->str tys #:sep [sep ", "])
+    (string-join (stx-map (current-resugar) tys) sep))
+    
+;; --------------------------------------------------------------------------
   ;; misc helpers
   (define (brace? stx)
     (define paren-shape/#f (syntax-property stx 'paren-shape))

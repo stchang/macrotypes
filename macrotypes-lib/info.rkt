@@ -8,4 +8,4 @@
 (define pkg-desc "A library for defining type systems as macros.")
 (define pkg-authors '(stchang))
 
-(define version "0.3.2")
+(define version "0.3.3")
