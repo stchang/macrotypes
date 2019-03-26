@@ -723,7 +723,8 @@
         rule ...+)
      #:with tag1 (current-tag)
      #:with tag2 (current-tag2)
-     #`(define-syntax (rulename stx)
+     (quasisyntax/loc this-syntax
+       (define-syntax (rulename stx)
          (parameterize ([current-check-relation (current-typecheck-relation)]
                         [current-ev (current-type-eval)]
                         [current-tag (type-key1)]
@@ -731,7 +732,7 @@
            (syntax-parameterize ([current-tag-stx 'tag1]
                                  [current-tag2-stx 'tag2])
              #,(syntax/loc this-syntax
-                 (syntax-parse/typecheck stx kw-stuff ... rule ...)))))]))
+                 (syntax-parse/typecheck stx kw-stuff ... rule ...))))))]))
 
 ;; define-typed-variable-syntax: allows custom variable type rule
 ;; - input pattern(s) must have shape (_ x ≫ x- : τ)
