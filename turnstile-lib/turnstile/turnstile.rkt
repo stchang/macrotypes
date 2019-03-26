@@ -741,7 +741,8 @@
     ;; single-clause def
     [(_ (rulename:id . pats) . rst)
      ;; using #'rulename as patvar may cause problems, eg #%app, so use _
-     #'(define-typed-syntax rulename [(_ . pats) . rst])]
+     (quasisyntax/loc this-syntax
+       (define-typed-syntax rulename [(_ . pats) . rst]))]
     ;; multi-clause def
     ;; - let stx-parse/tychk match :rule (dont double-match)
     [(_ rulename:id
@@ -749,7 +750,8 @@
         rule ...+)
      #:with tag1 (current-tag)
      #:with tag2 (current-tag2)
-     #`(define-syntax (rulename stx)
+     (quasisyntax/loc this-syntax
+       (define-syntax (rulename stx)
          (parameterize ([current-check-relation (current-typecheck-relation)]
                         [current-ev (current-type-eval)]
                         [current-tag (type-key1)]
@@ -757,7 +759,7 @@
            (syntax-parameterize ([current-tag-stx 'tag1]
                                  [current-tag2-stx 'tag2])
              #,(syntax/loc this-syntax
-                 (syntax-parse/typecheck stx kw-stuff ... rule ...)))))]))
+                 (syntax-parse/typecheck stx kw-stuff ... rule ...))))))]))
 
 ;; define-typed-variable-syntax: allows custom variable type rule
 ;; - input pattern(s) must have shape (_ x ≫ x- : τ)

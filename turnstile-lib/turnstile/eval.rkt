@@ -62,8 +62,9 @@
   (syntax-parser
     [(_ (name:id . in-pat) (~and rule (~not #:where)) ... #:where red-name reds ...+)
      #:with name- (mk-- #'name)
-     #'(begin-
-         (define-typerule (name . in-pat) rule ...)
+     #`(begin-
+         #,(quasisyntax/loc this-syntax
+             (define-typerule (name . in-pat) rule ...))
          (define-core-id name-) ; a placeholder to use in the red rule
          (define-red red-name reds ...))]))
 
