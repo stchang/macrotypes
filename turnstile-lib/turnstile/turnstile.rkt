@@ -715,7 +715,8 @@
     ;; single-clause def
     [(_ (rulename:id . pats) . rst)
      ;; using #'rulename as patvar may cause problems, eg #%app, so use _
-     #'(define-typed-syntax rulename [(_ . pats) . rst])]
+     (quasisyntax/loc this-syntax
+       (define-typed-syntax rulename [(_ . pats) . rst]))]
     ;; multi-clause def
     ;; - let stx-parse/tychk match :rule (dont double-match)
     [(_ rulename:id
