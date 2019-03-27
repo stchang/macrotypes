@@ -87,7 +87,7 @@
       [ty #:when (has-type-info? #'ty) ((get-resugar-info #'ty) #'ty)]
       [((~and (~literal #%plain-app) app) . rst)
        #:do[(define reflect-name (syntax-property #'app 'display-as))]
-       #:when (stx-e reflect-name)
+       #:when (and reflected-name (stx-e reflect-name))
        ;; this must be list not stx obj, ow ctx (for #%app) will be wrong
        ;; in other words, *caller* must create stx obj
        ;; TODO: is the src loc right?
