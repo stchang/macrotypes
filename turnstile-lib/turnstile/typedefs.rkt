@@ -23,7 +23,7 @@
   ;; queries whether stx has associated type info
   (define has-type-info?
     (syntax-parser
-      [(_ TY+:id . _) (with-handlers ([exn? (λ _ #f)]) (eval-syntax #'TY+))]
+      [(_ TY+:id . _) (with-handlers ([exn? (λ _ #f)]) (type-info? (eval-syntax #'TY+)))]
       [_ #f]))
 
   ;; get-type-info: consumes expanded type with shape (#%plain-app TY:id . rst)
