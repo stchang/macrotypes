@@ -53,32 +53,34 @@
   (define (resugar-reflect-name name)
     (or (syntax-property name 'display-as) name))
 
-  ;; returns list of stx objs
-  (define unexpand
-    (syntax-parser
-;      [t #:when (printf "unexpanding: ~a\n" (syntax->datum #'t)) #:when #f #'debug]
+  (define ((unexpand/ctx ctx) stx) (unexpand stx #:ctx ctx))
+
+  ;; unexpand: converts stx obj to surface syntax using type-info-unexpand fn
+  ;;           if avail; ow defaults to racket app and lambda
+  ;; If ctx = #f, returns list of stx objs, else returns stx obj with given ctx
+  ;; - Cannot return stx obj without ctx bc cases like #%app might be wrong
+  ;; - Note: srcloc and props, eg expected-ty, are lost if ctx=#f
+  ;;   - this can cause problems with some terms like lambdas;
+  ;;     see fold tests, eg fold-length-correct, in cur-tests/Poly-pairs.rkt
+  (define (unexpand stx #:ctx [ctx #f])
+    (define res-stx-lst
+     (syntax-parse stx
       [TY:id #'TY]
       [ty #:when (has-type-info? #'ty) ((get-unexpand-info #'ty) #'ty)]
       [((~and (~literal #%plain-app) app) . rst)
        #:do[(define reflect-name (syntax-property #'app 'display-as))]
        #:when (stx-e reflect-name)
-       ;; this must be list not stx obj, ow ctx (for #%app) will be wrong
-       ;; in other words, *caller* must create stx obj
-       ;; TODO: is the src loc right?
-       (cons reflect-name (stx-map unexpand #'rst))]
+       (cons reflect-name (stx-map (unexpand/ctx ctx) #'rst))]
       [((~literal #%plain-app) . rst)
-       ;; this must be list not stx obj, ow ctx (for #%app) will be wrong
-       ;; in other words, *caller* must create stx obj
-       ;; TODO: is the src loc right?
-       (stx-map unexpand #'rst)]
+       (stx-map (unexpand/ctx ctx) #'rst)]
       [((~literal #%plain-lambda) (x:id) body)
-       ;; TODO: how to unexpand uninferred, ie annotated, lams?
-       ;; - specifically, can only use (typeof this-syntax) if it does not
-       ;;   have unbound tyvar references
-       ;; - see fold tests, eg fold-length-correct, in cur-tests/Poly-pairs.rkt
-       (list 'λ #'x (unexpand #'body))]
-      [(other ...) (stx-map unexpand #'(other ...))]
+       (list 'λ #'x (unexpand #'body #:ctx ctx))]
+      [(other ...) (stx-map (unexpand/ctx ctx) #'(other ...))]
       [other #'other])) ; datums
+    (if ctx
+        ;; ctx = ctx, srcloc = stx, and preserve expected-ty prop
+        (transfer-prop 'expected-type stx (datum->stx ctx res-stx-lst stx))
+        res-stx-lst))
   ;; returns list of stx objs
   (define resugar-type
     (syntax-parser
