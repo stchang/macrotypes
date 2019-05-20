@@ -2,7 +2,8 @@
 (require syntax/stx syntax/parse syntax/parse/define
          racket/list racket/format version/utils
          racket/syntax)
-(provide (all-defined-out))
+(provide (all-defined-out)
+         (rename-out [stx-datum-equal? datum=?]))
 
 ;; shorthands
 (define id? identifier?)
