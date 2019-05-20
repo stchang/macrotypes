@@ -1,6 +1,6 @@
 #lang racket/base
 
-(require (for-syntax rackunit syntax/srcloc racket/pretty racket/string)
+(require (for-syntax rackunit syntax/srcloc racket/pretty racket/string racket/port)
          rackunit macrotypes/typecheck-core
          (only-in macrotypes/typecheck infer+erase))
 (provide check-type typecheck-fail check-not-type check-props check-runtime-exn
@@ -87,14 +87,18 @@
                    (make-check-location (build-source-location-list stx))
                    (make-check-name 'typecheck-fail)
                    (make-check-params (list (syntax->datum #'e) (syntax-e #'msg))))
+              (let ([err-str (open-output-string)])
              (λ ()
                (check-exn
                 (λ (ex)
                   (and (or (exn:fail? ex) (exn:test:check? ex))
                        ; check err msg matches
-                       (regexp-match? (syntax-e #'msg) (exn-message ex))))
+                       (regexp-match? (syntax-e #'msg)
+                                      (string-append (get-output-string err-str)
+                                                     (exn-message ex)))))
                 (λ ()
-                  (expand/df #'e)))))
+                  (parameterize ([current-error-port err-str]) ; swallow stderr
+                    (expand/df #'e)))))))
      ;; count this test case in the test count
      (syntax/loc stx (check-true #t))]))
 
