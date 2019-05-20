@@ -14,7 +14,6 @@
          inst-types/cs
          inst-type/cs/orig
          inst-types/cs/orig
-         datum=?
          )
 
 (require racket/string
@@ -130,9 +129,6 @@
                                      (string-join (map type->str (stx-map stx-car orig-cs)) ", ")
                                      (string-join (map type->str (stx-map stx-cadr orig-cs)) ", "))
                        #'a #'b)])])]))
-
-(define (datum=? x y)
-  (equal? (syntax->datum x) (syntax->datum y)))
 
 ;; add-substitution-entry : (List Id Type) (Listof (List Id Type)) -> (Listof (List Id Type))
 ;; Adds the mapping a -> b to the substitution and substitutes for it in the other entries
