@@ -26,12 +26,12 @@
   ;  (struct type-info (match resugar unexpand) #:omit-define-syntaxes)
   (define-syntax type-info ; for backwards compat
     (syntax-parser
-      [(_ #;match-fn resugar-fn unexpand-fn rst ...)
-       #'(make-free-id-table
+      [(_ #;match-fn resugar-fn unexpand-fn (~seq name val) ...)
+       #`(make-free-id-table
           (hash ;#'get-datatype-def match-fn
                 #'get-resugar-info resugar-fn
                 #'get-unexpand-info unexpand-fn
-                #'rst ... ; wrap each with "#'"
+                (~@ #'name val) ... ; wrap each name with "#'"
                 ))]))
 
   (define-syntax define-generic-type-method
