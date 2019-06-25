@@ -1,5 +1,13 @@
 # macrotypes [![Build Status](https://travis-ci.org/stchang/macrotypes.svg?branch=master)](https://travis-ci.org/stchang/macrotypes) [![Scribble Docs](https://img.shields.io/badge/Docs-Scribble%20-blue.svg)](http://docs.racket-lang.org/turnstile/index.html)
 
+this branch: `generic-type-methods` (branch off `cur`)
+======================================================
+
+Experiment with syntax for declaring generic type methods.
+
+main `macrotypes` README
+========================
+
 A Racket language for creating typed embedded DSLs
 
 
