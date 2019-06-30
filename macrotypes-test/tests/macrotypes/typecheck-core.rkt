@@ -52,4 +52,15 @@
       (check-equal? (variance-compose contravariant contravariant) covariant)
       (check-equal? (variance-compose contravariant irrelevant) irrelevant)
       (check-equal? (variance-compose contravariant invariant) invariant)))
+  (test-case "type-error"
+    (test-case "simple message"
+      (check-exn #rx"^TYPE-ERROR:.*: the message$"
+                 (λ () (type-error #:src #'e
+                                   #:msg "the message"))))
+    (test-case "message with interpolated syntax"
+      (check-exn #rx"^TYPE-ERROR:.*: 6 [(]vec int[)]$"
+                 (λ () (type-error #:src #'e #:msg "~a ~a" #'6 #'(vec int)))))
+    (test-case "raises contract error when args aren't syntax"
+      (check-exn #rx"^syntax-property: contract violation"
+                 (λ () (type-error #:src #'e #:msg "~a ~a" 6 #'(vec int))))))
   )
