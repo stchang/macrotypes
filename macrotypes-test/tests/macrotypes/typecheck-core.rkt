@@ -60,7 +60,7 @@
     (test-case "message with interpolated syntax"
       (check-exn #rx"^TYPE-ERROR:.*: 6 [(]vec int[)]$"
                  (λ () (type-error #:src #'e #:msg "~a ~a" #'6 #'(vec int)))))
-    (test-case "raises contract error when args aren't syntax"
-      (check-exn #rx"^syntax-property: contract violation"
+    (test-case "message with interpolated datum and syntax"
+      (check-exn #rx"^TYPE-ERROR:.*: 6 [(]vec int[)]$"
                  (λ () (type-error #:src #'e #:msg "~a ~a" 6 #'(vec int))))))
   )

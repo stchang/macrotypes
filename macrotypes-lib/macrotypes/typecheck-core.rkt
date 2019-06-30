@@ -1225,8 +1225,13 @@
      (exn:fail:type:check
       (format (string-append "TYPE-ERROR: ~a (~a:~a): " msg) 
               (syntax-source stx-src) (syntax-line stx-src) (syntax-column stx-src) 
-              (type->str args) ...)
+              (type-or-datum->str args) ...)
       contmarks)))
+
+  (define (type-or-datum->str arg)
+    (if (syntax? arg)
+        (type->str arg)
+        (format "~s" arg)))
 
   ;; --------------------------------------------------------------------------
   ;; orig property tracks surface term, for err reporting
