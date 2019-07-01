@@ -1211,7 +1211,7 @@
             (string-join (stx-map type->str τs_expected) ", ")
             (string-join (map ~s (map syntax->datum (stx-map get-orig arguments))) ", ")))
 
-  (struct exn:fail:type:check exn:fail:user ())
+  (struct exn:fail:syntax:type-check exn:fail:syntax ())
   (struct exn:fail:type:infer exn:fail:user ())
 
   ;; TODO: deprecate this? can we rely on stx-parse instead?
@@ -1221,17 +1221,22 @@
   ;;            #:msg msg-string msg-args ...
   (define-simple-macro (type-error #:src stx-src #:msg msg args ...)
     #:with contmarks (syntax/loc this-syntax (current-continuation-marks))
+    (type-error/fun stx-src contmarks msg args ...))
+
+  ; type-error/fun : syntax? continuation-mark-set? string? any/c ... -> !
+  (define (type-error/fun stx-src contmarks msg . args)
     (raise
-     (exn:fail:type:check
-      (format (string-append "TYPE-ERROR: ~a (~a:~a): " msg) 
-              (syntax-source stx-src) (syntax-line stx-src) (syntax-column stx-src) 
-              (type-or-datum->str args) ...)
-      contmarks)))
+     (exn:fail:syntax:type-check
+      (~a "TYPE-ERROR: "
+          (apply format msg (map type-or-datum->str args)))
+      contmarks
+      (cons stx-src (filter original-syntax? args)))))
 
   (define (type-or-datum->str arg)
-    (if (syntax? arg)
-        (type->str arg)
-        (format "~s" arg)))
+    (if (syntax? arg) (type->str arg) (~s arg)))
+
+  (define (original-syntax? arg)
+    (and (syntax? arg) (syntax-original? arg)))
 
   ;; --------------------------------------------------------------------------
   ;; orig property tracks surface term, for err reporting

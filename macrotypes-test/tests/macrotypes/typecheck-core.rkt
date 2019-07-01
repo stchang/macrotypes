@@ -9,6 +9,9 @@
  (for-syntax
   rackunit
   macrotypes/variance-constraints
+  racket/match
+  syntax/parse/define
+  (for-syntax racket/base)
   )
  )
 
@@ -53,14 +56,46 @@
       (check-equal? (variance-compose contravariant irrelevant) irrelevant)
       (check-equal? (variance-compose contravariant invariant) invariant)))
   (test-case "type-error"
-    (test-case "simple message"
-      (check-exn #rx"^TYPE-ERROR:.*: the message$"
-                 (λ () (type-error #:src #'e
-                                   #:msg "the message"))))
-    (test-case "message with interpolated syntax"
-      (check-exn #rx"^TYPE-ERROR:.*: 6 [(]vec int[)]$"
-                 (λ () (type-error #:src #'e #:msg "~a ~a" #'6 #'(vec int)))))
-    (test-case "message with interpolated datum and syntax"
-      (check-exn #rx"^TYPE-ERROR:.*: 6 [(]vec int[)]$"
-                 (λ () (type-error #:src #'e #:msg "~a ~a" 6 #'(vec int))))))
+    ; (check-exn:fail:syntax msg:expr [expr:id ...] under-test:expr)
+    ; Tests that expression `under-test` raises `exn:fail:syntax` with
+    ; whose `message` field equals `msg` and whose `exprs` field is the
+    ; list `(list expr ...)`.
+    (define-syntax-parser check-exn:fail:syntax
+      [(_ msg:expr [expr:id ...] under-test:expr)
+       (syntax/loc this-syntax
+         (check-exn
+          (match-lambda
+            [(exn:fail:syntax (== msg) _ (list (== expr) ...)) #t]
+            [_ #f])
+          (λ () under-test)))])
+
+    ; Some named syntax objects to use as source expressions.
+    (define expr0 #'e)
+    (define expr1 #'6)
+    (define expr2 #'(vec int))
+    (define bogus (datum->syntax #f 6))
+
+    (test-case
+     "simple message"
+     (check-exn:fail:syntax
+      "TYPE-ERROR: the message" [expr0]
+      (type-error #:src expr0 #:msg "the message")))
+
+    (test-case
+     "message with interpolated syntax"
+     (check-exn:fail:syntax
+      "TYPE-ERROR: 6 (vec int)" [expr0 expr1 expr2]
+      (type-error #:src expr0 #:msg "~a ~a" expr1 expr2)))
+
+    (test-case
+     "message with interpolated datum and syntax"
+     (check-exn:fail:syntax
+      "TYPE-ERROR: 6 (vec int)" [expr0 expr2]
+      (type-error #:src expr0 #:msg "~a ~a" 6 expr2)))
+
+    (test-case
+     "non-original syntax is not treated as a source expression"
+     (check-exn:fail:syntax
+      "TYPE-ERROR: 6 (vec int)" [expr0 expr2]
+      (type-error #:src expr0 #:msg "~a ~a" bogus expr2))))
   )
