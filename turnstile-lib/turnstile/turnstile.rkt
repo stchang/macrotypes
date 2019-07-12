@@ -10,7 +10,8 @@
          (for-syntax syntax-parse/typecheck
                      ~typecheck ~⊢
                      (rename-out
-                      [syntax-parse/typecheck syntax-parse/typed-syntax])))
+                      [syntax-parse/typecheck syntax-parse/typed-syntax])
+                     ⇒ ⇐ ≫ ⊢ ≻)) ; literals used in define-typed-syntax
 
 (require (except-in (rename-in
                       macrotypes/typecheck-core
@@ -90,7 +91,30 @@
 )
 
 
-(begin-for-syntax (begin-for-syntax
+(begin-for-syntax
+  (define-syntax ⇒
+    (λ _
+      (raise-syntax-error '⇒
+       "Synth arrow (⇒) may only be used within Turnstile forms, e.g., `define-typed-syntax`")))
+  (define-syntax ⇐
+    (λ _
+      (raise-syntax-error '⇐
+       "Check arrow (⇐) may only be used within Turnstile forms, e.g., `define-typed-syntax`")))
+  (define-syntax ≫
+    (λ _
+      (raise-syntax-error '≫
+       "≫ operator may only be used within Turnstile forms, e.g., `define-typed-syntax`")))
+  (define-syntax ⊢
+    (λ _
+      (raise-syntax-error '⊢
+       "⊢ judgements may only be used within Turnstile forms, e.g., `define-typed-syntax`")))
+  (define-syntax ≻
+    (λ _
+      (raise-syntax-error '≻
+       "≻ operator may only be used within Turnstile forms, e.g., `define-typed-syntax`")))
+
+  (begin-for-syntax
+
   (define-syntax-class --- #:description "conclusion line dashes"
     [pattern dashes:id
              #:do [(define str-dashes (symbol->string (syntax->datum #'dashes)))]
@@ -117,7 +141,7 @@
   (define-splicing-syntax-class props
     [pattern (~and (~seq stuff ...) (~seq (~seq k:id v) ...))])
   (define-syntax-class ⇒-prop
-    #:datum-literals (⇒) #:attributes (e-pat)
+    #:literals (⇒) #:attributes (e-pat)
     [pattern (~or (⇒ tag-pat ; implicit tag
                      (~parse tag (syntax-parameter-value #'current-tag-stx))
                      tag-prop:⇒-prop ...)
@@ -131,7 +155,7 @@
                                          #'(detach/check #'e-tmp `tag)
                                          #'(detach #'e-tmp `tag))))])
   (define-splicing-syntax-class ⇒-prop/conclusion
-    #:datum-literals (⇒)
+    #:literals (⇒)
     #:attributes (tag tag-expr)
     [pattern (~or (~seq ⇒ tag-stx ; implicit tag
                           (~parse tag (syntax-parameter-value #'current-tag-stx))
@@ -152,7 +176,7 @@
                         #'(checked-type-eval tag-expr-body)
                         #'tag-expr-body)])
   (define-syntax-class ⇐-prop
-    #:datum-literals (⇐) #:attributes (tag tag-stx e-pat)
+    #:literals (⇐) #:attributes (tag tag-stx e-pat)
     [pattern (~or (⇐ tag-stx ; implicit tag
                      (~parse tag (syntax-parameter-value #'current-tag-stx)))
                   (⇐ tag:id tag-stx)) ; explicit tag
@@ -183,7 +207,7 @@
              #:with [tag-expr ...] #'[p.tag-expr]]
     [pattern (~seq (:⇒-prop/conclusion) ...+)])
   (define-splicing-syntax-class id+props+≫
-    #:datum-literals (≫)
+    #:literals (≫)
     #:attributes ([x- 1] [ctx 1])
     [pattern (~seq [x:id ≫ x--:id props:props])
              #:with [x- ...] #'[x--]
@@ -196,7 +220,7 @@
     [pattern (~seq ctx1:id+props+≫ ...)
              #:with [x- ...] #'[ctx1.x- ... ...]
              #:with [ctx ...] #'[ctx1.ctx ... ...]])
-  (define-syntax-class tc-elem #:datum-literals (≫ ⇒ ⇐) #:attributes (e-stx e-stx-orig e-pat)
+  (define-syntax-class tc-elem #:literals (≫ ⇒ ⇐) #:attributes (e-stx e-stx-orig e-pat)
     [pattern [e-stx* ≫ e-pat* (~and (~or ⇐ ⇒) arr) rst ...] ; inline, single arrow
              ;; attrs implicitly propagated
              #:with :tc-elem #'[e-stx* ≫ e-pat* (arr rst ...)]] ; defer to noninline clause
@@ -277,7 +301,7 @@
              #:attr wrap2 (λ(x)x)]
     )
   (define-splicing-syntax-class tc-clause
-    #:attributes (pat) #:datum-literals (⊢)
+    #:attributes (pat) #:literals (⊢)
     ;; fast case, 0 depth, no ctx
     [pattern (~seq [⊢ tc:tc-elem])
              #:with inf #`(expand/stop (pass-orig #`tc.e-stx #`tc.e-stx-orig))
@@ -329,7 +353,7 @@
              #:with pat ((attribute tc.wrap2)
                          #`(~post (~post (~parse tcs-pat inf+))))]
     )
-  (define-syntax-class tele-bind #:datum-literals (≫)
+  (define-syntax-class tele-bind #:literals (≫)
     (pattern [x:id ≫ xpat:id tag:id τ ≫ τpat]))
   (define-splicing-syntax-class tele-binds
     (pattern (~seq b:tele-bind ... (~optional ooo:elipsis))
@@ -338,7 +362,7 @@
              #:with tags #'(b.tag ... (~? ooo))
              #:with τs #'(b.τ ... (~? ooo))
              #:with τpats #'(b.τpat ... (~? ooo))))
-  (define-syntax-class bind+synth #:datum-literals (≫ ⇒)
+  (define-syntax-class bind+synth #:literals (≫ ⇒)
     ;; TODO: use tc-elem here?
     (pattern [x:id ≫ xpat:id tag:id τ ≫ τpat ⇒ kpat]))
   (define-splicing-syntax-class bind+synths
@@ -349,7 +373,7 @@
              #:with τs #'(b.τ ... (~? ooo))
              #:with τpats #'(b.τpat ... (~? ooo))
              #:with kpats #'(b.kpat ... (~? ooo))))
-  (define-syntax-class bind+check #:datum-literals (≫ ⇐)
+  (define-syntax-class bind+check #:literals (≫ ⇐)
     ;; TODO: use tc-elem here?
     (pattern [x:id ≫ xpat:id tag:id τ ≫ τpat ⇐ expected-k]))
   (define-splicing-syntax-class bind+checks
@@ -360,7 +384,7 @@
              #:with τs #'(b.τ ... (~? ooo))
              #:with τpats #'(b.τpat ... (~? ooo))
              #:with expected-ks #'(b.expected-k ... (~? ooo))))
-  (define-splicing-syntax-class folding-tc-clause #:attributes (pat) #:datum-literals (⊢ ≫ ⇒ ⇐)
+  (define-splicing-syntax-class folding-tc-clause #:attributes (pat) #:literals (⊢ ≫ ⇒ ⇐)
     ;; TODO: merge all these patterns?
     ;; nested telescopes
     (pattern [b:tele-binds  ⊢ [x:tele-binds ⊢ . tc:tc-elem] ... ooo:elipsis]
@@ -438,7 +462,7 @@
     [pattern (~and :kw-clause ~!)])
   (define-splicing-syntax-class ⊢-clause #:description "a well-formed ⊢ premise"
     #:attributes (pat)
-    [pattern (~seq (~and prem [_ ... (~datum ⊢) ~! . _])
+    [pattern (~seq (~and prem [_ ... (~literal ⊢) ~! . _])
                    (~optional (~seq ooo:elipsis ...) #:defaults ([(ooo 1) '()])))
              #:with (~and (~or (:tc-clause)
                                (:folding-tc-clause)) ~!) #'(prem ooo ...)])
@@ -573,7 +597,7 @@
                           ((mode-teardown-fn the-mode))))]
     )
   (define-syntax-class last-clause
-    #:datum-literals (⊢ ≫ ≻ ⇒ ⇐)
+    #:literals (⊢ ≫ ≻ ⇒ ⇐)
     #:attributes ([pat 0] [body 0])
     ;; ⇒ conclusion
     [pattern [⊢ e-stx props:⇒-props/conclusion]
@@ -640,7 +664,7 @@
   (begin-for-syntax
   ;; turnstile rule input PATTERN stx class -----------------------------------
   (define-splicing-syntax-class pat #:attributes (pat)
-                                    #:datum-literals (⇐)
+                                    #:literals (⇐)
     [pattern (~seq pat* ⇐ tagpat)
              #:with (:pat) #`(pat* (⇐ #,(syntax-parameter-value #'current-tag-stx) tagpat))]
     [pattern (~seq pat* ⇐ tag:id tagpat)
@@ -660,7 +684,7 @@
   ;; --------------------------------------------------------------------------
   ;; turnstile RULE stx class, ie, a clause in define-typed-stx ---------------
   (define-syntax-class rule
-    [pattern [maybe-pat ... (~datum ≫)
+    [pattern [maybe-pat ... (~literal ≫)
               maybe-clause ...
               :---
               maybe-last-clause maybe-opt-kws ...]
@@ -740,11 +764,11 @@
 (define-syntax define-typed-variable-syntax
   (syntax-parser
     ;; single-clause def
-    [(_ (name . pats) (~datum ≫) . rst)
+    [(_ (name . pats) (~literal ≫) . rst)
      #'(define-typed-variable-syntax #:name name [(_ . pats) ≫ . rst])]
     [(_ (~optional (~seq #:name name:id) #:defaults ([name (generate-temporary '#%var)]))
         (~and (~seq kw-stuff ...) :stxparse-kws)
-        (~and [(_ _ (~datum ≫) . _) . _] rule) ...+)
+        (~and [(_ _:id (~literal ≫) ~! _:id . _) . _] rule) ...+) ; includes unexpanded x
      #'(begin
          (define-typed-syntax name kw-stuff ... rule ...)
          (begin-for-syntax
@@ -808,12 +832,12 @@
 ;; this is a variant of assign-type, but for top-lvl defs
 (define-syntax define-typed-variable
   (syntax-parser
-    [(_ x:id e (~datum ⇐) τ) ; e typed, checked to have type τ
+    [(_ x:id e (~literal ⇐) τ) ; e typed, checked to have type τ
      (quasisyntax/loc this-syntax (define-typed-variable x (add-expected e τ)))]
     [(_ x:id e)
      #:with [e- τ] (infer+erase #'e)
      (quasisyntax/loc this-syntax (define-typed-variable x e- ⇒ τ))]
-    [(_ x:id e- (~datum ⇒) τ) ; e- untyped, assigned type τ
+    [(_ x:id e- (~literal ⇒) τ) ; e- untyped, assigned type τ
      #:with x- (generate-temporary #'x)
      #`(begin-
          (define- x- e-)

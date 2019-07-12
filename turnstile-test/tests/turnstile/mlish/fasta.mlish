@@ -17,7 +17,7 @@
 (check-type +alu+ : String)
 
 (define-type-alias (Dict X Y) (List (× X Y)))
-(require (only-in turnstile define-typed-syntax))
+(require (only-in turnstile define-typed-syntax ≫ ≻))
 (define-typed-syntax (in-dict d) ≫ --- [≻ (in-list d)])
 (define-typed-syntax (dict (~seq k v) ...) ≫ --- [≻ (list (tup k v) ...)])
 

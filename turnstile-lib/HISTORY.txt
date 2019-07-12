@@ -10,6 +10,12 @@ Revision history for turnstile-lib
 - disallow lone ids on lhs of ⊢ premise
 - improve err msgs from `define-typed-syntax`
 
+0.3.4 (2018-11-19)
+- restore support for old `typed-variable-syntax` input (_ x- : τ)
+
+0.3.5 (2018-12-05)
+- convert Turnstile datum symbols to identifiers, eg ≫ ⊢ ⇒ ⇐ ≻
+
 0.4.2 (2018-10-26)
 - turnstile/typedefs:
   - separate (and simplify) representations for binding and non-binding types

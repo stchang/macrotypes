@@ -3,6 +3,14 @@
 
 ;; Tests for Turnstile forms
 
+(begin-for-syntax
+  (require rackunit/turnstile)
+  (typecheck-fail ⇒ #:with-msg "may only be used within Turnstile")
+  (typecheck-fail ⇐ #:with-msg "may only be used within Turnstile")
+  (typecheck-fail ≫ #:with-msg "may only be used within Turnstile")
+  (typecheck-fail ⊢ #:with-msg "may only be used within Turnstile")
+  (typecheck-fail ≻ #:with-msg "may only be used within Turnstile"))
+
 (define-base-types Int Float)
 
 (define-primop typed-pi pi : Float)
@@ -45,7 +53,7 @@
     [[x ≫ x- : t] ⊢ e_body ≫ e_body- ⇒ τ_body]
     --------
     [⊢ (let-values- ([(x-) e-]) e_body-) ⇒ τ_body]])
- #:with-msg "expected.*literal symbol `≫'")
+ #:with-msg "expected.*identifier `≫'")
 
 ;; forgot conclusion line ------
 (typecheck-fail/toplvl
