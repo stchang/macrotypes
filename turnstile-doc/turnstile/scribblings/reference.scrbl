@@ -1,10 +1,10 @@
 #lang scribble/manual
 
 @(require scribble/example racket/sandbox
-          (for-label racket/base
+          (for-label (except-in racket/base <= =>)
                      syntax/id-table
-                     turnstile/mode
-                     (except-in turnstile/main mk-~ mk-?))
+                     turnstile/mode turnstile/no-unicode
+                     (except-in turnstile/main mk-~ mk-? /- <= =>))
           "doc-utils.rkt" "common.rkt")
 
 @title{The Turnstile Reference}
@@ -53,6 +53,8 @@ and then press Control-@litchar{\}.
   @item{@litchar{\Leftarrow} → @litchar{⇐}}
   @item{@litchar{\succ} → @litchar{≻}}
 ]
+
+See also @secref{no-unicode} for non-unicode aliases.
 
 @section{Forms}
 
@@ -985,3 +987,15 @@ other Turnstile forms like @racket[define-typed-syntax].
 @defidform[≫]{}
 @defidform[≻]{}
 @defidform[⊢]{}
+
+@section[#:tag "no-unicode"]{Non-Unicode Identifiers}
+
+@defmodule[turnstile/no-unicode #:use-sources (turnstile/no-unicode)]
+
+The following identifiers are non-unicode aliases to other Turnstile ids.
+
+@defidform[<=]{Alias for @racket[⇐].}
+@defidform[=>]{Alias for @racket[⇒].}
+@defidform[>>]{Alias for @racket[≫].}
+@defidform[>>>]{Alias for @racket[≻].}
+@defidform[/-]{Alias for @racket[⊢].}

@@ -16,6 +16,9 @@ Revision history for turnstile-lib
 0.3.5 (2018-12-05)
 - convert Turnstile datum symbols to identifiers, eg ≫ ⊢ ⇒ ⇐ ≻
 
+0.3.6 (2018-12-05)
+- add turnstile/no-unicode
+
 0.4.2 (2018-10-26)
 - turnstile/typedefs:
   - separate (and simplify) representations for binding and non-binding types
