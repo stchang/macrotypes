@@ -32,7 +32,7 @@
 (define-syntax (erased stx)
   (syntax-parse stx
     [(_ e)
-     #'e]))
+     (replace-stx-loc #'e this-syntax)]))
 
 ;; type checking functions/forms
 
