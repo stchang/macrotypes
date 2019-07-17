@@ -501,6 +501,8 @@
     [pattern (~seq #:fail-unless condition:expr message:expr)
              #:with pat
              #'(~post (~fail #:unless condition message))]
+    [pattern {~seq #:and pat}]
+    [pattern {~seq #:cut} #:with pat #'~!]
     [pattern (~seq #:fail-when/prop prop-name:id condition:expr message:expr)
              #:with param-name (mk-param #'prop-name)
              #:with pat
