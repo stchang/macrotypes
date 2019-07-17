@@ -113,7 +113,10 @@
 
 ; alternate to generate-temporaries, which relies on symbolic name
 (define (fresh id)
-  (replace-stx-loc ((make-syntax-introducer) (datum->syntax #f (syntax-e id))) id))
+  (syntax-property
+   (replace-stx-loc ((make-syntax-introducer) (datum->syntax #f (syntax-e id))) id)
+   'original-for-check-syntax
+   #t))
 
 (define (id-lower-case? stx)
   (unless (identifier? stx)
