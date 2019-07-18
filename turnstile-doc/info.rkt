@@ -8,6 +8,9 @@
   '("racket-doc"
     "sandbox-lib"
     "scribble-lib"
+    "rackunit-lib"
+    "rackunit-doc"
+    ("rackunit-macrotypes-lib" #:version "0.3.1")
     ("turnstile-lib" #:version "0.3.6")
     ("turnstile-example" #:version "0.3.1")))
 

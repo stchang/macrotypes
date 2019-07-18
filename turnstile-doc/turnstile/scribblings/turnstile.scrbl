@@ -26,6 +26,7 @@ programmers are accustomed to.
 
 @include-section{guide.scrbl}
 @include-section{reference.scrbl}
+@include-section{rackunit-turnstile.scrbl}
 
 @(bibliography 
   (bib-entry #:key "bidirectional"
