@@ -248,7 +248,10 @@
   ;; If Val is a non-empty list, return first element, otherwise return Val.
   ;; e.g., Stx = expression, Tag = ':, Val = Type stx
   (define (detach stx tag)
-    (intro-if-stx (get-stx-prop/ca*r stx tag))))
+    (define prop-val (get-stx-prop/ca*r stx tag))
+    ; NB: Only intro-if-stx while the expander is running.
+    ; This allows calling typeof, e.g., in DrRacket expansion handler.
+    (if (syntax-transforming?) (intro-if-stx prop-val) prop-val)))
 
 ;; ----------------------------------------------------------------------------
 ;; ----------------------------------------------------------------------------
