@@ -97,7 +97,8 @@
     [(_ v:id (~datum ≫) v-:id (~datum :) τ)
      #'(define-syntax v
          (make-variable-like-transformer
-           (add-orig (assign-type #'v- #`τ #:wrap? #f) #'v)))]))
+           (add-orig (assign-type #'v- #`τ #:wrap? #f) #'v)
+           #'(lambda (x) (set! v- x))))]))
 
 ;; need options for
 ;; - pass through

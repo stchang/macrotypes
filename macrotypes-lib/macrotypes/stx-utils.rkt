@@ -1,7 +1,8 @@
 #lang racket/base
 (require syntax/stx syntax/parse syntax/parse/define
          racket/list racket/format version/utils
-         racket/syntax)
+         racket/syntax
+         (for-template (only-in racket/base set! #%app)))
 (provide (all-defined-out))
 
 ;; shorthands
@@ -198,16 +199,26 @@
 
 ;; based on make-variable-like-transformer from syntax/transformer,
 ;; but using (#%app id ...) instead of ((#%expression id) ...)
-(define (make-variable-like-transformer ref-stx)
+(define (make-variable-like-transformer ref-stx [set!-handler #f])
   (unless (syntax? ref-stx)
     (raise-type-error 'make-variable-like-transformer "syntax?" ref-stx))
-  (lambda (stx)
-    (syntax-case stx ()
-      [id
-       (identifier? #'id)
-       (replace-stx-loc ref-stx stx)]
-      [(id . args)
-       (let ([stx* (list* '#%app #'id (cdr (syntax-e stx)))])
-         (datum->syntax stx stx* stx stx))])))
+  (make-set!-transformer
+   (lambda (stx)
+     (syntax-case stx (set!)
+       [id
+        (identifier? #'id)
+        (replace-stx-loc ref-stx stx)]
+       [(set! id exp)
+        (cond
+          [(procedure? set!-handler)
+           (set!-handler stx)]
+          [(syntax? set!-handler)
+           (with-syntax ([setter set!-handler])
+             (syntax/loc stx (#%app setter exp)))]
+          [else
+           (raise-syntax-error #f "cannot mutate identifier" stx #'id)])]
+       [(id . args)
+        (let ([stx* (list* '#%app #'id (cdr (syntax-e stx)))])
+          (datum->syntax stx stx* stx stx))]))))
 
 (define (mk-param id) (format-id id "current-~a" id))
