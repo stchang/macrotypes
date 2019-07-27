@@ -6,7 +6,12 @@
 
 (require (for-syntax "more-utils.rkt"))
 
-(provide define-type (for-syntax (all-defined-out)))
+(provide
+ define-internal-base-type/new
+ define-internal-type/new
+ define-internal-binding-type/new
+ define-type
+ (for-syntax (all-defined-out)))
 
 (begin-for-syntax
   (current-use-stop-list? #f)
@@ -107,6 +112,42 @@
   (current-resugar (λ (t) (format "~s" (stx->datum (resugar-type t)))))
   )
 
+(define-syntax define-internal-type/new
+  (syntax-parser
+    [(_ TY/internal (TY Y ...)
+        (~optional (~seq #:extra ei ...) #:defaults ([(ei 1) '()]))
+        (~optional (~and lazy #:lazy)))
+     #:with TY-expander (mk-~ #'TY)
+     #:with (τ ...) (generate-temporaries #'(Y ...))
+     #:with (maybe-lazy-pattern ...)
+     (if (attribute lazy)
+         (list #'((~literal TY) Y ...))
+         '())
+     #`(begin-
+         (struct- TY/internal (Y ...) #:transparent #:omit-define-syntaxes)
+         (begin-for-syntax
+           (define TY/internal+ (expand/df #'TY/internal))
+           (define-syntax TY-expander
+             (pattern-expander
+              (syntax-parser
+                [(_ τ ...)
+                 #'(~or
+                     maybe-lazy-pattern ...
+                     (~and ty-to-match
+                         (~parse
+                          ((~literal #%plain-app) name/internal:id τ ...)
+                          #'ty-to-match)
+                         (~fail #:unless (free-id=? #'name/internal TY/internal+))))])))
+           (define TY/internal
+             (type-info
+              #'(ei ...)     ; match info
+              (syntax-parser ; resugar fn
+                [(TY-expander τ ...)
+                 (cons #'TY (stx-map resugar-type #'(τ ...)))])
+              (syntax-parser ; unexpand
+                [(TY-expander τ ...)
+                 (cons #'TY (stx-map unexpand #'(τ ...)))])))))]))
+
 (define-syntax define-type
   (syntax-parser
     [(_ TY:id #:with-binders . rst) (syntax/loc this-syntax (define-binding-type TY . rst))] ; binding type
@@ -134,34 +175,47 @@
              [_ ≫ [⊢ [Y ≫ _ Ytag k_out ≫ _ ⇒ _] ... [k ≫ _ ⇒ _]] --- [≻ (void)]])
      #:with (τ ...) (generate-temporaries #'(k_out ...)) ; predefine patvars
      #:with TY/internal (fresh #'TY)
-     #:with TY-expander (mk-~ #'TY)
      #`(begin-
-         (struct- TY/internal (Y ...) #:transparent #:omit-define-syntaxes)
          (define-typed-syntax TY
            [(_ Y ...) ≫
             [⊢ [Y ≫ τ ⇐ k_out] ...]
             ---------------
             [⊢ (#%plain-app TY/internal τ ...) ⇒ k]])
-         (begin-for-syntax
-           (define TY/internal+ (expand/df #'TY/internal))
-           (define-syntax TY-expander
-             (pattern-expander
-              (syntax-parser
-                [(_ τ ...)
-                 #'(~and ty-to-match
+         (define-internal-type/new TY/internal (TY Y ...) #:extra ei ...))]))
+
+(define-syntax define-internal-base-type/new
+  (syntax-parser
+    [(_ TY/internal TY (~optional (~seq #:extra ei ...) #:defaults ([(ei 1) '()])))
+    #:with TY-expander (mk-~ #'TY)
+    #`(begin-
+        (struct- TY/internal () #:transparent #:omit-define-syntaxes)
+        (begin-for-syntax
+          (define TY/internal+ (expand/df #'TY/internal))
+          (define-syntax TY-expander
+            (pattern-expander
+             (syntax-parser
+               [(~var _ id)
+                #'(~and ty-to-match
+                        (~parse
+                         ((~literal #%plain-app) name/internal:id)
+                         #'ty-to-match)
+                        (~fail #:unless (free-id=? #'name/internal TY/internal+)))]
+               [(_ other-pat (... ...))
+                #'((~and ty-to-match
                          (~parse
-                          ((~literal #%plain-app) name/internal:id τ ...)
+                          ((~literal #%plain-app) name/internal:id)
                           #'ty-to-match)
-                         (~fail #:unless (free-id=? #'name/internal TY/internal+)))])))
-           (define TY/internal
-             (type-info
-              #'(ei ...)     ; match info
-              (syntax-parser ; resugar fn
-                [(TY-expander τ ...)
-                 (cons #'TY (stx-map resugar-type #'(τ ...)))])
-              (syntax-parser ; unexpand
-                [(TY-expander τ ...)
-                 (cons #'TY (stx-map unexpand #'(τ ...)))])))))]))
+                         (~fail #:unless (free-id=? #'name/internal TY/internal+)))
+                   other-pat (... ...))])))
+          (define TY/internal
+            (type-info
+             #'(ei ...)     ; match info
+             (syntax-parser ; resugar fn
+               [TY-expander #'TY]
+               [(TY-expander) (list #'TY)])
+             (syntax-parser ; unexpand fn
+               [TY-expander #'TY]
+               [(TY-expander) (list #'TY)])))))]))
 
 ;; base type is separate bc the expander must accommodate id case
 (define-syntax define-base-type
@@ -170,49 +224,85 @@
      #:when (syntax-parse/typecheck null 
              [_ ≫ [⊢ k ≫ _ ⇒ _] --- [≻ (void)]])
      #:with TY/internal (fresh #'TY)
-     #:with TY-expander (mk-~ #'TY)
      #`(begin-
-         (struct- TY/internal () #:transparent #:omit-define-syntaxes)
          (define-typed-syntax TY
            [(~var _ id) ≫ --- [≻ (TY)]]
            [(_) ≫ ----------- [⊢ (#%plain-app TY/internal) ⇒ k]])
+         (define-internal-base-type/new TY/internal TY #:extra ei ...))]))
+
+(define-syntax define-internal-binding-type/new
+  (syntax-parser
+    [(_ TY/internal TY (~optional (~seq #:tag Xtag) #:defaults ([(Xtag 0) #':])))
+     #:with TY-expander (mk-~ #'TY)
+     #:with X (fresh #'X)
+     #:with bod (fresh #'bod)
+     #:with τ_in (fresh #'τ_in)
+     #:with τ_out (fresh #'τ_out)
+     #`(begin-
+         (struct- TY/internal (X bod) #:transparent #:omit-define-syntaxes)
          (begin-for-syntax
            (define TY/internal+ (expand/df #'TY/internal))
            (define-syntax TY-expander
              (pattern-expander
               (syntax-parser
-                [(~var _ id)
+                [(_ [(~var X id) (~datum Xtag) τ_in] τ_out)
                  #'(~and ty-to-match
                          (~parse
-                          ((~literal #%plain-app) name/internal:id)
+                          ((~literal #%plain-app)
+                           name/internal:id
+                           τ_in
+                           ((~literal #%plain-lambda) (X) τ_out))
                           #'ty-to-match)
-                         (~fail #:unless (free-id=? #'name/internal TY/internal+)))]
-                [(_ other-pat (... ...))
-                 #'((~and ty-to-match
-                         (~parse
-                          ((~literal #%plain-app) name/internal:id)
-                          #'ty-to-match)
-                         (~fail #:unless (free-id=? #'name/internal TY/internal+)))
-                    other-pat (... ...))])))
+                         (~fail #:unless (free-id=? #'name/internal TY/internal+)))])))
            (define TY/internal
              (type-info
-              #'(ei ...)     ; match info
-              (syntax-parser ; resugar fn
-                [TY-expander #'TY]
-                [(TY-expander) (list #'TY)])
-              (syntax-parser ; unexpand fn
-                [TY-expander #'TY]
-                [(TY-expander) (list #'TY)])))))]))
+              #f             ; match info
+              ;; this must return list not stx obj, ow ctx (for #%app) will be wrong
+              ;; in other words, *caller* must create stx obj
+              (syntax-parser ; resugar-fn
+                [(TY-expander [X Xtag _] _)
+                 #:when (syntax-property #'X 'tmp) ; drop binders
+                 (cons (syntax-property #'X 'display-as) ; use alternate display name
+                       (letrec ([resugar-anno ; resugar and uncurry annotations, drop binder
+                                 (syntax-parser
+                                   [(TY-expander [X Xtag τ] rst)
+                                    #:when (syntax-property #'X 'tmp)
+                                    (cons (resugar-type #'τ)
+                                          (resugar-anno #'rst))]
+                                   [_ (list (resugar-type this-syntax))])])
+                         (resugar-anno this-syntax)))]
+                [_
+                 (cons #'TY
+                       (letrec ([resugar-anno/binder ; resugar and uncurry annos, keep binder
+                                 (syntax-parser
+                                   [(TY-expander [X Xtag τ] rst)
+                                    #:when (not (syntax-property #'X 'tmp))
+                                    (cons (list #'X #'Xtag (resugar-type #'τ))
+                                          (resugar-anno/binder #'rst))]
+                                   [_ (list (resugar-type this-syntax))])])
+                         (resugar-anno/binder this-syntax)))])
+              (syntax-parser ; unexpand
+                [(TY-expander [X Xtag _] _)
+                 #:when (syntax-property #'X 'tmp) ; drop binders
+                 (cons (syntax-property #'X 'display-as) ; use alternate display name
+                       (letrec ([unexpand-anno ; resugar and uncurry annotations, drop binder
+                                 (syntax-parser
+                                   [(TY-expander [X Xtag τ] rst)
+                                    #:when (syntax-property #'X 'tmp)
+                                    (cons (unexpand #'τ)
+                                          (unexpand-anno #'rst))]
+                                   [_ (list (unexpand this-syntax))])])
+                         (unexpand-anno this-syntax)))]
+                [(TY-expander [X Xtag τ] rst)
+                 (list #'TY (list #'X #'Xtag (unexpand #'τ)) (unexpand #'rst))])))))]))
 
 (define-typed-syntax (define-binding-type TY:id [X:id Xtag:id k_in] (~datum :) k_out (~datum ->) k) ≫
   ;; TODO: need to validate k_in, k_out, and k; what should be their required type?
   ;; - it must be language agnostic?
   [[X ≫ _ Xtag k_in] ⊢ [k_out ≫ _ ⇒ _] [k ≫ _ ⇒ _]]
   #:with TY/internal (fresh #'TY)
-  #:with TY-expander (mk-~ #'TY)
   --------
   [≻ (begin-
-       (struct- TY/internal (X bod) #:transparent #:omit-define-syntaxes)
        (define-typed-syntax TY
          [(_ [(~var X id) (~datum Xtag) τ_in] τ_out) ≫
           [⊢ [X ≫ X-- Xtag τ_in ≫ τ_in- ⇐ k_in] [τ_out ≫ τ_out- ⇐ k_out]]
@@ -221,58 +311,4 @@
                                    (transfer-prop 'tmp #'X #'X--))
           ---------------
           [⊢ (#%plain-app TY/internal τ_in- (#%plain-lambda (X-) τ_out-)) ⇒ k]])
-       (begin-for-syntax
-         (define TY/internal+ (expand/df #'TY/internal))
-         (define-syntax TY-expander
-           (pattern-expander
-            (syntax-parser
-              [(_ [(~var X id) (~datum Xtag) τ_in] τ_out)
-               #'(~and ty-to-match
-                       (~parse
-                        ((~literal #%plain-app)
-                         name/internal:id
-                         τ_in
-                         ((~literal #%plain-lambda) (X) τ_out))
-                        #'ty-to-match)
-                       (~fail #:unless (free-id=? #'name/internal TY/internal+)))])))
-         (define TY/internal
-           (type-info
-            #f             ; match info
-            ;; this must return list not stx obj, ow ctx (for #%app) will be wrong
-            ;; in other words, *caller* must create stx obj
-            (syntax-parser ; resugar-fn
-              [(TY-expander [X Xtag _] _)
-               #:when (syntax-property #'X 'tmp) ; drop binders
-               (cons (syntax-property #'X 'display-as) ; use alternate display name
-                  (letrec ([resugar-anno ; resugar and uncurry annotations, drop binder
-                                (syntax-parser
-                                  [(TY-expander [X Xtag τ] rst)
-                                   #:when (syntax-property #'X 'tmp)
-                                   (cons (resugar-type #'τ)
-                                         (resugar-anno #'rst))]
-                                  [_ (list (resugar-type this-syntax))])])
-                        (resugar-anno this-syntax)))]
-              [_
-               (cons #'TY
-                     (letrec ([resugar-anno/binder ; resugar and uncurry annos, keep binder
-                                (syntax-parser
-                                  [(TY-expander [X Xtag τ] rst)
-                                   #:when (not (syntax-property #'X 'tmp))
-                                   (cons (list #'X #'Xtag (resugar-type #'τ))
-                                         (resugar-anno/binder #'rst))]
-                                  [_ (list (resugar-type this-syntax))])])
-                       (resugar-anno/binder this-syntax)))])
-            (syntax-parser ; unexpand
-              [(TY-expander [X Xtag _] _)
-               #:when (syntax-property #'X 'tmp) ; drop binders
-               (cons (syntax-property #'X 'display-as) ; use alternate display name
-                  (letrec ([unexpand-anno ; resugar and uncurry annotations, drop binder
-                                (syntax-parser
-                                  [(TY-expander [X Xtag τ] rst)
-                                   #:when (syntax-property #'X 'tmp)
-                                   (cons (unexpand #'τ)
-                                         (unexpand-anno #'rst))]
-                                  [_ (list (unexpand this-syntax))])])
-                        (unexpand-anno this-syntax)))]
-              [(TY-expander [X Xtag τ] rst)
-               (list #'TY (list #'X #'Xtag (unexpand #'τ)) (unexpand #'rst))])))))])
+       (define-internal-binding-type/new TY/internal TY #:tag Xtag))])
