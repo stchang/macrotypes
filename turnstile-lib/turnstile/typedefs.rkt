@@ -69,7 +69,7 @@
       [ty #:when (has-type-info? #'ty) ((get-unexpand-info #'ty) #'ty)]
       [((~and (~literal #%plain-app) app) . rst)
        #:do[(define reflect-name (syntax-property #'app 'display-as))]
-       #:when (stx-e reflect-name)
+       #:when (and reflect-name (stx-e reflect-name))
        (cons reflect-name (stx-map (unexpand/ctx ctx) #'rst))]
       [((~literal #%plain-app) . rst)
        (stx-map (unexpand/ctx ctx) #'rst)]
