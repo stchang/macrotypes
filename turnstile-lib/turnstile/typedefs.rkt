@@ -234,10 +234,6 @@
   (syntax-parser
     [(_ TY/internal TY (~optional (~seq #:tag Xtag) #:defaults ([(Xtag 0) #':])))
      #:with TY-expander (mk-~ #'TY)
-     #:with X (fresh #'X)
-     #:with bod (fresh #'bod)
-     #:with τ_in (fresh #'τ_in)
-     #:with τ_out (fresh #'τ_out)
      #`(begin-
          (struct- TY/internal (X bod) #:transparent #:omit-define-syntaxes)
          (begin-for-syntax
