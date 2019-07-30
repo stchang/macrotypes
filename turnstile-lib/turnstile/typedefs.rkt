@@ -116,9 +116,11 @@
   (syntax-parser
     [(_ TY/internal (TY Y ...)
         (~optional (~seq #:extra ei ...) #:defaults ([(ei 1) '()]))
-        (~optional (~and lazy #:lazy)))
+        (~optional (~and lazy #:lazy))
+        (~optional (~seq #:arg-pattern (pat ...)))
+        )
      #:with TY-expander (mk-~ #'TY)
-     #:with (τ ...) (generate-temporaries #'(Y ...))
+     #:with (arg-pat ...) (or (attribute pat) #'(Y ...))
      #:with (maybe-lazy-pattern ...)
      (if (attribute lazy)
          (list #'((~literal TY) Y ...))
@@ -130,23 +132,24 @@
            (define-syntax TY-expander
              (pattern-expander
               (syntax-parser
-                [(_ τ ...)
+                [(_ Y ...)
                  #'(~or
                      maybe-lazy-pattern ...
                      (~and ty-to-match
                          (~parse
-                          ((~literal #%plain-app) name/internal:id τ ...)
+                          ((~literal #%plain-app) name/internal:id arg-pat ...)
                           #'ty-to-match)
-                         (~fail #:unless (free-id=? #'name/internal TY/internal+))))])))
+                         (~fail #:unless (free-id=? #'name/internal TY/internal+)))
+                     )])))
            (define TY/internal
              (type-info
               #'(ei ...)     ; match info
               (syntax-parser ; resugar fn
-                [(TY-expander τ ...)
-                 (cons #'TY (stx-map resugar-type #'(τ ...)))])
+                [(TY-expander Y ...)
+                 (cons #'TY (stx-map resugar-type #'(Y ...)))])
               (syntax-parser ; unexpand
-                [(TY-expander τ ...)
-                 (cons #'TY (stx-map unexpand #'(τ ...)))])))))]))
+                [(TY-expander Y ...)
+                 (cons #'TY (stx-map unexpand #'(Y ...)))])))))]))
 
 (define-syntax define-type
   (syntax-parser
