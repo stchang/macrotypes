@@ -138,8 +138,8 @@
     (cond [(zero? n) stx]
           [else (add-lists (list stx) (sub1 n))]))
 
-  (define-splicing-syntax-class props
-    [pattern (~and (~seq stuff ...) (~seq (~seq k:id v) ...))])
+  (define-splicing-syntax-class props ; (~not (~literal ≫)) match disambiguates with folding-tc
+    [pattern (~and (~seq stuff ...) (~seq (~seq (~and (~not (~literal ≫)) k:id) v) ...))])
   (define-syntax-class ⇒-prop
     #:literals (⇒) #:attributes (e-pat)
     [pattern (~or (⇒ tag-pat ; implicit tag
