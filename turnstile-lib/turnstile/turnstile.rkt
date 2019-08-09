@@ -607,7 +607,14 @@
              #:with body:expr
              (for/fold ([body #'(if (current-use-stop-list?) ; dont wrap if not using stop list
                                     (quasisyntax/loc this-syntax (erased e-stx))
-                                    (quasisyntax/loc this-syntax e-stx))])
+                                    ; NOTE: quasisyntax/loc and syntax/loc do
+                                    ; not preserve location if `e-stx` is a
+                                    ; pattern variable.
+                                    ; This can happen for typed syntax like `ann`
+                                    ; which expands to a pattern variable.
+                                    ; We must, therefore, also use
+                                    ; replace-stx-loc.
+                                    (replace-stx-loc (quasisyntax/loc this-syntax e-stx) this-syntax))])
                        ([k (in-stx-list #'[props.tag ...])]
                         [v (in-stx-list #'[props.tag-expr ...])])
                (with-syntax ([body body] [k k] [v v])
@@ -620,13 +627,13 @@
              #:with body:expr #'(attach
                                  (if (current-use-stop-list?)
                                      (quasisyntax/loc this-syntax (erased e-stx))
-                                     (quasisyntax/loc this-syntax e-stx))
+                                     (replace-stx-loc (quasisyntax/loc this-syntax e-stx) this-syntax))
                                  'tag #'τ)]
     ;; macro invocations
     [pattern [≻ e-stx]
              #:with pat #'_
              #:with body:expr
-             #'(quasisyntax/loc this-syntax e-stx)]
+             #'(replace-stx-loc (quasisyntax/loc this-syntax e-stx) this-syntax)]
     [pattern [#:error msg:expr]
              #:with pat #'(~post (~fail msg))
              #:with body:expr
