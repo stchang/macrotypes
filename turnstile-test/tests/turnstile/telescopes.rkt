@@ -8,22 +8,26 @@
 (define-syntax Type
   (syntax-parser
     [:id
-     (syntax-property ': #'(Type-) #'Type)]))
+     (syntax-property #'Type- ': ((current-type-eval) #'Type-))]))
 
 (struct ->- (types))
 (define-typed-syntax (-> [x : τ₁] ... τ₂) ≫
   [[x ≫ x- : τ₁ ≫ τ₁- ⇐ Type] ... ⊢ [τ₂ ≫ τ₂- ⇐ Type]]
   ------
-  [⊢ (->- (λ (x- ...) τ₁- ... τ₂-))])
+  [⊢ (->- (λ (x- ...) τ₁- ... τ₂-)) ⇒ Type])
 
 (define-typed-syntax (->/i [x : τ₁] ... τ₂) ≫
   [[x ≫ x- : τ₁ ≫ τ₁- ⇒ ~Type-] ... ⊢ [τ₂ ≫ τ₂- ⇒ ~Type-]]
   ------
-  [⊢ (->- (λ (x- ...) τ₁- ... τ₂-))])
+  [⊢ (->- (λ (x- ...) τ₁- ... τ₂-)) ⇒ Type])
 
-#;(define-typed-syntax (->2 [x : τ₁] ... τ₂) ≫
+(define-typed-syntax (->2 [x : τ₁] ... τ₂) ≫
   [[x ≫ x- : τ₁ ≫ τ₁-] ... ⊢ [τ₂ ≫ τ₂- ⇒ ~Type-]]
   ------
-  [⊢ (->- (λ (x- ...) τ₂-))])
+  [⊢ (->- (λ (x- ...) τ₂-)) ⇒ Type])
 
-#;(->2 [x : Type] [y : Type] Type)
+(module+ test
+  (require rackunit/turnstile)
+  (check-type (->   [x : Type] [y : Type] Type) : Type)
+  (check-type (->/i [x : Type] [y : Type] Type) : Type)
+  (check-type (->2  [x : Type] [y : Type] Type) : Type))
