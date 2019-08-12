@@ -1133,6 +1133,30 @@
      (define e+ ((current-type-eval) e env))
      (env-add x xtag e+ env))
 
+   ;; TODO: need separate etag?
+   ;; env is either Env or String (err msg)
+   ;; - if it's the latter, just return (short circuits the checking)
+   ;; returns either Env or String (err msg)
+   ;; - return str err msg instead of just erroring here,
+   ;;   let Turnstile issue stx-parse error,
+   ;;   avoids conflicting with Turnstile's backtracking
+   (define (expand1/bind/check x xtag e ty-exp [env (mk-new-env)])
+     (if (string? env)
+         env
+         (let ()
+           (define e/exp (add-expected-type e ty-exp))
+           (define new-env (expand1/bind x xtag e/exp env))
+           (define e+ (car (env-τs new-env)))
+           (define τ (detach/check e+ (stx-e xtag)))
+           (define τ/exp (get-expected-type e+))
+           (if (typecheck? τ τ/exp)
+               (env-add x xtag e+ env)
+               (typecheck-fail-msg/1 τ/exp τ e)))))
+
+   ;; returns either Env or Str (err msg)
+   (define (expands/bind/check xs tags es expected-tys [env (mk-new-env)])
+     (stx-fold expand1/bind/check env xs tags es expected-tys))
+
    ;; folds expand1/bind given binders and "terms", returning the final idc
    ;; - xs must not have duplicates
    (define (expands/bind xs tags es [env (mk-new-env)])

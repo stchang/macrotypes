@@ -432,31 +432,15 @@
                            (~do (define xs #'(x (... ...)))
                                 (define tags #'(tag (... ...)))
                                 (define τs #'(τ (... ...)))
-                                (define ctx (expands/bind xs tags τs))
-                                (define xs+ (env-xs ctx))
-                                (define τs+ (env-τs ctx))
-                                (define ks  (stx-map typeof τs+)))
-                           ; TODO: interleave these checks with expansion?
-                           (~fail #:unless (typechecks?
-                                            ks
-                                            (stx-map
-                                             (current-type-eval)
-                                             #'(expected-k (... ...))))
-                                  (apply format "type mismatch: ~a has type ~a, expected ~a"
-                                          (for/first
-                                              ([ty (in-stx-list τs)]
-                                               [k (in-stx-list ks)]
-                                               [kexpect
-                                                (stx-map
-                                                 (current-type-eval)
-                                                 #'(expected-k (... ...)))]
-                                               #:unless (typecheck? k kexpect))
-                                            (list ((current-resugar) ty)
-                                                  ((current-resugar) k)
-                                                  ((current-resugar) kexpect)))))
-                           (~parse #,(stx-append #'b1.xpats #'b2.xpats) xs+)
-                           (~parse #,(stx-append #'b1.τpats #'b2.τpats) τs+)
-                           (~parse (tc.e-pat ...) (stx-map (expand1/env ctx) #'(tc.e-stx ...))))))
+                                (define expected-ks #'(expected-k (... ...)))
+                                (define ctx/errmsg
+                                  (expands/bind/check xs tags τs expected-ks)))
+                           (~fail #:when (string? ctx/errmsg) ctx/errmsg)
+                           ;; succeeded, do pat matching
+                           (~parse #,(stx-append #'b1.xpats #'b2.xpats) (env-xs ctx/errmsg))
+                           (~parse #,(stx-append #'b1.τpats #'b2.τpats) (env-τs ctx/errmsg))
+                           (~parse (tc.e-pat ...)
+                                   (stx-map (expand1/env ctx/errmsg) #'(tc.e-stx ...))))))
 
   ;; stx-classes for premises, ie "clause"
 
