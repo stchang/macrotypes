@@ -389,12 +389,18 @@
     (pattern [x:id ≫ xpat:id tag:id τ ≫ τpat ⇐ expected-k]))
   (define-splicing-syntax-class bind+checks
     (pattern (~seq b:bind+check ... (~optional ooo:elipsis))
-             #:with xs #'(b.x ... (~? ooo))
+             ;; combine all the components of b ... into a single pattern,
+             ;; o.w., in case of stx templates that do not contain patvars,
+             ;; they will not be duplicated over the ellipses and will err,
+             ;; eg, if expected-k is `Type`
+             #:with combined-stx #'((b.x b.tag b.τ b.expected-k) ... (~? ooo))
+             ;; #:with xs #'(b.x ... (~? ooo))
              #:with xpats #'(b.xpat ... (~? ooo))
-             #:with tags #'(b.tag ... (~? ooo))
-             #:with τs #'(b.τ ... (~? ooo))
+             ;; #:with tags #'(b.tag ... (~? ooo))
+             ;; #:with τs #'(b.τ ... (~? ooo))
              #:with τpats #'(b.τpat ... (~? ooo))
-             #:with expected-ks #'(b.expected-k ... (~? ooo))))
+             ;; #:with expected-ks #'(b.expected-k ... (~? ooo))
+             ))
   (define-splicing-syntax-class folding-tc-clause #:attributes (pat) #:literals (⊢ ≫ ⇒ ⇐)
     ;; TODO: merge all these patterns?
     ;; nested telescopes
@@ -432,9 +438,11 @@
     ;; chck (⇐) case
     (pattern [b1:bind+checks ⊢ b2:bind+checks tc:tc-elem ...]
              #:with pat #`(~and 
-                           (~do (define xs (stx-append #'b1.xs #'b2.xs))
-                                (define tags (stx-append #'b1.tags #'b2.tags))
-                                (define τs (stx-append #'b1.τs #'b2.τs))
+                           (~parse ((x tag τ expected-k) (... ...))
+                                   (stx-append #'b1.combined-stx #'b2.combined-stx))
+                           (~do (define xs #'(x (... ...)))
+                                (define tags #'(tag (... ...)))
+                                (define τs #'(τ (... ...)))
                                 (define ctx (expands/bind xs tags τs))
                                 (define xs+ (env-xs ctx))
                                 (define τs+ (env-τs ctx))
@@ -444,7 +452,7 @@
                                             ks
                                             (stx-map
                                              (current-type-eval)
-                                             #'#,(stx-append #'b1.expected-ks #'b2.expected-ks)))
+                                             #'(expected-k (... ...))))
                                   (apply format "type mismatch: ~a has type ~a, expected ~a"
                                           (for/first
                                               ([ty (in-stx-list τs)]
@@ -452,7 +460,7 @@
                                                [kexpect
                                                 (stx-map
                                                  (current-type-eval)
-                                                 #'#,(stx-append #'b1.expected-ks #'b2.expected-ks))]
+                                                 #'(expected-k (... ...)))]
                                                #:unless (typecheck? k kexpect))
                                             (list ((current-resugar) ty)
                                                   ((current-resugar) k)
