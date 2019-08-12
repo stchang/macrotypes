@@ -403,6 +403,19 @@
              ))
   (define-splicing-syntax-class folding-tc-clause #:attributes (pat) #:literals (⊢ ≫ ⇒ ⇐)
     ;; TODO: merge all these patterns?
+    ;; flat telescope
+    (pattern [b1:tele-binds ⊢ b2:tele-binds tc:tc-elem ... (~optional ooo:elipsis)]
+             #:with pat #`(~and
+                           (~do (define idc0
+                                  (expands/bind (stx-append #'b1.xs #'b2.xs)
+                                                (stx-append #'b1.tags #'b2.tags)
+                                                (stx-append #'b1.τs #'b2.τs)))
+                                (define xs+ (env-xs idc0))
+                                (define τs+ (env-τs idc0)))
+                           (~parse #,(stx-append #'b1.xpats #'b2.xpats) xs+)
+                           (~parse #,(stx-append #'b1.τpats #'b2.τpats) τs+)
+                           (~parse (tc.e-pat ... (~? ooo))
+                                   (stx-map (expand1/env idc0) #'(tc.e-stx ... (~? ooo))))))
     ;; nested telescopes
     (pattern [b:tele-binds  ⊢ [x:tele-binds ⊢ . tc:tc-elem] ... ooo:elipsis]
              #:with pat #'(~and
@@ -422,7 +435,7 @@
                            (~parse (tc.e-pat ... ooo)
                                    (stx-map expand1 #'(tc.e-stx ... ooo) idcs))))
     ;; synth (⇒) case
-    (pattern [b1:bind+synths ⊢ b2:bind+synths tc:tc-elem ...]
+    (pattern [b1:bind+synths ⊢ b2:bind+synths tc:tc-elem ... (~optional ooo:elipsis)]
              #:with pat #`(~and 
                            (~do (define xs (stx-append #'b1.xs #'b2.xs))
                                 (define tags (stx-append #'b1.tags #'b2.tags))
@@ -434,9 +447,10 @@
                            (~parse #,(stx-append #'b1.xpats #'b2.xpats) xs+)
                            (~parse #,(stx-append #'b1.τpats #'b2.τpats) τs+)
                            (~parse #,(stx-append #'b1.kpats #'b2.kpats) ks)
-                           (~parse (tc.e-pat ...) (stx-map (expand1/env ctx) #'(tc.e-stx ...)))))
+                           (~parse (tc.e-pat ...(~? ooo))
+                                   (stx-map (expand1/env ctx) #'(tc.e-stx ... (~? ooo))))))
     ;; chck (⇐) case
-    (pattern [b1:bind+checks ⊢ b2:bind+checks tc:tc-elem ...]
+    (pattern [b1:bind+checks ⊢ b2:bind+checks tc:tc-elem ... (~optional ooo:elipsis)]
              #:with pat #`(~and 
                            (~parse ((x tag τ expected-k) (... ...))
                                    (stx-append #'b1.combined-stx #'b2.combined-stx))
@@ -450,8 +464,8 @@
                            ;; succeeded, do pat matching
                            (~parse #,(stx-append #'b1.xpats #'b2.xpats) (env-xs ctx/errmsg))
                            (~parse #,(stx-append #'b1.τpats #'b2.τpats) (env-τs ctx/errmsg))
-                           (~parse (tc.e-pat ...)
-                                   (stx-map (expand1/env ctx/errmsg) #'(tc.e-stx ...))))))
+                           (~parse (tc.e-pat ... (~? ooo))
+                                   (stx-map (expand1/env ctx/errmsg) #'(tc.e-stx ... (~? ooo)))))))
 
   ;; stx-classes for premises, ie "clause"
 
