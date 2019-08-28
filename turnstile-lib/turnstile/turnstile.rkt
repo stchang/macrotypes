@@ -7,7 +7,7 @@
          define-prop
          (rename-out [define-typed-syntax define-typerule]
                      [define-typed-syntax define-syntax/typecheck])
-         (for-syntax syntax-parse/typecheck
+         (for-syntax syntax-parse/typecheck syntax-parser/typecheck
                      ~typecheck ~⊢
                      (rename-out
                       [syntax-parse/typecheck syntax-parse/typed-syntax])
@@ -742,6 +742,23 @@
           (~and (~seq kw-stuff ...) :stxparse-kws)
           rule:rule ...)
        #'(syntax-parse stx-expr kw-stuff ... rule.norm ...)]))
+
+  (define-syntax syntax-parser/typecheck
+    (syntax-parser
+      [(_ . rules)
+       ;; #:with tag1 (current-tag)
+       ;; #:with tag2 (current-tag2)
+       (quasisyntax/loc this-syntax
+         (λ (stx)
+           (parameterize ([current-check-relation (current-typecheck-relation)]
+                          [current-ev (current-type-eval)]
+                          [current-tag (type-key1)]
+                          [current-tag2 (type-key2)])
+             ;; TODO: how to include stx params?
+             ;; (syntax-parameterize ([current-tag-stx 'tag1]
+             ;;                       [current-tag2-stx 'tag2])
+             #,(syntax/loc this-syntax
+                 (syntax-parse/typecheck stx . rules)))))]))
 
   (define-syntax-parameter current-tag-stx ':)
   (define-syntax-parameter current-tag2-stx '::))
