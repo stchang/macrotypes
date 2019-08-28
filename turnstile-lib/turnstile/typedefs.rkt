@@ -16,6 +16,25 @@
 (begin-for-syntax
   (current-use-stop-list? #f)
 
+  (struct typerule-transformer (typerule methods)
+    #:property prop:procedure (struct-field-index typerule))
+
+  ;; abbrv for defining a type constructor accompanied by specific generic methods
+  (define-syntax define-tycons-instance
+    (syntax-parser
+      [(_ name m ...)
+       #:with (v ...) (generate-temporaries #'(m ...))
+       #'(define-syntax name
+           (syntax-parser
+             [(_ tyrule v ...)
+              #'(typerule-transformer
+                 tyrule
+                 (make-free-id-table (hash (~@ #'m v) ...)))]))])) ; wrap each meth name with #'
+
+  ;; backwards compat wrappers
+  ;; TODO: eventually delete these
+  ;; - type-info
+
   ;; assorted phase 1 info for types
   ;; match: for pattern matching, analogous to Racket struct-info
   ;; resugar: fn that resugars an elaborated type to surface stx
@@ -34,13 +53,28 @@
                 (~@ #'name val) ... ; wrap each name with "#'"
                 ))]))
 
+  ;; TODO: can this be syntax-local-value?
+  (define (get-dict ty-id) (eval-syntax ty-id))
+
+  (define (has-method? C meth)
+    (define tyrule (syntax-local-value C (λ () #f)))
+    (and tyrule
+         (typerule-transformer? tyrule)
+         (dict-has-key? (typerule-transformer-methods tyrule) meth)))
+  
   (define-syntax define-generic-type-method
     (syntax-parser
+      [(_ (name arg0 other-arg ...) #:unexpanded)
+       #'(define (name arg0 other-arg ...)
+           (syntax-parse arg0
+             [(~or C:id (C:id . _))
+              ((dict-ref (typerule-transformer-methods (syntax-local-value #'C)) #'name)
+               arg0 other-arg ...)]))]
       [(_ name)
        #'(define name
            (syntax-parser
              [(_ (~var TY+ id) . _)
-              (dict-ref (eval-syntax #'TY+) #'name)]))]))
+              (dict-ref (get-dict #'TY+) #'name)]))]))
 
   (define-generic-type-method get-datatype-def)
   (define-generic-type-method get-resugar-info)
@@ -135,6 +169,17 @@
       [other #'other])) ; datums
 
   (current-resugar (λ (t) (format "~s" (stx->datum (resugar-type t)))))
+
+  (define-splicing-syntax-class maybe-meths #:attributes (kw meths meths/un)
+    (pattern (~seq (~and #:implements kw) m ...)
+             #:with meths #'(m ...)
+             #:with meths/un #'())
+    (pattern (~seq (~and #:implements/un kw) (~seq name val) ...)
+             #:with meths #'()
+             #:with meths/un #'((~@ #'name val) ...)) ; wrap each name with #'
+    (pattern (~seq) #:with kw #'#:implements
+             #:with meths #'()
+             #:with meths/un #'()))
   )
 
 (define-syntax define-internal-type/new
@@ -180,10 +225,10 @@
 (define-syntax define-type
   (syntax-parser
     [(_ TY:id #:with-binders . rst) (syntax/loc this-syntax (define-binding-type TY . rst))] ; binding type
-    [(_ TY:id (~datum :) k (~optional (~seq #:implements ei ...) #:defaults ([(ei 1) '()])))
-     #'(define-base-type TY : k #:implements ei ...)] ; base type
-    [(_ TY:id (~datum :) (~datum ->) k (~optional (~seq #:implements ei ...) #:defaults ([(ei 1) '()])))
-     #'(define-base-type TY : k #:implements ei ...)] ; base type
+    [(_ TY:id (~datum :) k ms:maybe-meths)
+     #'(define-base-type TY : k ms.kw . ms.meths)]
+    [(_ TY:id (~datum :) (~datum ->) k ms:maybe-meths)
+     #'(define-base-type TY : k ms.kw . ms.meths)] ; base type
     [(_ TY:id (~datum :)
         ;; [Y Ytag k_out] ... is a telescope
         ;; - with careful double-use of pattern variables (Y ...) in output macro defs,
@@ -197,7 +242,7 @@
                    (~parse (Y ...) (generate-temporaries #'(k_out ...)))
                    (~parse (Ytag ...) (stx-map (λ _ #':) #'(Y ...)))))
         (~datum ->) k
-        (~optional (~seq #:implements ei ...) #:defaults ([(ei 1) '()])))
+        ms:maybe-meths)
      ;; TODO: need to validate k_out and k; what should be their required type?
      ;; - it must be language agnostic?
      #:when (syntax-parse/typecheck null 
@@ -205,12 +250,15 @@
      #:with (τ ...) (generate-temporaries #'(k_out ...)) ; predefine patvars
      #:with TY/internal (fresh #'TY)
      #`(begin-
-         (define-typed-syntax TY
-           [(_ Y ...) ≫
-            [⊢ [Y ≫ τ ⇐ k_out] ...]
-            ---------------
-            [⊢ (#%plain-app TY/internal τ ...) ⇒ k]])
-         (define-internal-type/new TY/internal (TY Y ...) #:implements ei ...))]))
+         (define-syntax TY
+           (typerule-transformer
+            (syntax-parser/typecheck
+             [(_ Y ...) ≫
+              [⊢ [Y ≫ τ ⇐ k_out] ...]
+              ---------------
+              [⊢ (#%plain-app TY/internal τ ...) ⇒ k]])
+            (make-free-id-table (hash . ms.meths/un))))
+         (define-internal-type/new TY/internal (TY Y ...) #:implements . ms.meths))]))
 
 (define-syntax define-internal-base-type/new
   (syntax-parser
@@ -251,15 +299,18 @@
 ;; base type is separate bc the expander must accommodate id case
 (define-syntax define-base-type
   (syntax-parser
-    [(_ TY:id (~datum :) k (~optional (~seq #:implements ei ...) #:defaults ([(ei 1) '()])))
+    [(_ TY:id (~datum :) k ms:maybe-meths)
      #:when (syntax-parse/typecheck null 
              [_ ≫ [⊢ k ≫ _ ⇒ _] --- [≻ (void)]])
      #:with TY/internal (fresh #'TY)
      #`(begin-
-         (define-typed-syntax TY
-           [(~var _ id) ≫ --- [≻ (TY)]]
-           [(_) ≫ ----------- [⊢ (#%plain-app TY/internal) ⇒ k]])
-         (define-internal-base-type/new TY/internal TY #:implements ei ...))]))
+         (define-syntax TY
+           (typerule-transformer
+            (syntax-parser/typecheck
+             [(~var _ id) ≫ --- [≻ (TY)]]
+             [(_) ≫ ----------- [⊢ (#%plain-app TY/internal) ⇒ k]])
+            (make-free-id-table (hash . ms.meths/un))))
+         (define-internal-base-type/new TY/internal TY #:implements . ms.meths))]))
 
 (define-syntax define-internal-binding-type/new
   (syntax-parser
@@ -330,12 +381,15 @@
   #:with TY/internal (fresh #'TY)
   --------
   [≻ (begin-
-       (define-typed-syntax TY
-         [(_ [(~var X id) (~datum Xtag) τ_in] τ_out) ≫
-          [⊢ [X ≫ X-- Xtag τ_in ≫ τ_in- ⇐ k_in] [τ_out ≫ τ_out- ⇐ k_out]]
-          #:with X- (transfer-prop 'display-as
-                                   #'X
-                                   (transfer-prop 'tmp #'X #'X--))
-          ---------------
-          [⊢ (#%plain-app TY/internal τ_in- (#%plain-lambda (X-) τ_out-)) ⇒ k]])
+       (define-syntax TY
+         (typerule-transformer
+          (syntax-parser/typecheck
+           [(_ [(~var X id) (~datum Xtag) τ_in] τ_out) ≫
+            [⊢ [X ≫ X-- Xtag τ_in ≫ τ_in- ⇐ k_in] [τ_out ≫ τ_out- ⇐ k_out]]
+            #:with X- (transfer-prop 'display-as
+                                     #'X
+                                     (transfer-prop 'tmp #'X #'X--))
+            ---------------
+            [⊢ (#%plain-app TY/internal τ_in- (#%plain-lambda (X-) τ_out-)) ⇒ k]])
+          (make-free-id-table (hash))))
        (define-internal-binding-type/new TY/internal TY #:tag Xtag))])
