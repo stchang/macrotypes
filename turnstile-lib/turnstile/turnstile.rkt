@@ -279,6 +279,17 @@
                       (attribute opts.wrap2)))])
   (define-splicing-syntax-class tc-post-options
     #:attributes (wrap wrap2)
+    [pattern (~seq #:where name new-expr)
+             #:with param-name (mk-param #'name)
+             #:with old-name (format-id #'name "old-~a" #'name)
+             #:attr wrap (λ (stx) stx)
+             #:attr wrap2 (λ (stx)
+                            #`(~and
+                               (~do (define old-name (param-name))
+                                    (param-name new-expr))
+                               (~undo (param-name old-name))
+                               #,stx
+                               (~do (param-name old-name))))]
     [pattern (~seq #:pre pre-expr)
              #:attr wrap2 (λ (stx) #`(~and (~do (current-mode (pre-expr (current-mode)))) #,stx))
              #:attr wrap (λ(x)x)]
@@ -347,7 +358,7 @@
              #:with inf #`(infers/depths 'clause-depth
                                          'tc.depth
                                          #`tvctxs/ctxs/ess/origs)
-             #:with inf+ ((attribute tc.wrap-computation) #'inf)
+             #:with inf+ ((attribute tc.wrap-computation) #'inf) ; TODO: ignore ellipses?
              ;; wrap2 allows using pat vars bound by inf+
              ;; (wrap-computation does not)
              #:with pat ((attribute tc.wrap2)
