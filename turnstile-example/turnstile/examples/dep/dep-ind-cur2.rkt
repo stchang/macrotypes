@@ -1,5 +1,5 @@
-#lang turnstile/lang
-(require turnstile/eval turnstile/typedefs turnstile/more-utils)
+#lang turnstile+/quicklang
+(require turnstile+/eval turnstile+/typedefs turnstile+/more-utils)
 
 ; a basic dependently-typed calculus
 ; - with inductive datatypes

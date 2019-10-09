@@ -1,7 +1,7 @@
 #lang s-exp "dep-ind-cur2.rkt"
-(require (only-in turnstile/eval define-typerule/red)
-         (only-in turnstile/typedefs define-type)
-         (only-in turnstile ⇐ ⇒ ≫ ⊢ ≻)
+(require (only-in turnstile+/eval define-typerule/red)
+         (only-in turnstile+/typedefs define-type)
+         (only-in turnstile+ ⇐ ⇒ ≫ ⊢ ≻)
          "dep-ind-cur2+sugar.rkt")
 
 (provide Nat Z S elim-Nat)

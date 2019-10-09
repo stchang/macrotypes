@@ -1,5 +1,5 @@
 #lang s-exp "dep-ind-cur2.rkt"
-(require turnstile/typedefs 
+(require turnstile+/typedefs
          "dep-ind-cur2+data2.rkt")
 
 ;; bool lib

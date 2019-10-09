@@ -1,6 +1,6 @@
-#lang turnstile/lang
-(require turnstile/more-utils
-         (for-syntax turnstile/more-utils)
+#lang turnstile+/quicklang
+(require turnstile+/more-utils
+         (for-syntax turnstile+/more-utils)
          "dep-ind-cur2.rkt")
 
 ;; dep-ind-cur2 library, adding some sugar like auto-currying
