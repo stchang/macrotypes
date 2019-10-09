@@ -1,7 +1,7 @@
-#lang turnstile/lang
+#lang turnstile+/quicklang
 (require (except-in "dep-ind-cur2.rkt" λ #%app Π)
          "dep-ind-cur2+sugar.rkt"
-         turnstile/eval turnstile/typedefs turnstile/more-utils)
+         turnstile+/eval turnstile+/typedefs turnstile+/more-utils)
 
 ;; library for dep-ind-cur2 enabling definition of datatypes
 ;; ie, define-datatype
