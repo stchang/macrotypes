@@ -6,15 +6,17 @@
 
 @(define HOME (find-system-path 'home-dir))
 @(define REPO (apply build-path (drop-right (explode-path (current-directory)) 1)))
-@(define ARTIFACT (build-path REPO "artifact"))
+@(define ARTIFACT (build-path REPO "popl2020-artifact"))
 @(define TURNSTILE (build-path REPO "turnstile"))
+@(define TURNSTILE+ (build-path REPO "turnstile+"))
 @(define MACROTYPES (build-path REPO "macrotypes"))
 @(define DOCS (build-path TURNSTILE "doc" "turnstile" "index.html"))
 @(define GUIDE (build-path TURNSTILE "doc" "turnstile" "The_Turnstile_Guide.html"))
 @(define REF (build-path TURNSTILE "doc" "turnstile" "The_Turnstile_Reference.html"))
-@(define POPL-EXAMPLES (build-path MACROTYPES "examples" "popl2020"))
 @(define RACKET-EXAMPLES (build-path MACROTYPES "examples"))
+@(define TURNSTILE-EXAMPLE (build-path REPO "turnstile-example"))
 @(define TURNSTILE-EXAMPLES (build-path TURNSTILE "examples"))
+@(define POPL-EXAMPLES (build-path TURNSTILE-EXAMPLE "turnstile+" "popl2020-examples"))
 @(define TURNSTILE-TEST (build-path TURNSTILE-EXAMPLES "tests"))
 @(define MLISH-TEST (build-path TURNSTILE-TEST "mlish"))
 
@@ -53,7 +55,7 @@ authors.
 
 Our artifact is a VM image that contains:
 @itemlist[
-  @item{a copy of the @|CONF-NAME| @|CONF-YEAR| camera-ready @hyperlink[@file://[PAPER]]{[link]},}
+  @item{a copy of the @|CONF-NAME| @|CONF-YEAR| submission @hyperlink[@file://[PAPER]]{[link]},}
   @item{a distribution of the Racket programming language (v@|RACKET-VERSION|),}
   @item{and the @racket[turnstile+] library and its documentation.}
  ]
@@ -108,7 +110,7 @@ the VirtualBox image is somehow not working.
            
           @item{Clone the repository into the @tt{popl2020} directory (or any directory):
 
-                @tt{git clone https://github.org/stchang/macrotypes popl2020}}
+                @tt{git clone https://github.com/stchang/macrotypes popl2020}}
           @item{Change directory to the repository root:
 
                 @tt{cd popl2020}}
@@ -169,7 +171,7 @@ with DrRacket to run the files.
 @subsection{Paper section 2}
 
 @file-url[POPL-EXAMPLES]
-@itemlist[@item{@file-url[POPL-EXAMPLES]{lam.rkt}: defines a language with only
+@itemlist[@item{@file-url[POPL-EXAMPLES]{fig3-left-stlc.rkt}: defines a language with only
                 single-argument lambda.}
           @item{@file-url[POPL-EXAMPLES]{lam-prog.rkt}: a program using
                 @tt{lam.rkt} as its language.
