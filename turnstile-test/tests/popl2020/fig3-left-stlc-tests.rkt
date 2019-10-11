@@ -1,4 +1,4 @@
-#lang s-exp turnstile+/popl2020-examples/fig3-left-stlc
+#lang s-exp popl2020/fig3-left-stlc
 (require rackunit/turnstile+)
 
 ;; infer
