@@ -1,15 +1,28 @@
 #lang racket
 
+;; code for Figure 3 (left)
+;;
+;; - Variables with an overline in the paper have a "-" suffix here
+;; - This file adds some forms not in figure 3, to be able to write programs:
+;;   - #%datum: number literals
+;;   - ann: type ascription
+;;   - add1: addition primitive
+;;   - types: → Int Bool
+;; - see accompanying test file at:
+;;     <repo root>/turnstile-test/tests/popl2020/fig3-left-stlc-tests.rkt
+
+
 (require (for-syntax syntax/parse)
          (except-in macrotypes/typecheck attach detach)
          "fig4-core-api.rkt")
 
-(provide #%module-begin #%top-interaction require → λ #%app)
+(provide #%module-begin #%top-interaction require ; needed to create a #lang
+         → Int Bool
+         λ #%app
+         add1
+         #%datum ann)
 
 (define-base-types Bool Int)
-(provide Int Bool
-         (typed-out [add1 : (→ Int Int)])
-         #%datum ann)
 
 (define-type-constructor → #:arity = 2)
 
@@ -51,3 +64,7 @@
     [(ann e (~datum :) τ)
      #:with e- (check/>> #`e #`τ)
      (assign-type #`e- #'τ)]))
+
+(define-syntax add1
+  (make-variable-like-transformer
+   (assign-type #'add1- #'(→ Int Int))))
