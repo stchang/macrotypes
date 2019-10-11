@@ -133,14 +133,22 @@
              (pattern-expander
               (syntax-parser
                 [(_ Y ...)
+                 #:with ty-to-match (generate-temporary)
                  #'(~or
-                     maybe-lazy-pattern ...
-                     (~and ty-to-match
-                         (~parse
-                          ((~literal #%plain-app) name/internal:id arg-pat ...)
-                          #'ty-to-match)
-                         (~fail #:unless (free-id=? #'name/internal TY/internal+)))
-                     )])))
+                    maybe-lazy-pattern ...
+                    (~and ty-to-match
+                          (~parse
+                           ((~literal #%plain-app)
+                            (~and name/internal:id
+                                  (~fail
+                                   #:unless (free-id=? #'name/internal
+                                                       TY/internal+)
+                                   (format "Expected ~a type, got: ~a" 'TY
+                                           (stx->datum (resugar-type
+                                                        #'ty-to-match)))))
+                            arg-pat ...)
+                           #'ty-to-match))
+                    )])))
            (define TY/internal
              (type-info
               #'(ei ...)     ; match info
@@ -180,10 +188,18 @@
      #:with TY/internal (fresh #'TY)
      #`(begin-
          (define-typed-syntax TY
-           [(_ Y ...) ≫
+           [(_ Y ... ~!) ≫
             [⊢ [Y ≫ τ ⇐ k_out] ...]
             ---------------
-            [⊢ (#%plain-app TY/internal τ ...) ⇒ k]])
+            [⊢ (#%plain-app TY/internal τ ...) ⇒ k]]
+           [bad ≫
+            -----
+            [#:error
+             (type-error #:src #'bad
+              #:msg "Improper usage of type constructor ~a: ~a, expected ~a arguments"
+              'TY
+              (stx->datum #'bad)
+              (stx-length #'(Y ...)))]])
          (define-internal-type/new TY/internal (TY Y ...) #:extra ei ...))]))
 
 (define-syntax define-internal-base-type/new
@@ -245,14 +261,20 @@
              (pattern-expander
               (syntax-parser
                 [(_ [(~var X id) (~datum Xtag) τ_in] τ_out)
+                 #:with ty-to-match (generate-temporary)
                  #'(~and ty-to-match
                          (~parse
                           ((~literal #%plain-app)
-                           name/internal:id
+                           (~and name/internal:id
+                                 (~fail
+                                  #:unless (free-id=? #'name/internal
+                                                      TY/internal+)
+                                  (format "Expected ~a type, got: ~a" 'TY
+                                          (stx->datum (resugar-type
+                                                       #'ty-to-match)))))
                            τ_in
                            ((~literal #%plain-lambda) (X) τ_out))
-                          #'ty-to-match)
-                         (~fail #:unless (free-id=? #'name/internal TY/internal+)))])))
+                          #'ty-to-match))])))
            (define TY/internal
              (type-info
               #f             ; match info
