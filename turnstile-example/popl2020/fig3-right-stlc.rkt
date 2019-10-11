@@ -43,7 +43,7 @@
    ---------
    [⊢ (λ- (x-) e-) ⇒ (→ τ1 τ2)]])
 
-(define-typed-syntax #%datum
+(define-typerule #%datum
   [(_ . n:integer) ≫
    --------
    [⊢ (quote- n) ⇒ Int]]
@@ -51,7 +51,7 @@
    --------
    [#:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])
 
-(define-typed-syntax (ann e (~datum :) τ:type) ≫
+(define-typerule (ann e (~datum :) τ:type) ≫
   [⊢ e ≫ e- ⇐ τ.norm]
   --------
   [⊢ e- ⇒ τ.norm])

@@ -47,8 +47,3 @@
                 #:with-msg "ty mismatch")
 
 (check-type ((λ [x : Int] (add1 x)) 10) : Int ⇒ 11)
-
-;; (typecheck-fail (λ [x : (→ 1 2)] x) #:with-msg "not a well-formed type")
-;; (typecheck-fail (λ [x : 1] x) #:with-msg "not a well-formed type")
-;; (typecheck-fail (λ [x : (add1 1)] x) #:with-msg "not a well-formed type")
-;; (typecheck-fail (λ [x : (λ [y : Int] y)] x) #:with-msg "not a well-formed type")

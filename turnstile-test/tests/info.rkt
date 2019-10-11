@@ -1,7 +1,8 @@
 #lang info
 
 (define compile-omit-paths
-  '("turnstile"))
+  '("turnstile"
+    "popl2020"))
 
 (define test-include-paths
   '("turnstile/mlish")) ; to include .mlish files
