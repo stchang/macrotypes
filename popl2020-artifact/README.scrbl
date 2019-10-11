@@ -16,7 +16,7 @@
 @(define RACKET-EXAMPLES (build-path MACROTYPES "examples"))
 @(define TURNSTILE-EXAMPLE (build-path REPO "turnstile-example"))
 @(define TURNSTILE-EXAMPLES (build-path TURNSTILE "examples"))
-@(define POPL-EXAMPLES (build-path TURNSTILE-EXAMPLE "turnstile+" "popl2020-examples"))
+@(define POPL-EXAMPLES (build-path TURNSTILE-EXAMPLE "popl2020"))
 @(define TURNSTILE-TEST (build-path TURNSTILE-EXAMPLES "tests"))
 @(define MLISH-TEST (build-path TURNSTILE-TEST "mlish"))
 
@@ -171,13 +171,8 @@ with DrRacket to run the files.
 @subsection{Paper section 2}
 
 @file-url[POPL-EXAMPLES]
-@itemlist[@item{@file-url[POPL-EXAMPLES]{fig3-left-stlc.rkt}: defines a language with only
-                single-argument lambda.}
-          @item{@file-url[POPL-EXAMPLES]{lam-prog.rkt}: a program using
-                @tt{lam.rkt} as its language.
-                Attempting to apply functions results in a syntax error.
-                This file uses our custom unit-testing framework to catch and
-                check errors.}
+@itemlist[@item{@file-url[POPL-EXAMPLES]{fig3-left-stlc.rkt}: STLC, implemented with plain Racket macros.}
+          @item{@file-url[POPL-EXAMPLES]{fig3-right-stlc.rkt}: STLC, implemented with Turnstile+.}
           @item{@file-url[POPL-EXAMPLES]{lc.rkt}: extends @tt{lam.rkt} with
                 function application.}
           @item{@file-url[POPL-EXAMPLES]{lc-prog.rkt}: a program using

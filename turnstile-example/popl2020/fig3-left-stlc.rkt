@@ -30,7 +30,6 @@
   (syntax-parser
     [(_ f e)
      #:when (has-expected-τ? this-syntax)
-;     #:and ~! ; dont backtrack past here
      #:with τ0 (get-expected-τ this-syntax)
      #:with [f- (~→ τ1 τ2)] (synth/>> #`f)
      #:fail-unless (typecheck? #`τ2 #`τ0) "app fn: ty mismatch"
@@ -43,12 +42,12 @@
 
 (define-syntax λ
   (syntax-parser
-    [(λ x:id ~! e)
+    [(_ x:id ~! e)
      #:when (has-expected-τ? this-syntax)
      #:with (~→ τ1 τ2) (get-expected-τ this-syntax)
      #:with [x- e-] (check/>> #`e #`τ2 #:ctx #`([x : τ1]))
       (assign-type #`(λ- (x-) e-) #'(→ τ1 τ2))]
-    [(λ [x:id (~datum :) τ1] e)
+    [(_ [x:id (~datum :) τ1] e)
      #:with [(x-) e- τ2] (synth/>> #`e #:ctx #`([x : τ1]))
      (assign-type #'(λ- (x-) e-) #`(→ τ1 τ2))]))
 
@@ -61,7 +60,7 @@
 
 (define-syntax ann
   (syntax-parser
-    [(ann e (~datum :) τ)
+    [(_ e (~datum :) τ)
      #:with e- (check/>> #`e #`τ)
      (assign-type #`e- #'τ)]))
 
