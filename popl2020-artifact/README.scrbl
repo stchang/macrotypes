@@ -17,7 +17,8 @@
 @(define TURNSTILE-EXAMPLE (build-path REPO "turnstile-example"))
 @(define TURNSTILE-EXAMPLES (build-path TURNSTILE "examples"))
 @(define POPL-EXAMPLES (build-path TURNSTILE-EXAMPLE "popl2020"))
-@(define TURNSTILE-TEST (build-path TURNSTILE-EXAMPLES "tests"))
+@(define TURNSTILE-TEST (build-path REPO "turnstile-test"))
+@(define POPL-TESTS (build-path TURNSTILE-TEST "tests" "popl2020"))
 @(define MLISH-TEST (build-path TURNSTILE-TEST "mlish"))
 
 @(define PAPER-TITLE  "Dependent Type Systems as Macros")
@@ -168,16 +169,17 @@ The file links below open in the browser by default. (If not viewing in the VM,
 you may need to adjust your browser's "Text Encoding" to display Unicode.) Open
 with DrRacket to run the files.
 
-@subsection{Paper section 2}
+@subsection{Paper section 2: Creating a Typed Language with Racket and Turnstile+}
 
 @file-url[POPL-EXAMPLES]
-@itemlist[@item{@file-url[POPL-EXAMPLES]{fig3-left-stlc.rkt}: STLC, implemented with plain Racket macros.}
-          @item{@file-url[POPL-EXAMPLES]{fig3-right-stlc.rkt}: STLC, implemented with Turnstile+.}
-          @item{@file-url[POPL-EXAMPLES]{lc.rkt}: extends @tt{lam.rkt} with
-                function application.}
-          @item{@file-url[POPL-EXAMPLES]{lc-prog.rkt}: a program using
-                @tt{lc.rkt} as its language.
-                This program will loop forever when run.}]
+@itemlist[@item{@file-url[POPL-EXAMPLES]{fig3-left-stlc.rkt}: Figure 3 (left): STLC, implemented with plain Racket macros.
+
+          See @file-url[POPL-TESTS]{fig3-left-stlc-tests.rkt} for examples written with this language.}
+          @item{@file-url[POPL-EXAMPLES]{fig4-core-api.rkt}: Figure 4: Turnstile+ underlying core API. The example in Figure 3 (left) uses the core API in this file.}
+          @item{@file-url[POPL-EXAMPLES]{fig3-right-stlc.rkt}: Figure 3 (right): STLC, implemented with Turnstile+.
+
+          See @file-url[POPL-TESTS]{fig3-right-stlc-tests.rkt} for examples written with this language.}
+          ]
           
 @subsection{Paper section 3}
 
