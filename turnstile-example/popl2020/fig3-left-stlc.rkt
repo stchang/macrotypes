@@ -34,11 +34,11 @@
      #:with [f- (~→ τ1 τ2)] (synth/>> #`f)
      #:fail-unless (typecheck? #`τ2 #`τ0) "app fn: ty mismatch"
      #:with e- (check/>> #`e #`τ1)
-     (assign-type #`(#%app- f- e-) #`τ0)]
+     (assign #`(#%app- f- e-) #`τ0)]
     [(_ f e ~!)
      #:with [f- (~→ τ1 τ2)] (synth/>> #`f)
      #:with e- (check/>> #`e #`τ1)
-     (assign-type #`(#%app- f- e-) #`τ2)]))
+     (assign #`(#%app- f- e-) #`τ2)]))
 
 (define-syntax λ
   (syntax-parser
@@ -46,14 +46,14 @@
      #:when (has-expected-τ? this-syntax)
      #:with (~→ τ1 τ2) (get-expected-τ this-syntax)
      #:with [x- e-] (check/>> #`e #`τ2 #:ctx #`([x : τ1]))
-      (assign-type #`(λ- (x-) e-) #'(→ τ1 τ2))]
+      (assign #`(λ- (x-) e-) #'(→ τ1 τ2))]
     [(_ [x:id (~datum :) τ1] e)
-     #:with [(x-) e- τ2] (synth/>> #`e #:ctx #`([x : τ1]))
-     (assign-type #'(λ- (x-) e-) #`(→ τ1 τ2))]))
+     #:with [x- e- τ2] (synth/>> #`e #:ctx #`([x : τ1]))
+     (assign #'(λ- (x-) e-) #`(→ τ1 τ2))]))
 
 (define-syntax #%datum
   (syntax-parser
-    [(_ . n:integer) (assign-type #`(quote- n) #'Int)]
+    [(_ . n:integer) (assign #`(quote- n) #'Int)]
     [(_ . x)
      #:when (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)
      #'(quote x)]))
@@ -62,8 +62,8 @@
   (syntax-parser
     [(_ e (~datum :) τ)
      #:with e- (check/>> #`e #`τ)
-     (assign-type #`e- #'τ)]))
+     (assign #`e- #'τ)]))
 
 (define-syntax add1
   (make-variable-like-transformer
-   (assign-type #'add1- #'(→ Int Int))))
+   (assign #'add1- #'(→ Int Int))))
