@@ -184,11 +184,10 @@ with DrRacket to run the files.
 @subsection{Paper section 3}
 
 @file-url[POPL-EXAMPLES]
-@itemlist[@item{@file-url[POPL-EXAMPLES]{stlc-with-racket.rkt}: runnable version
-                of code from figures 3 through 8.}
-          @item{@file-url[POPL-EXAMPLES]{stlc-with-racket-prog.rkt}:
-                a program that uses @tt{stlc-with-racket.rkt} as its language.
-                Shows a few type errors.}]
+@itemlist[@item{@file-url[POPL-EXAMPLES]{fig6-left-arrow.rkt}: Figure 6 (left).}
+          @item{@file-url[POPL-EXAMPLES]{fig7-left-arrow.rkt}: Figure 7 (left).
+
+          These two arrow type implementations are used by @file-url[POPL-EXAMPLES]{fig3-left-stlc.rkt}}]
 
 @subsection{Paper section 4}
 

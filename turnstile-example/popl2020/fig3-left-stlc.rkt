@@ -12,19 +12,25 @@
 ;;     <repo root>/turnstile-test/tests/popl2020/fig3-left-stlc-tests.rkt
 
 
-(require (for-syntax syntax/parse)
-         (except-in macrotypes/typecheck attach detach)
-         "fig4-core-api.rkt")
+(require
+ (for-syntax
+  syntax/parse
+  (only-in macrotypes/stx-utils make-variable-like-transformer))
+
+ (only-in macrotypes/typecheck define-base-types type=? type-error postfix-in)
+
+ (postfix-in - racket/base) ; attach "-" to base Racket forms, eg λ- and #%app-
+
+ (only-in "fig6-left-arrow.rkt" → ~→) ; for function type
+ ; TRY: uncomment line below (and comment out above line)
+ ;(only-in "fig7-left-arrow.rkt" → ~→)
+ "fig4-core-api.rkt")
 
 (provide #%module-begin #%top-interaction require ; needed to create a #lang
-         → Int Bool
-         λ #%app
-         add1
-         #%datum ann)
+         → Int Bool ; types
+         λ #%app #%datum add1 ann) ; terms
 
 (define-base-types Bool Int)
-
-(define-type-constructor → #:arity = 2)
 
 (define-syntax #%app
   (syntax-parser
@@ -32,7 +38,7 @@
      #:when (has-expected-τ? this-syntax)
      #:with τ0 (get-expected-τ this-syntax)
      #:with [f- (~→ τ1 τ2)] (synth/>> #`f)
-     #:fail-unless (typecheck? #`τ2 #`τ0) "app fn: ty mismatch"
+     #:fail-unless (type=? #`τ2 #`τ0) "app fn: ty mismatch"
      #:with e- (check/>> #`e #`τ1)
      (assign #`(#%app- f- e-) #`τ0)]
     [(_ f e ~!)
@@ -51,6 +57,7 @@
      #:with [x- e- τ2] (synth/>> #`e #:ctx #`([x : τ1]))
      (assign #'(λ- (x-) e-) #`(→ τ1 τ2))]))
 
+;; number literals
 (define-syntax #%datum
   (syntax-parser
     [(_ . n:integer) (assign #`(quote- n) #'Int)]
@@ -58,12 +65,14 @@
      #:when (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)
      #'(quote x)]))
 
+;; addition primitive
+(define-syntax add1
+  (make-variable-like-transformer
+   (assign #'add1- #'(→ Int Int))))
+
+;; type ascription
 (define-syntax ann
   (syntax-parser
     [(_ e (~datum :) τ)
      #:with e- (check/>> #`e #`τ)
      (assign #`e- #'τ)]))
-
-(define-syntax add1
-  (make-variable-like-transformer
-   (assign #'add1- #'(→ Int Int))))
