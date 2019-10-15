@@ -3,11 +3,7 @@
 ;; code for Figure 5 Typed Video core
 ;;
 ;; - Variables with an overline in the paper have a "-" suffix here
-;; - This file adds some forms not in figure 3, to be able to write programs:
-;;   - #%datum: number literals
-;;   - ann: type ascription
-;;   - add1: addition primitive
-;;   - types: → Nat Bool
+;; - define-norm uses the simpler `add1` instead of `+` from the paper
 ;; - see accompanying test file at:
 ;;     <repo root>/turnstile-test/tests/popl2020/fig5-video.rkt
 
@@ -18,6 +14,7 @@
          blank) ; video prim
 
 (require turnstile+/typedefs
+         "define-norm.rkt"
          "type-type.rkt")
 
 (define-type Nat : Type)
@@ -29,27 +26,24 @@
 (begin-for-syntax
   (define nat-lit?
     (syntax-parser
-      [(quote n) #t]
-      [_ #f]))
+      [((~literal quote) n:exact-nonnegative-integer) #t] [_ #f]))
+  (define bool-lit?
+    (syntax-parser [((~literal quote) n:boolean) #t] [_ #f]))
   (define stx->lit
     (syntax-parser
-      [(quote n) (stx-e #'n)]
+      [((~literal quote) x) (stx-e #'x)]
       [else this-syntax]))
-  (define old-eval (current-type-eval))
-  (define (new-eval ty [env #f])
-    (syntax-parse (old-eval ty env)
-;      [debug #:when (printf "eval: ~a\n" (stx->datum #'debug)) #:when #f #'void]
-      [(#%app- (~literal add1-) n)
-       #:with n- (new-eval #'n)
-       ;; (printf "~a\n" (stx->datum #'n))
-       ;; (printf "~a\n" (nat-lit? #'n))
-       ;; (printf "~a\n" (add1 (stx->lit #'n)))
-       (if (nat-lit? #'n-)
-           (old-eval #`(#%datum-vid . #,(add1 (stx->lit #'n-))))
-           #'(add1 n-))]
-      [(~Prod n) #`(Prod #,(new-eval #'n env))]
-      [other #'other]))
-  (current-type-eval new-eval))
+
+  ;; Figure 9: excerpt of type-level eval in Typed Video ----------------------
+  (define-norm
+    [n #:when (nat-lit? #'n) #'n]    [b #:when (bool-lit? #'b) #'b]
+    [(#%app- (~literal add1-) n) ; (add1 n)
+     #:with n- (norm #'n)
+     (if (nat-lit? #'n-)
+         #`'#,(add1 (stx->lit #'n-)) ; do addition
+         #'(add1 n-))]               ; keep add1 term
+    [(~Prod n) #`(Prod #,(norm #'n))]
+    [other #'other])
 
 (define-typerule #%app-vid
   [(_ f e) ⇐ τ0- ≫

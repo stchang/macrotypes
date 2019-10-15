@@ -5,9 +5,9 @@
 ;; - but with better err msgs
 
 ;; Prod tests
-(check-type (blank 10) : (Prod 10))
+;(check-type (blank 10) : (Prod 10))
 (check-type (blank (add1 10)) : (Prod 11))
-(check-type (blank (add1 (add1 10))) : (Prod 12))
+;(check-type (blank (add1 (add1 10))) : (Prod 12))
 
 ;; infer
 (check-type (λ x (add1 x)) : (→vid [x : Nat] Nat))
