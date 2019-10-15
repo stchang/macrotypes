@@ -10,6 +10,7 @@
 (check-type (blank (add1 10)) : (Prod 11))
 (check-type (blank (add1 (add1 10))) : (Prod 12))
 (check-type (λ [x : Nat] (blank x)) : (→vid [x : Nat] (Prod x)))
+(check-type ((λ [x : Nat] (blank x)) 20) : (Prod 20))
 
 ;; infer
 (check-type (λ x (add1 x)) : (→vid [x : Nat] Nat))
@@ -45,11 +46,9 @@
 
 (check-type ((λ [x : Nat] (add1 x)) 10) : Nat ⇒ 11)
 
-;; (typecheck-fail (λ [x : (→vid 1 2)] x)
-;;                 #:with-msg "expected.*Type.*given Nat")
 (typecheck-fail (λ [x : 1] x)
-                #:with-msg "expected.*Type.*given Nat")
+                #:with-msg "expected.*Type.*given.*Nat")
 (typecheck-fail (λ [x : (add1 1)] x)
-                #:with-msg "expected.*Type.*given Nat")
+                #:with-msg "expected.*Type.*given.*Nat")
 (typecheck-fail (λ [x : (λ [y : Nat] y)] x)
                 #:with-msg "expected.*Type.*given.*→vid")

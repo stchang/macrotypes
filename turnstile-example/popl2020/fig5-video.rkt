@@ -22,9 +22,9 @@
 (define-type Prod : Nat -> Type)
 
 ;; uncomment one of the below
-(require "fig6-right-arrow.rkt")
+;(require "fig6-right-arrow.rkt")
 ;(require "fig7-right-arrow.rkt")
-;(define-type →vid #:with-binders [X : Type] : Type -> Type)
+(define-type →vid #:with-binders [X : Type] : Type -> Type)
 
 (begin-for-syntax
   (define nat-lit?
@@ -44,7 +44,7 @@
     [(#%app- (~literal add1-) n) ; (add1 n)
      #:with n- (norm #'n)
      (if (nat-lit? #'n-)
-         #`'#,(add1 (stx->lit #'n-)) ; do addition
+         #`(#%datum-vid . #,(add1 (stx->lit #'n-))) ; do addition
          #'(add1 n-))]               ; keep add1 term
     [(~Prod n) #`(Prod #,(norm #'n))]
     [other #'other]))
@@ -52,15 +52,16 @@
 (define-typerule #%app-vid
   [(_ f e) ⇐ τ0- ≫
    [⊢ f ≫ f- ⇒ (~→vid [X : τ1-] τ2-)]
-   [τ2- τ= τ0-]
    [⊢ e ≫ e- ⇐ τ1-]
-  --------
-  [⊢ (#%app- f- e-)]]
-  [(_ f e) ≫
-   [⊢ f ≫ f- ⇒ (~→vid [X : τ1-] τ2-)]
-   [⊢ e ≫ e- ⇐ τ1-]
-  --------
-  [⊢ (#%app- f- e-) ⇒ #,(subst #'e #'X #'τ2-)]])
+   #:with τ2/inst (subst #'e- #'X #'τ2-)
+   [τ2/inst τ= τ0-]
+   --------
+   [⊢ (#%app- f- e-)]]
+   [(_ f e) ≫
+    [⊢ f ≫ f- ⇒ (~→vid [X : τ1-] τ2-)]
+    [⊢ e ≫ e- ⇐ τ1-]
+    --------
+    [⊢ (#%app- f- e-) ⇒ #,(subst #'e #'X #'τ2-)]])
 
 (define-typerule λ-vid
   [(_ x:id e) ⇐ (~→vid [X : τ1-] τ2-) ≫

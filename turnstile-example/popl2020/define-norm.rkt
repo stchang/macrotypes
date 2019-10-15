@@ -17,6 +17,8 @@
            (define (new-eval ty [env #f])
              (syntax-parameterize
                  ([norm (make-rename-transformer #'new-eval)])
-               (syntax-parse (old-eval ty env)
-                 [pat side-condition ... body] ...)))
+               (local-expand
+                (syntax-parse (old-eval ty env)
+                  [pat side-condition ... body] ...)
+                'expression null)))
            (current-type-eval new-eval))])))
