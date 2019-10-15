@@ -210,27 +210,25 @@ with DrRacket to run the files.
                      }
           ]
 
-@subsection{Paper section 4}
+@subsection{Paper section 4: core dependent calculus}
 
 @file-url[POPL-EXAMPLES]
 @itemlist[@item{@file-url[POPL-EXAMPLES]{fig10-dep.rkt}: Figure 10 dependent core calculus
 
-          See @file-url[POPL-TESTS]{fig10-dep-tests.rkt} for examples written with this core language.}
-          @item{@file-url[POPL-EXAMPLES]{stlc-with-turnstile-prog.rkt}:
-                same as @tt{stlc-with-racket-prog.rkt}, but using
-                @tt{stlc-with-turnstile.rkt} as its language.}
-          @item{@file-url[POPL-EXAMPLES]{stlc+prim.rkt}: language implementation from figure 12
-                that extends @tt{stlc-with-turnstile.rkt} with integers and addition.}
-          @item{@file-url[POPL-EXAMPLES]{stlc+prim-prog.rkt}: some examples
-                (not shown in paper) using the @tt{stlc+prim.rkt} language.}
-          @item{@file-url[POPL-EXAMPLES]{stlc+prim-with-racket.rkt}:
-                (not shown in paper) same language implementation as
-                @tt{stlc+prim.rkt}, but using base Racket instead of Turnstile.}
-          @item{@file-url[POPL-EXAMPLES]{stlc+prim-with-racket-prog.rkt}:
-                (not shown in paper) same as @tt{stlc+prim-prog.rkt}, but using
-                @tt{stlc+prim-with-racket.rkt} as its language.}]
+                         See @file-url[POPL-TESTS]{fig10-dep-tests.rkt} for examples written with this core language.}
+          @item{Figure 12: the Turnstile+ type eval library:
+                @itemlist[@item{@hyperlink["https://github.com/stchang/macrotypes/blob/cur/turnstile-lib/turnstile/eval.rkt#L14-L25"]{@racket[reflect]}: called @racket[⇑] in the paper}
+                          @item{@hyperlink["https://github.com/stchang/macrotypes/blob/cur/turnstile-lib/turnstile/eval.rkt#L27-L34"]{@racket[mk-reflected]}}
+                          @item{@hyperlink["https://github.com/stchang/macrotypes/blob/cur/turnstile-lib/turnstile/eval.rkt#L36-L72"]{@racket[define-red]}}]}
+          @item{@file-url[POPL-EXAMPLES]{fig13-sugar.rkt}}
+          @item{@file-url[POPL-EXAMPLES]{fig14-nat.rkt}}
+          @item{@file-url[POPL-EXAMPLES]{fig15-eq.rkt}}
+          @item{Figure 16: define-type}
+          @item{Figure 17-18: extensions}
+          @item{@file-url[POPL-EXAMPLES]{fig19-data.rkt}}
+          @item{@file-url[POPL-EXAMPLES]{fig19-data2.rkt}}]
 
-@subsection{Paper section 5}
+@subsection{Paper section 5: Cur}
 
 @file-url[POPL-EXAMPLES]
 
