@@ -2,7 +2,7 @@
 
 ;; An implementation of (impredicative) Type : Type
 
-(provide Type TypeTop)
+(provide Type TypeTop (for-syntax ~Type))
 
 (require turnstile+/typedefs)
 
