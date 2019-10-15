@@ -1,6 +1,6 @@
 #lang turnstile+
 
-;; An implementation of (impredicative) Type : Type
+;; An implementation of Type universes
 
 (provide Type TypeTop (for-syntax ~Type))
 
@@ -47,6 +47,27 @@
         'orig
         (list #'(Type n)))]])
 
-;; for convenience, Type that is a supertype of all (Type n)
-;; TODO: get rid of this?
+;; for demo purposes only: Type that is a supertype of all (Type n)
 (define-syntax TypeTop (make-variable-like-transformer #'(Type 99)))
+
+;; must add subtype relation for Type n
+(begin-for-syntax
+  
+  (current-use-stop-list? #f) ; disable a Turnstile+ experimental optimization
+
+  (define old-relation (current-typecheck-relation))
+  (current-typecheck-relation
+   (lambda (t1 t2)
+     ;; (printf "t1 = ~a\n" (syntax->datum t1))
+     ;; (printf "t2 = ~a\n" (syntax->datum t2))
+     (define t1+
+       (syntax-parse t1
+         [((~literal Type) _) ((current-type-eval) t1)]
+         [_ t1]))
+     (or (type=? t1+ t2) ; equality
+         (syntax-parse (list t1+ t2)
+           [((~Type n) (~Type m)) (<= (stx-e #'n) (stx-e #'m))]
+#;           [((~Π/1 [x1 : τ_in1] τ_out1) (~Π/1 [x2 : τ_in2] τ_out2))
+            (and (type=? #'τ_in1 #'τ_in2)
+                 (typecheck? (subst #'x2 #'x1 #'τ_out1) #'τ_out2))]
+           [_ #f])))))

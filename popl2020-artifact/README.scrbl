@@ -213,9 +213,9 @@ with DrRacket to run the files.
 @subsection{Paper section 4}
 
 @file-url[POPL-EXAMPLES]
-@itemlist[@item{@file-url[POPL-EXAMPLES]{stlc-with-turnstile.rkt}: runnable
-                version of code from figure 11, as well as the extended
-                @tt{#%app} from section 4.2.}
+@itemlist[@item{@file-url[POPL-EXAMPLES]{fig10-dep.rkt}: Figure 10 dependent core calculus
+
+          See @file-url[POPL-TESTS]{fig10-dep-tests.rkt} for examples written with this core language.}
           @item{@file-url[POPL-EXAMPLES]{stlc-with-turnstile-prog.rkt}:
                 same as @tt{stlc-with-racket-prog.rkt}, but using
                 @tt{stlc-with-turnstile.rkt} as its language.}

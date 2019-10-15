@@ -2,9 +2,11 @@
 (require (only-in turnstile+/eval define-typerule/red)
          (only-in turnstile+/typedefs define-type)
          (only-in turnstile+ ⇐ ⇒ ≫ ⊢ ≻)
+         (for-syntax syntax/parse)
          "fig13-sugar.rkt")
 
-(provide Nat Z S elim-Nat)
+(provide Nat Z S elim-Nat
+         (rename-out [new-datum #%datum]))
 
 (define-type Nat : Type)
 
@@ -21,3 +23,14 @@
   #:where eval-Nat
   [(elim-Nat- ~Z P mz ms) ~> mz]
   [(elim-Nat- (~S n-1) P mz ms) ~> (app/eval ms n-1 (eval-Nat n-1 P mz ms))])
+
+(require (only-in racket/base define-syntax rename-out)
+         (for-syntax racket/base syntax/parse))
+(define-syntax new-datum
+  (syntax-parser
+    [(_ . n:exact-nonnegative-integer)
+     #:when (zero? (syntax-e #'n))
+     #'Z]
+    [(_ . n:exact-nonnegative-integer)
+     #`(S (new-datum . #,(- (syntax-e #'n) 1)))]
+    [(_ . x) #'(#%datum . x)]))

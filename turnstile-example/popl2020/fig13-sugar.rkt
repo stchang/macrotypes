@@ -3,10 +3,10 @@
          (for-syntax turnstile+/more-utils)
          "fig10-dep.rkt")
 
-;; dep-ind-cur2 library, adding some sugar like auto-currying
+;; Figure 13: adding some sugar like auto-currying
 
 (provide → ∀ (for-syntax ~Π)
- (rename-out [Π/c Π] [λ/c λ] [app/c #%app] [app/eval/c app/eval]))
+ (rename-out [Π/c Π] [λ/c λ] [app/c #%app] [β/c app/eval]))
 
 (define-nested/R Π/c Π)
 
@@ -33,4 +33,4 @@
 
 (define-nested/R λ/c λ)
 (define-nested/L app/c #%app)
-(define-nested/L app/eval/c app/eval/1)
+(define-nested/L β/c app/eval/1)

@@ -4,56 +4,20 @@
          popl2020/fig13-sugar
          rackunit/turnstile+)
 
-; Π → λ ∀ ≻ ⊢ ≫ ⇒
-
-; identical to dep-ind-fixed-tests.rkt
-; but with default curry/uncurry
-
-; should be similar to dep-ind-tests.rkt
-; since dep-ind-cur does not change
-; first clause of define-datatype
-
-;; examples from Prabhakar's Proust paper
-
-;; this file is like dep-peano-tests.rkt except it uses
-;; define-datatype from #lang dep-ind-cur.rkt to define Nat,
-;; instead of using the builtin Nat from #lang dep.rkt
-
-;; the examples in this file are mostly identical to dep-peano-tests.rkt,
-;; except Z is replaced with (Z)
-
-;; check (Type n) : (Type n+1)
-(check-type Type : (Type 1) -> (Type 0))
-(check-type (Type 0) : (Type 1) -> (Type 0))
-(check-not-type (Type 0) : (Type 0))
-(check-type (Type 1) : (Type 2) -> (Type 1))
-(check-type (Type 3) : (Type 4) -> (Type 3))
-
-(typecheck-fail ((λ [x : Type] x) Type)
-  #:with-msg "expected \\(Type 0\\), given \\(Type 1\\)")
-(check-type ((λ [x : (Type 1)] x) Type) : (Type 1))
-(check-type ((λ [x : (Type 2)] x) (Type 1)) : (Type 2))
-
-(check-type (λ [y : (Type 0)] y) : (→ (Type 0) (Type 0)))
-(check-type (λ [y : (Type 0)] (Type 0)) : (→ (Type 0) (Type 1)))
-(check-type (λ [y : (Type 0)] (Type 1)) : (→ (Type 0) (Type 2)))
-
-;; zero-arg fn is constant
-;; TODO: make this err?
-(check-type (λ (λ [x : Type] x)) : (→ Type Type))
+;; tests for Figure 10: dependent core calculus
 
 ;; Peano nums -----------------------------------------------------------------
 
-(define-datatype Nat : *
+(define-datatype Nat : Type
   [Z : Nat]
   [S : (→ Nat Nat)])
 
 (check-type Z : Nat)
 (check-type (Z) : Nat)
-(check-type Z : (→ Nat)) ;; TODO: make this err?
+(check-type Z : (→ Nat))
 (check-type S : (→ Nat Nat))
 (check-type Z : Nat -> Z)
-(check-type (Z) : Nat -> (Z)) ;; TODO?
+(check-type (Z) : Nat -> (Z))
 (check-type (S (Z)) : Nat)
 (check-type (S (Z)) : Nat -> (S (Z)))
 (check-type (S (S (Z))) : Nat -> (S (S (Z))))
@@ -62,7 +26,7 @@
 (check-type (S (S Z)) : Nat -> (S (S Z)))
 
 (define nat-rec
-  (λ [C : *]
+  (λ [C : Type]
     (λ [zc : C][sc : (→ C C)]
       (λ [n : Nat]
         (elim-Nat n
@@ -148,11 +112,6 @@
             n2))
  : (→ Nat Nat Nat))
 
-;; TODO: define #%datum
-;(check-type ((plus Z) Z) : Nat -> 0)
-;(check-type ((plus (S Z)) (S Z)) : Nat -> 2)
-;(check-type ((plus (S Z)) Z) : Nat -> 1)
-;(check-type ((plus (S Z)) Z) : Nat -> 1)
 (check-type (plus (Z)) : (→ Nat Nat))
 (check-type ((plus (Z)) (Z)) : Nat -> (Z))
 (check-type ((plus (Z)) (S (Z))) : Nat -> (S (Z)))
@@ -174,11 +133,6 @@
           : (Π [n : Nat] (= (plus Z n) n)))
 
 ;; plus zero (right), just the eq
-;; tests that erased-wrapping is disabled
-;; - if it's not, then result of eq-elim will have two (expander-merged) types,
-;;   but will use the wrong one: (P- t-) instead of (P- w-)
-;; current workaround:
-;; - in turnstile.rkt, last-clause, dont add `erased` wrapper if current-use-stop-list? = #f
 (check-type
  (λ [k : Nat]
    (λ [p : (= (plus k Z) k)]
@@ -234,7 +188,6 @@
 (check-type
  (λ [A : Type][x : A] x)
  : (Π [B : Type][y : B] B))
-;; this works now (broken in dep-ind-fixed bc multi-param lambdas werent let*)
 (check-type ((λ [A : Type][x : A] x) Nat Z) : Nat -> Z)
 
 (check-type
