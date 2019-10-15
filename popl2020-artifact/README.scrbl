@@ -184,11 +184,24 @@ with DrRacket to run the files.
 @subsection{Paper section 3}
 
 @file-url[POPL-EXAMPLES]
-@itemlist[@item{@file-url[POPL-EXAMPLES]{fig5-video.rkt}}
-          @item{@file-url[POPL-EXAMPLES]{fig6-left-arrow.rkt}: Figure 6 (left).}
-          @item{@file-url[POPL-EXAMPLES]{fig7-left-arrow.rkt}: Figure 7 (left).
+@itemlist[@item{@file-url[POPL-EXAMPLES]{fig5-video.rkt}
 
-          These two arrow type implementations are used by @file-url[POPL-EXAMPLES]{fig3-left-stlc.rkt}}]
+                This is the core of Typed Video from Figure 5.
+
+                It includes the type-level evaluation @racket[define-norm] definition from Figure 9.
+
+          See @file-url[POPL-TESTS]{fig5-video-tests.rkt} for examples written with this core language.
+
+                To define @racket[→vid], @file-url[POPL-EXAMPLES]{fig5-video.rkt} uses @racket[define-type] by default. But the example also works with alternate @racket[→vid] definitions:
+                @itemlist[@item{@file-url[POPL-EXAMPLES]{fig6-right-arrow.rkt}: Figure 6 (right).}
+                          @item{@file-url[POPL-EXAMPLES]{fig7-right-arrow.rkt}: Figure 7 (right)}]
+
+                Uncomment the appropriate line in @file-url[POPL-EXAMPLES]{fig5-video.rkt} to use one of these alternate definitions.}
+
+          @item{@hyperlink["https://github.com/videolang/typed-video/blob/master/typed/video.rkt"]{Here is the full implementation of Typed Video}. It is based on the core language presented in Figure 5.
+
+                Here is a @hyperlink["https://github.com/videolang/typed-video/tree/master/tests"]{test suite for Typed Video}, including @hyperlink["https://github.com/videolang/typed-video/blob/master/tests/paper-tests.rkt#L281-L295"]{the @racket[mk-conf-talk] example from the paper} (it uses a slightly different syntax for @racket[→vid]).
+                }]
 
 @subsection{Paper section 4}
 

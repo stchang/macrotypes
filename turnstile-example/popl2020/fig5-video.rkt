@@ -39,7 +39,6 @@
 
   ;; Figure 9: excerpt of type-level eval in Typed Video ----------------------
   (define-norm
-;    [debug #:do[(printf "eval: ~a\n" (stx->datum #'debug))] #:when #f #'debug]
     [n #:when (nat-lit? #'n) #'n]    [b #:when (bool-lit? #'b) #'b]
     [(#%app- (~literal add1-) n) ; (add1 n)
      #:with n- (norm #'n)

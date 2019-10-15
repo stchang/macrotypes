@@ -1,9 +1,6 @@
 #lang s-exp popl2020/fig5-video
 (require rackunit/turnstile+)
 
-;; same as fig3-left-stlc-tests.rkt
-;; - but with better err msgs
-
 (check-type (add1 10) : Nat)
 ;; Prod tests
 (check-type (blank 10) : (Prod 10))
