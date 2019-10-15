@@ -21,7 +21,10 @@
 (define-type Bool : Type)
 (define-type Prod : Nat -> Type)
 
-(define-type →vid #:with-binders [X : Type] : Type -> Type)
+;; uncomment one of the below
+(require "fig6-right-arrow.rkt")
+;(require "fig7-right-arrow.rkt")
+;(define-type →vid #:with-binders [X : Type] : Type -> Type)
 
 (begin-for-syntax
   (define nat-lit?
@@ -36,6 +39,7 @@
 
   ;; Figure 9: excerpt of type-level eval in Typed Video ----------------------
   (define-norm
+;    [debug #:do[(printf "eval: ~a\n" (stx->datum #'debug))] #:when #f #'debug]
     [n #:when (nat-lit? #'n) #'n]    [b #:when (bool-lit? #'b) #'b]
     [(#%app- (~literal add1-) n) ; (add1 n)
      #:with n- (norm #'n)
@@ -43,7 +47,7 @@
          #`'#,(add1 (stx->lit #'n-)) ; do addition
          #'(add1 n-))]               ; keep add1 term
     [(~Prod n) #`(Prod #,(norm #'n))]
-    [other #'other])
+    [other #'other]))
 
 (define-typerule #%app-vid
   [(_ f e) ⇐ τ0- ≫

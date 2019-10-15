@@ -4,10 +4,12 @@
 ;; same as fig3-left-stlc-tests.rkt
 ;; - but with better err msgs
 
+(check-type (add1 10) : Nat)
 ;; Prod tests
-;(check-type (blank 10) : (Prod 10))
+(check-type (blank 10) : (Prod 10))
 (check-type (blank (add1 10)) : (Prod 11))
-;(check-type (blank (add1 (add1 10))) : (Prod 12))
+(check-type (blank (add1 (add1 10))) : (Prod 12))
+(check-type (λ [x : Nat] (blank x)) : (→vid [x : Nat] (Prod x)))
 
 ;; infer
 (check-type (λ x (add1 x)) : (→vid [x : Nat] Nat))
@@ -37,9 +39,9 @@
 (check-type (((λ [f : (→vid [x : Nat] Nat)] (λ [x : Nat] (f x))) add1) 1) : Nat ⇒ 2)
 
 (typecheck-fail (add1 (λ [x : Nat] x))
-                #:with-msg "expected Nat.*given \\(→vid \\(x : Nat\\) Nat\\)")
+                #:with-msg "expected Nat.*given.*→vid")
 (typecheck-fail (λ [x : (→vid [x : Nat] Nat)] (add1 x))
-                #:with-msg "expected Nat.*given \\(→vid \\(x : Nat\\) Nat\\)")
+                #:with-msg "expected Nat.*given.*→vid")
 
 (check-type ((λ [x : Nat] (add1 x)) 10) : Nat ⇒ 11)
 
@@ -50,4 +52,4 @@
 (typecheck-fail (λ [x : (add1 1)] x)
                 #:with-msg "expected.*Type.*given Nat")
 (typecheck-fail (λ [x : (λ [y : Nat] y)] x)
-                #:with-msg "expected.*Type.*given \\(→vid \\(y : Nat\\) Nat\\)")
+                #:with-msg "expected.*Type.*given.*→vid")
