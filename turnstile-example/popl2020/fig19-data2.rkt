@@ -1,7 +1,8 @@
 #lang turnstile+/quicklang
 (require (except-in "fig10-dep.rkt" λ #%app Π ~Π)
+         (only-in "fig10-dep.rkt" [~Π ~Π/1])
          "fig13-sugar.rkt"
-         (only-in "fig19-data.rkt" [define-datatype define-datatype1])
+;         (only-in "fig19-data.rkt" [define-datatype define-datatype1])
          turnstile+/eval turnstile+/typedefs turnstile+/more-utils)
 
 ;; a 2nd dep-ind-cur2 library implementing define-datatype
@@ -12,6 +13,25 @@
 ; Π  λ ≻ ⊢ ≫ → ∧ (bidir ⇒ ⇐) τ⊑ ⇑
 
 (provide define-datatype)
+
+;; define-cur-constructor is mostly sugar for define-type, and:
+;; - allows writing whole type in declaration, eg (define-cur-constructor name : TY)
+;; - constructor is curried (eg, can partially apply)
+(define-syntax define-cur-constructor
+  (syntax-parser
+    [(_ name (~datum :) ty)
+     #:with (~Π [A+i : τ] ... τ-out) ((current-type-eval) #'ty)
+     #:with name/internal (generate-temporary #'name)
+     #:with name/internal-expander (mk-~ #'name/internal)
+     #:with name-expander (mk-~ #'name)
+      #'(begin-
+         (define-type name/internal : [A+i : τ] ... -> τ-out)
+         (define-syntax name
+           (make-variable-like-transformer
+            #'(λ [A+i : τ] ... (name/internal A+i ...))))
+         (begin-for-syntax
+           (define-syntax name-expander
+             (make-rename-transformer #'name/internal-expander))))]))
 
 ;; define-data-constructor wraps define-type to enable currying of constructor
 (define-syntax define-data-constructor
@@ -29,6 +49,42 @@
            (define-syntax name-expander
              (make-rename-transformer #'name/internal-expander))))]))
 
+;; helper syntax fns
+(begin-for-syntax
+  ;; drops first n bindings in Π/1 type
+  (define (prune t n)
+    (if (zero? n)
+        t
+        (syntax-parse t
+          [(~Π/1 [_ : _] t1)
+           (prune #'t1 (sub1 n))])))
+  ;; x+τss = (([x τ] ...) ...)
+  ;; returns subset of each (x ...) that is recursive, ie τ = TY
+  (define (find-recur TY x+τss)
+    (stx-map
+     (λ (x+τs)
+       (stx-filtermap
+        (syntax-parser [(x τ) (and (free-id=? #'τ TY) #'x)])
+        x+τs))
+     x+τss))
+  ;; x+τss = (([x τ] ...) ...)
+  ;; returns subset of each (x ...) that is recursive, ie τ = (TY . args)
+  ;; along with the indices needed by each recursive x
+  ;; - ASSUME: the needed indices are first `num-is` arguments in x+τss
+  ;; - ASSUME: the recursive arg has type (TY . args) where TY is unexpanded
+  (define (find-recur/i TY num-is x+τss)
+    (stx-map
+     (λ (x+τs)
+       (define xs (stx-map stx-car x+τs))
+       (stx-filtermap
+        (syntax-parser
+          ;; TODO: generalize these patterns with ~plain-app/c
+          [(x (_ t:id . _)) (and (free-id=? #'t TY) (cons #'x (stx-take xs num-is)))]
+          [(x (_ (_ t:id . _) . _)) (and (free-id=? #'t TY) (cons #'x (stx-take xs num-is)))]
+          [_ #f])
+        x+τs))
+     x+τss))
+  )
 (begin-for-syntax
   ;; x+τss = (([x τ] ...) ...)
   ;; returns subset of each (x ...) that is recursive, ie τ = (TY . args)
@@ -142,7 +198,49 @@
 (define-typed-syntax define-datatype
   ;; simple datatypes, eg Nat -------------------------------------------------
   ;; - ie, `TY` is an id with no params or indices
-  [(_ TY:id (~datum :) τ:id [C:id (~datum :) τC] ...) ≫ --- [≻ (define-datatype1 TY : τ [C : τC] ...)]]
+  [(_ TY:id (~datum :) τ:id [C:id (~datum :) τC] ...) ≫
+   ;; need with-unbound and ~unbound bc `TY` name still undefined here
+   ;; TODO: is with-unbound needed?
+   ;; - is it possible to defer check to define-constructor below, after TY is defined?
+   [⊢ (with-unbound TY τC) ≫ (~unbound TY (~Π [x : τin] ... _)) ⇐ Type] ...
+   ;; ---------- pre-define some pattern variables for cleaner output:
+   ;; recursive args of each C; where (xrec ...) ⊆ (x ...)
+   #:with ((xrec ...) ...) (find-recur #'TY #'(([x τin] ...) ...))
+   ;; elim methods and method types
+   #:with (m ...) (generate-temporaries #'(C ...))
+   #:with (m- ...) (generate-temporaries #'(m ...))
+   #:with (τm ...) (generate-temporaries #'(m ...))
+   #:with elim-TY (format-id #'TY "elim-~a" #'TY)
+   #:with eval-TY (format-id #'TY "eval-~a" #'TY)
+   #:with TY/internal (generate-temporary #'TY)
+   #:with (C-pat ...) (for/list ([C-expander (stx-map mk-~ #'(C ...))]
+                                 [xs (stx->list #'((x ...) ...))])
+                        (if (stx-null? xs) C-expander #`(#,C-expander . #,xs)))
+   --------
+   [≻ (begin-
+        ;; define the type, eg "Nat"
+        (define-cur-constructor TY : τ) 
+
+        ;; define the data constructors, eg Z and S
+        (define-cur-constructor C : τC) ...
+          
+        ;; elimination form
+        (define-typerule/red (elim-TY v P m ...) ≫
+          [⊢ v ≫ v- ⇐ TY]
+          [⊢ P ≫ P- ⇐ (→ TY Type)] ; prop / motive
+          ;; each `m` can consume 2 sets of args:
+          ;; 1) args of the constructor `x` ... 
+          ;; 2) IHs for each `x` that has type `TY`
+          #:with (τm ...) #'((Π [x : τin] ...
+                                (→ (P- xrec) ... (P- (C x ...)))) ...)
+          [⊢ m ≫ m- ⇐ τm] ...
+          -----------
+          [⊢ (eval-TY v- P- m- ...) ⇒ (P- v-)]
+          #:where eval-TY ; elim reduction rule
+          [(#%plain-app C-pat P m ...) ; elim redex
+           ~> (app/eval m x ... (eval-TY xrec P m ...) ...)] ...)
+        )]]
+  #;[(_ TY:id (~datum :) τ:id [C:id (~datum :) τC] ...) ≫ --- [≻ (define-datatype1 TY : τ [C : τC] ...)]]
   ;; --------------------------------------------------------------------------
   ;; defines inductive type family `TY`, with:
   ;; - params A ...

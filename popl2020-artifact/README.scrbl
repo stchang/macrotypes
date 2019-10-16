@@ -215,7 +215,9 @@ with DrRacket to run the files.
 @file-url[POPL-EXAMPLES]
 @itemlist[@item{@file-url[POPL-EXAMPLES]{fig10-dep.rkt}: Figure 10 dependent core calculus
 
-                         See @file-url[POPL-TESTS]{fig10-dep-tests.rkt} for examples written with this core language.}
+                         See @file-url[POPL-TESTS]{fig10-dep-tests.rkt} for examples written with this core language.
+
+                         @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/curnel/coc.rkt"]{Cur's core calculus} is roughly the same as this example.}
           @item{Figure 12: the Turnstile+ type eval library:
                 @itemlist[@item{@hyperlink["https://github.com/stchang/macrotypes/blob/cur/turnstile-lib/turnstile/eval.rkt#L14-L25"]{@racket[reflect]}: called @racket[⇑] in the paper}
                           @item{@hyperlink["https://github.com/stchang/macrotypes/blob/cur/turnstile-lib/turnstile/eval.rkt#L27-L34"]{@racket[mk-reflected]}}
@@ -243,7 +245,11 @@ with DrRacket to run the files.
                 @file-url[POPL-EXAMPLES]{fig18-dep+report.rkt} shows a language implementation that is like @file-url[POPL-EXAMPLES]{fig10-dep.rkt}, except its @racket[require] form is replaced with Figure 18's @racket[require/report].
 
                 When the previous examples (see @file-url[POPL-TESTS]{fig18-dep+report-tests.rkt}) are run, the language reports that the @racket[fig15-eq] and @racket[fig19-data] libraries extend the type system, but @racket[fig13-sugar] does not.}
-          @item{@file-url[POPL-EXAMPLES]{fig19-data.rkt}}
+          @item{Figure 19:
+                       Instead of extending the type system with every new data type like @racket[Nat] or equality, Cur includes @racket[define-datatype]. @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/curnel/cic-saccharata.rkt#L182"]{Cur's @racket[define-datatype] code is almost identical, minus extras like positivity checking, to the code presented in the paper}.
+
+                       
+                       }
           @item{@file-url[POPL-EXAMPLES]{fig19-data2.rkt}}]
 
 @subsection{Paper section 5: Cur}

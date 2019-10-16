@@ -1,6 +1,6 @@
 #lang s-exp popl2020/fig10-dep
 (require popl2020/fig15-eq
-         popl2020/fig19-data
+         popl2020/fig19-data2
          popl2020/fig13-sugar
          rackunit/turnstile+)
 
