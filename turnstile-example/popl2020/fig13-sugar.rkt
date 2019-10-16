@@ -5,7 +5,7 @@
 ;; - these extensions are safe bc they are sugar for fig10-dep terms;
 ;;   they do not change type checking rules
 
-(provide ∀ (rename-out [Π/c Π] [Π/c →] [λ/c λ] [app/c #%app] [β/c app/eval]))
+(provide ∀ (rename-out [Π/c Π] [Π/c →] [λ/c λ] [app/c #%app] [β/c app/eval] [β/c β]))
 
 (begin-for-syntax
   (define-syntax-class bind

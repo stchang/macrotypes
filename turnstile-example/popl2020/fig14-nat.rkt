@@ -1,31 +1,28 @@
-#lang s-exp "fig10-dep.rkt"
-(require (only-in turnstile+/eval define-typerule/red)
+#lang turnstile+/base
+(require (only-in turnstile+/eval define-red)
          (only-in turnstile+/typedefs define-type)
-         (only-in turnstile+ ⇐ ⇒ ≫ ⊢ ≻)
-         (for-syntax syntax/parse)
-         "fig13-sugar.rkt")
+         "fig10-dep.rkt"
+         (only-in "fig13-sugar.rkt" β →))
 
-(provide Nat Z S elim-Nat
-         (rename-out [new-datum #%datum]))
+(provide Nat Z S elim-Nat (rename-out [new-datum #%datum]))
 
 (define-type Nat : Type)
 
 (define-type Z : Nat)
 (define-type S : Nat -> Nat)
 
-(define-typerule/red (elim-Nat v P mz ms) ≫
+(define-typerule (elim-Nat v P mz ms) ≫
   [⊢ v ≫ v- ⇐ Nat]
   [⊢ P ≫ P- ⇐ (→ Nat Type)] ; prop / motive
   [⊢ mz ≫ mz- ⇐ (P- Z)]
   [⊢ ms ≫ ms- ⇐ (Π [n-1 : Nat] (Π [ih : (P- n-1)] (P- (S n-1))))]
   -----------
-  [⊢ (eval-Nat v- P- mz- ms-) ⇒ (P- v-)]
-  #:where eval-Nat
-  [(elim-Nat- ~Z P mz ms) ~> mz]
-  [(elim-Nat- (~S n-1) P mz ms) ~> (app/eval ms n-1 (eval-Nat n-1 P mz ms))])
+  [⊢ (eval-Nat v- P- mz- ms-) ⇒ (P- v-)])
 
-(require (only-in racket/base define-syntax rename-out)
-         (for-syntax racket/base syntax/parse))
+(define-red eval-Nat
+  [(eval-Nat- ~Z P mz ms) ~> mz]
+  [(eval-Nat- (~S n-1) P mz ms) ~> (β ms n-1 (eval-Nat n-1 P mz ms))])
+
 (define-syntax new-datum
   (syntax-parser
     [(_ . n:exact-nonnegative-integer)
