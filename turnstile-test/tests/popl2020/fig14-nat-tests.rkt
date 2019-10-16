@@ -1,17 +1,16 @@
 #lang s-exp popl2020/fig10-dep
 (require popl2020/fig14-nat
-         popl2020/fig15-eq2
+         popl2020/fig15-eq
          popl2020/fig13-sugar
          rackunit/turnstile+)
 
-; Π → λ ∀ ≻ ⊢ ≫ ⇒
-
-;; same as dep-ind-cur2-nat tests, except uses new #%datum
+;; Tests for Figure 14: Nat library
+;; - also uses Figure 13: sugar, and Figure 15: equality
 
 ;; Peano nums -----------------------------------------------------------------
 
 (check-type 0 : Nat)
-(check-type 0 : (→ Nat)) ;; TODO: make this err?
+(check-type 0 : (→ Nat))
 (check-type 0 : Nat -> 0)
 (check-type 1 : Nat)
 (check-type 1 : Nat -> 1)
@@ -117,7 +116,7 @@
 (check-type (plus 1 2) : Nat -> 3)
 
 ;; plus zero (left)
-(check-type (λ [n : Nat] (eq-refl Nat n))
+(check-type (λ [n : Nat] (refl Nat n))
           : (Π [n : Nat] (= Nat (plus 0 n) n)))
 
 ;; plus zero (right)
@@ -125,30 +124,30 @@
  (λ [n : Nat]
    (elim-Nat n
              (λ [m : Nat] (= Nat (plus m 0) m))
-             (eq-refl Nat 0)
+             (refl Nat 0)
              (λ [k : Nat]
                (λ [p : (= Nat (plus k 0) k)]
-                 (eq-elim (plus k 0)
+                 (transport (plus k 0)
                           (λ [W : Nat] (= Nat (S (plus k 0)) (S W)))
-                          (eq-refl Nat (S (plus k 0)))
+                          (refl Nat (S (plus k 0)))
                           k
                           p)))))
  : (Π [n : Nat] (= Nat (plus n 0) n)))
 
 ;; plus zero identity, no annotations
 ;; left:
-(check-type (λ n (eq-refl Nat n))
+(check-type (λ n (refl Nat n))
           : (Π [n : Nat] (= Nat (plus 0 n) n)))
 ;; right:
 (check-type
  (λ n
    (elim-Nat n
              (λ m (= Nat (plus m 0) m))
-             (eq-refl Nat 0)
+             (refl Nat 0)
              (λ k p
-               (eq-elim (plus k 0)
+               (transport (plus k 0)
                         (λ W (= Nat (S (plus k 0)) (S W)))
-                        (eq-refl Nat (S (plus k 0)))
+                        (refl Nat (S (plus k 0)))
                         k
                         p))))
  : (Π [n : Nat] (= Nat (plus n 0) n)))
@@ -166,7 +165,6 @@
 (check-type
  (λ [A : Type][x : A] x)
  : (Π [B : Type][y : B] B))
-;; this works now (broken in dep-ind-fixed bc multi-param lambdas werent let*)
 (check-type ((λ [A : Type][x : A] x) Nat 0) : Nat -> 0)
 
 (check-type

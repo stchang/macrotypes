@@ -5,6 +5,7 @@
          rackunit/turnstile+)
 
 ;; tests for Figure 10: dependent core calculus
+;; - also uses Figure 13: sugar, and Figure 15: equality
 
 ;; Peano nums -----------------------------------------------------------------
 
@@ -129,51 +130,51 @@
 (check-type (plus (S Z) (S (S Z))) : Nat -> (S (S (S Z))))
 
 ;; plus zero (left)
-(check-type (λ [n : Nat] (eq-refl n))
-          : (Π [n : Nat] (= (plus Z n) n)))
+(check-type (λ [n : Nat] (refl Nat n))
+          : (Π [n : Nat] (= Nat (plus Z n) n)))
 
 ;; plus zero (right), just the eq
 (check-type
  (λ [k : Nat]
-   (λ [p : (= (plus k Z) k)]
-     (eq-elim (plus k Z)
-              (λ [W : Nat] (= (S (plus k Z)) (S W)))
-              (eq-refl (S (plus k Z)))
+   (λ [p : (= Nat (plus k Z) k)]
+     (transport (plus k Z)
+              (λ [W : Nat] (= Nat (S (plus k Z)) (S W)))
+              (refl Nat (S (plus k Z)))
               k
               p)))
- : (Π [k : Nat] [p : (= (plus k Z) k)] (= (S (plus k Z)) (S k))))
+ : (Π [k : Nat] [p : (= Nat (plus k Z) k)] (= Nat (S (plus k Z)) (S k))))
 ;; plus zero (right)
 (check-type
  (λ [n : Nat]
    (elim-Nat n
-             (λ [m : Nat] (= (plus m Z) m))
-             (eq-refl Z)
+             (λ [m : Nat] (= Nat (plus m Z) m))
+             (refl Nat Z)
              (λ [k : Nat]
-               (λ [p : (= (plus k Z) k)]
-                 (eq-elim (plus k Z)
-                          (λ [W : Nat] (= (S (plus k Z)) (S W)))
-                          (eq-refl (S (plus k Z)))
+               (λ [p : (= Nat (plus k Z) k)]
+                 (transport (plus k Z)
+                          (λ [W : Nat] (= Nat (S (plus k Z)) (S W)))
+                          (refl Nat (S (plus k Z)))
                           k
                           p)))))
- : (Π [n : Nat] (= (plus n Z) n)))
+ : (Π [n : Nat] (= Nat (plus n Z) n)))
 
 ;; plus zero identity, no annotations
 ;; left:
-(check-type (λ n (eq-refl n))
-          : (Π [n : Nat] (= (plus Z n) n)))
+(check-type (λ n (refl Nat n))
+          : (Π [n : Nat] (= Nat (plus Z n) n)))
 ;; right:
 (check-type
  (λ n
    (elim-Nat n
-             (λ m (= (plus m Z) m))
-             (eq-refl Z)
+             (λ m (= Nat (plus m Z) m))
+             (refl Nat Z)
              (λ k p
-               (eq-elim (plus k Z)
-                        (λ W (= (S (plus k Z)) (S W)))
-                        (eq-refl (S (plus k Z)))
+               (transport (plus k Z)
+                        (λ W (= Nat (S (plus k Z)) (S W)))
+                        (refl Nat (S (plus k Z)))
                         k
                         p))))
- : (Π [n : Nat] (= (plus n Z) n)))
+ : (Π [n : Nat] (= Nat (plus n Z) n)))
 
 ;; test currying
 (check-type

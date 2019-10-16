@@ -221,9 +221,12 @@ with DrRacket to run the files.
                           @item{@hyperlink["https://github.com/stchang/macrotypes/blob/cur/turnstile-lib/turnstile/eval.rkt#L27-L34"]{@racket[mk-reflected]}}
                           @item{@hyperlink["https://github.com/stchang/macrotypes/blob/cur/turnstile-lib/turnstile/eval.rkt#L36-L72"]{@racket[define-red]}}]}
           @item{@file-url[POPL-EXAMPLES]{fig13-sugar.rkt}}
-          @item{@file-url[POPL-EXAMPLES]{fig14-nat.rkt}:
+          @item{@file-url[POPL-EXAMPLES]{fig14-nat.rkt}: @racket[Nat] library.
+
                          See @file-url[POPL-TESTS]{fig14-nat-tests.rkt} for examples using this library.}
-          @item{@file-url[POPL-EXAMPLES]{fig15-eq.rkt}}
+          @item{@file-url[POPL-EXAMPLES]{fig15-eq.rkt}: equality library.
+
+                         See @file-url[POPL-TESTS]{fig10-dep-tests.rkt} and @file-url[POPL-TESTS]{fig14-nat-tests.rkt} for examples using this library.}
           @item{Figure 16: define-type}
           @item{Figure 17-18: extensions}
           @item{@file-url[POPL-EXAMPLES]{fig19-data.rkt}}

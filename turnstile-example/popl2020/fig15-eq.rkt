@@ -1,25 +1,18 @@
-#lang s-exp "fig10-dep.rkt"
-(require (only-in turnstile+ struct #%app- void- define-typed-syntax ⇒ ⇐ ≫ ⊢ ≻)
-         "fig13-sugar.rkt")
+#lang turnstile+/base
+(require (only-in turnstile+/typedefs define-type)
+         (only-in turnstile+/eval define-red)
+         "fig10-dep.rkt"
+         (only-in "fig13-sugar.rkt" →))
 
-;; eq lib for dep-ind-cur2.rkt
+;; Figure 15: equality
 
-(provide = eq-refl eq-elim)
+(provide = refl transport)
 
 ;; equality -------------------------------------------------------------------
 
-(struct =- (l r) #:transparent)
+(define-type = : [A : (Type 0)] [a : A] [b : A] -> (Type 0))
 
-(define-typed-syntax (= t1 t2) ≫
-  [⊢ t1 ≫ t1- ⇒ ty]
-  [⊢ t2 ≫ t2- ⇐ ty]
-  ---------------------
-  [⊢ (#%app- =- t1- t2-) ⇒ Type])
-
-(define-typed-syntax (eq-refl e) ≫
-  [⊢ e ≫ e- ⇒ _ (⇒ ~Type)]
-  ----------
-  [⊢ (#%app- void-) ⇒ (= e- e-)])
+(define-type refl : [A : (Type 0)] [e : A] -> (= A e e))
 
 ;; eq-elim: t : T
 ;;          P : (T -> Type)
@@ -27,11 +20,13 @@
 ;;          w : T
 ;;          peq : (= t w)
 ;;       -> (P w)
-(define-typed-syntax (eq-elim t P pt w peq) ≫
-  [⊢ t ≫ t- ⇒ ty]
-  [⊢ P ≫ P- ⇐ (→ ty Type)]
+(define-typerule (transport t P pt w peq) ≫
+  [⊢ t ≫ t- ⇒ A]
+  [⊢ w ≫ w- ⇐ A]
+  [⊢ P ≫ P- ⇐ (→ A Type)]
   [⊢ pt ≫ pt- ⇐ (P- t-)]
-  [⊢ w ≫ w- ⇐ ty]
-  [⊢ peq ≫ peq- ⇐ (= t- w-)]
+  [⊢ peq ≫ peq- ⇐ (= A t- w-)]
   --------------
-  [⊢ pt- ⇒ (P- w-)])
+  [⊢ (eval= pt- peq-) ⇒ (P- w-)])
+
+(define-red eval= (eval=- pt (~refl A t)) ~> pt)
