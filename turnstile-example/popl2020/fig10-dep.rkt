@@ -1,18 +1,17 @@
 #lang turnstile+/quicklang
-(require turnstile+/eval
-         (only-in turnstile+/eval [reflect ⇑])
-         turnstile+/typedefs
-         "type-type.rkt")
+(require (only-in turnstile+/eval define-red [reflect ⇑])
+         (only-in turnstile+/typedefs define-type)
+         "type-type.rkt") ; import Type
 
-;; Figure 10 dependently typed core calculus
+;; Figure 10: dependently typed core calculus
 
 (provide Type (for-syntax ~Type) TypeTop
          Π (for-syntax ~Π)
          λ (rename-out [app #%app] [β app/eval/1])
          ann define provide for-syntax)
 
-;; use (Type 99) for demo purposes
-;; (see Cur for proper hierarchy implementation
+;; (Type 99) just for demo purposes
+;; (see Cur for proper hierarchy implementation)
 (define-type Π #:with-binders [X : (Type 99)] : (Type 99) -> Type)
 
 ;; lambda and #%app -----------------------------------------------------------
@@ -41,6 +40,16 @@
   [⊢ e_arg ≫ e_arg- ⇐ τ_in]
   -----------------------------
   [⊢ (β e_fn- e_arg-) ⇒ #,(⇑ (subst #'e_arg- #'X #'τ_out))])
+
+;; fig 11: β as a plain macro (does not cooperate with other reduction rules)
+#;(define-for-syntax (⇑v1 e) (subst #'β #'#%plain-app e))
+#;(define-syntax β
+  (syntax-parser
+    [(_ f e)
+     (syntax-parse (list (expand/df #'f) (expand/df #'e))
+       [(((~literal #%plain-lambda) (x-) body-) e-)
+        (⇑v1 (subst #'e- #'x- #'body-))]
+       [(f- e-) #'(#%plain-app f- e-)])]))
 
 (define-red β
   (#%plain-app ((~literal #%plain-lambda) (x) body) e)

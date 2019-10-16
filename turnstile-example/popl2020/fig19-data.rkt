@@ -1,5 +1,6 @@
 #lang turnstile+/quicklang
-(require (except-in "fig10-dep.rkt" λ #%app Π)
+(require (except-in "fig10-dep.rkt" λ #%app Π ~Π)
+         (only-in "fig10-dep.rkt" [~Π ~Π/1])
          "fig13-sugar.rkt"
          turnstile+/eval turnstile+/typedefs turnstile+/more-utils)
 
