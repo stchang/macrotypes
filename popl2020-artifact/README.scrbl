@@ -227,8 +227,22 @@ with DrRacket to run the files.
           @item{@file-url[POPL-EXAMPLES]{fig15-eq.rkt}: equality library.
 
                          See @file-url[POPL-TESTS]{fig10-dep-tests.rkt} and @file-url[POPL-TESTS]{fig14-nat-tests.rkt} for examples using this library.}
-          @item{Figure 16: define-type}
-          @item{Figure 17-18: extensions}
+          @item{Figure 16: Here is the @hyperlink["https://github.com/stchang/macrotypes/blob/cur/turnstile-lib/turnstile/typedefs.rkt#L154-L187"]{Turnstile+ @racket[define-type]} that uses the pattern-based substitution from Sec 4.4.}
+          @item{Figure 17:
+
+                Here is @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/stdlib/axiom.rkt#L19-L24"]{a Cur library that provides @racket[define-axiom]}.
+
+                Here is @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-test/cur/tests/stdlib/axiom.rkt#L36-L48"]{a Cur program using @racket[define-axiom]}.}
+          @item{Figure 18 (top):
+
+                Here is @hyperlink["https://github.com/stchang/cur/blob/turnstile-core%2Brosette/cur-lib/cur/stdlib/z3.rkt#L27-L43"]{a Cur library that provides @racket[define-axiom/z3]}, which calls out to a solver. It uses the Rosette language to help translate to Z3 terms.
+
+                Here are @hyperlink["https://github.com/stchang/cur/blob/turnstile-core%2Brosette/cur-test/cur/tests/stdlib/z3.rkt"]{some Cur programs using @racket[define-axiom/z3]}.}
+          @item{Figure 18 (bottom):
+
+                @file-url[POPL-EXAMPLES]{fig18-dep+report.rkt} shows a language implementation that is like @file-url[POPL-EXAMPLES]{fig10-dep.rkt}, except its @racket[require] form is replaced with Figure 18's @racket[require/report].
+
+                When the previous examples (see @file-url[POPL-TESTS]{fig18-dep+report-tests.rkt}) are run, the language reports that the @racket[fig15-eq] and @racket[fig19-data] libraries extend the type system, but @racket[fig13-sugar] does not.}
           @item{@file-url[POPL-EXAMPLES]{fig19-data.rkt}}
           @item{@file-url[POPL-EXAMPLES]{fig19-data2.rkt}}]
 
