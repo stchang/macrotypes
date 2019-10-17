@@ -41,6 +41,19 @@
    (define p (if suffix (build-path prefix suffix) prefix))
    (hyperlink (file:// p) (tt (if suffix suffix (path->string p)))))
 
+@(define TURNSTILE-URL
+   "https://github.com/stchang/macrotypes/blob/popl2020-artifact/")
+@(define TURNSTILE-EXAMPLE-URL
+   (string-append TURNSTILE-URL "turnstile-example/popl2020/"))
+@(define TURNSTILE-TEST-URL
+   (string-append TURNSTILE-URL "turnstile-test/tests/popl2020/"))
+   
+@(define (paper-example-url f txt) ;; Str Str -> Elem
+   (hyperlink (string-append TURNSTILE-EXAMPLE-URL f) txt))
+
+@(define (paper-example-test-url f txt) ;; Str Str -> Elem
+   (hyperlink (string-append TURNSTILE-TEST-URL f) txt))
+
 @; -----------------------------------------------------------------------------
 
 @title{Artifact: @|PAPER-TITLE|}
@@ -51,136 +64,97 @@
          (author+email "William J. Bowman" "wjb@williamjbowman.com"))
 
 This is a README file for the artifact that accompanies "@|PAPER-TITLE|" in
-@|CONF-NAME| @|CONF-YEAR|.  If you have any questions, please email any (or all) of the
-authors.
+@|CONF-NAME| @|CONF-YEAR|.  If you have any questions, please email any (or all) of the authors.
 
-Our artifact is a VM image that contains:
+For convenience, the entire artifact is reviewable online with a browser (at code repos hosted in various locations). Optionally, for those wishing to further inspect and run files in the artifact, see @secref{local}.
+
+Our artifact consists of:
 @itemlist[
-  @item{a copy of the @|CONF-NAME| @|CONF-YEAR| submission @hyperlink[@file://[PAPER]]{[link]},}
-  @item{a distribution of the Racket programming language (v@|RACKET-VERSION|),}
-  @item{and the @racket[turnstile+] library and its documentation.}
+  @item{a copy of the @|CONF-NAME| @|CONF-YEAR| submission @hyperlink["http://www.ccs.neu.edu/home/stchang/pubs/cbtb-popl2020.pdf"]{[link]},}
+  @item{the Turnstile+ framework @hyperlink["https://github.com/stchang/macrotypes/tree/popl2020-artifact"]{[link]},}
+  @item{the Cur proof assistant @hyperlink["https://github.com/stchang/cur/tree/turnstile-core"]{[link]},}
  ]
 
-The goals of this artifact are to:
-@itemlist[
-  @item{package the library associated with the paper,}
-  @item{provide runnable code for each stylized example in the paper,}
-  @item{and show how the tables in the paper were computed.}
- ]
+The goal of this artifact is to provide a guided tour of the code presented in the paper, as well as to compare and contrast them to the actual implementations of Turnstile+ and Cur.
 
 
 @; -----------------------------------------------------------------------------
-@section{Artifact Setup and Installation}
+@section[#:tag "local"]{Local Artifact Setup and Installation (Optional)}
 
-The artifact may be installed in two ways:
-@itemlist[@item{@secref{vm} (recommended)}
-          @item{@secref{manual}}]
-
-The VM image is configured to automatically login to the @tt{artifact} user
-account. The password for the account is also @tt{artifact}. The account has
-root privileges using @tt{sudo} without a password.
-
-Skip the rest of this section if you are already reading this document from
-within the VM.
-
-@subsection[#:tag "vm"]{VirtualBox VM image}
-
-The artifact is available as a virtual machine appliance for
-@hyperlink["https://www.virtualbox.org/wiki/Downloads"]{VirtualBox}.
-@margin-note{VM appliance:
-@hyperlink[VM-URL]{[link]}}
-
-To run the artifact image, open the downloaded @tt{.ova} file using the
-@tt{File->Import Appliance} menu item. This will create a new VM
-that can be launched after import. We recommend giving the VM at least
-2GB of RAM.
-
-@subsection[#:tag "manual"]{Manual installation}
-
-Follow these instructions to manually install the artifact only if
-the VirtualBox image is somehow not working.
+This artifact may be reviewed entirely online. For those who wish to inspect further, however, we provide instructions here to locally install all the artifacts.
 
 (We have only tested these steps with Linux.)
 
-@itemlist[@item{Install @hyperlink["http://download.racket-lang.org"]{Racket
-            @|RACKET-VERSION|}.
+@subsection{Installing Racket}
 
-           Add the Racket @tt{bin} directory to your @tt{PATH}. The
-           remaining steps assume that Racket's @tt{bin} directory is in the 
-           @tt{PATH}.}
-           
-          @item{Clone the repository into the @tt{popl2020} directory (or any directory):
+Install @hyperlink["http://download.racket-lang.org"]{Racket @|RACKET-VERSION|}.
 
-                @tt{git clone https://github.com/stchang/macrotypes popl2020}}
-          @item{Change directory to the repository root:
+Add the Racket @tt{bin} directory to your @tt{PATH}. The
+remaining steps assume that Racket's @tt{bin} directory is in the 
+@tt{PATH}.
+
+@subsection{Installing Turnstile+}
+@itemlist[@item{Clone the repository (making sure to use the @tt{popl2020-artifact} branch):
+
+                @tt{git clone -b popl2020-artifact https://github.com/stchang/macrotypes popl2020}}
+          @item{Change directory to the Turnstile+ repository root:
 
                 @tt{cd popl2020}}
-          @item{From the repository root, check out the @tt{popl2020-artifact} branch:
+          @item{From the repository root, install Turnstile+:
 
-                @tt{git checkout popl2020-artifact}}
-          @item{From the repository root, install Turnstile (may take ~30min-1hr):
+                @tt{make install}}]
 
-                @tt{raco pkg install }@literal{--}@tt{auto}}
-          @item{Register the documentation:
+@subsection{Installing Cur}
+@itemlist[@item{Clone the Cur repository (making sure to use the @tt{turnstile-core} branch):
 
-                @tt{raco setup }@literal{--}@tt{doc-index}}
-          @item{From the repository root, change to the @tt{artifact} directory:
+          @tt{git clone -b turnstile-core https://github.com/stchang/cur}}
 
-                @tt{cd popl2020-artifact}}
-          @item{Build the readme:
+          @item{Change directory to the Cur repository root:
 
-                @tt{make readme}}
-          @item{Open the produced @tt{README.html} file.}]
+                @tt{cd cur}}
 
-@; -----------------------------------------------------------------------------
-@section{Artifact Overview}
+          @item{Install Cur:
 
+                @verbatim|{raco pkg install --auto -t dir cur-lib/ cur-test/}|}]
 
-The relevant files are in @file-url[REPO].
+@subsection{Test the Installations}
 
-The following files may also be accessed via the VM Desktop:
-@itemlist[
-  @item{@file-url[ARTIFACT]{README.html}: This page}
-  @item{@file-url[ARTIFACT PAPER-PDF]: The camera-ready version of the paper.}
-  @item{@tt{DrRacket}: DrRacket IDE for Racket v@|RACKET-VERSION|
+Test that the languages are installed properly by running the test suites.
 
-  Run example files by opening them in DrRacket and pressing the "Run" button.
-  
- Alternatively, run files from the command line with @tt{racket}:
+@itemlist[@item{Turnstile+:
 
-  @tt{racket <Racket filename>}}
- ]
+                @itemlist[@item{@tt{make test} runs the examples from the paper}
+                               @item{@tt{raco test -p turnstile-test} runs the entire Turnstile+ test suite (including the paper examples)}]}
+          @item{Cur:
+                
+                @tt{raco test -j 4 -p cur-test} (@tt{-j} specifies number of cores to use) (might take longer, ~20-30 min)}]
+               
 
+@subsection{Running Individual Examples}
+
+If the artifact is successfully installed, each example below may be run with the @tt{racket} command, i.e., @tt{racket <path to example>}.
 
 @; -----------------------------------------------------------------------------
-@section[#:tag "examples"]{Code From the Paper (sections 2-5)}
+@section[#:tag "examples"]{Code From the Paper}
 
 For readability and conciseness, the paper presents simplified code that is
 stylized with colors and abbreviations. Thus code examples from the paper may
 not run as presented. However, runnable versions of the paper's examples are
 available in this artifact and are explained in this section.
 
-The file links in this artifact open in the browser by default. (If
-not viewing in the VM, you may need to adjust your browser's "Text
-Encoding" to display Unicode.) To run a file, open with DrRacket or
-use the command line.
-
 @subsection{Paper section 3: Typed Video and @racket[define-type]}
 
-@file-url[POPL-EXAMPLES]
-@itemlist[@item{@file-url[POPL-EXAMPLES]{fig5-video.rkt}
-
-                This is the core of Typed Video from Figure 5.
-
-                It includes the type-level evaluation @racket[define-norm] definition from Figure 9.
-
-          See @file-url[POPL-TESTS]{fig5-video-tests.rkt} for examples written with this core language.
+@itemlist[@item{Figure 5: @paper-example-url["fig5-video.rkt"]{Typed Video core calculus}
 
                 To define @racket[→vid], @file-url[POPL-EXAMPLES]{fig5-video.rkt} uses @racket[define-type] by default. But the example also works with alternate @racket[→vid] definitions:
                 @itemlist[@item{@file-url[POPL-EXAMPLES]{fig6-right-arrow.rkt}: Figure 6 (right).}
                           @item{@file-url[POPL-EXAMPLES]{fig7-right-arrow.rkt}: Figure 7 (right)}]
 
-                Uncomment the appropriate line in @file-url[POPL-EXAMPLES]{fig5-video.rkt} to use one of these alternate definitions.}
+                Uncomment the appropriate line in @file-url[POPL-EXAMPLES]{fig5-video.rkt} to use one of these alternate definitions.
+
+                This example also includes the type-level evaluation @racket[define-norm] definition from Figure 9.
+
+          See @paper-example-test-url["fig5-video-tests.rkt"]{this test file} for examples written with this core language.}
 
           @item{@hyperlink["https://github.com/videolang/typed-video/blob/master/typed/video.rkt"]{Here is the full implementation of Typed Video}. It is based on the core language presented in Figure 5.
 
