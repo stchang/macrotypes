@@ -92,7 +92,7 @@
      #`(begin-
          #,(quasisyntax/loc this-syntax
              (define-typerule (name . in-pat) rule ...))
-;         (define-core-id name-) ; a placeholder to use in the red rule
+         (define-core-id name-) ; a placeholder to use in the red rule
          (define-red red-name #:display-as orig reds ...))]))
 
 
