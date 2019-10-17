@@ -160,28 +160,12 @@ stylized with colors and abbreviations. Thus code examples from the paper may
 not run as presented. However, runnable versions of the paper's examples are
 available in this artifact and are explained in this section.
 
-Note that code presented in the paper (this section) may differ slightly from
-the code used for evaluation (@seclink["tables"]{section 5}), e.g., in the
-quality of their error messages. This artifact always points to the code
-being discussed.
+The file links in this artifact open in the browser by default. (If
+not viewing in the VM, you may need to adjust your browser's "Text
+Encoding" to display Unicode.) To run a file, open with DrRacket or
+use the command line.
 
-The file links below open in the browser by default. (If not viewing in the VM,
-you may need to adjust your browser's "Text Encoding" to display Unicode.) Open
-with DrRacket to run the files.
-
-@subsection{Paper section 2: Creating a Typed Language with Racket and Turnstile+}
-
-@file-url[POPL-EXAMPLES]
-@itemlist[@item{@file-url[POPL-EXAMPLES]{fig3-left-stlc.rkt}: Figure 3 (left): STLC, implemented with plain Racket macros.
-
-          See @file-url[POPL-TESTS]{fig3-left-stlc-tests.rkt} for examples written with this language.}
-          @item{@file-url[POPL-EXAMPLES]{fig4-core-api.rkt}: Figure 4: Turnstile+ underlying core API. The example in Figure 3 (left) uses the core API in this file.}
-          @item{@file-url[POPL-EXAMPLES]{fig3-right-stlc.rkt}: Figure 3 (right): STLC, implemented with Turnstile+.
-
-          See @file-url[POPL-TESTS]{fig3-right-stlc-tests.rkt} for examples written with this language.}
-          ]
-          
-@subsection{Paper section 3}
+@subsection{Paper section 3: Typed Video and @racket[define-type]}
 
 @file-url[POPL-EXAMPLES]
 @itemlist[@item{@file-url[POPL-EXAMPLES]{fig5-video.rkt}
@@ -255,172 +239,50 @@ with DrRacket to run the files.
 
 @file-url[POPL-EXAMPLES]
 
-@itemlist[@item{@file-url[POPL-EXAMPLES]{exist.rkt}: language with existential
-                types from figure 13, including @tt{subst} and @tt{τ=}.}
-          @item{@file-url[POPL-EXAMPLES]{exist-prog.rkt}: the "counter" example
-                from the paper.}
-          @item{@file-url[POPL-EXAMPLES]{stlc+sub.rkt}: language with subtyping
-                from figure 14; reuses rules from @tt{stlc+prim.rkt}.}
-          @item{@file-url[POPL-EXAMPLES]{stlc+sub-prog.rkt}: some examples
-                (not shown in paper) using the @tt{stlc+sub.rkt} language.}
-          @item{@file-url[POPL-EXAMPLES]{fomega.rkt}: F-omega language from
-                figure 16.}
-          @item{@file-url[POPL-EXAMPLES]{fomega-prog.rkt}: some examples
-                (not shown in paper) using the @tt{fomega.rkt} language.}
-          @item{@file-url[POPL-EXAMPLES]{effect.rkt}: language with
-                type-and-effect system from figure 17.}
-          @item{@file-url[POPL-EXAMPLES]{effect-prog.rkt}: some examples
-                (not shown in paper) using the @tt{effect.rkt} language.}]
+@itemlist[@item{Figure 20: @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/stdlib/sugar.rkt#L299"]{Cur @racket[define-implicit]}}
 
-@subsection{Other files}
-@file-url[POPL-EXAMPLES]
-@itemlist[@item{@file-url[POPL-EXAMPLES]{abbrv.rkt}: defines abbreviations from
-                the paper, like @tt{define-m}.}
-          @item{@file-url[POPL-EXAMPLES]{run-all-examples.rkt}: runs all the
-                @tt{-prog.rkt} example programs.}]
+          @item{Figure 21: @hyperlink["https://github.com/stchang/macrotypes/blob/cur/turnstile-lib/turnstile/type-constraints.rkt#L37"]{Turnstile+ @racket[unify]}. The name is different (@racket[add-constraints]) but the cases match the code presented in the paper.}
+
+          @item{Figure 22: @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/stdlib/sugar.rkt#L96"]{Cur @racket[match]}, where @racket[get-datatype-def] from the paper is @racket[get-match-info], and @racket[case->method] from the paper is @racket[mk-method].}
+
+          @item{Figure 23 (top): @hyperlink["https://github.com/stchang/macrotypes/blob/generic-type-methods/turnstile-lib/turnstile/typedefs.rkt#L225"]{Turnstile+ @racket[define-type] supporting generic methods. The @hyperlink["https://github.com/stchang/macrotypes/blob/generic-type-methods/turnstile-lib/turnstile/typedefs.rkt#L173-L183"]{A @racket[maybe-meths] syntax class} matches the @racket[#:implements keyword].}
+
+                As mentioned by the paper, @hyperlink["https://github.com/stchang/macrotypes/blob/generic-type-methods/turnstile-lib/turnstile/typedefs.rkt#L260"]{a table of methods is associated with each type}.
+
+
+                Programmers @hyperlink["https://github.com/stchang/macrotypes/blob/generic-type-methods/turnstile-lib/turnstile/typedefs.rkt#L65-L77"]{declare new methods with @racket[define-generic-type-method]}, which looks up the method in the table, e.g., @hyperlink["https://github.com/stchang/macrotypes/blob/generic-type-methods/turnstile-lib/turnstile/typedefs.rkt#L79"]{@racket[get-datatype-def]}.
+
+                Figure 23 (bottom): Cur's @racket[define-datatype] @hyperlink["https://github.com/stchang/cur/blob/generic-type-methods/cur-lib/cur/curnel/cic-saccharata.rkt#L301-L305"]{uses the @racket[#:implements] declaration} to define @racket[get-datatype-def] for each type.}
+
+          @item{Figure 24: @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/stdlib/sugar.rkt#L189"]{Cur's @racket[define/rec/match]}}
+
+          @item{Figure 25: @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/stdlib/sized.rkt"]{Cur's sized types library}, where @racket[lift-datatype] from the paper is @racket[define-sized-datatype], and @racket[def/rec/match_sz] from the paper is @racket[define/rec/match2].
+
+                See the @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-test/cur/tests/stdlib/sized.rkt"]{runnable versions of the sized type examples from the paper} for examples that using this library.}
+               ]
 
 @; -----------------------------------------------------------------------------
-@section{Paper Section 6: MLish}
-The paper presents simplistic snippets of the MLish language implementation,
-optimized for readability. The actual implementation can be found in the files
-listed below.
+@section{Paper Section 6: Companion DSLs}
+@itemlist[@item{Figure 26: @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/olly.rkt"]{Cur's Olly DSL}.
 
-@file-url[TURNSTILE-EXAMPLES]
-@itemlist[@item{@file-url[TURNSTILE-EXAMPLES]{mlish.rkt}: MLish language
-                (no type classes).}
-          @item{@file-url[TURNSTILE-EXAMPLES]{mlish+adhoc.rkt}: MLish language
-                (with type classes); @tt{define-tc} in the paper is
-                @tt{define-typeclass}.}]
+                @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-test/cur/tests/stlc.rkt"]{Here is the Olly STLC example from the paper.}}
 
-These implementations fill in the gaps from the paper. The actual
-implementations may additionally differ from the paper in other ways, for
-example with improved error message reporting and a more efficient type
-inference algorithm.
+          @item{Figure 27 (left): @hyperlink["https://github.com/stchang/cur/blob/metantac/cur-lib/cur/ntac/metantac.rkt#L145"]{@racket[define-tactic] from metantac}}
 
-Feel free to experiment with creating your own MLish program. Look at examples
-in the @file-url[TURNSTILE-EXAMPLES]{tests/mlish} directory to help get started.
+          @item{Figure 27 (right): @hyperlink["https://github.com/stchang/cur/blob/metantac/cur-lib/cur/ntac/standard.rkt#L151"]{ntac @racket[intro] tactic}, where ↪ from the paper is @racket[$fill], implemented with metantac and @racket[define-tactic].
 
-For example, @file-url[MLISH-TEST]{trees.mlish} and
-@file-url[MLISH-TEST]{trees-tests.mlish} contain the trees example from the
-paper.
+                Figure 27 (right): @hyperlink["https://github.com/stchang/cur/blob/metantac/cur-lib/cur/ntac/standard.rkt#L249"]{ntac @racket[assumption] tactic}
+
+                Figure 27 (bottom): @hyperlink["https://github.com/stchang/cur/blob/metantac/cur-lib/cur/ntac/inversion.rkt#L11"]{ntac @racket[inversion] tactic}}
+          @item{@hyperlink["https://github.com/stchang/cur/blob/metantac/cur-lib/cur/ntac/standard.rkt#L137"]{ntac @racket[try] tactic}, implemented with metantac and @racket[define-tactical].}
+
+          @item{@hyperlink["https://github.com/stchang/cur/blob/metantac/cur-lib/cur/ntac/standard.rkt#L431"]{ntac @racket[induction] tactic}, with optional declarative subgoal checking.}
+
+          @item{@hyperlink["https://github.com/stchang/cur/blob/metantac/cur-lib/cur/ntac/standard.rkt#L87"]{ntac @racket[interactive] tactic}}
+          ]
 
 @; -----------------------------------------------------------------------------
-@section[#:tag "tables"]{Tables From the Paper}
+@section{Software Foundations (vol. 1) examples}
 
-To evaluate Turnstile, we implemented two versions of several example languages:
-@itemlist[#:style 'ordered
-          @item{a version using Racket, as described in Section 3 of the paper.
-                These implementations can be found at:
+@hyperlink["https://github.com/wilbowma/cur/tree/turnstile-core/cur-test/cur/tests/ntac/software-foundations"]{Software Foundations examples}
 
-                @file-url[RACKET-EXAMPLES]}
-          @item{a version using Turnstile, as described in Sections 4-6 of the
-                paper. These implementations can be found at:
-
-                @file-url[TURNSTILE-EXAMPLES]}]
-
-The languages in each directory extend and reuse components from each other when
-possible.
-
-@subsection{Table 1: Summary of reuse (visual)}
-
-Table 1 was compiled using the
-@hyperlink[@file://[RACKET-EXAMPLES]]{Racket implementations} (#1 above).
-Table 1 remains roughly accurate for the
-@hyperlink[@file://[TURNSTILE-EXAMPLES]]{Turnstile versions} (#2), except that
-Turnstile defines more things, e.g., @tt{τ=}, automatically.
-
-The (Excel) source for Table 1 is at @file-url[REPO]{extension-table.xlsm}. The
-VM does not have a local viewer for the file but the file is viewable with
-Google Sheets. It is also publicly downloadable from our repository.
-
-@subsection{Table 2: Summary of reuse (line counts)}
-
-@itemlist[@item{Column 1: reports the exact line numbers of the
-@hyperlink[@file://[TURNSTILE-EXAMPLES]]{Turnstile implementations} (#2 above).}
-
-@item{Column 2: estimates the number of lines required to implement
-each language without reusing any other languages by adding up the lines for
-the relevant languages from column 1. Column 2 is an approximation because it
-only counts lines from files that were @emph{entirely} needed to implement the
-language in question, and excludes files from which only a few lines are reused.}
-
-@item{Column 3: estimates all the lines of code required by the 
-@hyperlink[RACKET-EXAMPLES]{non-Turnstile implementations} (#1 above). Since we
-did not explicitly implement every permutation of every language, and instead
-followed standard software development practices such as moving common
-operations to libraries, column 3 was difficult to compute accurately. To get a
-rough idea, we simply added all the lines of code in the language implementations and common library
-files together.}]
-
-All line counts include comments and whitespace and all approximate numbers are
-rounded to two significant figures. Despite the approximations, this table
-remains useful for understanding the degree of reuse achieved by using
-Turnstile.
-
-The numbers in Table 2 may be recomputed by running @file-url[REPO]{compute-table2.rkt}.
-
-@subsection{Table 3: Tests (line counts)}
-
-@itemlist[@item{Column 1: number of lines of tests for the core languages, available at:
-
- @file-url[TURNSTILE-TEST]
-
-Run all (non-MLish) tests by running @file-url[TURNSTILE-TEST]{run-all-tests.rkt}.}
-
-@item{Column 2: number of lines of tests for MLish, available at:
-
- @file-url[MLISH-TEST]
-
-Run all the MLish tests by running @file-url[TURNSTILE-TEST]{run-all-mlish-tests.rkt}.}]
-
-All line counts include comments and whitespace.
-
-@margin-note{To completely re-compile and re-run all tests (may take ~30-60min):
- @itemlist[@item{@tt{raco setup -c turnstile macrotypes}}
-           @item{@tt{raco setup turnstile macrotypes}}
-           @item{@tt{raco test turnstile macrotypes}}]}
-
-Particular files of interest for MLish tests:
-@itemize[@item{@file-url[MLISH-TEST]{generic.mlish}: example typeclass operations
-         }
-         @item{@file-url[MLISH-TEST]{term.mlish}: some tests from
-          @hyperlink["https://realworldocaml.org/"]{@emph{Real-World OCaml}}
-         }
-         @item{@file-url[MLISH-TEST]{nbody.mlish},
-               @file-url[MLISH-TEST]{fasta.mlish},
-               @file-url[MLISH-TEST]{chameneos.mlish}:
-          some tests from
-          @hyperlink["http://benchmarksgame.alioth.debian.org/"]{The Computer Language Benchmarks Game}
-         }
-         @item{@file-url[MLISH-TEST]{listpats.mlish},
-               @file-url[MLISH-TEST]{match2.mlish}:
-          pattern matching tests for lists, tuples, and user-defined datatypes
-         }
-         @item{@file-url[(build-path MLISH-TEST "bg")]{okasaki.mlish}:
-           tests from @emph{Purely Functional Data Structures}
-         }
-         @item{@file-url[MLISH-TEST]{polyrecur.mlish}: polymorphic, recursive
-           type definitions
-         }
-         @item{@file-url[MLISH-TEST]{queens.mlish},
-               @file-url[(build-path MLISH-TEST "bg")]{huffman.mlish}:
-          a few other common example programs
-         }
-]
-
-The numbers in Table 3 may be recomputed by running @file-url[REPO]{compute-table3.rkt}.
-
-@; -----------------------------------------------------------------------------
-@section[#:tag "new"]{Building New Typed Languages}
-
-To learn more about @racketmodname[turnstile], view the official 
-@racketmodname[turnstile] documentation.
-
-@secref["The_Turnstile_Guide"
-         #:doc '(lib "turnstile/scribblings/turnstile.scrbl")]
-describes how to build and re-use a new typed language.
-
-@secref["The_Turnstile_Reference"
-         #:doc '(lib "turnstile/scribblings/turnstile.scrbl")]
-describes all the forms provided
-by Turnstile.
