@@ -4,7 +4,7 @@ A Racket-powered framework for creating dependently typed DSLs and languages
 
 ## Automatic Installation
 
-Run `make install` in the repo root directory. Requires Racket v7.4 or later.
+Run `make install` in the repo root directory. Requires Racket v7.0 or later.
 
 ## Manual Install
 
