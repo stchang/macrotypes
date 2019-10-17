@@ -1,5 +1,6 @@
 #lang s-exp popl2020/fig10-dep
-(require rackunit/turnstile+)
+(require (only-in popl2020/fig13-sugar →)
+         rackunit/turnstile+)
 
 ;; tests for (Type n)
 

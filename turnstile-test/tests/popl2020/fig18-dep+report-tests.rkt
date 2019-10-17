@@ -1,22 +1,16 @@
 #lang s-exp popl2020/fig18-dep+report
-(require popl2020/fig15-eq
-         popl2020/fig19-data2
-         popl2020/fig13-sugar
+(require popl2020/fig13-sugar
+         popl2020/fig14-nat
+         popl2020/fig15-eq
          rackunit/turnstile+)
 
-;; tests for Figure 10: dependent core calculus
-;; - also uses Figure 13: sugar, and Figure 15: equality
+;; tests for Figure 18: dependent core calculus, with require/report
+;; - also uses Figures 13-15: sugar, Nat, and equality libs
 
 ;; Peano nums -----------------------------------------------------------------
 
-(define-datatype Nat : Type
-  [Z : Nat]
-  [S : (→ Nat Nat)])
-
 (check-type Z : Nat)
 (check-type (Z) : Nat)
-(check-type Z : (→ Nat))
-(check-type S : (→ Nat Nat))
 (check-type Z : Nat -> Z)
 (check-type (Z) : Nat -> (Z))
 (check-type (S (Z)) : Nat)

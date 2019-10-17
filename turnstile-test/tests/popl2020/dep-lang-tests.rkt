@@ -1,11 +1,11 @@
 #lang s-exp popl2020/fig10-dep
-(require popl2020/fig14-nat
+(require popl2020/fig13-sugar
+         popl2020/fig14-nat
          popl2020/fig15-eq
-         popl2020/fig13-sugar
          rackunit/turnstile+)
 
-;; Tests for Figure 14: Nat library
-;; - also uses Figure 13: sugar, and Figure 15: equality
+;; tests for Figure 10: dependent core calculus
+;; - also uses Figures 13-15: sugar, Nat, and equality libs
 
 ;; Peano nums -----------------------------------------------------------------
 
