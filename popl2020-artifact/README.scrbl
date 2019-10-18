@@ -219,11 +219,19 @@ If the artifact is successfully installed, each example below may be run with th
 
 @itemlist[@item{@paper-example-url["fig3-left-stlc.rkt"]{Figure 3 (left)}: STLC, implemented with plain Racket macros.
 
-          See @paper-example-test-url["fig3-left-stlc-tests.rkt"]{tests accompanying Figure 3 (left)} for examples written with this language.}
+                To be able to write some programs using this language, we add some language forms not in Figure 3: integer literals, an @tt{add1} primitive, an Int base type, and a function arrow type.
 
-          @item{@paper-example-url["fig4-core-api.rkt"]{Figure 4}: Turnstile+ underlying core API. The example in Figure 3 (left) uses the core API in this file.
+                See @paper-example-test-url["fig3-left-stlc-tests.rkt"]{tests accompanying Figure 3 (left)} for examples written with this language.
 
-                This a simplified version of the core Turnstile+ API. The next section of this artifact document (@secref{sec3}) will show the analogous functions in Turnstile+'s actual implementation.}
+               The function arrow type in @paper-example-url{fig3-left-stlc.rkt} is @paper-example-url["fig6-left-arrow.rkt"]{the one from Figure 6 (left)}.
+
+                Alternatively, one can use @paper-example-url["fig7-left-arrow.rkt"]{the arrow type from Figure 7 (left)}.
+                
+                If the artifacts are locally installed, uncomment the appropriate line in @paper-example-url{fig3-left-stlc.rkt} to use this alternate arrow definition.}
+
+          @item{@paper-example-url["fig4-core-api.rkt"]{Figure 4}: underlying macro-based typechecking API. The example in Figure 3 (left) uses the core API in this file.
+
+                This is a simplified version of Turnstile+'s core API. The next section of this artifact document (@secref{sec3}) will show the analogous functions in Turnstile+'s actual implementation.}
 
           @item{@paper-example-url["fig3-right-stlc.rkt"]{Figure 3 (right)}: STLC, implemented with Turnstile+.
 
@@ -261,9 +269,9 @@ If the artifact is successfully installed, each example below may be run with th
 @section{Paper section 4: core dependent calculus}
 
 @itemlist[@item{@paper-example-url["fig10-dep.rkt"]{Figure 10}: dependent core calculus.
-                See @paper-example-test-url{dep-lang-tests.rkt} for examples written with this core language.}
+                See @paper-example-test-url{dep-lang-tests.rkt} for examples written with this core language. It additionally uses some libraries explained below.}
 
-          @item{Figure 12: the Turnstile+ type eval library:
+          @item{Figure 12: the Turnstile+ type eval library, used by @paper-example-url{fig10-dep.rkt}:
                 @itemlist[@item{@turnstile-lib-url["eval.rkt" #:start 14 #:end 25]{@racket[reflect]}: called @racket[⇑] in the paper}
                           @item{@turnstile-lib-url["eval.rkt" #:start 27 #:end 34]{@racket[mk-reflected]}}
                           @item{@turnstile-lib-url["eval.rkt" #:start 36 #:end 75]{@racket[define-red]}}]}
@@ -291,11 +299,11 @@ If the artifact is successfully installed, each example below may be run with th
 
                 @paper-example-url{fig18-dep+report.rkt} shows a language implementation that is like @paper-example-url{fig10-dep.rkt}, except its @racket[require] form is replaced with Figure 18's @racket[require/report].
 
-                When the previous examples (see @paper-example-test-url{fig18-dep+report-tests.rkt}) are run, the language reports that the @racket[fig15-eq] and @racket[fig19-data] libraries extend the type system, but @racket[fig13-sugar] does not.}
+                When the previous examples (see @paper-example-test-url{fig18-dep+report-tests.rkt}) are run, the language reports that the @racket[fig15-eq] and @racket[fig19-data] libraries extend the type system, but @racket[fig13-sugar] does not. (To see the output, either run the test file locally, or see the TravisCI output)}
           @item{Figure 19:
                        @cur-curnel-url["coc.rkt"]{Cur's core calculus} is roughly the same as  @paper-example-url{fig10-dep.rkt}, but with a proper universe hierarchy.
 
-                       Instead of extending the type system with every new data type like @racket[Nat] or equality, Cur includes @racket[define-datatype]. @cur-curnel-url["cic-saccharata.rkt" #:start 182]{Cur's @racket[define-datatype] code} is almost identical to the code presented in the paper, but include additional logic such as error handling and positivity checking.
+                       Instead of extending the type system with every new data type like @racket[Nat] or equality, however, Cur includes @racket[define-datatype]. @cur-curnel-url["cic-saccharata.rkt" #:start 182]{Cur's @racket[define-datatype] code} is almost identical to the code presented in the paper, but includes additional logic such as error handling and positivity checking.
                        }]
 
 @;-----------------------------------------------------------------------------
