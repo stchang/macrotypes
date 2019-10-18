@@ -28,8 +28,6 @@ Programs written with the example langauges are in `turnstile-test/tests/popl202
 
 To run the examples, run either:
 
-- `make test`, or
-- `raco test turnstile-test/tests/popl2020/*.rkt`
-
-To run the entire Turnstile+ test suite: `raco test -p turnstile-test`
+- `make test`: runs tests for popl2020 paper example langs
+- `make test-all`: runs full Turnstile+ test suite (including popl2020 examples)
 
