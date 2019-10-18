@@ -43,17 +43,69 @@
 
 @(define TURNSTILE-URL
    "https://github.com/stchang/macrotypes/blob/popl2020-artifact/")
+@(define CUR-URL
+   "https://github.com/stchang/cur/blob/popl2020-artifact/")
 @(define TURNSTILE-EXAMPLE-URL
    (string-append TURNSTILE-URL "turnstile-example/popl2020/"))
 @(define TURNSTILE-TEST-URL
    (string-append TURNSTILE-URL "turnstile-test/tests/popl2020/"))
-   
+@(define MACROTYPES-LIB-URL
+   (string-append TURNSTILE-URL "macrotypes-lib/macrotypes/"))
+@(define TURNSTILE-LIB-URL
+   (string-append TURNSTILE-URL "turnstile-lib/turnstile/"))
+
+@(define CUR-LIB-URL
+   (string-append CUR-URL "cur-lib/cur/"))
+@(define CUR-STDLIB-URL
+   (string-append CUR-LIB-URL "stdlib/"))
+@(define CUR-CURNEL-URL
+   (string-append CUR-URL "cur-lib/cur/curnel/"))
+@(define CUR-TEST-URL
+   (string-append CUR-URL "cur-test/cur/tests/"))
+
+@(define GENMETH-TURNSTILE-URL
+   "https://github.com/stchang/macrotypes/blob/generic-type-methods/")
+@(define GENMETH-TURNSTILE-LIB-URL
+   (string-append GENMETH-TURNSTILE-URL "turnstile-lib/turnstile/"))
+@(define GENMETH-CUR-URL
+   "https://github.com/stchang/cur/blob/generic-type-methods/")
+@(define GENMETH-CURNEL-URL
+   (string-append GENMETH-CUR-URL "cur-lib/cur/curnel/"))
+
+@(define METANTAC-URL
+   "https://github.com/stchang/cur/blob/metantac/cur-lib/cur/ntac/")
+
 @(define (paper-example-url f [txt #f]) ;; Str Str -> Elem
    (hyperlink (string-append TURNSTILE-EXAMPLE-URL f)
               (if txt txt (tt f))))
 @(define (paper-example-test-url f [txt #f]) ;; Str Str -> Elem
    (hyperlink (string-append TURNSTILE-TEST-URL f)
               (if txt txt (tt f))))
+
+@(define (mk-url-fn base-url)
+   ; returns : Str Num Num [listof elems] -> Elem
+   (λ (filename #:start [start-line #f] #:end [end-line #f] . txts)
+     (hyperlink
+      (string-append
+       base-url filename
+       (cond
+         [(and start-line end-line)
+          (string-append "#L" (number->string start-line)
+                         "-L" (number->string end-line))]
+         [start-line
+          (string-append "#L" (number->string start-line))]
+       [else ""]))
+      (if (null? txts) (tt filename) txts))))
+
+@(define macrotypes-lib-url (mk-url-fn MACROTYPES-LIB-URL))
+@(define turnstile-lib-url (mk-url-fn TURNSTILE-LIB-URL))
+@(define genmeth-turnstile-lib-url (mk-url-fn GENMETH-TURNSTILE-LIB-URL))
+@(define cur-lib-url (mk-url-fn CUR-LIB-URL))
+@(define cur-stdlib-url (mk-url-fn CUR-STDLIB-URL))
+@(define cur-curnel-url (mk-url-fn CUR-CURNEL-URL))
+@(define cur-test-url (mk-url-fn CUR-TEST-URL))
+@(define genmeth-curnel-url (mk-url-fn GENMETH-CURNEL-URL))
+@(define metantac-url (mk-url-fn METANTAC-URL))
 
 @; -----------------------------------------------------------------------------
 
@@ -72,9 +124,11 @@ For convenience, the entire artifact is reviewable online in a browser (at code 
 Our artifact consists of:
 @itemlist[
   @item{a copy of the @|CONF-NAME| @|CONF-YEAR| submission @hyperlink["http://www.ccs.neu.edu/home/stchang/pubs/cbtb-popl2020.pdf"]{[link]},}
-  @item{the Turnstile+ framework @hyperlink["https://github.com/stchang/macrotypes/tree/popl2020-artifact"]{[link]},
+
+  @item{the Turnstile+ framework @hyperlink["https://github.com/stchang/macrotypes/tree/popl2020-artifact"]{[link]} (@tt{popl2020-artifact} branch),
             @itemlist[@item{@hyperlink["https://travis-ci.org/stchang/macrotypes/branches"]{result of running Turnstile+ test suite} (see @tt{popl2020-artifact} branch)}]}
-  @item{the Cur proof assistant @hyperlink["https://github.com/stchang/cur/tree/turnstile-core"]{[link]},
+
+  @item{the Cur proof assistant @hyperlink["https://github.com/stchang/cur/tree/popl2020-artifact"]{[link]} (@tt{popl2020-artifact} branch),
             @itemlist[@item{@hyperlink["https://travis-ci.org/stchang/cur/branches"]{result of running Cur test suite} (see @tt{popl2020-artifact} branch)}]}
  ]
 
@@ -87,9 +141,9 @@ examples from the paper may not run as presented.
 
 This artifact connects each stylized example in the paper to runnable versions
 of the code. More specifically, we link each of the paper's examples to either:
-@itemlist[@item{a standalone, but runnable, version of that example; when the example is a language implementation, we may also show examples of programs written in that language, }
+@itemlist[@item{a standalone, but runnable, version of that example; when the example is a language implementation, we may additionally show examples of programs written in that language, }
 
-          @item{actual implementations of Turnstile+ and Cur in the repositories above,}
+          @item{actual lines of code in the implementations of Turnstile+ and/or Cur (in the repositories above),}
 
           @item{or both.}]
 
@@ -97,7 +151,7 @@ of the code. More specifically, we link each of the paper's examples to either:
 @section[#:tag "local"]{Local Artifact Setup and Installation (Optional)}
 
 This artifact may be reviewed entirely online. For those who wish to
-inspect further, however, we provide instructions here to locally
+inspect further, however, this section explains how to locally
 install all the artifacts. Skip this section if not installing locally.
 
 (We have only tested these steps with Linux.)
@@ -119,7 +173,7 @@ Racket's @tt{bin} directory is in the @tt{PATH}.
           @item{Change directory to the Turnstile+ repository root:
 
                 @tt{cd turnstile+}}
-          @item{From the repository root, install Turnstile+:
+          @item{From the Turnstile+ repository root, install Turnstile+ with:
 
                 @tt{make install}}]
 
@@ -132,7 +186,7 @@ Racket's @tt{bin} directory is in the @tt{PATH}.
 
                 @tt{cd cur}}
 
-          @item{Install Cur:
+          @item{From the Cur repository root, install Cur with:
 
                 @tt{make install}}]
 
@@ -147,7 +201,7 @@ Test that the languages are installed properly by running the test suites.
                           @item{@tt{make test-all} (from the Turnstile+ repo root) runs the entire Turnstile+ test suite (including the paper examples) (~5min)}]}
           @item{Cur:
                 
-                @itemlist[@item{@tt{make test} (from Cur repo root) (might take longer, ~20-30 min)}]}]
+                @itemlist[@item{@tt{make test} (from Cur repo root) (~20-30 min)}]}]
                
 
 @subsection{Running Individual Examples}
@@ -169,7 +223,7 @@ If the artifact is successfully installed, each example below may be run with th
 
           @item{@paper-example-url["fig4-core-api.rkt"]{Figure 4}: Turnstile+ underlying core API. The example in Figure 3 (left) uses the core API in this file.
 
-                This a simplified version of the core Turnstile+ API. The next section (@secref{sec3}) will show the analogous functions in Turnstile+'s implementation.}
+                This a simplified version of the core Turnstile+ API. The next section of this artifact document (@secref{sec3}) will show the analogous functions in Turnstile+'s actual implementation.}
 
           @item{@paper-example-url["fig3-right-stlc.rkt"]{Figure 3 (right)}: STLC, implemented with Turnstile+.
 
@@ -196,22 +250,23 @@ If the artifact is successfully installed, each example below may be run with th
                 Here is a @hyperlink["https://github.com/videolang/typed-video/tree/master/tests"]{test suite for Typed Video}, including @hyperlink["https://github.com/videolang/typed-video/blob/master/tests/paper-tests.rkt#L281-L295"]{the @racket[mk-conf-talk] example from the paper} (it uses a slightly different syntax for @racket[→vid]).
                 }
           @item{Here is @racket[expand/bind] and other functions from Figure 8, as they are implemented in Turnstile+:
-                     @itemlist[@item{@hyperlink["https://github.com/stchang/macrotypes/blob/cur/macrotypes-lib/macrotypes/typecheck-core.rkt#L1132-L1134"]{@racket[expand/bind]}: The @racket[norm] function from Figure 9, and on the bottom of page 9, is called @racket[current-type-eval] here.}
-                               @item{@hyperlink["https://github.com/stchang/macrotypes/blob/cur/macrotypes-lib/macrotypes/typecheck-core.rkt#L1092-L1103"]{@racket[env-add]}: Here the calls to @racket[syntax-local-bind-syntaxes] are (approximately) abbreviated to @racket[env-add-m] in the paper.}
-                               @item{@hyperlink["https://github.com/stchang/macrotypes/blob/cur/macrotypes-lib/macrotypes/typecheck-core.rkt#L1143-L1154"]{@racket[expand/bind/check]}}     
+                     @itemlist[@item{@macrotypes-lib-url["typecheck-core.rkt" #:start 1132 #:end 1134]{@racket[expand/bind]}: The @racket[norm] function from Figure 9, and on the bottom of page 9, is called @racket[current-type-eval] here.}
+                               @item{@macrotypes-lib-url["typecheck-core.rkt" #:start 1092 #:end 1103]{@racket[env-add]}: Here the calls to @racket[syntax-local-bind-syntaxes] are (approximately) abbreviated to @racket[env-add-m] in the paper.}
+                               @item{@macrotypes-lib-url["typecheck-core.rkt" #:start 1143 #:end 1154]{@racket[expand/bind/check]}}     
                                     ]
                      }
           ]
 
-@subsection{Paper section 4: core dependent calculus}
+@;----------------------------------------------------------------------------
+@section{Paper section 4: core dependent calculus}
 
 @itemlist[@item{@paper-example-url["fig10-dep.rkt"]{Figure 10}: dependent core calculus.
                 See @paper-example-test-url{dep-lang-tests.rkt} for examples written with this core language.}
 
           @item{Figure 12: the Turnstile+ type eval library:
-                @itemlist[@item{@hyperlink["https://github.com/stchang/macrotypes/blob/cur/turnstile-lib/turnstile/eval.rkt#L14-L25"]{@racket[reflect]}: called @racket[⇑] in the paper}
-                          @item{@hyperlink["https://github.com/stchang/macrotypes/blob/cur/turnstile-lib/turnstile/eval.rkt#L27-L34"]{@racket[mk-reflected]}}
-                          @item{@hyperlink["https://github.com/stchang/macrotypes/blob/cur/turnstile-lib/turnstile/eval.rkt#L36-L72"]{@racket[define-red]}}]}
+                @itemlist[@item{@turnstile-lib-url["eval.rkt" #:start 14 #:end 25]{@racket[reflect]}: called @racket[⇑] in the paper}
+                          @item{@turnstile-lib-url["eval.rkt" #:start 27 #:end 34]{@racket[mk-reflected]}}
+                          @item{@turnstile-lib-url["eval.rkt" #:start 36 #:end 75]{@racket[define-red]}}]}
 
           @item{@paper-example-url["fig13-sugar.rkt"]{Figure 13} sugar library. It only defines "safe" extensions, i.e., sugar for @paper-example-url{fig10-dep.rkt} terms.}
 
@@ -221,15 +276,15 @@ If the artifact is successfully installed, each example below may be run with th
 
                 See @paper-example-test-url{dep-lang-tests.rkt} for examples using the sugar, Nat, and equality libraries. We prove a basic zero identity property of natural numbers.}
 
-          @item{Figure 16: Here is the @hyperlink["https://github.com/stchang/macrotypes/blob/cur/turnstile-lib/turnstile/typedefs.rkt#L154-L187"]{Turnstile+ @racket[define-type]} that uses the pattern-based substitution from Sec 4.4.}
+          @item{Figure 16: Here is the @turnstile-lib-url["typedefs.rkt" #:start 162 #:end 203]{Turnstile+ @tt{define-type}} that uses the pattern-based substitution from Sec 4.4.}
           @item{Figure 17:
 
-                Here is @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/stdlib/axiom.rkt#L19-L24"]{a Cur library that provides @racket[define-axiom]}.
+                Here is @cur-stdlib-url["axiom.rkt" #:start 19 #:end 24]{a Cur library that provides @racket[define-axiom]}.
 
-                Here is @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-test/cur/tests/stdlib/axiom.rkt#L36-L48"]{a Cur program using @racket[define-axiom]}.}
+                Here is @cur-test-url["stdlib/axiom.rkt" #:start 36 #:end 48]{a Cur program using @racket[define-axiom]}.}
           @item{Figure 18 (top):
 
-                Here is @hyperlink["https://github.com/stchang/cur/blob/turnstile-core%2Brosette/cur-lib/cur/stdlib/z3.rkt#L27-L43"]{a Cur library that provides @racket[define-axiom/z3]}, which calls out to a solver. It uses the Rosette language to help translate to Z3 terms.
+                Here is @hyperlink["https://github.com/stchang/cur/blob/turnstile-core%2Brosette/cur-lib/cur/stdlib/z3.rkt#L27-L43"]{a Cur library that provides @racket[define-axiom/z3]}, which calls out to a solver. It uses @hyperlink["https://emina.github.io/rosette/"]{the Rosette language} to help translate to Z3 terms.
 
                 Here are @hyperlink["https://github.com/stchang/cur/blob/turnstile-core%2Brosette/cur-test/cur/tests/stdlib/z3.rkt"]{some Cur programs using @racket[define-axiom/z3]}.}
           @item{Figure 18 (bottom):
@@ -238,57 +293,58 @@ If the artifact is successfully installed, each example below may be run with th
 
                 When the previous examples (see @paper-example-test-url{fig18-dep+report-tests.rkt}) are run, the language reports that the @racket[fig15-eq] and @racket[fig19-data] libraries extend the type system, but @racket[fig13-sugar] does not.}
           @item{Figure 19:
-                       @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/curnel/coc.rkt"]{Cur's core calculus} is roughly the same as  @paper-example-url{fig10-dep.rkt}, but with a proper universe hierarchy.
+                       @cur-curnel-url["coc.rkt"]{Cur's core calculus} is roughly the same as  @paper-example-url{fig10-dep.rkt}, but with a proper universe hierarchy.
 
-                       Instead of extending the type system with every new data type like @racket[Nat] or equality, Cur includes @racket[define-datatype]. @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/curnel/cic-saccharata.rkt#L182"]{Cur's @racket[define-datatype] code} is almost identical to the code presented in the paper, but include additional logic such as error handling and positivity checking.
+                       Instead of extending the type system with every new data type like @racket[Nat] or equality, Cur includes @racket[define-datatype]. @cur-curnel-url["cic-saccharata.rkt" #:start 182]{Cur's @racket[define-datatype] code} is almost identical to the code presented in the paper, but include additional logic such as error handling and positivity checking.
                        }]
 
-@subsection{Paper section 5: Cur}
+@;-----------------------------------------------------------------------------
+@section{Paper section 5: Cur}
 
-@itemlist[@item{Figure 20: @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/stdlib/sugar.rkt#L299"]{Cur @racket[define-implicit]}}
+@itemlist[@item{Figure 20: @cur-stdlib-url["sugar.rkt" #:start 299]{Cur @racket[define-implicit]}}
 
-          @item{Figure 21: @hyperlink["https://github.com/stchang/macrotypes/blob/cur/turnstile-lib/turnstile/type-constraints.rkt#L37"]{Turnstile+ @racket[unify]}. The name is different (@racket[add-constraints]) but the cases match the code presented in the paper.}
+          @item{Figure 21: @turnstile-lib-url["type-constraints.rkt" #:start 37]{Turnstile+ @racket[unify]}. The name is different (@racket[add-constraints]) but the cases match the code presented in the paper.}
 
-          @item{Figure 22: @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/stdlib/sugar.rkt#L96"]{Cur @racket[match]}, where @racket[get-datatype-def] from the paper is @racket[get-match-info], and @racket[case->method] from the paper is @racket[mk-method].}
+          @item{Figure 22: @cur-stdlib-url["sugar.rkt" #:start 96]{Cur @racket[match]}, where @racket[get-datatype-def] from the paper is @racket[get-match-info], and @racket[case->method] from the paper is @racket[mk-method].}
 
-          @item{Figure 23 (top): @hyperlink["https://github.com/stchang/macrotypes/blob/generic-type-methods/turnstile-lib/turnstile/typedefs.rkt#L225"]{Turnstile+ @racket[define-type] supporting generic methods. The @hyperlink["https://github.com/stchang/macrotypes/blob/generic-type-methods/turnstile-lib/turnstile/typedefs.rkt#L173-L183"]{A @racket[maybe-meths] syntax class} matches the @racket[#:implements keyword].}
+          @item{Figure 23 (top): @genmeth-turnstile-lib-url["typedefs.rkt" #:start 225]{Turnstile+ @racket[define-type] supporting generic methods}. A @genmeth-turnstile-lib-url["typedefs.rkt" #:start 173 #:end 183]{@racket[maybe-meths] syntax class} matches the @racket[#:implements keyword].
 
-                As mentioned by the paper, @hyperlink["https://github.com/stchang/macrotypes/blob/generic-type-methods/turnstile-lib/turnstile/typedefs.rkt#L260"]{a table of methods is associated with each type}.
+                As mentioned by the paper, @genmeth-turnstile-lib-url["typedefs.rkt" #:start 260]{a table of methods is associated with each type}.
 
 
-                Programmers @hyperlink["https://github.com/stchang/macrotypes/blob/generic-type-methods/turnstile-lib/turnstile/typedefs.rkt#L65-L77"]{declare new methods with @racket[define-generic-type-method]}, which looks up the method in the table, e.g., @hyperlink["https://github.com/stchang/macrotypes/blob/generic-type-methods/turnstile-lib/turnstile/typedefs.rkt#L79"]{@racket[get-datatype-def]}.
+                Programmers @genmeth-turnstile-lib-url["typedefs.rkt" #:start 65 #:end 77]{declare new methods with @racket[define-generic-type-method]}, which looks up the method in the table, e.g., @genmeth-turnstile-lib-url["typedefs.rkt" #:start 79]{@racket[get-datatype-def]}.
 
-                Figure 23 (bottom): Cur's @racket[define-datatype] @hyperlink["https://github.com/stchang/cur/blob/generic-type-methods/cur-lib/cur/curnel/cic-saccharata.rkt#L301-L305"]{uses the @racket[#:implements] declaration} to define @racket[get-datatype-def] for each type.}
+                Figure 23 (bottom): Cur's @racket[define-datatype] @genmeth-curnel-url["cic-saccharata.rkt" #:start 301 #:end 305]{uses the @racket[#:implements] declaration} to define @racket[get-datatype-def] for each type.}
 
-          @item{Figure 24: @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/stdlib/sugar.rkt#L189"]{Cur's @racket[define/rec/match]}}
+          @item{Figure 24: @cur-stdlib-url["sugar.rkt" #:start 189]{Cur's @racket[define/rec/match]}}
 
-          @item{Figure 25: @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/stdlib/sized.rkt"]{Cur's sized types library}, where @racket[lift-datatype] from the paper is @racket[define-sized-datatype], and @racket[def/rec/match_sz] from the paper is @racket[define/rec/match2].
+          @item{Figure 25: @cur-stdlib-url["sized.rkt"]{Cur's sized types library}, where @racket[lift-datatype] from the paper is @racket[define-sized-datatype], and @racket[def/rec/match_sz] from the paper is @racket[define/rec/match2].
 
-                See the @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-test/cur/tests/stdlib/sized.rkt"]{runnable versions of the sized type examples from the paper} for examples using this library.}
+                See the @cur-test-url["stdlib/sized.rkt"]{runnable versions of the sized type examples from the paper} for examples using this library.}
                ]
 
 @; -----------------------------------------------------------------------------
 @section{Paper Section 6: Companion DSLs}
-@itemlist[@item{Figure 26: @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/olly.rkt"]{Cur's Olly DSL}.
+@itemlist[@item{Figure 26: @cur-lib-url["olly.rkt"]{Cur's Olly DSL}.
 
-                @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-test/cur/tests/stlc.rkt"]{Here is the Olly STLC example from the paper.}}
+                @cur-test-url["stlc.rkt"]{Here is the Olly STLC example from the paper.}}
 
-          @item{Figure 27 (left): @hyperlink["https://github.com/stchang/cur/blob/metantac/cur-lib/cur/ntac/metantac.rkt#L145"]{@racket[define-tactic] from metantac}}
+          @item{Figure 27 (left): @metantac-url["metantac.rkt" #:start 145]{@racket[define-tactic] from metantac}}
 
-          @item{Figure 27 (right): @hyperlink["https://github.com/stchang/cur/blob/metantac/cur-lib/cur/ntac/standard.rkt#L151"]{ntac @racket[intro] tactic}, where ↪ from the paper is @racket[$fill], implemented with metantac and @racket[define-tactic].
+          @item{Figure 27 (right): @metantac-url["standard.rkt" #:start 151]{ntac @racket[intro] tactic}, where ↪ from the paper is @racket[$fill], implemented with metantac and @racket[define-tactic].
 
-                Figure 27 (right): @hyperlink["https://github.com/stchang/cur/blob/metantac/cur-lib/cur/ntac/standard.rkt#L249"]{ntac @racket[assumption] tactic}
+                Figure 27 (right): @metantac-url["standard.rkt" #:start 249]{ntac @racket[assumption] tactic}
 
-                Figure 27 (bottom): @hyperlink["https://github.com/stchang/cur/blob/metantac/cur-lib/cur/ntac/inversion.rkt#L11"]{ntac @racket[inversion] tactic}}
-          @item{@hyperlink["https://github.com/stchang/cur/blob/metantac/cur-lib/cur/ntac/standard.rkt#L137"]{ntac @racket[try] tactic}, implemented with metantac and @racket[define-tactical].}
+                Figure 27 (bottom): @metantac-url["inversion.rkt" #:start 11]{ntac @racket[inversion] tactic}}
+          @item{@metantac-url["standard.rkt" #:start 137]{ntac @racket[try] tactic}, implemented with metantac and @racket[define-tactical].}
 
-          @item{@hyperlink["https://github.com/stchang/cur/blob/metantac/cur-lib/cur/ntac/standard.rkt#L431"]{ntac @racket[induction] tactic}, with optional declarative subgoal checking.}
+          @item{@metantac-url["standard.rkt" #:start 431]{ntac @racket[induction] tactic}, with optional declarative subgoal checking.}
 
-          @item{@hyperlink["https://github.com/stchang/cur/blob/metantac/cur-lib/cur/ntac/standard.rkt#L87"]{ntac @racket[interactive] tactic}}
+          @item{@metantac-url["standard.rkt" #:start 87]{ntac @racket[interactive] tactic}}
           ]
 
 @; -----------------------------------------------------------------------------
 @section{Software Foundations (vol. 1) examples}
 
-@hyperlink["https://github.com/wilbowma/cur/tree/turnstile-core/cur-test/cur/tests/ntac/software-foundations"]{Software Foundations examples}
+@cur-test-url["ntac/software-foundations"]{Software Foundations examples}
 
