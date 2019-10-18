@@ -51,8 +51,9 @@
 @(define (paper-example-url f [txt #f]) ;; Str Str -> Elem
    (hyperlink (string-append TURNSTILE-EXAMPLE-URL f)
               (if txt txt (tt f))))
-@(define (paper-example-test-url f txt) ;; Str Str -> Elem
-   (hyperlink (string-append TURNSTILE-TEST-URL f) txt))
+@(define (paper-example-test-url f [txt #f]) ;; Str Str -> Elem
+   (hyperlink (string-append TURNSTILE-TEST-URL f)
+              (if txt txt (tt f))))
 
 @; -----------------------------------------------------------------------------
 
@@ -180,7 +181,7 @@ If the artifact is successfully installed, each example below may be run with th
 
 @itemlist[@item{@paper-example-url["fig5-video.rkt"]{Figure 5}: Typed Video core calculus
 
-                To define @racket[→vid], @file-url[POPL-EXAMPLES]{fig5-video.rkt} uses @racket[define-type] by default. But the example also works with alternate @racket[→vid] definitions:
+                To define @racket[→vid], @paper-example-url{fig5-video.rkt} uses @racket[define-type] by default. But the example also works with alternate @racket[→vid] definitions:
                 @itemlist[@item{@paper-example-url["fig6-right-arrow.rkt"]{Figure 6 (right)}}
                           @item{@paper-example-url["fig7-right-arrow.rkt"]{Figure 7 (right)}}]
 
@@ -204,22 +205,21 @@ If the artifact is successfully installed, each example below may be run with th
 
 @subsection{Paper section 4: core dependent calculus}
 
-@file-url[POPL-EXAMPLES]
-@itemlist[@item{@file-url[POPL-EXAMPLES]{fig10-dep.rkt}: Figure 10's dependent core calculus.
-                See @file-url[POPL-TESTS]{dep-lang-tests.rkt} for examples written with this core language.}
+@itemlist[@item{@paper-example-url["fig10-dep.rkt"]{Figure 10}: dependent core calculus.
+                See @paper-example-test-url{dep-lang-tests.rkt} for examples written with this core language.}
 
           @item{Figure 12: the Turnstile+ type eval library:
                 @itemlist[@item{@hyperlink["https://github.com/stchang/macrotypes/blob/cur/turnstile-lib/turnstile/eval.rkt#L14-L25"]{@racket[reflect]}: called @racket[⇑] in the paper}
                           @item{@hyperlink["https://github.com/stchang/macrotypes/blob/cur/turnstile-lib/turnstile/eval.rkt#L27-L34"]{@racket[mk-reflected]}}
                           @item{@hyperlink["https://github.com/stchang/macrotypes/blob/cur/turnstile-lib/turnstile/eval.rkt#L36-L72"]{@racket[define-red]}}]}
 
-          @item{@file-url[POPL-EXAMPLES]{fig13-sugar.rkt}: Figure 13's sugar library. It only defines "safe" extensions, i.e., sugar for @file-url[POPL-EXAMPLES]{fig10-dep.rkt} terms.}
+          @item{@paper-example-url["fig13-sugar.rkt"]{Figure 13} sugar library. It only defines "safe" extensions, i.e., sugar for @paper-example-url{fig10-dep.rkt} terms.}
 
-          @item{@file-url[POPL-EXAMPLES]{fig14-nat.rkt}: Figure 14's @racket[Nat] library. Unlike @file-url[POPL-EXAMPLES]{fig13-sugar.rkt}, these extensions are not safe because they add new type rules.}
+          @item{@paper-example-url["fig14-nat.rkt"]{Figure 14}: @racket[Nat] library. Unlike @paper-example-url{fig13-sugar.rkt}, these extensions are not safe because they add new type rules.}
 
-          @item{@file-url[POPL-EXAMPLES]{fig15-eq.rkt}: Figure 15's equality library. Similar to @file-url[POPL-EXAMPLES]{fig14-nat.rkt}, this library adds new type rules.
+          @item{@paper-example-url["fig15-eq.rkt"]{Figure 15}: equality library. Similar to @paper-example-url{fig14-nat.rkt}, this library adds new type rules.
 
-                See @file-url[POPL-TESTS]{dep-lang-tests.rkt} for examples using the sugar, Nat, and equality libraries. We prove a basic zero identity property of natural numbers.}
+                See @paper-example-test-url{dep-lang-tests.rkt} for examples using the sugar, Nat, and equality libraries. We prove a basic zero identity property of natural numbers.}
 
           @item{Figure 16: Here is the @hyperlink["https://github.com/stchang/macrotypes/blob/cur/turnstile-lib/turnstile/typedefs.rkt#L154-L187"]{Turnstile+ @racket[define-type]} that uses the pattern-based substitution from Sec 4.4.}
           @item{Figure 17:
@@ -234,18 +234,16 @@ If the artifact is successfully installed, each example below may be run with th
                 Here are @hyperlink["https://github.com/stchang/cur/blob/turnstile-core%2Brosette/cur-test/cur/tests/stdlib/z3.rkt"]{some Cur programs using @racket[define-axiom/z3]}.}
           @item{Figure 18 (bottom):
 
-                @file-url[POPL-EXAMPLES]{fig18-dep+report.rkt} shows a language implementation that is like @file-url[POPL-EXAMPLES]{fig10-dep.rkt}, except its @racket[require] form is replaced with Figure 18's @racket[require/report].
+                @paper-example-url{fig18-dep+report.rkt} shows a language implementation that is like @paper-example-url{fig10-dep.rkt}, except its @racket[require] form is replaced with Figure 18's @racket[require/report].
 
-                When the previous examples (see @file-url[POPL-TESTS]{fig18-dep+report-tests.rkt}) are run, the language reports that the @racket[fig15-eq] and @racket[fig19-data] libraries extend the type system, but @racket[fig13-sugar] does not.}
+                When the previous examples (see @paper-example-test-url{fig18-dep+report-tests.rkt}) are run, the language reports that the @racket[fig15-eq] and @racket[fig19-data] libraries extend the type system, but @racket[fig13-sugar] does not.}
           @item{Figure 19:
-                       @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/curnel/coc.rkt"]{Cur's core calculus} is roughly the same as  @file-url[POPL-EXAMPLES]{fig10-dep.rkt}, but with a proper universe hierarchy.
+                       @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/curnel/coc.rkt"]{Cur's core calculus} is roughly the same as  @paper-example-url{fig10-dep.rkt}, but with a proper universe hierarchy.
 
                        Instead of extending the type system with every new data type like @racket[Nat] or equality, Cur includes @racket[define-datatype]. @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/curnel/cic-saccharata.rkt#L182"]{Cur's @racket[define-datatype] code} is almost identical to the code presented in the paper, but include additional logic such as error handling and positivity checking.
                        }]
 
 @subsection{Paper section 5: Cur}
-
-@file-url[POPL-EXAMPLES]
 
 @itemlist[@item{Figure 20: @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/stdlib/sugar.rkt#L299"]{Cur @racket[define-implicit]}}
 
