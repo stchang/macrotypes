@@ -66,7 +66,7 @@
 This is a README file for the artifact that accompanies "@|PAPER-TITLE|" in
 @|CONF-NAME| @|CONF-YEAR|.  If you have any questions, please email any (or all) of the authors.
 
-For convenience, the entire artifact is reviewable online with a browser (at code repos hosted in various locations). Optionally, for those wishing to further inspect and run files in the artifact, see @secref{local}.
+For convenience, the entire artifact is reviewable online in a browser (at code repos hosted in various locations). Optionally, for those wishing to further inspect and run files in the artifact, see @secref{local}.
 
 Our artifact consists of:
 @itemlist[
@@ -75,7 +75,7 @@ Our artifact consists of:
   @item{the Cur proof assistant @hyperlink["https://github.com/stchang/cur/tree/turnstile-core"]{[link]},}
  ]
 
-The goal of this artifact is to provide a guided tour of the code presented in the paper, as well as to compare and contrast them to the actual implementations of Turnstile+ and Cur.
+The goal of this artifact is to provide a guided tour of the code presented in the paper, and to connect them to the actual implementations of Turnstile+ and Cur in the repositories above.
 
 
 @; -----------------------------------------------------------------------------
@@ -87,27 +87,29 @@ This artifact may be reviewed entirely online. For those who wish to inspect fur
 
 @subsection{Installing Racket}
 
-Install @hyperlink["http://download.racket-lang.org"]{Racket @|RACKET-VERSION|}.
+Install @hyperlink["http://download.racket-lang.org"]{Racket
+@|RACKET-VERSION|}. Choosing a non-Unix-style (i.e., local)
+installation is probably easiest.
 
-Add the Racket @tt{bin} directory to your @tt{PATH}. The
-remaining steps assume that Racket's @tt{bin} directory is in the 
-@tt{PATH}.
+After installing, add the Racket @tt{bin} directory to your @tt{PATH},
+i.e., @tt{<your Racket install dir>/bin/}. The remaining steps assume that
+Racket's @tt{bin} directory is in the @tt{PATH}.
 
 @subsection{Installing Turnstile+}
 @itemlist[@item{Clone the repository (making sure to use the @tt{popl2020-artifact} branch):
 
-                @tt{git clone -b popl2020-artifact https://github.com/stchang/macrotypes popl2020}}
+                @tt{git clone -b popl2020-artifact https://github.com/stchang/macrotypes turnstile+}}
           @item{Change directory to the Turnstile+ repository root:
 
-                @tt{cd popl2020}}
+                @tt{cd turnstile+}}
           @item{From the repository root, install Turnstile+:
 
                 @tt{make install}}]
 
-@subsection{Installing Cur}
+@subsection{Installing Cur (install this after Turnstile+)}
 @itemlist[@item{Clone the Cur repository (making sure to use the @tt{turnstile-core} branch):
 
-          @tt{git clone -b turnstile-core https://github.com/stchang/cur}}
+          @tt{git clone -b popl2020-artifact https://github.com/stchang/cur}}
 
           @item{Change directory to the Cur repository root:
 
@@ -115,7 +117,7 @@ remaining steps assume that Racket's @tt{bin} directory is in the
 
           @item{Install Cur:
 
-                @verbatim|{raco pkg install --auto -t dir cur-lib/ cur-test/}|}]
+                @tt{make install}}]
 
 @subsection{Test the Installations}
 
@@ -123,26 +125,32 @@ Test that the languages are installed properly by running the test suites.
 
 @itemlist[@item{Turnstile+:
 
-                @itemlist[@item{@tt{make test} runs the examples from the paper}
-                               @item{@tt{raco test -p turnstile-test} runs the entire Turnstile+ test suite (including the paper examples)}]}
+                @itemlist[@item{@tt{make test} (from the Turnstile+ repo root) runs the examples from the paper}
+
+                          @item{@tt{make test-all} (from the Turnstile+ repo root) runs the entire Turnstile+ test suite (including the paper examples) (~5min)}]}
           @item{Cur:
                 
-                @tt{raco test -j 4 -p cur-test} (@tt{-j} specifies number of cores to use) (might take longer, ~20-30 min)}]
+                @itemlist[@item{@tt{make test} (from Cur repo root) (might take longer, ~20-30 min)}]}]
                
 
 @subsection{Running Individual Examples}
 
-If the artifact is successfully installed, each example below may be run with the @tt{racket} command, i.e., @tt{racket <path to example>}.
+If the artifact is successfully installed, each example below may be run with the @tt{racket} command, i.e., @tt{racket <path to example file>}.
+
+@subsection{Removing installed artifacts}
+
+@itemlist[@item{Remove Cur (do this first): @tt{make remove} (from Cur repo root)}
+          @item{Remove Turnstile+: @tt{make remove} (from Turnstile+ repo root)}]
 
 @; -----------------------------------------------------------------------------
-@section[#:tag "examples"]{Code From the Paper}
+@section[#:tag "examples"]{Code From the Paper vs in the Artifact Implementations}
 
 For readability and conciseness, the paper presents simplified code that is
 stylized with colors and abbreviations. Thus code examples from the paper may
 not run as presented. However, runnable versions of the paper's examples are
-available in this artifact and are explained in this section.
+available in this artifact and are explained in the rest of this document.
 
-@subsection{Paper section 3: Typed Video and @racket[define-type]}
+@section{Paper section 3: Typed Video and @racket[define-type]}
 
 @itemlist[@item{Figure 5: @paper-example-url["fig5-video.rkt"]{Typed Video core calculus}
 
@@ -206,7 +214,7 @@ available in this artifact and are explained in this section.
           @item{Figure 19:
                        @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/curnel/coc.rkt"]{Cur's core calculus} is roughly the same as  @file-url[POPL-EXAMPLES]{fig10-dep.rkt}, but with a proper universe hierarchy.
 
-                       Instead of extending the type system with every new data type like @racket[Nat] or equality, Cur includes @racket[define-datatype]. @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/curnel/cic-saccharata.rkt#L182"]{Cur's @racket[define-datatype] code is almost identical, minus extras like positivity checking, to the code presented in the paper}.
+                       Instead of extending the type system with every new data type like @racket[Nat] or equality, Cur includes @racket[define-datatype]. @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/curnel/cic-saccharata.rkt#L182"]{Cur's @racket[define-datatype] code} is almost identical to the code presented in the paper, but include additional logic such as error handling and positivity checking.
                        }]
 
 @subsection{Paper section 5: Cur}
@@ -232,7 +240,7 @@ available in this artifact and are explained in this section.
 
           @item{Figure 25: @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-lib/cur/stdlib/sized.rkt"]{Cur's sized types library}, where @racket[lift-datatype] from the paper is @racket[define-sized-datatype], and @racket[def/rec/match_sz] from the paper is @racket[define/rec/match2].
 
-                See the @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-test/cur/tests/stdlib/sized.rkt"]{runnable versions of the sized type examples from the paper} for examples that using this library.}
+                See the @hyperlink["https://github.com/wilbowma/cur/blob/turnstile-core/cur-test/cur/tests/stdlib/sized.rkt"]{runnable versions of the sized type examples from the paper} for examples using this library.}
                ]
 
 @; -----------------------------------------------------------------------------
