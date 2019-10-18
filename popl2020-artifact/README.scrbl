@@ -71,17 +71,33 @@ For convenience, the entire artifact is reviewable online in a browser (at code 
 Our artifact consists of:
 @itemlist[
   @item{a copy of the @|CONF-NAME| @|CONF-YEAR| submission @hyperlink["http://www.ccs.neu.edu/home/stchang/pubs/cbtb-popl2020.pdf"]{[link]},}
-  @item{the Turnstile+ framework @hyperlink["https://github.com/stchang/macrotypes/tree/popl2020-artifact"]{[link]},}
-  @item{the Cur proof assistant @hyperlink["https://github.com/stchang/cur/tree/turnstile-core"]{[link]},}
+  @item{the Turnstile+ framework @hyperlink["https://github.com/stchang/macrotypes/tree/popl2020-artifact"]{[link]},
+            @itemlist[@item{@hyperlink["https://travis-ci.org/stchang/macrotypes/branches"]{result of running Turnstile+ test suite} (see @tt{popl2020-artifact} branch)}]}
+  @item{the Cur proof assistant @hyperlink["https://github.com/stchang/cur/tree/turnstile-core"]{[link]},
+            @itemlist[@item{@hyperlink["https://travis-ci.org/stchang/cur/branches"]{result of running Cur test suite} (see @tt{popl2020-artifact} branch)}]}
  ]
 
-The goal of this artifact is to provide a guided tour of the code presented in the paper, and to connect them to the actual implementations of Turnstile+ and Cur in the repositories above.
+The goal of this artifact is to provide a guided tour of the code examples
+presented in the paper.
 
+For readability and conciseness, the paper presents simplified
+pseudocode that is stylized with colors and abbreviations. Thus
+examples from the paper may not run as presented.
+
+This artifact connects each stylized example in the paper to runnable versions
+of the code. More specifically, we link each of the paper's examples to either:
+@itemlist[@item{a standalone, but runnable, version of that example; when the example is a language implementation, we may also show examples of programs written in that language, }
+
+          @item{actual implementations of Turnstile+ and Cur in the repositories above,}
+
+          @item{or both.}]
 
 @; -----------------------------------------------------------------------------
 @section[#:tag "local"]{Local Artifact Setup and Installation (Optional)}
 
-This artifact may be reviewed entirely online. For those who wish to inspect further, however, we provide instructions here to locally install all the artifacts.
+This artifact may be reviewed entirely online. For those who wish to
+inspect further, however, we provide instructions here to locally
+install all the artifacts. Skip this section if not installing locally.
 
 (We have only tested these steps with Linux.)
 
@@ -143,14 +159,24 @@ If the artifact is successfully installed, each example below may be run with th
           @item{Remove Turnstile+: @tt{make remove} (from Turnstile+ repo root)}]
 
 @; -----------------------------------------------------------------------------
-@section[#:tag "examples"]{Code From the Paper vs in the Artifact Implementations}
+@section{Paper section 2: Creating a Typed Language with Racket and Turnstile+}
 
-For readability and conciseness, the paper presents simplified code that is
-stylized with colors and abbreviations. Thus code examples from the paper may
-not run as presented. However, runnable versions of the paper's examples are
-available in this artifact and are explained in the rest of this document.
 
-@section{Paper section 3: Typed Video and @racket[define-type]}
+@itemlist[@item{@paper-example-url["fig3-left-stlc.rkt"]{Figure 3 (left)}: STLC, implemented with plain Racket macros.
+
+          See @paper-example-test-url["fig3-left-stlc-tests.rkt"]{tests accompanying Figure 3 (left)} for examples written with this language.}
+
+          @item{@paper-example-url["fig4-core-api.rkt"]{Figure 4}: Turnstile+ underlying core API. The example in Figure 3 (left) uses the core API in this file.
+
+                This a simplified version of the core Turnstile+ API. The next section (@secref{sec3}) will show the analogous functions in Turnstile+'s implementation.}
+
+          @item{@paper-example-url["fig3-right-stlc.rkt"]{Figure 3 (right)}: STLC, implemented with Turnstile+.
+
+          See @paper-example-test-url["fig3-right-stlc-tests.rkt"]{tests accompanying Figure 3 (right)} for examples written with this language.}
+          ]
+
+@;----------------------------------------------------------------------------
+@section[#:tag "sec3"]{Paper section 3: Typed Video and @racket[define-type]}
 
 @itemlist[@item{Figure 5: @paper-example-url["fig5-video.rkt"]{Typed Video core calculus}
 
