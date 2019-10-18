@@ -48,9 +48,9 @@
 @(define TURNSTILE-TEST-URL
    (string-append TURNSTILE-URL "turnstile-test/tests/popl2020/"))
    
-@(define (paper-example-url f txt) ;; Str Str -> Elem
-   (hyperlink (string-append TURNSTILE-EXAMPLE-URL f) txt))
-
+@(define (paper-example-url f [txt #f]) ;; Str Str -> Elem
+   (hyperlink (string-append TURNSTILE-EXAMPLE-URL f)
+              (if txt txt (tt f))))
 @(define (paper-example-test-url f txt) ;; Str Str -> Elem
    (hyperlink (string-append TURNSTILE-TEST-URL f) txt))
 
@@ -178,23 +178,23 @@ If the artifact is successfully installed, each example below may be run with th
 @;----------------------------------------------------------------------------
 @section[#:tag "sec3"]{Paper section 3: Typed Video and @racket[define-type]}
 
-@itemlist[@item{Figure 5: @paper-example-url["fig5-video.rkt"]{Typed Video core calculus}
+@itemlist[@item{@paper-example-url["fig5-video.rkt"]{Figure 5}: Typed Video core calculus
 
                 To define @racket[→vid], @file-url[POPL-EXAMPLES]{fig5-video.rkt} uses @racket[define-type] by default. But the example also works with alternate @racket[→vid] definitions:
-                @itemlist[@item{@file-url[POPL-EXAMPLES]{fig6-right-arrow.rkt}: Figure 6 (right).}
-                          @item{@file-url[POPL-EXAMPLES]{fig7-right-arrow.rkt}: Figure 7 (right)}]
+                @itemlist[@item{@paper-example-url["fig6-right-arrow.rkt"]{Figure 6 (right)}}
+                          @item{@paper-example-url["fig7-right-arrow.rkt"]{Figure 7 (right)}}]
 
-                Uncomment the appropriate line in @file-url[POPL-EXAMPLES]{fig5-video.rkt} to use one of these alternate definitions.
+                If the artifacts are locally installed, uncomment the appropriate line in @paper-example-url{fig5-video.rkt} to use one of these alternate definitions.
 
                 This example also includes the type-level evaluation @racket[define-norm] definition from Figure 9.
 
-          See @paper-example-test-url["fig5-video-tests.rkt"]{this test file} for examples written with this core language.}
+          See @paper-example-test-url["fig5-video-tests.rkt"]{this test file} for examples written with this Typed Video core language.}
 
-          @item{@hyperlink["https://github.com/videolang/typed-video/blob/master/typed/video.rkt"]{Here is the full implementation of Typed Video}. It is based on the core language presented in Figure 5.
+          @item{@hyperlink["https://github.com/videolang/typed-video/blob/master/typed/video.rkt"]{Here is a full implementation of Typed Video}. It is based on the core language presented in Figure 5.
 
                 Here is a @hyperlink["https://github.com/videolang/typed-video/tree/master/tests"]{test suite for Typed Video}, including @hyperlink["https://github.com/videolang/typed-video/blob/master/tests/paper-tests.rkt#L281-L295"]{the @racket[mk-conf-talk] example from the paper} (it uses a slightly different syntax for @racket[→vid]).
                 }
-          @item{Here are the Turnstile+ @racket[expand/bind] and other functions from Figure 8:
+          @item{Here is @racket[expand/bind] and other functions from Figure 8, as they are implemented in Turnstile+:
                      @itemlist[@item{@hyperlink["https://github.com/stchang/macrotypes/blob/cur/macrotypes-lib/macrotypes/typecheck-core.rkt#L1132-L1134"]{@racket[expand/bind]}: The @racket[norm] function from Figure 9, and on the bottom of page 9, is called @racket[current-type-eval] here.}
                                @item{@hyperlink["https://github.com/stchang/macrotypes/blob/cur/macrotypes-lib/macrotypes/typecheck-core.rkt#L1092-L1103"]{@racket[env-add]}: Here the calls to @racket[syntax-local-bind-syntaxes] are (approximately) abbreviated to @racket[env-add-m] in the paper.}
                                @item{@hyperlink["https://github.com/stchang/macrotypes/blob/cur/macrotypes-lib/macrotypes/typecheck-core.rkt#L1143-L1154"]{@racket[expand/bind/check]}}     
