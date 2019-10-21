@@ -7,7 +7,7 @@ all:
 	packer build artifact-32.json
 
 readme:
-	scribble +m --html README.scrbl
+	scribble +m --html --redirect-main https://docs.racket-lang.org/ README.scrbl
 
 clean:
 	rm -rf output-virtualbox-iso

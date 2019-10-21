@@ -4,6 +4,14 @@
          scriblib/autobib
          racket/list]
 
+@(require (for-label (only-in racket/base
+                              define-syntax
+                              syntax-local-make-definition-context
+                              syntax-local-bind-syntaxes)
+                     (only-in syntax/parse
+                              pattern-expander
+                              syntax-parser)))
+
 @(define HOME (find-system-path 'home-dir))
 @(define REPO (apply build-path (drop-right (explode-path (current-directory)) 1)))
 @(define ARTIFACT (build-path REPO "popl2020-artifact"))
@@ -116,10 +124,14 @@
          (author+email "Milo Turner" "turner.mil@husky.neu.edu")
          (author+email "William J. Bowman" "wjb@williamjbowman.com"))
 
-This is a README file for the artifact that accompanies "@|PAPER-TITLE|" in
+This is the README for the artifact that accompanies "@|PAPER-TITLE|" in
 @|CONF-NAME| @|CONF-YEAR|.  If you have any questions, please email any (or all) of the authors.
 
-For convenience, the entire artifact is reviewable online in a browser (at code repos hosted in various locations). Optionally, for those wishing to further inspect and run files in the artifact, see @secref{local}.
+For convenience, the entire artifact is reviewable online in a
+browser (at code repos hosted in various locations). Optionally, for
+those wishing to further inspect and run files in the artifact, see
+@secref{local}. Otherwise, the result of running all the examples may
+be viewed at the CI service links below.
 
 Our artifact consists of:
 @itemlist[
@@ -178,7 +190,7 @@ Racket's @tt{bin} directory is in the @tt{PATH}.
                 @tt{make install}}]
 
 @subsection{Installing Cur (install this after Turnstile+)}
-@itemlist[@item{Clone the Cur repository (making sure to use the @tt{turnstile-core} branch):
+@itemlist[@item{Clone the Cur repository (making sure to use the @tt{popl2020-artifact} branch):
 
           @tt{git clone -b popl2020-artifact https://github.com/stchang/cur}}
 
@@ -198,7 +210,7 @@ Test that the languages are installed properly by running the test suites.
 
                 @itemlist[@item{@tt{make test} (from the Turnstile+ repo root) runs the examples from the paper}
 
-                          @item{@tt{make test-all} (from the Turnstile+ repo root) runs the entire Turnstile+ test suite (including the paper examples) (~5min)}]}
+                          @item{@tt{make test-all} (from the Turnstile+ repo root) runs the entire Turnstile+ test suite (including the paper examples) (~5min with 4-core desktop)}]}
           @item{Cur:
                 
                 @itemlist[@item{@tt{make test} (from Cur repo root) (~20-30 min)}]}]
@@ -216,20 +228,24 @@ If the artifact is successfully installed, each example below may be run with th
 @; -----------------------------------------------------------------------------
 @section{Paper section 2: Creating a Typed Language with Racket and Turnstile+}
 
+@itemlist[@item{@paper-example-url["fig3-left-stlc.rkt"]{Figure 3 (left)}: STLC, implemented with plain Racket macros, where @racket[define-m] from the paper is an abbreviation of @racket[define-syntax] and @racket[syntax-parser].
 
-@itemlist[@item{@paper-example-url["fig3-left-stlc.rkt"]{Figure 3 (left)}: STLC, implemented with plain Racket macros.
+                To be able to write some programs using this language,
+we add some language forms not in Figure 3: integer literals (i.e.,
+@racket[#%datum]), an @tt{add1} primitive, an Int base type, and a
+function arrow type.
 
-                To be able to write some programs using this language, we add some language forms not in Figure 3: integer literals, an @tt{add1} primitive, an Int base type, and a function arrow type.
-
-                See @paper-example-test-url["fig3-left-stlc-tests.rkt"]{tests accompanying Figure 3 (left)} for examples written with this language.
+                See @paper-example-test-url["fig3-left-stlc-tests.rkt"]{tests accompanying Figure 3 (left)} for examples written with this language. Observe how it uses @paper-example-url{fig3-left-stlc.rkt} as its @tt{#lang}.
 
                The function arrow type in @paper-example-url{fig3-left-stlc.rkt} is @paper-example-url["fig6-left-arrow.rkt"]{the one from Figure 6 (left)}.
 
-                Alternatively, one can use @paper-example-url["fig7-left-arrow.rkt"]{the arrow type from Figure 7 (left)}.
+               The @paper-example-url{fig6-left-arrow.rkt} implementation includes a "pattern macro" (from section 3.4 of the paper), where the @racket[define-pattern-m] abbreviation from the paper is actually a combination of @racket[define-syntax], @racket[pattern-expander], and @racket[syntax-parser].
+
+               Alternatively, one can use @paper-example-url["fig7-left-arrow.rkt"]{the arrow type from Figure 7 (left)}.
                 
                 If the artifacts are locally installed, uncomment the appropriate line in @paper-example-url{fig3-left-stlc.rkt} to use this alternate arrow definition.}
 
-          @item{@paper-example-url["fig4-core-api.rkt"]{Figure 4}: underlying macro-based typechecking API. The example in Figure 3 (left) uses the core API in this file.
+          @item{@paper-example-url["fig4-core-api.rkt"]{Figure 4}: underlying macro-based typechecking API. The example in Figure 3 (left) uses the core API in this file, where @racket[syntax-local-make-definition-context] and @racket[syntax-local-bind-syntaxes] are used to add bindings to the macro environment.
 
                 This is a simplified version of Turnstile+'s core API. The next section of this artifact document (@secref{sec3}) will show the analogous functions in Turnstile+'s actual implementation.}
 
@@ -239,11 +255,11 @@ If the artifact is successfully installed, each example below may be run with th
           ]
 
 @;----------------------------------------------------------------------------
-@section[#:tag "sec3"]{Paper section 3: Typed Video and @racket[define-type]}
+@section[#:tag "sec3"]{Paper section 3: @racket[define-type] and Typed Video}
 
 @itemlist[@item{@paper-example-url["fig5-video.rkt"]{Figure 5}: Typed Video core calculus
 
-                To define @racket[→vid], @paper-example-url{fig5-video.rkt} uses @racket[define-type] by default. But the example also works with alternate @racket[→vid] definitions:
+                To define @racket[→vid], @paper-example-url{fig5-video.rkt} uses @racket[define-type] by default. But the example also works with alternate @racket[→vid] definitions, such as those found in:
                 @itemlist[@item{@paper-example-url["fig6-right-arrow.rkt"]{Figure 6 (right)}}
                           @item{@paper-example-url["fig7-right-arrow.rkt"]{Figure 7 (right)}}]
 
@@ -258,9 +274,9 @@ If the artifact is successfully installed, each example below may be run with th
                 Here is a @hyperlink["https://github.com/videolang/typed-video/tree/master/tests"]{test suite for Typed Video}, including @hyperlink["https://github.com/videolang/typed-video/blob/master/tests/paper-tests.rkt#L281-L295"]{the @racket[mk-conf-talk] example from the paper} (it uses a slightly different syntax for @racket[→vid]).
                 }
           @item{Here is @racket[expand/bind] and other functions from Figure 8, as they are implemented in Turnstile+:
-                     @itemlist[@item{@macrotypes-lib-url["typecheck-core.rkt" #:start 1132 #:end 1134]{@racket[expand/bind]}: The @racket[norm] function from Figure 9, and on the bottom of page 9, is called @racket[current-type-eval] here.}
-                               @item{@macrotypes-lib-url["typecheck-core.rkt" #:start 1092 #:end 1103]{@racket[env-add]}: Here the calls to @racket[syntax-local-bind-syntaxes] are (approximately) abbreviated to @racket[env-add-m] in the paper.}
-                               @item{@macrotypes-lib-url["typecheck-core.rkt" #:start 1143 #:end 1154]{@racket[expand/bind/check]}}     
+                     @itemlist[@item{@macrotypes-lib-url["typecheck-core.rkt" #:start 1132 #:end 1134]{@racket[expand/bind]}: The @racket[norm] function from Figure 9, and on the bottom of page 9 (sec 3.5), is called @racket[current-type-eval] here.}
+                               @item{@macrotypes-lib-url["typecheck-core.rkt" #:start 1092 #:end 1103]{@racket[env-add]}: Again the calls to @racket[syntax-local-bind-syntaxes] are (approximately) abbreviated to @racket[env-add-m] in the paper.}
+                               @item{@macrotypes-lib-url["typecheck-core.rkt" #:start 1143 #:end 1154]{@racket[expand/bind/check]}: the @macrotypes-lib-url["typecheck-core.rkt" #:start 494]{@racket[typecheck?]} function is a wrapper for @racket[current-typecheck-relation], which is the @racket[stxα=] overloadable parameter from the paper.}
                                     ]
                      }
           ]
@@ -282,9 +298,9 @@ If the artifact is successfully installed, each example below may be run with th
 
           @item{@paper-example-url["fig15-eq.rkt"]{Figure 15}: equality library. Similar to @paper-example-url{fig14-nat.rkt}, this library adds new type rules.
 
-                See @paper-example-test-url{dep-lang-tests.rkt} for examples using the sugar, Nat, and equality libraries. We prove a basic zero identity property of natural numbers.}
+                See @paper-example-test-url{dep-lang-tests.rkt} for examples using the sugar, Nat, and equality libraries. We prove a basic zero identity property (left and right) of natural numbers.}
 
-          @item{Figure 16: Here is the @turnstile-lib-url["typedefs.rkt" #:start 162 #:end 203]{Turnstile+ @tt{define-type}} that uses the pattern-based substitution from Sec 4.4.}
+          @item{Figure 16: Here is the @turnstile-lib-url["typedefs.rkt" #:start 162 #:end 203]{Turnstile+ @tt{define-type}} that uses the pattern-based substitution from Sec 4.4. The @tt{A} pattern variables from the paper are named @tt{Y} in the implementation.}
           @item{Figure 17:
 
                 Here is @cur-stdlib-url["axiom.rkt" #:start 19 #:end 24]{a Cur library that provides @racket[define-axiom]}.
@@ -304,6 +320,12 @@ If the artifact is successfully installed, each example below may be run with th
                        @cur-curnel-url["coc.rkt"]{Cur's core calculus} is roughly the same as  @paper-example-url{fig10-dep.rkt}, but with a proper universe hierarchy.
 
                        Instead of extending the type system with every new data type like @racket[Nat] or equality, however, Cur includes @racket[define-datatype]. @cur-curnel-url["cic-saccharata.rkt" #:start 182]{Cur's @racket[define-datatype] code} is almost identical to the code presented in the paper, but includes additional logic such as error handling and positivity checking.
+
+                       Cur uses @racket[define-datatype] to define libraries like:
+                       @itemlist[@item{@cur-stdlib-url["nat.rkt"]{@racket[Nat]}}
+                                 @item{@cur-stdlib-url["equality.rkt"]{equality}}
+                                 @item{and @cur-stdlib-url["list.rkt"]{lists}}]
+                       And here is @cur-test-url["curnel/datatypes.rkt" #:start 134]{a Cur program defining length-indexed lists}, like shown in section 4.6 of the paper.
                        }]
 
 @;-----------------------------------------------------------------------------
@@ -311,7 +333,7 @@ If the artifact is successfully installed, each example below may be run with th
 
 @itemlist[@item{Figure 20: @cur-stdlib-url["sugar.rkt" #:start 299]{Cur @racket[define-implicit]}}
 
-          @item{Figure 21: @turnstile-lib-url["type-constraints.rkt" #:start 37]{Turnstile+ @racket[unify]}. The name is different (@racket[add-constraints]) but the cases match the code presented in the paper.}
+          @item{Figure 21: @turnstile-lib-url["type-constraints.rkt" #:start 37]{Turnstile+ @racket[unify]}. The name is different (@racket[add-constraints]) but the cases are the same as in the code presented in the paper.}
 
           @item{Figure 22: @cur-stdlib-url["sugar.rkt" #:start 96]{Cur @racket[match]}, where @racket[get-datatype-def] from the paper is @racket[get-match-info], and @racket[case->method] from the paper is @racket[mk-method].}
 
@@ -328,7 +350,7 @@ If the artifact is successfully installed, each example below may be run with th
 
           @item{Figure 25: @cur-stdlib-url["sized.rkt"]{Cur's sized types library}, where @racket[lift-datatype] from the paper is @racket[define-sized-datatype], and @racket[def/rec/match_sz] from the paper is @racket[define/rec/match2].
 
-                See the @cur-test-url["stdlib/sized.rkt"]{runnable versions of the sized type examples from the paper} for examples using this library.}
+                See the @cur-test-url["stdlib/sized.rkt"]{runnable versions of the sized type examples from the paper} for examples using this library, including the @cur-test-url["stdlib/sized.rkt" #:start 165]{@racket[div_sz] example from the paper.}}
                ]
 
 @; -----------------------------------------------------------------------------
@@ -341,12 +363,12 @@ If the artifact is successfully installed, each example below may be run with th
 
           @item{Figure 27 (right): @metantac-url["standard.rkt" #:start 151]{ntac @racket[intro] tactic}, where ↪ from the paper is @racket[$fill], implemented with metantac and @racket[define-tactic].
 
-                Figure 27 (right): @metantac-url["standard.rkt" #:start 249]{ntac @racket[assumption] tactic}
+                Figure 27 (right): @metantac-url["standard.rkt" #:start 249]{ntac @racket[assumption] tactic}. Here is @cur-test-url["ntac.rkt" #:start 78]{the example @tt{id} theorem from the paper}.
 
                 Figure 27 (bottom): @metantac-url["inversion.rkt" #:start 11]{ntac @racket[inversion] tactic}}
           @item{@metantac-url["standard.rkt" #:start 137]{ntac @racket[try] tactic}, implemented with metantac and @racket[define-tactical].}
 
-          @item{@metantac-url["standard.rkt" #:start 431]{ntac @racket[induction] tactic}, with optional declarative subgoal checking.}
+          @item{@metantac-url["standard.rkt" #:start 424]{ntac @racket[induction] tactic}, with optional declarative subgoal checking.}
 
           @item{@metantac-url["standard.rkt" #:start 87]{ntac @racket[interactive] tactic}}
           ]
