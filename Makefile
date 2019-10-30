@@ -3,10 +3,10 @@
 install: turnstile+ turnstile+-examples
 
 turnstile+:
-	raco pkg install -D --auto -t dir macrotypes-lib/ turnstile-lib/
+	raco pkg install --auto -t dir macrotypes-lib/ turnstile-lib/
 
 turnstile+-examples:
-	raco pkg install -D --auto -t dir rackunit-macrotypes-lib/ turnstile-example/ turnstile-test/
+	raco pkg install --auto -t dir rackunit-macrotypes-lib/ turnstile-example/ turnstile-test/
 
 test:
 	raco test -j 4 turnstile-test/tests/popl2020/*.rkt
