@@ -365,12 +365,14 @@ function arrow type.
 
                 Figure 27 (right): @metantac-url["standard.rkt" #:start 249]{ntac @racket[assumption] tactic}. Here is @cur-test-url["ntac.rkt" #:start 78]{the example @tt{id} theorem from the paper}.
 
-                Figure 27 (bottom): @metantac-url["inversion.rkt" #:start 11]{ntac @racket[inversion] tactic}}
+                Figure 27 (bottom): @metantac-url["inversion.rkt" #:start 11]{ntac @racket[inversion] tactic}. @cur-test-url["ntac/inversion.rkt"]{Here are some basic tests using the @tt{inversion} tactic}. Additional examples can be found in the Software Foundations test suite (see below).}
           @item{@metantac-url["standard.rkt" #:start 137]{ntac @racket[try] tactic}, implemented with metantac and @racket[define-tactical].}
 
-          @item{@metantac-url["standard.rkt" #:start 424]{ntac @racket[induction] tactic}, with optional declarative subgoal checking.}
+          @item{@metantac-url["standard.rkt" #:start 424]{ntac @racket[induction] tactic}, with optional declarative subgoal checking. @cur-test-url["ntac/induction.rkt"]{Here are some basic tests using the @tt{inversion} tactic}. @cur-test-url["ntac/software-foundations/IndProp.rkt" #:start 219]{Here is an example with subgoal checking}. Additional examples can be found in the Software Foundations test suite (see below).}
 
-          @item{@metantac-url["standard.rkt" #:start 87]{ntac @racket[interactive] tactic}}
+          @item{@metantac-url["standard.rkt" #:start 87]{ntac @racket[interactive] tactic}. To experiment with the @tt{interactive} tactic, one can run the basic @tt{Cur} program @racket[(ntac <my theorem> interactive)]. @cur-test-url["ntac/interactive.rkt"]{Here is a starter file} with the @racket[(ntac (∀ (A : Type) (a : A) A) interactive)] example from the paper.
+
+Additionally, one can look at test cases that check the expected interactive traces, e.g., @cur-test-url["ntac/assert.rkt" #:start 12]{here}, @cur-test-url["ntac/destruct.rkt" #:start 113]{here}, @cur-test-url["ntac/reflexivity-poly.rkt"]{here}, and @cur-test-url["ntac/rewrite-forall.rkt" #:start 215]{here}.}
           ]
 
 @; -----------------------------------------------------------------------------
@@ -378,3 +380,42 @@ function arrow type.
 
 @cur-test-url["ntac/software-foundations"]{Software Foundations examples}
 
+Some notes about the test suite:
+@itemlist[
+          @item{When there are example proofs, we tried to port the code verbatim.}
+
+@item{For exercises without answers, we tried to come up with the proof on
+our own, interactively, to test that our system could
+be used for "real" development.}
+
+@item{We did not reach 100% covereage of the exercises. For each
+chapter, we typically worked through the exercises until we felt that
+completing the rest would just be a matter of time, and would not
+offer any more insight into the usability our system, or its ability
+to implement the required tactics and features. We roughly estimate
+that we reached 75% coverage of the exercises.}
+
+@item{The examples we did not complete were often because Cur's standard
+library is not as large as Coq. For example, we do not have the
+@tt{sumbool} type that is required for the @tt{beq-string} examples.}
+
+@item{We also ignored the chapters that covered features not addressed in
+our paper, like extraction.}
+
+@item{Finally, we do not implement all the same infix notations. This
+is a known tradeoff of s-expressions, which use prefix notation, and
+thus do not have built-in support for specifying new infix operators
+and their precedences. While there are lines of research that seek to
+combine infix notation and scheme-style macros (eg Rafkind and Flatt,
+GPCE 2012), we felt that such improvements are out of scope for this
+initial stage of our project.}]
+
+
+@section{Further Exploration}
+
+The purpose of this artifact is to summarize code examples from our paper. For further exploration, documentation is available and may be a good next step:
+@itemlist[@item{@hyperlink["https://docs.racket-lang.org/turnstile"]{Turnstile+}}
+          @item{@hyperlink["https://docs.racket-lang.org/cur"]{Cur}}]
+
+Note: The documentation typically lags development of our frameworks,
+and thus may not include all the features described in this artifact.
