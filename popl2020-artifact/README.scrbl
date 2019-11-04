@@ -76,12 +76,12 @@
 @(define GENMETH-TURNSTILE-LIB-URL
    (string-append GENMETH-TURNSTILE-URL "turnstile-lib/turnstile/"))
 @(define GENMETH-CUR-URL
-   "https://github.com/stchang/cur/blob/generic-type-methods/")
+   "https://github.com/stchang/cur/blob/popl2020-artifact/")
 @(define GENMETH-CURNEL-URL
    (string-append GENMETH-CUR-URL "cur-lib/cur/curnel/"))
 
 @(define METANTAC-URL
-   "https://github.com/stchang/cur/blob/metantac/cur-lib/cur/ntac/")
+   "https://github.com/stchang/cur/blob/popl2020-artifact/cur-lib/cur/ntac/")
 
 @(define (paper-example-url f [txt #f]) ;; Str Str -> Elem
    (hyperlink (string-append TURNSTILE-EXAMPLE-URL f)
@@ -308,9 +308,9 @@ function arrow type.
                 Here is @cur-test-url["stdlib/axiom.rkt" #:start 36 #:end 48]{a Cur program using @racket[define-axiom]}.}
           @item{Figure 18 (top):
 
-                Here is @hyperlink["https://github.com/stchang/cur/blob/turnstile-core%2Brosette/cur-lib/cur/stdlib/z3.rkt#L27-L43"]{a Cur library that provides @racket[define-axiom/z3]}, which calls out to a solver. It uses @hyperlink["https://emina.github.io/rosette/"]{the Rosette language} to help translate to Z3 terms.
+                Here is @hyperlink["https://github.com/stchang/cur/blob/popl2020-artifact/cur-lib/cur/stdlib/z3.rkt#L27-L43"]{a Cur library that provides @racket[define-axiom/z3]}, which calls out to a solver. It uses @hyperlink["https://emina.github.io/rosette/"]{the Rosette language} to help translate to Z3 terms.
 
-                Here are @hyperlink["https://github.com/stchang/cur/blob/turnstile-core%2Brosette/cur-test/cur/tests/stdlib/z3.rkt"]{some Cur programs using @racket[define-axiom/z3]}.}
+                Here are @hyperlink["https://github.com/stchang/cur/blob/popl2020-artifact/cur-test/cur/tests/stdlib/z3.rkt"]{some Cur programs using @racket[define-axiom/z3]}.}
           @item{Figure 18 (bottom):
 
                 @paper-example-url{fig18-dep+report.rkt} shows a language implementation that is like @paper-example-url{fig10-dep.rkt}, except its @racket[require] form is replaced with Figure 18's @racket[require/report].
@@ -344,7 +344,7 @@ function arrow type.
 
                 Programmers @genmeth-turnstile-lib-url["typedefs.rkt" #:start 65 #:end 77]{declare new methods with @racket[define-generic-type-method]}, which looks up the method in the table, e.g., @genmeth-turnstile-lib-url["typedefs.rkt" #:start 79]{@racket[get-datatype-def]}.
 
-                Figure 23 (bottom): Cur's @racket[define-datatype] @genmeth-curnel-url["cic-saccharata.rkt" #:start 301 #:end 305]{uses the @racket[#:implements] declaration} to define @racket[get-datatype-def] for each type.}
+                Figure 23 (bottom): Cur's @racket[define-datatype] @genmeth-curnel-url["cic-saccharata.rkt" #:start 302 #:end 306]{uses the @racket[#:implements] declaration} to define @racket[get-datatype-def] for each type.}
 
           @item{Figure 24: @cur-stdlib-url["sugar.rkt" #:start 189]{Cur's @racket[define/rec/match]}}
 
