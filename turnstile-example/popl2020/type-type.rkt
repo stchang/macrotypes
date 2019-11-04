@@ -27,7 +27,6 @@
             ((~literal quote) n)))])))
   (define Type-
     (type-info
-     #f ; match info
      (syntax-parser [(~Type n) #'(Type n)]) ; resugar
      (syntax-parser [(~Type n) #'(Type n)]))) ; unexpand
   )

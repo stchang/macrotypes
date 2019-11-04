@@ -1,10 +1,10 @@
-all:
-	git archive --prefix=popl2020-artifact/ --remote=../ -o popl2020-artifact.tar popl2020-artifact
-	packer build artifact.json
+# all:
+# 	git archive --prefix=popl2020-artifact/ --remote=../ -o popl2020-artifact.tar popl2020-artifact
+# 	packer build artifact.json
 
-32-bit:
-	git archive --prefix=popl2020-artifact/ --remote=../ -o popl2020-artifact.tar popl2020-artifact
-	packer build artifact-32.json
+# 32-bit:
+# 	git archive --prefix=popl2020-artifact/ --remote=../ -o popl2020-artifact.tar popl2020-artifact
+# 	packer build artifact-32.json
 
 readme:
 	scribble +m --html --redirect-main https://docs.racket-lang.org/ README.scrbl

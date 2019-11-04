@@ -30,4 +30,3 @@ To run the examples, run either:
 
 - `make test`: runs tests for popl2020 paper example langs
 - `make test-all`: runs full Turnstile+ test suite (including popl2020 examples)
-
