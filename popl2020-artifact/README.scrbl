@@ -72,7 +72,7 @@
    (string-append CUR-URL "cur-test/cur/tests/"))
 
 @(define GENMETH-TURNSTILE-URL
-   "https://github.com/stchang/macrotypes/blob/generic-type-methods/")
+   "https://github.com/stchang/macrotypes/blob/popl2020-artifact/")
 @(define GENMETH-TURNSTILE-LIB-URL
    (string-append GENMETH-TURNSTILE-URL "turnstile-lib/turnstile/"))
 @(define GENMETH-CUR-URL
@@ -337,9 +337,9 @@ function arrow type.
 
           @item{Figure 22: @cur-stdlib-url["sugar.rkt" #:start 96]{Cur @racket[match]}, where @racket[get-datatype-def] from the paper is @racket[get-match-info], and @racket[case->method] from the paper is @racket[mk-method].}
 
-          @item{Figure 23 (top): @genmeth-turnstile-lib-url["typedefs.rkt" #:start 225]{Turnstile+ @racket[define-type] supporting generic methods}. A @genmeth-turnstile-lib-url["typedefs.rkt" #:start 173 #:end 183]{@racket[maybe-meths] syntax class} matches the @racket[#:implements keyword].
+          @item{Figure 23 (top): @genmeth-turnstile-lib-url["typedefs.rkt" #:start 233]{Turnstile+ @racket[define-type] supporting generic methods}. A @genmeth-turnstile-lib-url["typedefs.rkt" #:start 173 #:end 183]{@racket[maybe-meths] syntax class} matches the @racket[#:implements keyword].
 
-                As mentioned by the paper, @genmeth-turnstile-lib-url["typedefs.rkt" #:start 260]{a table of methods is associated with each type}.
+                As mentioned by the paper, @genmeth-turnstile-lib-url["typedefs.rkt" #:start 276]{a table of methods is associated with each type}.
 
 
                 Programmers @genmeth-turnstile-lib-url["typedefs.rkt" #:start 65 #:end 77]{declare new methods with @racket[define-generic-type-method]}, which looks up the method in the table, e.g., @genmeth-turnstile-lib-url["typedefs.rkt" #:start 79]{@racket[get-datatype-def]}.
