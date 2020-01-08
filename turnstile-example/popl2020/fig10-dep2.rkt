@@ -1,18 +1,19 @@
 #lang turnstile+/quicklang
 (require (only-in turnstile+/eval define-red [reflect ⇑])
          (only-in turnstile+/typedefs define-type)
-         "type-n.rkt") ; import Type
+         "type-type.rkt") ; import Type : Type
 
 ;; Figure 10: dependently typed core calculus
+;; with Type : Type
 
-(provide Type (for-syntax ~Type) TypeTop
+(provide Type (for-syntax ~Type) ;TypeTop
          Π (for-syntax ~Π)
          λ (rename-out [app #%app] [β app/eval/1])
          ann define provide for-syntax)
 
 ;; (Type 99) just for demo purposes
 ;; (see Cur for proper hierarchy implementation)
-(define-type Π #:with-binders [X : (Type 99)] : (Type 99) -> Type)
+(define-type Π #:with-binders Type : Type -> Type)
 
 ;; lambda and #%app -----------------------------------------------------------
 (define-typed-syntax λ
@@ -30,7 +31,7 @@
    [⊢ (λ- (x-) e-)]]
   ;; annotations only
   [(_ [x:id (~datum :) τ_in] e) ≫
-   [⊢ τ_in ≫ τ_in- ⇒ (~Type _)]
+   [⊢ τ_in ≫ τ_in- ⇒ ~Type]
    [[x ≫ x- : τ_in-] ⊢ e ≫ e- ⇒ τ_out]
    -------
    [⊢ (λ- (x-) e-) ⇒ (Π [x- : τ_in-] τ_out)]])
