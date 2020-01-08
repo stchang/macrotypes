@@ -232,6 +232,34 @@
 
 (define-syntax define-type
   (syntax-parser
+    [(_ TY:id (~datum :) sameTY:id) ; eg, Type : Type
+     #:when (free-id=? #'TY #'sameTY)
+     #:with TY-expander (mk-~ #'TY)
+     #:with TY/internal (generate-temporary #'TY)
+     #'(begin-
+         (struct- TY/internal () #:transparent #:omit-define-syntaxes)
+         (begin-for-syntax
+           (define TY/internal+ (expand/df #'TY/internal))
+           (define-syntax TY-expander
+             (pattern-expander
+              (syntax-parser
+                [(~var _ id)
+                 #'(~and ty-to-match
+                         (~parse
+                          ((~literal #%plain-app) name/internal:id)
+                          #'ty-to-match)
+                         (~fail #:unless (free-id=? #'name/internal TY/internal+)))]
+                [(_ other-pat (... ...))
+                 #'((~and ty-to-match
+                          (~parse
+                           ((~literal #%plain-app) name/internal:id)
+                           #'ty-to-match)
+                          (~fail #:unless (free-id=? #'name/internal TY/internal+)))
+                    other-pat (... ...))]))))
+         (define-syntax TY
+           (syntax-parser
+             [(~var _ id) #'(TY)]
+             [(_) (syntax-property #'(#%plain-app TY/internal) ': #'(#%plain-app TY/internal))])))]
     [(_ TY:id #:with-binders . rst) (syntax/loc this-syntax (define-binding-type TY . rst))] ; binding type
     [(_ TY:id (~datum :) k ms:maybe-meths)
      #'(define-base-type TY : k ms.kw . ms.meths)]
@@ -396,7 +424,8 @@
                 [(TY-expander [X Xtag τ] rst)
                  (list #'TY (list #'X #'Xtag (unexpand #'τ)) (unexpand #'rst))])))))]))
 
-(define-typed-syntax (define-binding-type TY:id [X:id Xtag:id k_in] (~datum :) k_out (~datum ->) k) ≫
+(define-typed-syntax define-binding-type
+  [(_ TY:id [X:id Xtag:id k_in] (~datum :) k_out (~datum ->) k) ≫
   ;; TODO: need to validate k_in, k_out, and k; what should be their required type?
   ;; - it must be language agnostic?
   [[X ≫ _ Xtag k_in] ⊢ [k_out ≫ _ ⇒ _] [k ≫ _ ⇒ _]]
@@ -414,4 +443,8 @@
             ---------------
             [⊢ (#%plain-app TY/internal τ_in- (#%plain-lambda (X-) τ_out-)) ⇒ k]])
           (make-free-id-table (hash))))
-       (define-internal-binding-type/new TY/internal TY #:tag Xtag))])
+       (define-internal-binding-type/new TY/internal TY #:tag Xtag))]]
+  [(_ TY:id k_in (~datum :) k_out (~datum ->) k) ≫ ; single bind, no id case
+   #:with X (generate-temporary)
+   -----------
+   [≻ (define-binding-type TY [X : k_in] : k_out -> k)]])
