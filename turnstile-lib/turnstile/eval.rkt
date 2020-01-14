@@ -6,10 +6,13 @@
 
 (provide define-red
          define-typerule/red
-         (for-syntax reflect mk-reflected))
+         reflect/m (for-syntax reflect mk-reflected))
+
+;; macro version of reflect; enables cleaner rules in some cases
+;; - doesnt need to be template metafn; waiting until expansion to reflect is ok
+(define-syntax reflect/m (syntax-parser [(_ e) (reflect #'e)]))
 
 (begin-for-syntax
-
   ;; reflects expanded stx to surface, so evaluation may continue
   (define (reflect stx)
     (syntax-parse stx
@@ -63,7 +66,7 @@
                  ;;      (pretty-print (stx->datum this-syntax))
                  ;;      (displayln '~>)
                  ;;      (pretty-print (stx->datum #`contractum))]
-                 (reflect #`contractum)] ...
+                 (reflect (quasitemplate contractum))] ...
                 [es
                  ;; #:do[(display "no match: ") (displayln 'red-name)
                  ;;                             (pretty-print (stx->datum #'es))
