@@ -163,7 +163,7 @@
                           (~parse (tag-prop.tag-expr ...) #'()))
                   (~seq ⇒ tag:id tag-stx (tag-prop:⇒-prop/conclusion) ...))
              #:with tag-expr-body
-             (for/fold ([tag-expr #'#`tag-stx])
+             (for/fold ([tag-expr #'(quasitemplate tag-stx)])
                        ([k (in-stx-list #'[tag-prop.tag ...])]
                         [v (in-stx-list #'[tag-prop.tag-expr ...])])
                (with-syntax ([tag-expr tag-expr] [k k] [v v])
@@ -315,10 +315,10 @@
     #:attributes (pat) #:literals (⊢)
     ;; fast case, 0 depth, no ctx
     [pattern (~seq [⊢ tc:tc-elem])
-             #:with inf #`(expand/stop (pass-orig #`tc.e-stx #`tc.e-stx-orig))
+             #:with inf #`(expand/stop (pass-orig (quasitemplate tc.e-stx) #`tc.e-stx-orig))
              #:with pat #`(~post (~post (~parse tc.e-pat inf)))]
     [pattern (~seq [⊢ . tc:tc-elem])
-             #:with inf #`(expand/stop (pass-orig #`tc.e-stx #`tc.e-stx-orig))
+             #:with inf #`(expand/stop (pass-orig (quasitemplate tc.e-stx) #`tc.e-stx-orig))
              #:with pat #`(~post (~post (~parse tc.e-pat inf)))]
     ; fast case, no ctx
     [pattern (~seq [⊢ . tc:tc*] ooo:elipsis ...)

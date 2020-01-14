@@ -10,6 +10,7 @@
               syntax/id-table
               syntax/parse racket/syntax syntax/stx
               syntax/parse/define
+              syntax/parse/experimental/template ; enable template metafns
               (only-in racket/provide-transform 
                        make-provide-pre-transformer pre-expand-export
                        make-provide-transformer expand-export)
@@ -26,6 +27,7 @@
  (all-from-out syntax/parse/define)
  (for-syntax
   (all-from-out racket/base racket/syntax syntax/stx
+                syntax/parse/experimental/template
                 "stx-utils.rkt"))
  (rename-out [define-syntax-category define-stx-category]))
 
@@ -1401,6 +1403,9 @@
        #:with res (stx-map (λ (e1) (subst τ x e1 cmp)) #'(esub ...))
        (transfer-stx-props #'res e #:ctx e)]
       [_ e]))
+
+  ;; allow using subst in stx template positions without escaping
+  (define-template-metafunction $subst (syntax-parser [(_ v x e) (subst #'v #'x #'e)]))
 
   (define (substs τs xs e [cmp bound-identifier=?])
     (stx-fold (lambda (ty x res) (subst ty x res cmp)) e τs xs)))
