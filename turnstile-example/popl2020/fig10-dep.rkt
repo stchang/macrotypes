@@ -1,5 +1,5 @@
 #lang turnstile+/quicklang
-(require (only-in turnstile+/eval define-red [reflect ⇑])
+(require (only-in turnstile+/eval define-red [reflect/m ⇑])
          (only-in turnstile+/typedefs define-type)
          "type-n.rkt") ; import Type
 
@@ -12,20 +12,20 @@
 
 ;; (Type 99) just for demo purposes
 ;; (see Cur for proper hierarchy implementation)
-(define-type Π #:with-binders [X : (Type 99)] : (Type 99) -> Type)
+(define-type Π [#:bind (Type 99)] (Type 99) : Type)
 
 ;; lambda and #%app -----------------------------------------------------------
 (define-typed-syntax λ
   ;; expected ty only
   [(_ y:id e) ⇐ (~Π [x:id : τ_in] τ_out) ≫
-   [[x ≫ x- : τ_in] ⊢ #,(subst #'x #'y #'e) ≫ e- ⇐ τ_out]
+   [[x ≫ x- : τ_in] ⊢ ($subst x y e) ≫ e- ⇐ τ_out]
    ---------
    [⊢ (λ- (x-) e-)]]
   ;; both expected ty and annotations
   [(_ [y:id (~datum :) τ_in*] e) ⇐ (~Π [x:id : τ_in] τ_out) ≫
    [⊢ τ_in* ≫ τ_in** ⇐ Type]
    #:when (typecheck? #'τ_in** #'τ_in)
-   [[x ≫ x- : τ_in] ⊢ #,(subst #'x #'y #'e) ≫ e- ⇐ τ_out]
+   [[x ≫ x- : τ_in] ⊢ ($subst x y e) ≫ e- ⇐ τ_out]
    -------
    [⊢ (λ- (x-) e-)]]
   ;; annotations only
@@ -39,7 +39,7 @@
   [⊢ e_fn ≫ e_fn- ⇒ (~Π [X : τ_in] τ_out)]
   [⊢ e_arg ≫ e_arg- ⇐ τ_in]
   -----------------------------
-  [⊢ (β e_fn- e_arg-) ⇒ #,(⇑ (subst #'e_arg- #'X #'τ_out))])
+  [⊢ (β e_fn- e_arg-) ⇒ (⇑ ($subst e_arg- X τ_out))])
 
 ;; fig 11: β as a plain macro (does not cooperate with other reduction rules)
 #;(define-for-syntax (⇑v1 e) (subst #'β #'#%plain-app e))
@@ -53,7 +53,7 @@
 
 (define-red β
   (#%plain-app ((~literal #%plain-lambda) (x) body) e)
-  ~> #,(subst #'e #'x #'body))
+  ~> ($subst e x body))
 
 (define-typed-syntax (ann e (~datum :) τ) ≫
   [⊢ e ≫ e- ⇐ τ]

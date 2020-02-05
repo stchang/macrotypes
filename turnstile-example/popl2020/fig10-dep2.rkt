@@ -13,7 +13,7 @@
 
 ;; (Type 99) just for demo purposes
 ;; (see Cur for proper hierarchy implementation)
-(define-type Π #:with-binders Type : Type -> Type)
+(define-type Π [#:bind Type] Type : Type)
 
 ;; lambda and #%app -----------------------------------------------------------
 (define-typed-syntax λ

@@ -261,6 +261,7 @@
              [(~var _ id) #'(TY)]
              [(_) (syntax-property #'(#%plain-app TY/internal) ': #'(#%plain-app TY/internal))])))]
     [(_ TY:id #:with-binders . rst) (syntax/loc this-syntax (define-binding-type TY . rst))] ; binding type
+    [(_ TY:id [#:bind k] . rst) (syntax/loc this-syntax (define-binding-type TY k . rst))] ; binding type
     [(_ TY:id (~datum :) k ms:maybe-meths)
      #'(define-base-type TY : k ms.kw . ms.meths)]
     [(_ TY:id (~datum :) (~datum ->) k ms:maybe-meths)
@@ -447,4 +448,7 @@
   [(_ TY:id k_in (~datum :) k_out (~datum ->) k) ≫ ; single bind, no id case
    #:with X (generate-temporary)
    -----------
-   [≻ (define-binding-type TY [X : k_in] : k_out -> k)]])
+   [≻ (define-binding-type TY [X : k_in] : k_out -> k)]]
+  [(_ TY:id k_in k_out (~datum :) k) ≫ ; alternate, no arrow syntax
+   -----------
+   [≻ (define-binding-type TY k_in : k_out -> k)]])
