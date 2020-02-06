@@ -4,3 +4,5 @@ Revision history for macrotypes-lib
 - var-assign function: first arg is unexpanded var
 0.3.3 (2019-03-25)
 - add current-resugar (generalizes type->str)
+0.3.4 (2020-02-02)
+- add $subst metafunction

@@ -1404,9 +1404,12 @@
        (transfer-stx-props #'res e #:ctx e)]
       [_ e]))
 
-  ;; allow using subst in stx template positions without escaping
-  (define-template-metafunction $subst (syntax-parser [(_ v x e) (subst #'v #'x #'e)]))
-
   (define (substs τs xs e [cmp bound-identifier=?])
-    (stx-fold (lambda (ty x res) (subst ty x res cmp)) e τs xs)))
-;; (end begin-for-syntax)
+    (stx-fold (lambda (ty x res) (subst ty x res cmp)) e τs xs))
+
+  ;; allow using subst in stx template positions without escaping
+  (define-template-metafunction $subst
+    (syntax-parser [(_ v x e) (subst #'v #'x #'e)]))
+  (define-template-metafunction $substs
+    (syntax-parser [(_ vs xs es) (substs #'vs #'xs #'es)]))
+  ) ;; (end begin-for-syntax)
