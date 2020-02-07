@@ -138,8 +138,13 @@
     (cond [(zero? n) stx]
           [else (add-lists (list stx) (sub1 n))]))
 
-  (define-splicing-syntax-class props ; (~not (~literal ≫)) match disambiguates with folding-tc
-    [pattern (~and (~seq stuff ...) (~seq (~seq (~and (~not (~literal ≫)) k:id) v) ...))])
+  (define-splicing-syntax-class props ; (~not ≫) disambiguates with folding-tc
+    #:description "type environment element tags and values, e.g., \": τ\""
+    [pattern (~and (~seq (~seq (~and (~not (~literal ≫)) k:id) v) ...+)
+                   (~seq stuff ...))]
+    [pattern (~seq (~post (~fail "possible missing types for env binding?")))
+             #:with (stuff ...) #'()])
+
   (define-syntax-class ⇒-prop
     #:literals (⇒) #:attributes (e-pat)
     [pattern (~or (⇒ tag-pat ; implicit tag
@@ -206,7 +211,7 @@
              #:with [tag ...] #'[p.tag]
              #:with [tag-expr ...] #'[p.tag-expr]]
     [pattern (~seq (:⇒-prop/conclusion) ...+)])
-  (define-splicing-syntax-class id+props+≫
+  (define-splicing-syntax-class id+props+≫ #:description "type environment element"
     #:literals (≫)
     #:attributes ([x- 1] [ctx 1])
     [pattern (~seq [x:id ≫ x--:id props:props])
@@ -215,7 +220,7 @@
     [pattern (~seq [x:id ≫ x--:id props:props] ooo:elipsis)
              #:with [x- ...] #'[x-- ooo]
              #:with [ctx ...] #'[[x props.stuff ...] ooo]])
-  (define-splicing-syntax-class id-props+≫*
+  (define-splicing-syntax-class id-props+≫* #:description "type environment elements"
     #:attributes ([x- 1] [ctx 1])
     [pattern (~seq ctx1:id+props+≫ ...)
              #:with [x- ...] #'[ctx1.x- ... ...]
@@ -311,6 +316,34 @@
              #:attr wrap (λ (stx) #`(with-mode (fn-expr (current-mode)) #,stx))
              #:attr wrap2 (λ(x)x)]
     )
+
+  ;; TODO: allow arbitrary number of groupings
+  (define-splicing-syntax-class type-env #:description "well-formed type environments"
+    ;; fail case: lhs of ⊢ should never just be sequence of ids
+    [pattern (~seq (~and (~not (~literal ⊢)) x:id) ...+ ~!
+                   (~post
+                    (~fail
+                     (string-append
+                      "expected a well-formed type environment, "
+                      "e.g., [x ≫ x- : τ] ...\nGot: "
+                      (string-join
+                       (stx-map (compose symbol->string stx-e) #'(x ...)))
+                      " (Possible missing grouping parens?)"))))
+             #:with ((tvx- tvctx x- ctx) ...) #'()]
+    [pattern (~seq env:id-props+≫*)
+             #:with ((tvx- tvctx) ...) #'()
+             #:with (x- ...) #'(env.x- ...)
+             #:with (ctx ...) #'(env.ctx ...)]
+    [pattern (env:id-props+≫*)
+             #:with ((tvx- tvctx) ...) #'()
+             #:with (x- ...) #'(env.x- ...)
+             #:with (ctx ...) #'(env.ctx ...)]
+    [pattern (~seq (tvenv:id-props+≫*) (env:id-props+≫*))
+             #:with (tvx- ...) #'(tvenv.x- ...)
+             #:with (tvctx ...) #'(tvenv.ctx ...)
+             #:with (x- ...) #'(env.x- ...)
+             #:with (ctx ...) #'(env.ctx ...)])
+
   (define-splicing-syntax-class tc-clause
     #:attributes (pat) #:literals (⊢)
     ;; fast case, 0 depth, no ctx
@@ -339,21 +372,15 @@
              ;; (wrap-computation does not)
              #:with pat ((attribute tc.wrap2)
                          #`(~post (~post (~parse tcs-pat inf+))))]
-    [pattern (~or (~seq [ctx:id-props+≫* ⊢ . tc:tc*] ooo:elipsis ...
-                        (~parse ((tvctx.x- tvctx.ctx) ...) #'()))
-                  (~seq [(ctx:id-props+≫*) ⊢ . tc:tc*] ooo:elipsis ...
-                        (~parse ((tvctx.x- tvctx.ctx) ...) #'()))
-                  ;; TODO: allow arbitrary number of groupings (instead of just one or two)?
-                  ;; but this will add another ellipses depth
-                  (~seq [(tvctx:id-props+≫*) (ctx:id-props+≫*) ⊢ . tc:tc*] ooo:elipsis ...))
+    [pattern (~seq [env:type-env ⊢ ~! . tc:tc*] ooo:elipsis ...)
              #:with clause-depth (stx-length #'[ooo ...])
              #:with tcs-pat
              (with-depth
-              #'[(tvctx.x- ...) (ctx.x- ...) tc.es-pat]
+              #'[(env.tvx- ...) (env.x- ...) tc.es-pat]
               #'[ooo ...])
              #:with tvctxs/ctxs/ess/origs
              (with-depth
-              #`[(tvctx.ctx ...) (ctx.ctx ...) tc.es-stx tc.es-stx-orig]
+              #`[(env.tvctx ...) (env.ctx ...) tc.es-stx tc.es-stx-orig]
               #'[ooo ...])
              #:with inf #`(infers/depths 'clause-depth
                                          'tc.depth
