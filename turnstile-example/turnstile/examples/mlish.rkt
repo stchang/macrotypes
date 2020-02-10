@@ -39,7 +39,7 @@
 
 (provide define-type define-types
          (for-syntax make-extra-info-transformer)
-         → →/test ?∀
+         → →/test ?∀ (for-syntax ~?∀)
          (typed-out/unsafe [+ : (→ Int Int Int)]
                     [- : (→ Int Int Int)]
                     [* : (→ Int Int Int)]
@@ -75,6 +75,7 @@
                     [fl- : (→ Float Float Float)]
                     [fl* : (→ Float Float Float)]
                     [fl/ : (→ Float Float Float)]
+                    [fl= : (→ Float Float Bool)]
                     [flsqrt : (→ Float Float)]
                     [flceiling : (→ Float Float)]
                     [inexact->exact : (→ Float Int)]

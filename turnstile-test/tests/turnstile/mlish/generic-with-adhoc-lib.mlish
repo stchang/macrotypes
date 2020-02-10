@@ -1,0 +1,464 @@
+#lang s-exp turnstile/examples/mlish
+(require "../rackunit-typechecking.rkt"
+         turnstile/examples/mlish/adhoc)
+
+
+;; like generic.mlish, but imports type classes as a library
+
+(define-typeclass (Eq X)
+  [== : (→ X X Bool)])
+
+(define-instance (Eq Int)
+  [== =])
+
+(define-instance (Eq Float)
+  [== fl=])
+
+(define (id-fn1 [x : X] #:where (Eq X) -> X) x)
+(typecheck-fail (id-fn1 #f) #:with-msg "\\(Eq Bool\\) instance undefined")
+(check-type (id-fn1 1) : Int -> 1)
+
+(check-type (== 1 2) : Bool -> (= 1 2))
+(check-type (== 1 2) : Bool -> #f)
+(check-type (== 2 2) : Bool -> (= 2 2))
+(check-type (== 2 2) : Bool -> #t)
+(typecheck-fail (== "1" "1")
+  #:with-msg "== operation undefined for input types: String, String")
+
+(define-instance (Eq String) ; test use of lambda on rhs
+  [== (λ ([x : String] [y : String]) 
+        (string=? x y))])
+
+(check-type (== "1" "2") : Bool -> (string=? "1" "2"))
+(check-type (== "1" "2") : Bool -> #f)
+(check-type (== "2" "2") : Bool -> (string=? "2" "2"))
+(check-type (== "2" "2") : Bool -> #t)
+
+(define-instance (Eq Char)
+  [== char=?])
+
+(check-type (λ ([x : X] #:where (Eq X)) 
+              (== x x))
+  : (=>/test (Eq X) (→ X Bool)))
+
+(check-type ((λ ([x : X] #:where (Eq X)) (== x x)) 1) : Bool -> #t)
+(check-type ((λ ([x : X] #:where (Eq X)) (== x x)) "1") : Bool -> #t)
+(typecheck-fail ((λ ([x : X] #:where (Eq X)) (== x x)) #f)
+ #:with-msg
+ "Eq Bool.*instance undefined.*Cannot instantiate function with constraints.*Eq X.*with.*X : Bool")
+
+(define (member? [x : X] [lst : (List X)] #:where (Eq X) -> Bool)
+  (match lst with
+   [[] -> #f]
+   [y :: ys -> (or (== x y) (member? x ys))]))
+
+(check-type (member? 1 nil) : Bool -> #f)
+(check-type (member? 1 (list 2)) : Bool -> #f)
+(check-type (member? 1 (list 2 1)) : Bool -> #t)
+(typecheck-fail (member? "1" (list 1))) ; TODO: fix err msg
+(check-type (member? "1" nil) : Bool -> #f)
+(check-type (member? "1" (list "2")) : Bool -> #f)
+(check-type (member? "1" (list "2" "1")) : Bool -> #t)
+
+;; TODO?: fix name clash of generic op and concrete op
+(define-typeclass (Ord X)
+  [lt : (→ X X Bool)]
+  [lte : (→ X X Bool)]
+  [gt : (→ X X Bool)]
+  [gte : (→ X X Bool)])
+
+(define-instance (Ord Int)
+  [lt <] [lte <=] [gt >] [gte >=])
+
+;; missing typeclass constraint
+(typecheck-fail (λ ([x : X]) (== x x))
+  #:with-msg "== operation undefined for input types: X, X")
+(typecheck-fail (λ ([x : X]) (lte x x)) 
+  #:with-msg "lte operation undefined for input types: X, X")
+;; wrong typeclass constraint
+(typecheck-fail (λ ([x : Y] #:where (Ord Y)) (== x x))
+  #:with-msg "== operation undefined for input types: Y, Y")
+(typecheck-fail (λ ([x : Y] #:where (Eq Y)) (gt x x))
+  #:with-msg "gt operation undefined for input types: Y, Y")
+
+(check-type (λ ([x : Y] #:where (Ord Y)) (lte x x))
+  : (=>/test (Ord Y) (→ Y Bool)))
+(check-type (λ ([x : Y] #:where (Ord Y)) (lt x x))
+  : (=>/test (Ord Y) (→ Y Bool)))
+(check-type (λ ([x : Y] #:where (Ord Y)) (gte x x))
+  : (=>/test (Ord Y) (→ Y Bool)))
+(check-type (λ ([x : Y] #:where (Ord Y)) (gt x x))
+  : (=>/test (Ord Y) (→ Y Bool)))
+
+(check-type (λ ([x : Y] [y : Y] #:where (Ord Y)) (lt x x))
+  : (=>/test (Ord Y) (→ Y Y Bool)))
+(check-type (λ ([x : Y] [y : Y] #:where (Ord Y)) (lt x y))
+  : (=>/test (Ord Y) (→ Y Y Bool)))
+(check-type (λ ([x : Y] #:where (Ord Y) (Eq Y)) 
+              (lt x x))
+  : (=>/test (Ord Y) (Eq Y) (→ Y Bool)))
+(check-type (λ ([x : Y] #:where (Ord Y) (Eq Y)) 
+              (== x x))
+  : (=>/test (Ord Y) (Eq Y) (→ Y Bool)))
+
+(check-type (λ ([x : Y] #:where (Ord Y) (Eq Y)) 
+              (and (== x x) (lte x x)))
+  : (=>/test (Ord Y) (Eq Y) (→ Y Bool)))
+
+;; todo: not working; results in dup ids
+#;(check-type (λ ([x : X] [y : Y] #:where (Ord X) (Ord Y)) (< x y))
+  : (=>/test (Ord Y) (→ Y Y Bool)))
+
+(define (f [x : X] #:where (Eq X) -> Bool)
+  (== x x))
+(check-type (f 1) : Bool -> #t)
+(check-type (f "1") : Bool -> #t)
+(typecheck-fail (f #f) 
+ #:with-msg
+ "Eq Bool.*instance undefined.*Cannot instantiate function with constraints.*Eq X.*with.*X : Bool")
+
+(define-instance (Ord String)
+  [lt string<?] [lte string<=?] [gt string>?] [gte string>=?])
+(check-type (lt "1" "2") : Bool -> #t)
+(define (f2 [x : X] [y : X] #:where (Ord X) -> Bool)
+  (lte x y))
+(check-type (f2 1 2) : Bool -> #t)
+(check-type (f2 "1" "2") : Bool -> #t)
+(typecheck-fail (f2 1 "2"))
+
+(define-typeclass (Num X)
+  [add : (→ X X X)]
+  [sub : (→ X X X)]
+  [mul : (→ X X X)])
+
+(typecheck-fail
+  (define-instance (Num Int)
+    [add +] [sub -] [mul fl*])
+  #:with-msg
+  "define\\-instance\\: type mismatch\\: expected \\(→ Int Int Int\\), given \\(→ Float Float Float\\).*at.*fl\\*")
+
+(define-instance (Num Int)
+  [add +] [sub -] [mul *])
+(define-instance (Num Float)
+  [add fl+] [sub fl-] [mul fl*])
+
+(define (square [x : X] #:where (Num X) -> X)
+  (mul x x))
+(check-type (square 5) : Int -> 25)
+(check-type (square 2.5) : Float -> 6.25)
+;; "propagation" of typeclass constraints to other constrained fns
+;; (memsq tests the same thing?)
+(define (square2 [x : X] #:where (Num X) -> X)
+  (square x))
+(check-type (square2 5) : Int -> 25)
+(check-type (square2 2.5) : Float -> 6.25)
+(define (squares [xyz : (× X Y Z)] #:where (Num X) (Num Y) (Num Z)-> (× X Y Z))
+  (match2 xyz with
+   [(x,y,z) -> (tup (square x) (square y) (square z))]))
+(check-type (squares (tup 5 5 5)) : (× Int Int Int) -> (tup 25 25 25))
+(check-type (squares (tup 2.5 5 5)) : (× Float Int Int) -> (tup 6.25 25 25))
+(check-type (squares (tup 5 2.5 5)) : (× Int Float Int) -> (tup 25 6.25 25))
+(check-type (squares (tup 5 5 2.5)) : (× Int Int Float) -> (tup 25 25 6.25))
+(check-type (squares (tup 2.5 2.5 2.5)) : (× Float Float Float) -> (tup 6.25 6.25 6.25))
+(typecheck-fail (squares (tup 5 5 #f)) #:with-msg "\\(Num Bool\\) instance undefined")
+(typecheck-fail (squares (tup 5 #f 5)) #:with-msg "\\(Num Bool\\) instance undefined")
+(typecheck-fail (squares (tup #f 5 5)) #:with-msg "\\(Num Bool\\) instance undefined")
+
+;; --------------------------------------------------
+
+(define-type (TypeA X) (A [x : X] [y : X]))
+
+;; constraint of nested tyvar
+(define (test-a1 [a : (TypeA X)] #:where (Eq X) -> Bool)
+  (== (A-x a) (A-y a)))
+(check-type (test-a1 (A 1 2)) : Bool -> #f)
+(check-type (test-a1 (A "1" "2")) : Bool -> #f)
+(typecheck-fail (test-a1 (A #t #f))
+ #:with-msg
+"Eq Bool.*instance undefined.*Cannot instantiate function with constraints.*Eq X.*with.*X : Bool")
+
+(define (test-a2 [a : (TypeA X)] [fa : (→ (TypeA X) X)] #:where (Eq X) -> Bool)
+  (== (fa a) (fa a)))
+
+(check-type (test-a2 (A 1 2) (inst A-x Int)) : Bool -> #t)
+(check-type (test-a2 (A "1" "2") (inst A-x String)) : Bool -> #t)
+
+(define-type (Heap X)
+  Emp
+  (H X))
+
+(define (hf [h : (Heap X)] #:where (Ord X) -> Bool)
+  (match h with
+   [Emp -> #f]
+   [H x -> (lte x x)]))
+
+(check-type (hf (H 1)) : Bool -> #t)
+(typecheck-fail (hf (H #f)) 
+ #:with-msg 
+ "Ord Bool.*instance undefined.*Cannot instantiate function with constraints.*Ord X.*with.*X : Bool")
+
+;; type classes for non-base types
+(define-instance (Eq X) => (Eq (List X))
+ [== (λ ([l1 : (List X)] [l2 : (List X)])
+       (match2 (tup l1 l2) with
+        [(nil,nil) -> #t]
+        [((x :: xs),(y :: ys)) -> (and (== x y) (== xs ys))]
+        [_ -> #f]))])
+
+;; nil and nil
+(check-type (== (nil {Int}) (nil {Int})) : Bool -> #t)
+;; TODO: better err msg?
+;; as of 2016-04-04: "== operation undefined for input types: Int, Bool"
+;; should somehow indicate that the two values are not equal because types differ?
+(typecheck-fail (== (nil {Int}) (nil {Bool})))
+;; nil and non-nil
+(check-type (== (nil {Int}) (list 1)) : Bool -> #f)
+(check-type (== (nil {Int}) (cons 1 nil)) : Bool -> #f)
+(check-type (== (nil {Int}) (cons 1 (cons 2 nil))) : Bool -> #f)
+;; non-nil and nil
+(check-type (== (list 1) (nil {Int})) : Bool -> #f)
+(check-type (== (cons 1 nil) (nil {Int})) : Bool -> #f)
+(check-type (== (cons 1 (cons 2 nil)) (nil {Int})) : Bool -> #f)
+;; non-nil and non-nil
+(check-type (== (list 1) (list 1)) : Bool -> #t)
+(check-type (== (cons 1 nil) (list 1)) : Bool -> #t)
+(check-type (== (list 1) (cons 1 nil)) : Bool -> #t)
+(check-type (== (list 1) (list 1 2)) : Bool -> #f)
+(check-type (== (list 1 2) (list 1)) : Bool -> #f)
+(check-type (== (list 1 2) (list 1 2)) : Bool -> #t)
+(check-type (== (list 1 2) (list 1 3)) : Bool -> #f)
+(check-type (== (list 1 3) (list 1 2)) : Bool -> #f)
+
+(define (list-eq1 [l1 : (List X)] [l2 : (List X)] #:where (Eq X) -> Bool)
+  (== l1 l2))
+
+(check-type (list-eq1 (nil {Int}) (nil {Int})) : Bool -> #t)
+(check-type (list-eq1 (nil {Int}) (list 1)) : Bool -> #f)
+(check-type (list-eq1 (list 1) (nil {Int})) : Bool -> #f)
+(check-type (list-eq1 (list 1) (list 1)) : Bool -> #t)
+(check-type (list-eq1 (list 1) (list 2)) : Bool -> #f)
+(check-type (list-eq1 (list 1) (list 1 2)) : Bool -> #f)
+
+(check-type (member? (list 1) (list (list 1))) : Bool -> #t)
+(check-type (member? (list 1) (list (list 2))) : Bool -> #f)
+(check-type (member? (list 1) (list (list 2) (list 1))) : Bool -> #t)
+
+(define (id-fn2 [xs : (List X)] #:where (Eq X) -> (List X)) xs)
+(typecheck-fail (id-fn2 (list #f)) #:with-msg "\\(Eq Bool\\) instance undefined")
+(check-type (id-fn2 (list 1)) : (List Int) -> (list 1))
+ 
+;; TODO: #:where TC, where TC has a tycon, like #:where (List X)
+;; still doesnt work I dont think
+#;(define (list-eq2 [l1 : (List X)] [l2 : (List X)] #:where (List X) -> Bool)
+  (== l1 l2))
+
+;; TODO: implement subclasses
+;; 2016-05-25: Done. see memsq2
+(define (memsq? [x : X] [xs : (List X)] #:where (Eq X) (Num X) -> Bool)
+  (member? (square x) xs))
+(check-type (memsq? 1 (list 1)) : Bool -> #t)
+(check-type (memsq? 2 (list 2)) : Bool -> #f)
+(check-type (memsq? 2 (list 3 4)) : Bool -> #t)
+(typecheck-fail (memsq? (list 1) (list (list 1)))
+  #:with-msg "\\(Num \\(List Int\\)\\) instance undefined")
+
+
+(define (andmap [p? : (→ X Bool)] [lst : (List X)] -> Bool)
+  (match lst with
+   [[] -> #t]
+   [x :: xs -> (and (p? x) (andmap p? xs))]))
+
+;; Set
+;; type classes for non-base types: user-defined
+(define-type (Set X) (MkSet (List X)))
+(define-instance (Eq X) => (Eq (Set X))
+ [== (λ ([s1 : (Set X)] [s2 : (Set X)])
+       (match2 (tup s1 s2) with
+        [((MkSet xs),(MkSet ys)) -> (and (andmap (λ ([y : X]) (member? y xs)) ys)
+                                         (andmap (λ ([x : X]) (member? x ys)) xs))]))])
+(check-type (== (MkSet (list 1)) (MkSet (list 1))) : Bool -> #t)
+(check-type (== (MkSet (list 1)) (MkSet (list 2))) : Bool -> #f)
+(check-type (== (MkSet (list 1 2)) (MkSet (list 1 2))) : Bool -> #t)
+(check-type (== (MkSet (list 1 2)) (MkSet (list 2 1))) : Bool -> #t)
+(check-type (== (MkSet (list 1 2)) (MkSet (list 1 2 3))) : Bool -> #f)
+(check-type (== (MkSet (list 3 1 2)) (MkSet (list 1 2 3))) : Bool -> #t)
+
+(check-type (member? (MkSet (list 1 2)) (list (MkSet (list 1 2)))) : Bool -> #t)
+(check-type (member? (MkSet (list 1 2)) (list (MkSet (list 1)) (MkSet (list 2 1)))) 
+  : Bool -> #t)
+(check-type (member? (MkSet (list "1" "2")) (list (MkSet (list "1")) (MkSet (list "2" "1")))) 
+  : Bool -> #t)
+
+;; type classes for non-base types: multiple constraints
+(define-instance (Eq X) (Eq Y) => (Eq (× X Y))
+ [== (λ ([p1 : (× X Y)] [p2 : (× X Y)])
+       (match2 (tup p1 p2) with
+        [((u,v),(x,y)) -> (and (== u x) (== v y))]))])
+
+(check-type (== (tup 1 2) (tup 3 4)) : Bool -> #f)
+(check-type (== (tup 1 2) (tup 1 2)) : Bool -> #t)
+(check-type (== (tup (list 1) (list 2)) (tup (list 1) (list 2))) : Bool -> #t)
+(check-type (== (tup (list 1) (list 1 2)) (tup (list 1) (list 2 1))) : Bool -> #f)
+(check-type (== (tup (list #\a) (list #\b)) (tup (list #\a) (list #\b))) 
+  : Bool -> #t)
+(check-type (== (tup (list #\a) (list #\a #\b)) (tup (list #\a) (list #\b #\a))) 
+  : Bool -> #f)
+
+(check-type (== (tup (list #\a) (list 1)) (tup (list #\a) (list 1))) 
+  : Bool -> #t)
+(check-type (== (tup (list #\a) (list 1 2)) (tup (list #\a) (list 2 1)))
+  : Bool -> #f)
+
+(check-type (member? (tup 1 2) (list (tup 3 4) (tup 5 6))) : Bool -> #f)
+(check-type (member? (tup 1 2) (list (tup 3 4) (tup 5 6) (tup 1 2))) 
+  : Bool -> #t)
+(check-type (member? (tup 1 "2") (list (tup 3 "4") (tup 5 "6"))) 
+  : Bool -> #f)
+(check-type (member? (tup 1 "2") (list (tup 3 "4") (tup 5 "6") (tup 1 "2"))) 
+  : Bool -> #t)
+(check-type 
+  (member? 
+    (tup (list 1) "2") 
+    (list (tup (list 3) "4") (tup (list 5) "6")))
+  : Bool -> #f)
+(check-type 
+  (member? 
+    (tup (list 1) "2") 
+    (list (tup (list 3) "4") (tup (list 5) "6") (tup (list 1) "2"))) 
+  : Bool -> #t)
+                 
+(define-typeclass (Eq X) => (Num2 X)
+ [ad : (→ X X X)]
+ [sb : (→ X X X)]
+ [mu : (→ X X X)])
+
+(typecheck-fail
+    (define-instance (Num2 Bool)
+      [ad +] [sb -] [mu *])
+  #:with-msg "No instance defined for \\(Eq Bool\\)")
+
+(define-instance (Num2 Int)
+  [ad +] [sb -] [mu *])
+
+(define (f/sub1 [x : X] #:where (Num2 X) -> X)
+  (ad x x))
+#;(typecheck-fail ; fails
+    (define (f/sub2 [x : X] #:where (Num2 X) -> X) (== x x))
+  #:with-msg "Body has type Bool, expected/given X")
+(define (f/sub2 [x : X] #:where (Num2 X) -> Bool)
+  (== x x))
+
+(check-type f/sub1 : (=>/test (Num2 X) (→ X X)))
+(check-type f/sub2 : (=>/test (Num2 X) (→ X Bool)))
+
+(check-type (f/sub1 1) : Int -> 2)
+(typecheck-fail (f/sub1 #f) #:with-msg "\\(Num2 Bool\\) instance undefined")
+(check-type (f/sub2 1) : Bool -> #t)
+(typecheck-fail (f/sub1 #f) #:with-msg "\\(Num2 Bool\\) instance undefined")
+
+(define-instance (Num2 Float)
+  [ad fl+] [sb fl-] [mu fl*])
+
+(define (square3 [x : X] #:where (Num2 X) -> X)
+  (mu x x))
+(check-type (square3 5) : Int -> 25)
+(check-type (square3 2.5) : Float -> 6.25)
+(define (memsq2? [x : X] [xs : (List X)] #:where (Num2 X) -> Bool)
+  (member? (square3 x) xs))
+(check-type (memsq2? 1 (list 1)) : Bool -> #t)
+(check-type (memsq2? 2 (list 2)) : Bool -> #f)
+(check-type (memsq2? 2 (list 3 4)) : Bool -> #t)
+(typecheck-fail (memsq2? (list 1) (list (list 1)))
+  #:with-msg "\\(Num2 \\(List Int\\)\\) instance undefined")
+(typecheck-fail (memsq2? #f (list #f))
+  #:with-msg "\\(Num2 Bool\\) instance undefined")
+
+(define-typeclass (Top X)
+  [fun1 : (→ X X X)])
+(define-typeclass (Top X) => (Left X)
+  [fun2 : (→ X X X)])
+(define-typeclass (Top X) => (Right X)
+  [fun3 : (→ X X X)])
+(define-typeclass (Left X) (Right X) => (Bottom X)
+  [fun4 : (→ X X X)])
+
+(define-instance (Top Int)
+  [fun1 +])
+(define-instance (Left Int)
+  [fun2 +])
+(define-instance (Right Int)
+  [fun3 +])
+(define-instance (Bottom Int)
+  [fun4 +])
+(define (left-fun2 [x : X] #:where (Left X) -> X)
+  (fun2 x x))
+(check-type (left-fun2 6) : Int -> 12)
+(define (left-fun1 [x : X] #:where (Left X) -> X)
+  (fun1 x x))
+(check-type (left-fun1 6) : Int -> 12)
+(define (bott-fun4 [x : X] #:where (Bottom X) -> X)
+  (fun4 x x))
+(check-type (bott-fun4 5) : Int -> 10)
+(define (bott-fun3 [x : X] #:where (Bottom X) -> X)
+  (fun3 x x))
+(check-type (bott-fun3 5) : Int -> 10)
+(define (bott-fun2 [x : X] #:where (Bottom X) -> X)
+  (fun2 x x))
+(check-type (bott-fun2 5) : Int -> 10)
+(define (bott-fun-Int [x : Int] -> Int)
+  (fun1 x x))
+(check-type (bott-fun-Int 5) : Int -> 10)
+;; lookup more than one parent level
+(define (bott-fun1 [x : X] #:where (Bottom X) -> X)
+  (fun1 x x))
+(check-type (bott-fun1 5) : Int -> 10)
+
+;; non-base typeclass instances with subclassing
+(define-instance (Top X) => (Top (List X))
+ [fun1 (λ ([l1 : (List X)] [l2 : (List X)])
+         (match2 (tup l1 l2) with
+          [(nil,nil) -> l2]
+          [((x :: xs),(y :: ys)) -> (cons (fun1 x y) (fun1 xs ys))]
+          [_ -> l1]))])
+(define (top-list-fun1 [xs : (List X)] #:where (Top X) -> (List X))
+  (fun1 xs xs))
+(check-type (top-list-fun1 (list 5)) : (List Int) -> (list 10))
+(check-type (top-list-fun1 (list 5 6)) : (List Int) -> (list 10 12))
+
+(define-instance (Left X) => (Left (List X))
+ [fun2 (λ ([l1 : (List X)] [l2 : (List X)])
+         (match2 (tup l1 l2) with
+          [(nil,nil) -> l2]
+          [((x1 :: xs1),(y1 :: ys1)) -> (cons (fun2 x1 y1) (fun2 xs1 ys1))]
+          [_ -> l1]))])
+
+(define (left-list-fun2 [zs : (List X)] #:where (Left X) -> (List X))
+  (fun2 zs zs))
+(check-type (left-list-fun2 (list 6)) : (List Int) -> (list 12))
+(define (left-list-fun1 [xx : (List X)] #:where (Left X) -> (List X))
+   (fun1 xx xx))
+(check-type (left-list-fun1 (list 6)) : (List Int) -> (list 12))
+
+;; can use fun1 (from Top), for both X and (List X),
+;; in both instance def, and regular fns
+(define-instance (Right X) => (Right (List X))
+ [fun3 (λ ([l1 : (List X)] [l2 : (List X)])
+         (match2 (tup l1 l2) with
+          [(nil,nil) -> l2]
+          [((x1 :: xs1),(y1 :: ys1)) -> (cons (fun1 x1 y1) (fun1 xs1 ys1))]
+          [_ -> l1]))])
+(define (right-list-fun1 [xx : (List X)] #:where (Right X) -> (List X))
+   (fun1 xx xx))
+(check-type (right-list-fun1 (list 6)) : (List Int) -> (list 12))
+
+(define-instance (Bottom X) => (Bottom (List X))
+ [fun4 (λ ([l1 : (List X)] [l2 : (List X)])
+         (match2 (tup l1 l2) with
+          [(nil,nil) -> l2]
+          [((x1 :: xs1),(y1 :: ys1)) -> (cons (fun4 x1 y1) (fun4 xs1 ys1))]
+          [_ -> l1]))])
+
+;; lookup more than one parent level
+(define (bott-list-fun1 [xs : (List X)] #:where (Bottom X) -> (List X))
+  (fun1 xs xs))
+(check-type (bott-list-fun1 (list 5)) : (List Int) -> (list 10))
