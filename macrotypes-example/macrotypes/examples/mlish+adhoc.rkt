@@ -1478,7 +1478,7 @@
   #:with [x- ty_x] (infer+erase #'x)
   #:with [e- ty_e] (infer+erase #'e)
   #:when (typecheck? #'ty_e #'ty_x)
-  (⊢ (set!- x e-) : #,Unit+)])
+  (⊢ (set!- x- e-) : #,Unit+)])
 
 (define-typed-syntax provide-type [(_ ty ...) #'(provide- ty ...)])
 

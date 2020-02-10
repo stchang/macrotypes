@@ -1229,7 +1229,7 @@
   #:with [e- ty_e] (infer+erase #'e)
   #:fail-unless (typecheck? #'ty_e #'ty_x)
   (typecheck-fail-msg/1 #'ty_x #'ty_e #'e)
-  (⊢ (set!- x e-) : #,Unit+)])
+  (⊢ (set!- x- e-) : #,Unit+)])
 
 (define-typed-syntax provide-type [(provide-type ty ...) #'(provide- ty ...)])
 
