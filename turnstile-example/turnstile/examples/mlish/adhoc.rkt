@@ -12,7 +12,7 @@
          => =>/test)
 
 (require (postfix-in - racket/flonum)
-         (for-syntax racket/set racket/string)
+         (for-syntax macrotypes/type-constraints racket/set racket/string)
          (for-meta 2 racket/base syntax/parse racket/syntax))
 
 (require (only-in "../ext-stlc.rkt" →? [~→ ~ext-stlc:→] [→ ext-stlc:→]
@@ -109,118 +109,62 @@
       [(TC . rst)
        (cons #'TC (stx-filter (lambda (s) (not (typecheck? s #'TC))) (remove-dups #'rst)))])))
 
-;; TODO: use macrotypes/type-constraints instead of the below fns
 ;; type inference constraint solving
 (begin-for-syntax 
-  ;; matching possibly polymorphic types
-#;  (define-syntax ~?∀
-    (pattern-expander
-     (lambda (stx)
-       (syntax-case stx ()
-         [(?∀ vars-pat body-pat)
-          #'(~or (~∀ vars-pat body-pat)
-                 (~and (~not (~∀ _ _))
-                       (~parse vars-pat #'())
-                       body-pat))]))))
-
-  ;; TODO: use macrotypes/type-constraints instead of the below fns
-  ;; type inference constraint solving
-  (define (compute-constraint τ1-τ2)
-    (syntax-parse τ1-τ2
-      [(X:id τ) #'((X τ))]
-      [((~Any tycons1 τ1 ...) (~Any tycons2 τ2 ...))
-       #:when (typecheck? #'tycons1 #'tycons2)
-       (compute-constraints #'((τ1 τ2) ...))]
-      ; should only be monomorphic?
-      [((~∀ () (~ext-stlc:→ τ1 ...)) (~∀ () (~ext-stlc:→ τ2 ...)))
-       (compute-constraints #'((τ1 τ2) ...))]
-      [_ #'()]))
-  (define (compute-constraints τs) 
-    (stx-appendmap compute-constraint τs))
-
-  (define (solve-constraint x-τ)
-    (syntax-parse x-τ
-      [(X:id τ) #'((X τ))]
-      [_ #'()]))
-  (define (solve-constraints cs)
-    (stx-appendmap compute-constraint cs))
-  
-  (define (lookup x substs)
-    (syntax-parse substs
-      [((y:id τ) . rst)
-       #:when (free-identifier=? #'y x)
-       #'τ]
-      [(_ . rst) (lookup x #'rst)]
-      [() #f]))
-
-  ;; find-unsolved-Xs : (Stx-Listof Id) Constraints -> (Listof Id)
-  ;; finds the free Xs that aren't constrained by cs
-  (define (find-unsolved-Xs Xs cs)
-    (for/list ([X (in-list (stx->list Xs))]
-               #:when (not (lookup X cs)))
+  ;; find-free-Xs : (Stx-Listof Id) Type -> (Listof Id)
+  ;; finds the free Xs in the type
+  (define (find-free-Xs Xs ty)
+    (for/list ([X (in-stx-list Xs)]
+               #:when (stx-contains-id? ty X))
       X))
-
-  ;; lookup-Xs/keep-unsolved : (Stx-Listof Id) Constraints -> (Listof Type-Stx)
-  ;; looks up each X in the constraints, returning the X if it's unconstrained
-  (define (lookup-Xs/keep-unsolved Xs cs)
-    (for/list ([X (in-list (stx->list Xs))])
-      (or (lookup X cs) X)))
 
   ;; solve for Xs by unifying quantified fn type with the concrete types of stx's args
   ;;   stx = the application stx = (#%app e_fn e_arg ...)
   ;;   tyXs = input and output types from fn type
   ;;          ie (typeof e_fn) = (-> . tyXs)
   ;; It infers the types of arguments from left-to-right,
-  ;; and it short circuits if it's done early.
+  ;; and it expands and returns all of the arguments.
   ;; It returns list of 3 values if successful, else throws a type error
-  ;;  - a list of the arguments that it expanded
-  ;;  - a list of the the un-constrained type variables
+  ;;  - a list of all the arguments, expanded
+  ;;  - a list of all the type variables
   ;;  - the constraints for substituting the types
   (define (solve Xs tyXs stx)
     (syntax-parse tyXs
       [(τ_inX ... τ_outX)
        ;; generate initial constraints with expected type and τ_outX
-       #:with expected-ty (get-expected-type stx)
+       #:with (~?∀ Vs expected-ty)
+              (and (get-expected-type stx)
+                   ((current-type-eval) (get-expected-type stx)))
        (define initial-cs
-         (if (syntax-e #'expected-ty)
-             (compute-constraint (list #'τ_outX ((current-type-eval) #'expected-ty)))
-             #'()))
+         (if (and (syntax-e #'expected-ty) (stx-null? #'Vs))
+             (add-constraints Xs '() (list (list #'expected-ty #'τ_outX)))
+             '()))
        (syntax-parse stx
          [(_ e_fn . args)
           (define-values (as- cs)
               (for/fold ([as- null] [cs initial-cs])
-                        ([a (in-list (syntax->list #'args))]
-                         [tyXin (in-list (syntax->list #'(τ_inX ...)))]
-                         #:break (null? (find-unsolved-Xs Xs cs)))
-                (define/with-syntax [a- ty_a] (infer+erase a))
-                (values 
+                        ([a (in-stx-list #'args)]
+                         [tyXin (in-stx-list #'(τ_inX ...))])
+                (define ty_in (inst-type/cs/orig Xs cs tyXin datum=?))
+                (define/with-syntax [a- ty_a]
+                  (infer+erase (if (null? (find-free-Xs Xs ty_in))
+                                   (add-expected-type a ty_in)
+                                   a)))
+                (values
                  (cons #'a- as-)
-                 (stx-append cs (compute-constraint (list tyXin #'ty_a))))))
+                 (add-constraints Xs cs (list (list ty_in #'ty_a))
+                                  (list (list (inst-type/cs/orig
+                                               Xs cs ty_in
+                                               datum=?)
+                                              #'ty_a))))))
 
-         (list (reverse as-) (find-unsolved-Xs Xs cs) cs)])]))
+          (list (reverse as-) Xs cs)])]))
 
   (define (raise-app-poly-infer-error stx expected-tys given-tys e_fn)
     (type-error #:src stx
      #:msg (mk-app-err-msg stx #:expected expected-tys #:given given-tys
             #:note (format "Could not infer instantiation of polymorphic function ~a."
                            (syntax->datum (get-orig e_fn))))))
-
-  ;; instantiate polymorphic types
-  ;; inst-type : (Listof Type) (Listof Id) Type -> Type
-  ;; Instantiates ty with the tys-solved substituted for the Xs, where the ith
-  ;; identifier in Xs is associated with the ith type in tys-solved
-  (define (inst-type tys-solved Xs ty)
-    (substs tys-solved Xs ty))
-  
-  ;; inst-type/cs : (Stx-Listof Id) Constraints Type-Stx -> Type-Stx
-  ;; Instantiates ty, substituting each identifier in Xs with its mapping in cs.
-  (define (inst-type/cs Xs cs ty)
-    (define tys-solved (lookup-Xs/keep-unsolved Xs cs))
-    (inst-type tys-solved Xs ty))
-  ;; inst-types/cs : (Stx-Listof Id) Constraints (Stx-Listof Type-Stx) -> (Listof Type-Stx)
-  ;; the plural version of inst-type/cs
-  (define (inst-types/cs Xs cs tys)
-    (stx-map (lambda (t) (inst-type/cs Xs cs t)) tys))
 
   ;; compute unbound tyvars in one unexpanded type ty
   (define (compute-tyvar1 ty)
@@ -441,7 +385,7 @@
       ;; no typeclasses, duplicate code for now --------------------------------
       [(~ext-stlc:→ . tyX_args) 
        ;; ) solve for type variables Xs
-       (define/with-syntax ((e_arg1- ...) (unsolved-X ...) cs) (solve #'Xs #'tyX_args #'this-app))
+       (define/with-syntax ((e_arg1- ...) Xs* cs) (solve #'Xs #'tyX_args #'this-app))
        ;; ) instantiate polymorphic function type
        (syntax-parse (inst-types/cs #'Xs #'cs #'tyX_args)
         [(τ_in ... τ_out) ; concrete types
@@ -449,6 +393,7 @@
          #:fail-unless (stx-length=? #'(τ_in ...) #'e_args)
                        (mk-app-err-msg #'this-app #:expected #'(τ_in ...)
                         #:note "Wrong number of arguments.")
+          #:with (unsolved-X ...) (find-free-Xs #'Xs* #'τ_out)
          ;; ) compute argument types; re-use args expanded during solve
          #:with ([e_arg2- τ_arg2] ...) (let ([n (stx-length #'(e_arg1- ...))])
                                         (infers+erase 
@@ -484,10 +429,11 @@
       ;; handle type class constraints ----------------------------------------
       [(~=> TCX ... (~ext-stlc:→ . tyX_args))
        ;; ) solve for type variables Xs
-       (define/with-syntax ((e_arg1- ...) (unsolved-X ...) cs) (solve #'Xs #'tyX_args #'this-app))
+       (define/with-syntax ((e_arg1- ...) Xs* cs) (solve #'Xs #'tyX_args #'this-app))
        ;; ) instantiate polymorphic function type
        (syntax-parse (inst-types/cs #'Xs #'cs #'((TCX ...) tyX_args))
          [((TC ...) (τ_in ... τ_out)) ; concrete types
+          #:with (unsolved-X ...) (find-free-Xs #'Xs* #'τ_out)
           #:with (~TCs ([generic-op ty-concrete-op] ...) ...) #'(TC ...)
           #:with (op ...)
                  (stx-appendmap
