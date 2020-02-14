@@ -2,3 +2,5 @@ Revision history for turnstile-test
 
 0.6 (2020-02-14)
 - delete mlish tests (moved into its own repo)
+0.7 (2020-02-14)
+- move optimized examples to their own directory

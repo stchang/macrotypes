@@ -81,23 +81,23 @@
 (define-typed-syntax #%datum
   [(_ . b:boolean) ≫
    --------
-   [⊢ (quote b) ⇒ #,Bool+]]
+   [⊢ (quote- b) ⇒ #,Bool+]]
   [(_ . s:str) ≫
    --------
-   [⊢ (quote s) ⇒ #,String+]]
+   [⊢ (quote- s) ⇒ #,String+]]
   [(_ . f) ≫
    #:when (flonum? (syntax-e #'f))
    --------
-   [⊢ (quote f) ⇒ #,Float+]]
+   [⊢ (quote- f) ⇒ #,Float+]]
   [(_ . c:char) ≫
    --------
-   [⊢ (quote c) ⇒ #,Char+]]
+   [⊢ (quote- c) ⇒ #,Char+]]
   [(_ . x) ≫
    --------
    [≻ (stlc+lit:#%datum . x)]])
 
 (define-typed-syntax (and e ...) ≫
-  [⊢ e ≫ e- ⇐ Bool] ...
+  [⊢ e ≫ e- ⇐ #,Bool+] ...
   --------
   [⊢ (and- e- ...) ⇒ #,Bool+])
 

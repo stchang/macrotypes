@@ -18,24 +18,20 @@
 ;; - define (values and functions)
 ;; - define-type-alias
 
-(provide define-type-alias
-         (for-syntax current-join) ⊔
+(provide define #%datum and or if begin let let* letrec
          (type-out Bool String Float Char Unit)
-         zero? =
-         (rename-out [typed- -] [typed* *])
-         (typed-out/unsafe [add1 (→ Int Int)]
+         define-type-alias
+         (typed-out [add1 (→ Int Int)]
                     [sub1 : (→ Int Int)]
-                    [[not- (→ Bool Bool)] not]
-                    [[void- : (→ Unit)] void])
-         define #%datum and or if begin let let* letrec)
+                    [not : (→ Bool Bool)]
+                    [void : (→ Unit)]
+                    [zero? : (→ Int Bool)]
+                    [= : (→ Int Int Bool)]
+                    [- : (→ Int Int Int)]
+                    [* : (→ Int Int Int)])
+         (for-syntax current-join) ⊔)
 
 (define-base-types Bool String Float Char Unit)
-
-;; test all variations of define-primop and typed-out
-(define-primop/unsafe zero? (→ Int Bool))
-(define-primop/unsafe = : (→ Int Int Bool))
-(define-primop/unsafe typed- - (→ Int Int Int))
-(define-primop/unsafe typed* * : (→ Int Int Int))
 
 (define-for-syntax (make-type-alias-transformer xs ty)
   (syntax-parser
@@ -51,47 +47,35 @@
          (make-variable-like-transformer #'τ))]
     [(_ (f:id x:id ...) ty)
      #:fail-when (stx-contains-id? #'ty #'f) "cannot have self-reference"
-     #'(define-syntax f (make-type-alias-transformer #'(x ...) #'ty))]))
+     #'(define-syntax f
+         (make-type-alias-transformer #'(x ...) #'ty))]))
 
 (define-typed-syntax define
   [(_ x:id (~datum :) τ:type e:expr) ≫
-   ;[⊢ e ≫ e- ⇐ τ.norm]
-   #:with x- (generate-temporary #'x)
    --------
-   [≻ (begin-
-        (define-typed-variable-rename x ≫ x- : τ.norm)
-        (define- x- (ann e : τ.norm)))]]
+   [≻ (define-typed-variable x e ⇐ τ)]]
   [(_ x:id e) ≫
-   ;This won't work with mutually recursive definitions
-   [⊢ e ≫ e- ⇒ τ]
-   #:with y (generate-temporary #'x)
    --------
-   [≻ (begin-
-        (define-syntax x (make-rename-transformer (transfer-props #'e- (assign-type #'y #'τ #:wrap? #f))))
-        (define- y e-))]]
+   [≻ (define-typed-variable x e)]]
   [(_ (f [x (~datum :) ty] ... (~or (~datum →) (~datum ->)) ty_out) e ...+) ≫
-   #:with f- (add-orig (generate-temporary #'f) #'f)
    --------
-   [≻ (begin-
-        (define-typed-variable-rename f ≫ f- : (→ ty ... ty_out))
-        (define- f-
-          (stlc+lit:λ ([x : ty] ...)
-            (stlc+lit:ann (begin e ...) : ty_out))))]])
+   [≻ (define-typed-variable f
+        (stlc+lit:λ ([x : ty] ...) (begin e ...)) ⇐ (→ ty ... ty_out))]])
 
 (define-typed-syntax #%datum
   [(_ . b:boolean) ≫
    --------
-   [⊢ (quote b) ⇒ #,Bool+]]
+   [⊢ (#%datum- . b) ⇒ Bool]]
   [(_ . s:str) ≫
    --------
-   [⊢ (quote s) ⇒ #,String+]]
+   [⊢ (#%datum- . s) ⇒ String]]
   [(_ . f) ≫
    #:when (flonum? (syntax-e #'f))
    --------
-   [⊢ (quote f) ⇒ #,Float+]]
+   [⊢ (#%datum- . f) ⇒ Float]]
   [(_ . c:char) ≫
    --------
-   [⊢ (quote c) ⇒ #,Char+]]
+   [⊢ (#%datum- . c) ⇒ Char]]
   [(_ . x) ≫
    --------
    [≻ (stlc+lit:#%datum . x)]])
@@ -99,12 +83,12 @@
 (define-typed-syntax (and e ...) ≫
   [⊢ e ≫ e- ⇐ Bool] ...
   --------
-  [⊢ (and- e- ...) ⇒ #,Bool+])
+  [⊢ (and- e- ...) ⇒ Bool])
 
 (define-typed-syntax (or e ...) ≫
-  [⊢ e ≫ e- ⇐ #,Bool+] ...
+  [⊢ e ≫ e- ⇐ Bool] ...
   --------
-  [⊢ (or- e- ...) ⇒ #,Bool+])
+  [⊢ (or- e- ...) ⇒ Bool])
 
 (begin-for-syntax 
   (define current-join 
@@ -154,12 +138,12 @@
    [⊢ e ≫ e- ⇒ : τ_x] ...
    [[x ≫ x- : τ_x] ... ⊢ (begin e_body ...) ≫ e_body- ⇐ τ_expected]
    --------
-   [⊢ (let-values- ([(x-) e-] ...) e_body-)]]
+   [⊢ (let- ([x- e-] ...) e_body-)]]
   [(_ ([x e] ...) e_body ...) ≫
    [⊢ e ≫ e- ⇒ : τ_x] ...
    [[x ≫ x- : τ_x] ... ⊢ (begin e_body ...) ≫ e_body- ⇒ τ_body]
    --------
-   [⊢ (let-values- ([(x-) e-] ...) e_body-) ⇒ τ_body]])
+   [⊢ (let- ([x- e-] ...) e_body-) ⇒ τ_body]])
 
 ; dont need to manually transfer expected type
 ; result template automatically propagates properties
@@ -178,11 +162,11 @@
    [[b.x ≫ x- : b.type] ...
     ⊢ [e ≫ e- ⇐ b.type] ... [(begin e_body ...) ≫ e_body- ⇐ τ_expected]]
    --------
-   [⊢ (letrec-values- ([(x-) e-] ...) e_body-)]]
+   [⊢ (letrec- ([x- e-] ...) e_body-)]]
   [(_ ([b:type-bind e] ...) e_body ...) ≫
    [[b.x ≫ x- : b.type] ...
     ⊢ [e ≫ e- ⇐ b.type] ... [(begin e_body ...) ≫ e_body- ⇒ τ_body]]
    --------
-   [⊢ (letrec-values- ([(x-) e-] ...) e_body-) ⇒ τ_body]])
+   [⊢ (letrec- ([x- e-] ...) e_body-) ⇒ τ_body]])
 
 

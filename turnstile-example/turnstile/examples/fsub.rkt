@@ -16,7 +16,7 @@
 ;; - extend current-sub? to call expose
 
 (provide <: ∀
-         (typed-out/unsafe [+ : (→ Nat Nat Nat)])
+         (typed-out [+ : (→ Nat Nat Nat)])
          (rename-out [typed-app #%app])
          Λ inst proj)
 
@@ -34,7 +34,10 @@
   (define stlc:sub? (current-sub?))
   (define (sub? t1 t2) (stlc:sub? (expose t1) t2))
   (current-sub? sub?)
-  (current-typecheck-relation sub?))
+  (current-typecheck-relation sub?)
+
+  (define-template-metafunction $⇑
+    (syntax-parser [(_ e t) (assign-type #'e (expose #'t) #:eval? #f)])))
 
 ; quasi-kind, but must be type constructor because its arguments are types
 (define-type-constructor <: #:arity >= 0) 
@@ -52,7 +55,7 @@
 (define-typed-syntax (∀ ([tv:id (~datum <:) τ:type] ...) τ_body) ≫
   --------
   ; eval first to overwrite the old #%type
-  [⊢ #,((current-type-eval) #'(sysf:∀ (tv ...) τ_body)) ⇒ (<: τ.norm ...)])
+  [⊢ ($ev (sysf:∀ (tv ...) τ_body)) ⇒ (<: τ.norm ...)])
 (begin-for-syntax
   (define-syntax ~∀
     (pattern-expander
@@ -88,21 +91,18 @@
 (define-typed-syntax (inst e τ:type ...) ≫
   [⊢ e ≫ e- ⇒ (~∀ ([tv <: τ_sub] ...) τ_body)]
   [τ.norm τ⊑ τ_sub #:for τ] ...
-  #:with τ_inst (substs #'(τ.norm ...) #'(tv ...) #'τ_body)
   --------
-  [⊢ e- ⇒ τ_inst])
+  [⊢ e- ⇒ ($substs (τ.norm ...) (tv ...) τ_body)])
 
 ;; ------------------------------------------------------------
 ;; must override the following rules, to insert current-expose
 
 (define-typed-syntax (typed-app e_fn . args) ≫
   [⊢ e_fn ≫ e_fn- ⇒ τ_fn]
-  #:with e_fn-/exposed (assign-type #'e_fn- (expose #'τ_fn) #:eval? #f)
   -----------------------
-  [≻ (stlc+reco+sub:#%app e_fn-/exposed . args)])
+  [≻ (stlc+reco+sub:#%app ($⇑ e_fn- τ_fn) . args)])
 
 (define-typed-syntax (proj e_rec . args) ≫
   [⊢ e_rec ≫ e_rec- ⇒ τ_e]
-  #:with e_rec-/exposed (assign-type #'e_rec- (expose #'τ_e) #:eval? #f)
   -----------
-  [≻ (stlc+reco+sub:proj e_rec-/exposed . args)])
+  [≻ (stlc+reco+sub:proj ($⇑ e_rec- τ_e) . args)])

@@ -83,8 +83,9 @@
 (define-typed-syntax (inst e τ:any-type ...) ≫
   [⊢ e ≫ e- ⇒ (~∀ tvs τ_body) (⇒ :: (~∀★ k ...))]
   [⊢ τ ≫ _ ⇐ :: k] ...
+  #:with τ_out ((current-type-eval) (substs #'(τ.norm ...) #'tvs #'τ_body))
   --------
-  [⊢ e- ⇒ ($ev ($substs (τ.norm ...) tvs τ_body))])
+  [⊢ e- ⇒ τ_out])
 
 ;; - see fomega2.rkt for example with no explicit tyλ and tyapp
 (define-kinded-syntax (tyλ bvs:kind-ctx τ_body) ≫
@@ -93,7 +94,7 @@
   #:fail-unless ((current-kind?) #'k_body) ; better err, in terms of τ_body
                 (format "not a valid type: ~a\n" (type->str #'τ_body))
   --------
-  [⊢ (λ- (tv- ...) τ_body-) ⇒ (⇒ bvs.kind ... k/tagged)])
+  [⊢ (λ- (tv- ...) τ_body-) ⇒ #,(mk-⇒- #'(bvs.kind ... k/tagged))])
 
 (define-kinded-syntax (tyapp τ_fn τ_arg ...) ≫
   [⊢ τ_fn ≫ τ_fn- ⇒ (~⇒ k_in ... k_out)]

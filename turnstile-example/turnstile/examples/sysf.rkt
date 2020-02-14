@@ -27,6 +27,6 @@
   [(_ e τ:type ...) ≫
    [⊢ e ≫ e- ⇒ (~∀ tvs τ_body)]
    --------
-   [⊢ e- ⇒ #,(substs #'(τ.norm ...) #'tvs #'τ_body)]]
+   [⊢ e- ⇒ ($substs (τ.norm ...) tvs τ_body)]]
   [(_ e) ≫ --- [≻ e]])
 

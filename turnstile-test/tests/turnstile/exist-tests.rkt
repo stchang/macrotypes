@@ -189,7 +189,7 @@
  #:with-msg
  "Expected ∃ type, got: Int")
 
-;; previous tets from stlc+reco+var-tests.rkt ---------------------------------
+;; previous tests from stlc+reco+var-tests.rkt ---------------------------------
 ;; define-type-alias
 (define-type-alias Integer Int)
 (define-type-alias ArithBinOp (→ Int Int Int))

@@ -107,15 +107,16 @@
 (define-typed-syntax (inst e τ:any-type ...) ≫
   [⊢ e ≫ e- ⇒ (~∀ (tv ...) τ_body) (⇒ :: (~∀★ k ...))]
   [⊢ τ ≫ _ ⇐ :: k] ...
+  #:with τ_out ((current-type-eval) (substs #'(τ.norm ...) #'(tv ...) #'τ_body))
   --------
-  [⊢ e- ⇒ ($ev ($substs (τ.norm ...) (tv ...) τ_body))])
+  [⊢ e- ⇒ τ_out])
 
 ;; extend λ to also work as a type
 (define-kinded-syntax λ
   [(_ bvs:kind-ctx τ) ≫                 ; type
    [[bvs.x ≫ X- :: bvs.kind] ... ⊢ τ ≫ τ- ⇒ k_res]
    ------------
-   [⊢ (λ- (X- ...) τ-) ⇒ (→ bvs.kind ... k_res)]]
+   [⊢ (λ- (X- ...) τ-) ⇒ #,(mk-kind (mk-→- #'(bvs.kind ... k_res)))]]
   [(_ . rst) ≫ --- [≻ (sysf:λ . rst)]]) ; term
 
 ;; extend #%app to also work as a type

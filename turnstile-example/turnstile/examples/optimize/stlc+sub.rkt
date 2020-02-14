@@ -31,13 +31,13 @@
 (define-typed-syntax #%datum
   [(_ . n:nat) ≫
    --------
-   [⊢ (#%datum- . n) ⇒ #,Nat+]]
+   [⊢ (quote- n) ⇒ #,Nat+]]
   [(_ . n:integer) ≫
    --------
-   [⊢ (#%datum- . n) ⇒ Int]] ; instantiate linklet err with Int+
+   [⊢ (quote- n) ⇒ #,Int+]] ; instantiate linklet err with Int+ (2020-02-14: fixed)
   [(_ . n:number) ≫
    --------
-   [⊢ (#%datum- . n) ⇒ #,Num+]]
+   [⊢ (quote- n) ⇒ #,Num+]]
   [(_ . x) ≫
    --------
    [≻ (ext:#%datum . x)]])

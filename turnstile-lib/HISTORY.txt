@@ -57,3 +57,6 @@ Revision history for turnstile-lib
 
 0.5.1 (2020-02-02)
 - support template metafns (like $subst)
+
+0.5.2 (2020-02-14)
+- add $ev metafn

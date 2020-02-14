@@ -1412,4 +1412,6 @@
     (syntax-parser [(_ v x e) (subst #'v #'x #'e)]))
   (define-template-metafunction $substs
     (syntax-parser [(_ vs xs es) (substs #'vs #'xs #'es)]))
+  (define-template-metafunction $ev
+    (syntax-parser [(_ t) ((current-type-eval) #'t)]))
   ) ;; (end begin-for-syntax)

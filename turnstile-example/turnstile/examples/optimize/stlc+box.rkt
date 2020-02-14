@@ -16,16 +16,16 @@
 (define-typed-syntax (ref e) ≫
   [⊢ e ≫ e- ⇒ τ]
   --------
-  [⊢ (box- e-) ⇒ (Ref τ)])
+  [⊢ (#%plain-app- box- e-) ⇒ #,(mk-Ref- #'(τ))])
 
 (define-typed-syntax (deref e) ≫
   [⊢ e ≫ e- ⇒ (~Ref τ)]
   --------
-  [⊢ (unbox- e-) ⇒ τ])
+  [⊢ (#%plain-app- unbox- e-) ⇒ τ])
 
 (define-typed-syntax (:= e_ref e) ≫
   [⊢ e_ref ≫ e_ref- ⇒ (~Ref τ)]
   [⊢ e ≫ e- ⇐ τ]
   --------
-  [⊢ (set-box!- e_ref- e-) ⇒ Unit])
+  [⊢ (#%plain-app- set-box!- e_ref- e-) ⇒ #,Unit+])
 

@@ -15,8 +15,7 @@
 
 (define-typed-syntax (pack (τ:type e) as ∃τ:type) ≫
   #:with (~∃ (τ_abstract) τ_body) #'∃τ.norm
-  #:with τ_e (subst #'τ.norm #'τ_abstract #'τ_body)
-  [⊢ e ≫ e- ⇐ τ_e]
+  [⊢ e ≫ e- ⇐ ($subst τ.norm τ_abstract τ_body)]
   --------
   [⊢ e- ⇒ ∃τ.norm])
 
@@ -66,8 +65,9 @@
    ;;
 
   [⊢ e_packed ≫ e_packed- ⇒ (~∃ (Y) τ_body)]
-  [[X ≫ X- :: #%type] [x ≫ x- : #,(subst #'X #'Y #'τ_body)] ⊢ e ≫ e- ⇒ τ_e]
+  [[X ≫ X- :: #%type] [x ≫ x- : ($subst X Y τ_body)] ⊢ e ≫ e- ⇒ τ_e]
   #:with τ_e_checked
+  ;; dont allow X to escape
   (let ([ctx (syntax-local-make-definition-context)])
     (syntax-local-bind-syntaxes
       (list #'X-)

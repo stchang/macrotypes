@@ -11,7 +11,7 @@
 ;; - prim +
 
 (provide (type-out Int)
-         (typed-out/unsafe [+ : (→ Int Int Int)])
+         (typed-out [+ : (→ Int Int Int)])
          #%datum)
 
 (define-base-type Int)
@@ -19,7 +19,7 @@
 (define-typed-syntax #%datum
   [(_ . n:integer) ≫
    --------
-   [⊢ (quote n) ⇒ #,Int+]]
+   [⊢ (#%datum- . n) ⇒ Int]]
   [(_ . x) ≫
    --------
    [#:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])

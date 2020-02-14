@@ -2,3 +2,5 @@ Revision history for turnstile-example
 
 0.6 (2020-02-14)
 - delete mlish (moved into its own repo)
+0.7 (2020-02-14)
+- move examples with optimizations to their own directory

@@ -22,7 +22,7 @@
 
 (provide (for-syntax subs? current-sub?)
          (type-out Top Num Nat)
-         (typed-out/unsafe [+ : (→ Num Num Num)]
+         (typed-out [+ : (→ Num Num Num)]
                     [* : (→ Num Num Num)])
          #%datum)
 
@@ -31,13 +31,13 @@
 (define-typed-syntax #%datum
   [(_ . n:nat) ≫
    --------
-   [⊢ (#%datum- . n) ⇒ #,Nat+]]
+   [⊢ (#%datum- . n) ⇒ Nat]]
   [(_ . n:integer) ≫
    --------
    [⊢ (#%datum- . n) ⇒ Int]] ; instantiate linklet err with Int+
   [(_ . n:number) ≫
    --------
-   [⊢ (#%datum- . n) ⇒ #,Num+]]
+   [⊢ (#%datum- . n) ⇒ Num]]
   [(_ . x) ≫
    --------
    [≻ (ext:#%datum . x)]])

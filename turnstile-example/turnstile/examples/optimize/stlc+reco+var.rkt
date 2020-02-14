@@ -1,6 +1,6 @@
 #lang turnstile/base
 (extends "stlc+tup.rkt" #:except × ×? tup proj ~×)
-(require (only-in "stlc+tup.rkt" [~× ~stlc:×])
+(require (only-in "stlc+tup.rkt" [~× ~stlc:×] mk-×-)
          (for-meta 2 racket/base syntax/parse)
          (postfix-in - racket/bool))
 
@@ -22,7 +22,7 @@
   (syntax-parser #:datum-literals (:)
     [(_ [label:id : τ:type] ...)
      #:with (valid-τ ...) (stx-map mk-type #'(('label τ.norm) ...))
-     #`(stlc+tup:× valid-τ ...)]))
+     (mk-×- #'(valid-τ ...))]))
 (begin-for-syntax
   (define-syntax ~×
     (pattern-expander
@@ -60,7 +60,7 @@
 (define-typed-syntax (tup [l:id (~datum =) e] ...) ≫
   [⊢ e ≫ e- ⇒ τ] ...
   --------
-  [⊢ (list- (list- 'l e-) ...) ⇒ (× [l : τ] ...)])
+  [⊢ (#%plain-app- list- (#%plain-app- list- 'l e-) ...) ⇒ (× [l : τ] ...)])
 (define-typed-syntax (proj e_rec l:id) ≫
   [⊢ e_rec ≫ e_rec- ⇒ τ_e]
   #:fail-unless (×? #'τ_e)
@@ -68,7 +68,7 @@
           (syntax->datum #'e_rec) (type->str #'τ_e))
   #:with τ_l (×-ref #'τ_e #'l)
   --------
-  [⊢ (cadr- (assoc- 'l e_rec-)) ⇒ τ_l])
+  [⊢ (#%plain-app- cadr- (#%plain-app- assoc- 'l e_rec-)) ⇒ τ_l])
 
 (define-type-constructor ∨/internal #:arity >= 0)
 
@@ -78,7 +78,7 @@
     [(∨ (~and [label:id : τ:type] x) ...)
      #:when (> (stx-length #'(x ...)) 0)
      #:with (valid-τ ...) (stx-map mk-type #'(('label τ.norm) ...))
-     #'(∨/internal valid-τ ...)]
+     (mk-∨/internal- #'(valid-τ ...))]
     [any
      (type-error #:src #'any
                  #:msg (string-append
@@ -127,7 +127,7 @@
                    this-syntax)))
    [⊢ e ≫ e- ⇐ τ_e]
    --------
-   [⊢ (list- 'l e-)]])
+   [⊢ (#%plain-app- list- 'l e-)]])
 
 (define-typed-syntax (case e [l:id x:id (~datum =>) e_l] ...) ≫
   #:fail-unless (not (null? (syntax->list #'(l ...)))) "no clauses"
@@ -136,6 +136,7 @@
   #:fail-unless (typechecks? #'(l ...) #'(l_x ...)) "case clauses not exhaustive"
   [[x ≫ x- : τ_x] ⊢ e_l ≫ e_l- ⇒ τ_el] ...
   --------
-  [⊢ (let- ([l_e (car- e-)])
-           (cond- [(symbol=?- l_e 'l) (let- ([x- (cadr- e-)]) e_l-)] ...))
+  [⊢ (let-values- ([(l_e) (#%plain-app- car- e-)])
+       (cond- [(symbol=?- l_e 'l)
+               (let-values- ([(x-) (#%plain-app- cadr- e-)]) e_l-)] ...))
      ⇒ (⊔ τ_el ...)])

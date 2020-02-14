@@ -20,15 +20,15 @@
    #:when (stx-length=? #'[e ...] #'[τ ...])
    [⊢ e ≫ e- ⇐ τ] ...
    --------
-   [⊢ (list- e- ...)]]
+   [⊢ (#%plain-app- list- e- ...)]]
   [(_ e ...) ≫
    [⊢ e ≫ e- ⇒ τ] ...
    --------
-   [⊢ (list- e- ...) ⇒ (× τ ...)]])
+   [⊢ (#%plain-app- list- e- ...) ⇒ #,(mk-×- #'(τ ...))]])
 
 (define-typed-syntax (proj e_tup n:nat) ≫
   [⊢ e_tup ≫ e_tup- ⇒ (~× τ ...)]
   #:fail-unless (< (syntax-e #'n) (stx-length #'[τ ...])) "index too large"
   --------
-  [⊢ (list-ref- e_tup- n) ⇒ #,(stx-list-ref #'[τ ...] (syntax-e #'n))])
+  [⊢ (#%plain-app- list-ref- e_tup- n) ⇒ #,(stx-list-ref #'[τ ...] (syntax-e #'n))])
 
