@@ -11,4 +11,4 @@
 (define pkg-desc "Example languages for \"turnstile\".")
 (define pkg-authors '(stchang))
 
-(define version "0.5")
+(define version "0.6")

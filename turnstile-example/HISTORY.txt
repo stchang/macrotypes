@@ -1,0 +1,4 @@
+Revision history for turnstile-example
+
+0.6 (2020-02-14)
+- delete mlish (moved into its own repo)
