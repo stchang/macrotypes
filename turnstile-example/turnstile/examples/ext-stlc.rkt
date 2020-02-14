@@ -50,6 +50,7 @@
      #'(define-syntax- alias
          (make-variable-like-transformer #'τ))]
     [(_ (f:id x:id ...) ty)
+     #:fail-when (stx-contains-id? #'ty #'f) "cannot have self-reference"
      #'(define-syntax f (make-type-alias-transformer #'(x ...) #'ty))]))
 
 (define-typed-syntax define
