@@ -1351,6 +1351,7 @@
     (pattern-expander
      (syntax-parser
        [(_ tycons bvs . rst)
+        #:with ty (generate-temporary)
         #'(~and ty
                 (~parse
                  ((~literal #%plain-app) tycons
@@ -1366,6 +1367,7 @@
     (pattern-expander
      (syntax-parser
        [(_ lit:id fail-msg:expr stx)
+        #:with actual (generate-temporary)
         #'(~and actual
                 (~parse
                  (~fail #:unless (and (#%plain-app identifier? #'actual)
