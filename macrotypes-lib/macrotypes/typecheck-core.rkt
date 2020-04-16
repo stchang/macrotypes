@@ -99,7 +99,7 @@
     [(_ v:id (~datum ≫) v-:id (~datum :) τ)
      #'(define-syntax v
          (make-variable-like-transformer
-           (add-orig (assign-type #'v- #`τ #:wrap? #f) #'v)))]))
+           (add-orig ((current-var-assign) #'v #'v- #': ((current-type-eval) #`τ)) #'v)))]))
 
 ;; need options for
 ;; - pass through
