@@ -8,6 +8,7 @@
          (rename-out [define-typed-syntax define-typerule]
                      [define-typed-syntax define-syntax/typecheck])
          (for-syntax syntax-parse/typecheck syntax-parser/typecheck
+                     current-⇐-check
                      ~typecheck ~⊢
                      (rename-out
                       [syntax-parse/typecheck syntax-parse/typed-syntax])
@@ -113,6 +114,12 @@
       (raise-syntax-error '≻
        "≻ operator may only be used within Turnstile forms, e.g., `define-typed-syntax`")))
 
+  (define (⇐-check e tag)
+    (define τ-exp (get-expected-type e))
+    (define τ-tmp (detach/check e tag))
+    (not (check? τ-tmp τ-exp)))
+  (define current-⇐-check (make-parameter ⇐-check))
+  
   (begin-for-syntax
 
   (define-syntax-class --- #:description "conclusion line dashes"
@@ -180,6 +187,7 @@
                     (if (equal? (syntax->datum #'tag) (syntax-parameter-value #'current-tag-stx))
                         #'(checked-type-eval tag-expr-body)
                         #'tag-expr-body)])
+       
   (define-syntax-class ⇐-prop
     #:literals (⇐) #:attributes (tag tag-stx e-pat)
     [pattern (~or (⇐ tag-stx ; implicit tag
@@ -200,7 +208,8 @@
                          ;; but why does removing it produce "bad syntax" in some cases?
                          (~parse
                           (~post
-                           (~fail #:when (and (not (check? #'τ-tmp #'τ-exp))
+                           (~fail #:when ((current-⇐-check) #'e-tmp `tag)
+                                  #;(and (not (check? #'τ-tmp #'τ-exp))
                                               #;(get-orig #'e-tmp))
                                   (typecheck-fail-msg/1 #'τ-exp #'τ-tmp #'e-tmp)))
                           (get-orig #'e-tmp)))
