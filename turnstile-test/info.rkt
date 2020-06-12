@@ -4,6 +4,7 @@
 
 (define deps
   '(("base" #:version "7.0")
+    ("turnstile-lib" #:version "0.5.3")
     ("turnstile-example" #:version "0.7")
     ("rackunit-macrotypes-lib" #:version "0.3.1")))
 

@@ -60,3 +60,6 @@ Revision history for turnstile-lib
 
 0.5.2 (2020-02-14)
 - add $ev metafn
+
+0.5.3 (2020-06-12)
+- define-generic-type-method: handle unimplemented methods

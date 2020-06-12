@@ -61,7 +61,15 @@
     (and tyrule
          (typerule-transformer? tyrule)
          (dict-has-key? (typerule-transformer-methods tyrule) meth)))
+
+  (struct exn:fail:type:generic exn:fail:user ())
   
+  ;; Two sets of methods may be associated with a type:
+  ;; 1) those for processing surface type
+  ;;   - define this one by passing #:unexpanded to define-generic-type-method
+  ;;   - eg pat->ctxt for extracting patvars
+  ;; 2) those for processing the internal, ie normalized, type representation
+  ;;   - eg, match-info, resugar-type
   (define-syntax define-generic-type-method
     (syntax-parser
       [(_ (name arg0 other-arg ...) #:unexpanded)
@@ -71,12 +79,24 @@
               ((dict-ref (typerule-transformer-methods (syntax-local-value #'C)) #'name)
                arg0 other-arg ...)]))]
       [(_ name)
+       #:with mk-nometh-exn #'(λ (ty)
+                                (exn:fail:type:generic
+                                 (format "Type ~a does not implement method: ~a"
+                                         (syntax->datum ty) (syntax->datum #'name))
+                                 (current-continuation-marks)))
        #'(define name
            (syntax-parser
              [(_ (~var TY+ id) . _)
-              (dict-ref (get-dict #'TY+) #'name)]))]))
+              (dict-ref (get-dict #'TY+) #'name (λ () (raise (mk-nometh-exn #'TY+))))]
+             [_ (raise (mk-nometh-exn this-syntax))]))]
+      [(_ name #:default default)
+       #'(define name
+           (syntax-parser
+             [(_ (~var TY+ id) . _)
+              (dict-ref (get-dict #'TY+) #'name default)]
+             [_ default]))]))
 
-  (define-generic-type-method get-datatype-def)
+  (define-generic-type-method get-datatype-def #:default #f)
   (define-generic-type-method get-resugar-info)
   (define-generic-type-method get-unexpand-info)
 
