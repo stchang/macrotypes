@@ -31,12 +31,7 @@
                  tyrule
                  (make-free-id-table (hash (~@ #'m v) ...)))]))])) ; wrap each meth name with #'
 
-  ;; backwards compat wrappers
-  ;; TODO: eventually delete these
-  ;; - type-info
-
   ;; assorted phase 1 info for types
-  ;; match: for pattern matching, analogous to Racket struct-info
   ;; resugar: fn that resugars an elaborated type to surface stx
   ;; unexpand: fn that unexpands an elaborated type to surface stx
   ;; - `resugar` can be more aggressive than `unexpand`,
@@ -45,27 +40,21 @@
   ;  (struct type-info (match resugar unexpand) #:omit-define-syntaxes)
   (define-syntax type-info ; for backwards compat
     (syntax-parser
-      [(_ #;match-fn resugar-fn unexpand-fn (~seq name val) ...)
+      [(_ resugar-fn unexpand-fn (~seq other-meth-name val) ...)
        #`(make-free-id-table
-          (hash ;#'get-datatype-def match-fn
-                #'get-resugar-info resugar-fn
+          (hash #'get-resugar-info resugar-fn
                 #'get-unexpand-info unexpand-fn
-                (~@ #'name val) ... ; wrap each name with "#'"
+                (~@ #'other-meth-name val) ... ; wrap each meth name with "#'"
                 ))]))
 
   ;; TODO: can this be syntax-local-value?
   (define (get-dict ty-id) (eval-syntax ty-id))
 
-  (define (has-method? C meth)
-    (define tyrule (syntax-local-value C (λ () #f)))
-    (and tyrule
-         (typerule-transformer? tyrule)
-         (dict-has-key? (typerule-transformer-methods tyrule) meth)))
-
   (struct exn:fail:type:generic exn:fail:user ())
   
   ;; Two sets of methods may be associated with a type:
   ;; 1) those for processing surface type
+  ;;   - these are the methods in typerule-transformer
   ;;   - define this one by passing #:unexpanded to define-generic-type-method
   ;;   - eg pat->ctxt for extracting patvars
   ;; 2) those for processing the internal, ie normalized, type representation
@@ -96,42 +85,24 @@
               (dict-ref (get-dict #'TY+) #'name default)]
              [_ default]))]))
 
-  (define-generic-type-method get-datatype-def #:default #f)
+  ;; everything defined with define-type automatically has these methods
   (define-generic-type-method get-resugar-info)
   (define-generic-type-method get-unexpand-info)
 
-  
-  ;; queries whether stx has associated type info
-  (define has-type-info?
-    (syntax-parser
-      [(_ TY+:id . _) (with-handlers ([exn? (λ _ #f)]) (dict? (eval-syntax #'TY+)))]
-      [_ #f]))
-
-  ;; get-type-info: consumes expanded type with shape (#%plain-app TY:id . rst)
-  ;; - returns info useful for pattern matching
-  (define get-match-info get-datatype-def) ; backwards compat
-#;  (define get-match-info
-    (syntax-parser
-      [(_ TY+:id . _)
-       (dict-ref (eval-syntax #'TY+) #'get-match-info)]))
-
-  ;; get-resugar-info: consumes expanded type with shape (#%plain-app TY:id . rst)
-  ;; - returns resugar fn for the type
-#;  (define get-resugar-info
-    (syntax-parser
-      [(_ TY+:id . _)
-       (dict-ref (eval-syntax #'TY+) #'get-resugar-info)
-       #;(type-info-resugar (eval-syntax #'TY+))]
-      [_ #f]))
-
-  ;; get-unexpand-info: consumes expanded type with shape (#%plain-app TY:id . rst)
-  ;; - returns unexpand fn for the type
-#;  (define get-unexpand-info
-    (syntax-parser
-      [(_ TY+:id . _)
-       (dict-ref (eval-syntax #'TY+) #'get-unexpand-info)
-       #;(type-info-unexpand (eval-syntax #'TY+))]
-      [_ #f]))
+  ;; this function checks both surface and internal methods
+  (define (has-method? C-or-ty meth)
+    (or (and (identifier? C-or-ty)
+             (let ([tyrule (syntax-local-value C-or-ty (λ () #f))]) ; first assume given surface C
+               (and (typerule-transformer? tyrule)
+                    (dict-has-key? (typerule-transformer-methods tyrule) meth))))
+        (has-type-method? C-or-ty meth))) ; else assume given expanded ty
+  (define (has-type-method? ty meth)
+    (define maybe-meth-table 
+      (syntax-parse ty
+        [(_ TY+:id . _) (with-handlers ([exn? (λ _ #f)]) (eval-syntax #'TY+))]
+        [_ #f]))
+    (and (dict? maybe-meth-table)
+         (dict-has-key? maybe-meth-table meth)))
 
   ;; `name` is stx identifier
   (define (resugar-reflect-name name)
@@ -139,8 +110,8 @@
 
   (define ((unexpand/ctx ctx) stx) (unexpand stx #:ctx ctx))
 
-  ;; unexpand: converts stx obj to surface syntax using type-info-unexpand fn
-  ;;           if avail; ow defaults to racket app and lambda
+  ;; unexpand: converts stx obj to surface stx via get-unexpand-info fn, if avail;
+  ;;           o.w., (arg not a define-type) make best effort, e.g., racket app and lambda
   ;; If ctx = #f, returns list of stx objs, else returns stx obj with given ctx
   ;; - Cannot return stx obj without ctx bc cases like #%app might be wrong
   ;; - Note: srcloc and props, eg expected-ty, are lost if ctx=#f
@@ -150,7 +121,7 @@
     (define res-stx-lst
      (syntax-parse stx
       [TY:id #'TY]
-      [ty #:when (has-type-info? #'ty) ((get-unexpand-info #'ty) #'ty)]
+      [ty #:when (has-type-method? #'ty #'get-unexpand-info) ((get-unexpand-info #'ty) #'ty)]
       [((~and (~literal #%plain-app) app) . rst)
        #:do[(define reflect-name (syntax-property #'app 'display-as))]
        #:when (and reflect-name (stx-e reflect-name))
@@ -170,7 +141,7 @@
     (syntax-parser
 ;      [t #:when (printf "resugaring: ~a\n" (syntax->datum #'t)) #:when #f #'debug]
       [TY:id #'TY]
-      [ty #:when (has-type-info? #'ty) ((get-resugar-info #'ty) #'ty)]
+      [ty #:when (has-type-method? #'ty #'get-resugar-info) ((get-resugar-info #'ty) #'ty)]
       [((~and (~literal #%plain-app) app) . rst)
        #:do[(define reflect-name (syntax-property #'app 'display-as))]
        #:when (and reflect-name (stx-e reflect-name))
