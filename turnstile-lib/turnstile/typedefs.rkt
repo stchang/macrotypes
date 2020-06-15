@@ -11,7 +11,7 @@
  define-internal-type/new
  define-internal-binding-type/new
  define-type
- (for-syntax (all-defined-out)))
+ (for-syntax (except-out (all-defined-out) has-type-info? get-match-info)))
 
 (begin-for-syntax
   (current-use-stop-list? #f)
