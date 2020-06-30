@@ -14,8 +14,6 @@
  (for-syntax (all-defined-out)))
 
 (begin-for-syntax
-  (current-use-stop-list? #f)
-
   (struct typerule-transformer (typerule methods)
     #:property prop:procedure (struct-field-index typerule))
 
