@@ -226,6 +226,56 @@
               (syntax-parser ; unexpand
                 [(TY-expander Y ...)
                  (cons #'TY (stx-map unexpand #'(Y ...)))])
+              ei ...))))]
+    ;; rest args: duplicate a lot of the above case for prototyping simplicity
+    [(_ TY/internal (TY Y ...)
+        #:rest
+        (~optional (~seq #:implements ei ...) #:defaults ([(ei 1) '()]))
+        (~optional (~and lazy #:lazy))
+        (~optional (~seq #:arg-pattern (pat ...)))
+        )
+     #:with TY-expander (mk-~ #'TY)
+     #:with (arg-pat ...) (or (attribute pat) #'(Y ...))
+     #:with (maybe-lazy-pattern ...)
+     (if (attribute lazy)
+         (list #'((~literal TY) Y ...))
+         '())
+     #`(begin-
+         (struct- TY/internal (Y ... rst) #:transparent #:omit-define-syntaxes)
+         (begin-for-syntax
+           (define TY/internal+ (expand/df #'TY/internal))
+           (define-syntax TY-expander
+             (pattern-expander
+              (syntax-parser
+                [(_ Y ... . rst)
+                 #:with ty-to-match (generate-temporary)
+                 #'(~or
+                    maybe-lazy-pattern ...
+                    (~and ty-to-match
+                          (~parse
+                           ((~literal #%plain-app)
+                            (~and name/internal:id
+                                  (~fail
+                                   #:unless (free-id=? #'name/internal
+                                                       TY/internal+)
+                                   (format "Expected ~a type, got: ~a" 'TY
+                                           (stx->datum (resugar-type
+                                                        #'ty-to-match)))))
+                            arg-pat ... ((~literal #%plain-app) (~literal list) . rst)
+                            #;(~and rest-tys
+                                              (~parse rst
+                                                      #'rest-tys)))
+                           #'ty-to-match))
+                    )])))
+           (define TY/internal
+             (type-info
+;              #'(ei ...)     ; match info
+              (syntax-parser ; resugar fn
+                [(TY-expander Y ... . rst)
+                 (cons #'TY (stx-map resugar-type #'(Y ... . rst)))])
+              (syntax-parser ; unexpand
+                [(TY-expander Y ... . rst)
+                 (cons #'TY (stx-map unexpand #'(Y ... . rst)))])
               ei ...))))]))
 
 (define-syntax define-type
@@ -264,6 +314,42 @@
      #'(define-base-type TY : k ms.kw . ms.meths)]
     [(_ TY:id (~datum :) (~datum ->) k ms:maybe-meths)
      #'(define-base-type TY : k ms.kw . ms.meths)] ; base type
+    ;; rest args: duplicate a lot of the OG case for prototyping simplicity
+    ;; (added before the other case to correctly match)
+    [(_ TY:id (~datum :) k_out ... k_rest (~datum *) (~datum ->) k
+        ms:maybe-meths)
+     #:with (ks ...) #'(k_out ... k_rest)
+     #:with (~and (Ys ...) (Y ... Y_rest)) (generate-temporaries #'(k_out ... k_rest))
+     #:with (~and (Ytags ...) (Ytag ... Y_resttag)) (stx-map (λ _ #':) #'(Y ... Y_rest))
+     ;; TODO: need to validate k_out and k; what should be their required type?
+     ;; - it must be language agnostic?
+     #:when (syntax-parse/typecheck null 
+             [_ ≫ [⊢ [Ys ≫ _ Ytags ks ≫ _ ⇒ _] ...
+                     #;[Y_rest ≫ _ Y_resttag k_rest]  ;; TODO - not sure about this line
+                     [k ≫ _ ⇒ _]]
+                -----------------------
+                [≻ (void)]])
+     #:with (τ ... τ-rest) (generate-temporaries #'(k_out ... k_rest)) ; predefine patvars
+     #:with TY/internal (fresh #'TY)
+     #`(begin-
+         (define-syntax TY
+           (typerule-transformer
+            (syntax-parser/typecheck
+             [(_ Y ... Y_rest (... ...) ~!) ≫
+              [⊢ [Y ≫ τ ⇐ k_out] ...
+                 [Y_rest ≫ τ_rest ⇐ k_rest] (... ...)]
+              ---------------
+              [⊢ (#%plain-app TY/internal τ ... (#%plain-app list τ_rest (... ...))) ⇒ k]]
+             [bad ≫
+              -----
+              [#:error
+               (type-error #:src #'bad
+                #:msg "Improper usage of type constructor ~a: ~a, expected ~a arguments"
+                'TY
+                (stx->datum #'bad)
+                (stx-length #'(Y ...)))]])
+            (make-free-id-table (hash . ms.meths/un))))
+         (define-internal-type/new TY/internal (TY Y ...) #:rest #:implements . ms.meths))]
     [(_ TY:id (~datum :)
         ;; [Y Ytag k_out] ... is a telescope
         ;; - with careful double-use of pattern variables (Y ...) in output macro defs,
@@ -301,7 +387,9 @@
                 (stx->datum #'bad)
                 (stx-length #'(Y ...)))]])
             (make-free-id-table (hash . ms.meths/un))))
-         (define-internal-type/new TY/internal (TY Y ...) #:implements . ms.meths))]))
+         (define-internal-type/new TY/internal (TY Y ...) #:implements . ms.meths))]
+    
+    ))
 
 (define-syntax define-internal-base-type/new
   (syntax-parser
