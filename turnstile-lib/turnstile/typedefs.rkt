@@ -11,7 +11,8 @@
  define-internal-type/new
  define-internal-binding-type/new
  define-type
- (for-syntax (all-defined-out)))
+ (for-syntax (all-defined-out))
+ (for-syntax ~Any/new))
 
 (begin-for-syntax
   ;; this library does not assume a term-type distinction,
@@ -24,6 +25,20 @@
   
   (struct typerule-transformer (typerule methods)
     #:property prop:procedure (struct-field-index typerule))
+
+  ;; won't work for binding types
+  (define-syntax ~Any/new
+    (pattern-expander
+     (syntax-parser
+       [(_ tycons . rst)
+        #'((~literal #%plain-app)
+           tycons
+           (~and
+            (~or* (~seq ty (... ...) ((~literal #%plain-app) (~literal list) . more-tys))
+                  (~seq ty (... ...)))
+            (~parse rst (if (attribute more-tys)
+                            #'(ty (... ...) . more-tys)
+                            #'(ty (... ...))))))])))
 
   ;; abbrv for defining a type constructor accompanied by specific generic methods
   (define-syntax define-tycons-instance
@@ -46,7 +61,7 @@
   ;  (struct type-info (match resugar unexpand) #:omit-define-syntaxes)
   (define-syntax type-info ; for backwards compat
     (syntax-parser
-      [(_ resugar-fn unexpand-fn (~seq other-meth-name val) ...)
+      [(_ resugar-fn unexpand-fn (other-meth-name val) ...)
        #`(make-free-id-table
           (hash (~@ #'other-meth-name val) ... ; wrap each meth name with "#'"
                 #'get-resugar-info resugar-fn
@@ -168,39 +183,72 @@
 
   (current-resugar (λ (t) (format "~s" (stx->datum (resugar-type t)))))
 
-  (define-splicing-syntax-class maybe-meths #:attributes (kw meths meths/un)
-    (pattern (~seq (~and #:implements kw) m ...)
-             #:with meths #'(m ...)
+  ;; an optional sequence of method names and values, with special recognition for the
+  ;; get-resugar-info and get-unexpand-info methods
+  (define-splicing-syntax-class method-seq
+    #:attributes ([method-name 1] [method-value 1] [meths 1] [all-meths 1] resugar-meth unexpand-meth)
+    (pattern (~seq (~alt (~optional (~or* ((~literal get-resugar-info) resugar-meth)
+                                          (~seq (~literal get-resugar-info) resugar-meth)))
+                         (~optional (~or* ((~literal get-unexpand-info) unexpand-meth)
+                                          (~seq (~literal get-unexpand-info) unexpand-meth)))
+                         (method-name1:id method-value1)
+                         (~seq method-name2:id method-value2))
+                         ...)
+             ;; method-name... method-value... and meths... don't include resugar/unexpand
+             #:with (method-name ...) #'(method-name1 ... method-name2 ...)
+             #:with (method-value ...) #'(method-value1 ... method-value2 ...)
+             #:with (meths ...) #'((method-name1 method-value1) ... (method-name2 method-value2) ...)
+             #:with (all-meths ...) #'(meths ...
+                                             (~? (get-resugar-info resugar-meth))
+                                             (~? (get-unexpand-info unexpand-meth)))
+             ))
+
+  (define-splicing-syntax-class maybe-meths
+    #:attributes (kw meths meths/un)
+    (pattern (~seq (~and #:implements kw) ms:method-seq)
+             #:with meths #'(ms.all-meths ...)
              #:with meths/un #'())
-    (pattern (~seq (~and #:implements/un kw) (~seq name val) ...)
+    (pattern (~seq (~and #:implements/un kw) ms:method-seq)
              #:with meths #'()
-             #:with meths/un #'((~@ #'name val) ...)) ; wrap each name with #'
+             #:with meths/un #'((~@ #'ms.method-name ms.method-value) ...)) ; wrap each name with #'
     (pattern (~seq) #:with kw #'#:implements
              #:with meths #'()
              #:with meths/un #'()))
   )
 
+(define-for-syntax ((make-type-recognizer internal-name) ty)
+  (syntax-parse ty
+    [(~Any/new τcons . rst)
+     (free-identifier=? #'τcons internal-name)]))
+
 (define-syntax define-internal-type/new
   (syntax-parser
     [(_ TY/internal (TY Y ...)
-        (~optional (~seq #:implements ei ...) #:defaults ([(ei 1) '()]))
+        (~optional (~and rest? #:rest))
+        (~optional (~seq #:implements ms:method-seq))
         (~optional (~and lazy #:lazy))
         (~optional (~seq #:arg-pattern (pat ...)))
         )
      #:with TY-expander (mk-~ #'TY)
+     #:with TY? (mk-? #'TY)
      #:with (arg-pat ...) (or (attribute pat) #'(Y ...))
+     ;; TODO - don't know if this lazy pattern needs to be different when there's a rest list
      #:with (maybe-lazy-pattern ...)
      (if (attribute lazy)
          (list #'((~literal TY) Y ...))
          '())
+     (define Ys/.rst (if (attribute rest?)
+                         #'(Y ... . rst)
+                         #'(Y ...)))
      #`(begin-
-         (struct- TY/internal (Y ...) #:transparent #:omit-define-syntaxes)
+         (struct- TY/internal (Y ... #,@(if (attribute rest?) #'(rst) #'())) #:transparent #:omit-define-syntaxes)
          (begin-for-syntax
            (define TY/internal+ (expand/df #'TY/internal))
+           (define TY? (make-type-recognizer TY/internal+))
            (define-syntax TY-expander
              (pattern-expander
               (syntax-parser
-                [(_ Y ...)
+                [(_ #,@Ys/.rst)
                  #:with ty-to-match (generate-temporary)
                  #'(~or
                     maybe-lazy-pattern ...
@@ -210,23 +258,50 @@
                             (~and name/internal:id
                                   (~fail
                                    #:unless (free-id=? #'name/internal
-                                                       TY/internal+)
-                                   (format "Expected ~a type, got: ~a" 'TY
-                                           (stx->datum (resugar-type
-                                                        #'ty-to-match)))))
-                            arg-pat ...)
+                                                       TY/internal+)))
+                            arg-pat ...
+                            #,@(if (attribute rest?)
+                                   #'(((~literal #%plain-app) (~literal list) . rst))
+                                   #'()))
                            #'ty-to-match))
                     )])))
            (add-type-method-table! #'TY/internal
              (type-info
 ;              #'(ei ...)     ; match info
-              (syntax-parser ; resugar fn
-                [(TY-expander Y ...)
-                 (cons #'TY (stx-map resugar-type #'(Y ...)))])
-              (syntax-parser ; unexpand
-                [(TY-expander Y ...)
-                 (cons #'TY (stx-map unexpand #'(Y ...)))])
-              ei ...))))]))
+              (~? ms.resugar-meth
+                  (syntax-parser ; resugar fn
+                    [(TY-expander #,@Ys/.rst)
+                     (cons #'TY (stx-map resugar-type #'#,Ys/.rst))]))
+              (~? ms.unexpand-meth
+                  (syntax-parser ; unexpand
+                    [(TY-expander #,@Ys/.rst)
+                     (cons #'TY (stx-map unexpand #'#,Ys/.rst))]))
+              (~? (~@ ms.meths ...))))))]))
+
+(begin-for-syntax
+  (define-splicing-syntax-class kind-signature
+    #:attributes ([k_out 1] k_rest [Y 1] Y_rest [Ytag 1] Y_resttag)
+    (pattern (~seq k_out ... k_rest (~datum *))
+             #:with (Y ...) (generate-temporaries #'(k_out ...))
+             #:with Y_rest (generate-temporary #'k_rest)
+             #:with (Ytag ... Y_resttag) (stx-map (λ _ #':) #'(Y ... Y_rest)))
+    ;; [Y Ytag k_out] ... is a telescope
+    ;; - with careful double-use of pattern variables (Y ...) in output macro defs,
+    ;;   we can get the desired inst behavior without the (verbose) explicit fold
+    ;; - more specifically, we use Y ... as both the patvars here, and in
+    ;;   the (define-typerule TY) below (in the latter case, use Y instead of τ_out ...)
+    ;; - since k_out may reference Y, in the define-typerule, the k_out ... 
+    ;;   are automatically instantiated
+    (pattern (~seq [Y:id Ytag:id k_out] ...)
+             #:attr k_rest #f
+             #:attr Y_rest #f
+             #:attr Y_resttag #f)
+    (pattern (~seq k_out ...)
+             #:with (Y ...) (generate-temporaries #'(k_out ...))
+             #:with (Ytag ...) (stx-map (λ _ #':) #'(Y ...))
+             #:attr k_rest #f
+             #:attr Y_rest #f
+             #:attr Y_resttag #f)))
 
 (define-syntax define-type
   (syntax-parser
@@ -246,7 +321,7 @@
                          (~parse
                           ((~literal #%plain-app) name/internal:id)
                           #'ty-to-match)
-                         (~fail #:unless (free-id=? #'name/internal TY/internal+)))]
+                         (~fail #:unless (free-id=? (syntax-local-introduce #'name/internal) TY/internal+)))]
                 [(_ other-pat (... ...))
                  #'((~and ty-to-match
                           (~parse
@@ -257,41 +332,45 @@
          (define-syntax TY
            (syntax-parser
              [(~var _ id) #'(TY)]
-             [(_) (syntax-property #'(#%plain-app TY/internal) ': #'(#%plain-app TY/internal))])))]
+             [(_) (attach #'(#%plain-app TY/internal) ': #'(#%plain-app TY/internal))])))]
     [(_ TY:id #:with-binders . rst) (syntax/loc this-syntax (define-binding-type TY . rst))] ; binding type
     [(_ TY:id [#:bind k] . rst) (syntax/loc this-syntax (define-binding-type TY k . rst))] ; binding type
     [(_ TY:id (~datum :) k ms:maybe-meths)
      #'(define-base-type TY : k ms.kw . ms.meths)]
     [(_ TY:id (~datum :) (~datum ->) k ms:maybe-meths)
      #'(define-base-type TY : k ms.kw . ms.meths)] ; base type
-    [(_ TY:id (~datum :)
-        ;; [Y Ytag k_out] ... is a telescope
-        ;; - with careful double-use of pattern variables (Y ...) in output macro defs,
-        ;;   we can get the desired inst behavior without the (verbose) explicit fold
-        ;; - more specifically, we use Y ... as both the patvars here, and in
-        ;;   the (define-typerule TY) below (in the latter case, use Y instead of τ_out ...)
-        ;; - since k_out may reference Y, in the define-typerule, the k_out ... 
-        ;;   are automatically instantiated
-        (~or (~seq [Y:id Ytag:id k_out] ...)
-             (~and (~seq k_out ...)
-                   (~parse (Y ...) (generate-temporaries #'(k_out ...)))
-                   (~parse (Ytag ...) (stx-map (λ _ #':) #'(Y ...)))))
-        (~datum ->) k
+    [(_ TY:id (~datum :) kinds:kind-signature (~datum ->) k
         ms:maybe-meths)
      ;; TODO: need to validate k_out and k; what should be their required type?
      ;; - it must be language agnostic?
+     #:when (cond
+              [(attribute kinds.k_rest)
+                (syntax-parse/typecheck null 
+                  [_ ≫
+                   [⊢ [kinds.k_rest ≫ _ (⇒ kinds.Y_resttag _)]]
+                   -----------------------
+                   [≻ (void)]])]
+              [else #t])
      #:when (syntax-parse/typecheck null 
-             [_ ≫ [⊢ [Y ≫ _ Ytag k_out ≫ _ ⇒ _] ... [k ≫ _ ⇒ _]] --- [≻ (void)]])
-     #:with (τ ...) (generate-temporaries #'(k_out ...)) ; predefine patvars
+             [_ ≫
+              [⊢ [kinds.Y ≫ _ kinds.Ytag kinds.k_out ≫ _ ⇒ _] ...
+                 [k ≫ _ ⇒ _]]
+                -----------------------
+                [≻ (void)]])
+     #:with (τ ... τ-rest) (generate-temporaries #'(kinds.k_out ... (~? kinds.k_rest unused))) ; predefine patvars
      #:with TY/internal (fresh #'TY)
      #`(begin-
          (define-syntax TY
            (typerule-transformer
             (syntax-parser/typecheck
-             [(_ Y ... ~!) ≫
-              [⊢ [Y ≫ τ ⇐ k_out] ...]
+             [(_ kinds.Y ... (~? (~@ kinds.Y_rest (... ...))) ~!) ≫
+              [⊢ [kinds.Y ≫ τ ⇐ kinds.k_out] ...
+                 (~? (~@ [kinds.Y_rest ≫ τ_rest ⇐ kinds.k_rest] (... ...)))]
               ---------------
-              [⊢ (#%plain-app TY/internal τ ...) ⇒ k]]
+              [⊢ (#%plain-app TY/internal τ ...
+                              #,@(if (attribute kinds.k_rest)
+                                    #'((#%plain-app list τ_rest (... ...)))
+                                    #'())) ⇒ k]]
              [bad ≫
               -----
               [#:error
@@ -299,13 +378,17 @@
                 #:msg "Improper usage of type constructor ~a: ~a, expected ~a arguments"
                 'TY
                 (stx->datum #'bad)
-                (stx-length #'(Y ...)))]])
+                (stx-length #'(kinds.Y ...)))]])
             (make-free-id-table (hash . ms.meths/un))))
-         (define-internal-type/new TY/internal (TY Y ...) #:implements . ms.meths))]))
+         (define-internal-type/new TY/internal (TY kinds.Y ...)
+           #,@(if (attribute kinds.k_rest)
+               #'(#:rest)
+               #'())
+           #:implements . ms.meths))]))
 
 (define-syntax define-internal-base-type/new
   (syntax-parser
-    [(_ TY/internal TY (~optional (~seq #:implements ei ...) #:defaults ([(ei 1) '()])))
+    [(_ TY/internal TY (~optional (~seq #:implements ms:method-seq)))
     #:with TY-expander (mk-~ #'TY)
     #`(begin-
         (struct- TY/internal () #:transparent #:omit-define-syntaxes)
@@ -330,13 +413,17 @@
           (add-type-method-table! #'TY/internal
             (type-info
 ;             #'(ei ...)     ; match info
-             (syntax-parser ; resugar fn
-               [TY-expander #'TY]
-               [(TY-expander) (list #'TY)])
-             (syntax-parser ; unexpand fn
-               [TY-expander #'TY]
-               [(TY-expander) (list #'TY)])
-              ei ...
+             (~? ms.resugar-meth
+                 ; default resugar fn
+                 (syntax-parser
+                   [TY-expander #'TY]
+                   [(TY-expander) (list #'TY)]))
+             (~? ms.unexpand-meth
+                 ; default unexpand fn
+                 (syntax-parser
+                   [TY-expander #'TY]
+                   [(TY-expander) (list #'TY)]))
+             (~? (~@ ms.meths ...))
               ))))]))
 
 ;; base type is separate bc the expander must accommodate id case
@@ -357,7 +444,7 @@
 
 (define-syntax define-internal-binding-type/new
   (syntax-parser
-    [(_ TY/internal TY (~optional (~seq #:tag Xtag) #:defaults ([(Xtag 0) #':])))
+    [(_ TY/internal TY (~optional (~seq #:tag Xtag) #:defaults ([(Xtag 0) #':])) ms:method-seq)
      #:with TY-expander (mk-~ #'TY)
      #`(begin-
          (struct- TY/internal (X bod) #:transparent #:omit-define-syntaxes)
@@ -374,10 +461,7 @@
                            (~and name/internal:id
                                  (~fail
                                   #:unless (free-id=? #'name/internal
-                                                      TY/internal+)
-                                  (format "Expected ~a type, got: ~a" 'TY
-                                          (stx->datum (resugar-type
-                                                       #'ty-to-match)))))
+                                                      TY/internal+)))
                            τ_in
                            ((~literal #%plain-lambda) (X) τ_out))
                           #'ty-to-match))])))
@@ -386,45 +470,48 @@
 ;              #f             ; match info
               ;; this must return list not stx obj, ow ctx (for #%app) will be wrong
               ;; in other words, *caller* must create stx obj
-              (syntax-parser ; resugar-fn
-                [(TY-expander [X Xtag _] _)
-                 #:when (syntax-property #'X 'tmp) ; drop binders
-                 (cons (syntax-property #'X 'display-as) ; use alternate display name
-                       (letrec ([resugar-anno ; resugar and uncurry annotations, drop binder
-                                 (syntax-parser
-                                   [(TY-expander [X Xtag τ] rst)
-                                    #:when (syntax-property #'X 'tmp)
-                                    (cons (resugar-type #'τ)
-                                          (resugar-anno #'rst))]
-                                   [_ (list (resugar-type this-syntax))])])
-                         (resugar-anno this-syntax)))]
-                [_
-                 (cons #'TY
-                       (letrec ([resugar-anno/binder ; resugar and uncurry annos, keep binder
-                                 (syntax-parser
-                                   [(TY-expander [X Xtag τ] rst)
-                                    #:when (not (syntax-property #'X 'tmp))
-                                    (cons (list #'X #'Xtag (resugar-type #'τ))
-                                          (resugar-anno/binder #'rst))]
-                                   [_ (list (resugar-type this-syntax))])])
-                         (resugar-anno/binder this-syntax)))])
-              (syntax-parser ; unexpand
-                [(TY-expander [X Xtag _] _)
-                 #:when (syntax-property #'X 'tmp) ; drop binders
-                 (cons (syntax-property #'X 'display-as) ; use alternate display name
-                       (letrec ([unexpand-anno ; resugar and uncurry annotations, drop binder
-                                 (syntax-parser
-                                   [(TY-expander [X Xtag τ] rst)
-                                    #:when (syntax-property #'X 'tmp)
-                                    (cons (unexpand #'τ)
-                                          (unexpand-anno #'rst))]
-                                   [_ (list (unexpand this-syntax))])])
-                         (unexpand-anno this-syntax)))]
-                [(TY-expander [X Xtag τ] rst)
-                 (list #'TY (list #'X #'Xtag (unexpand #'τ)) (unexpand #'rst))])))))]))
+              (~? ms.resugar-meth
+                  (syntax-parser ; resugar-fn
+                    [(TY-expander [X Xtag _] _)
+                     #:when (syntax-property #'X 'tmp) ; drop binders
+                     (cons (syntax-property #'X 'display-as) ; use alternate display name
+                           (letrec ([resugar-anno ; resugar and uncurry annotations, drop binder
+                                     (syntax-parser
+                                       [(TY-expander [X Xtag τ] rst)
+                                        #:when (syntax-property #'X 'tmp)
+                                        (cons (resugar-type #'τ)
+                                              (resugar-anno #'rst))]
+                                       [_ (list (resugar-type this-syntax))])])
+                             (resugar-anno this-syntax)))]
+                    [_
+                     (cons #'TY
+                           (letrec ([resugar-anno/binder ; resugar and uncurry annos, keep binder
+                                     (syntax-parser
+                                       [(TY-expander [X Xtag τ] rst)
+                                        #:when (not (syntax-property #'X 'tmp))
+                                        (cons (list #'X #'Xtag (resugar-type #'τ))
+                                              (resugar-anno/binder #'rst))]
+                                       [_ (list (resugar-type this-syntax))])])
+                             (resugar-anno/binder this-syntax)))]))
+              (~? ms.unexpand-meth
+                  (syntax-parser ; unexpand
+                    [(TY-expander [X Xtag _] _)
+                     #:when (syntax-property #'X 'tmp) ; drop binders
+                     (cons (syntax-property #'X 'display-as) ; use alternate display name
+                           (letrec ([unexpand-anno ; resugar and uncurry annotations, drop binder
+                                     (syntax-parser
+                                       [(TY-expander [X Xtag τ] rst)
+                                        #:when (syntax-property #'X 'tmp)
+                                        (cons (unexpand #'τ)
+                                              (unexpand-anno #'rst))]
+                                       [_ (list (unexpand this-syntax))])])
+                             (unexpand-anno this-syntax)))]
+                    [(TY-expander [X Xtag τ] rst)
+                     (list #'TY (list #'X #'Xtag (unexpand #'τ)) (unexpand #'rst))]))
+              (~? (~@ ms.meths ...))))))]))
 
 (define-typed-syntax define-binding-type
-  [(_ TY:id [X:id Xtag:id k_in] (~datum :) k_out (~datum ->) k) ≫
+  [(_ TY:id [X:id Xtag:id k_in] (~datum :) k_out (~datum ->) k ms:maybe-meths) ≫
   ;; TODO: need to validate k_in, k_out, and k; what should be their required type?
   ;; - it must be language agnostic?
   [[X ≫ _ Xtag k_in] ⊢ [k_out ≫ _ ⇒ _] [k ≫ _ ⇒ _]]
@@ -442,11 +529,11 @@
             ---------------
             [⊢ (#%plain-app TY/internal τ_in- (#%plain-lambda (X-) τ_out-)) ⇒ k]])
           (make-free-id-table (hash))))
-       (define-internal-binding-type/new TY/internal TY #:tag Xtag))]]
-  [(_ TY:id k_in (~datum :) k_out (~datum ->) k) ≫ ; single bind, no id case
+       (define-internal-binding-type/new TY/internal TY #:tag Xtag . ms.meths))]]
+  [(_ TY:id k_in (~datum :) k_out (~datum ->) k ms:maybe-meths) ≫ ; single bind, no id case
    #:with X (generate-temporary)
    -----------
-   [≻ (define-binding-type TY [X : k_in] : k_out -> k)]]
-  [(_ TY:id k_in k_out (~datum :) k) ≫ ; alternate, no arrow syntax
+   [≻ (define-binding-type TY [X : k_in] : k_out -> k ms)]]
+  [(_ TY:id k_in k_out (~datum :) k ms:maybe-meths) ≫ ; alternate, no arrow syntax
    -----------
-   [≻ (define-binding-type TY k_in : k_out -> k)]])
+   [≻ (define-binding-type TY k_in : k_out -> k ms)]])
