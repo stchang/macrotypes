@@ -13,8 +13,6 @@
          (rename-out [λ/1 λ] [app #%app] [app/eval app/eval/1])
          ann define provide module* submod for-syntax begin-for-syntax)
 
-(begin-for-syntax (current-use-stop-list? #f))
-
 ;; type definitions -----------------------------------------------------------
 
 ;; set (Type n) : (Type n+1)
