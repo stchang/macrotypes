@@ -696,8 +696,8 @@
                  this-syntax)]
                [_
                 (raise-syntax-error #f
-                  (format "Improper usage of type constructor ~a: ~s, expected ~a ~a arguments")
-                            τ (syntax->datum this-syntax) op-name op-rhs)]))
+                  (format "Improper usage of type constructor ~a: ~s, expected ~a ~a arguments"
+                            τ (syntax->datum this-syntax) op-name op-rhs))]))
            (define (default-arg-vars stx)
              (for/list ([_ (in-stx-list (stx-cdr stx))]) invariant))
            (define (default-arg-vars/binding stx)
