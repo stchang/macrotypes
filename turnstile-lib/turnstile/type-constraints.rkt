@@ -22,6 +22,7 @@
          syntax/stx
          (for-meta -1 macrotypes/typecheck-core)
          macrotypes/stx-utils
+         (only-in (for-meta -1 "typedefs.rkt") ~Any/new)
          )
 
 ;; add-constraints :
@@ -107,7 +108,7 @@
                                  substs
                                  #'rst
                                  orig-cs)]
-          [(((~literal #%plain-app) tycons1 τ1 ...) ((~literal #%plain-app) tycons2 τ2 ...))
+          [((~Any/new tycons1 τ1 ...) (~Any/new tycons2 τ2 ...))
            #:when (free-id=? #'tycons1 #'tycons2)
            #:when (stx-length=? #'[τ1 ...] #'[τ2 ...])
            (add-constraints/var? Xs
