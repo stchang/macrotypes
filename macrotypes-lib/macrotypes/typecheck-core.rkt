@@ -1100,6 +1100,12 @@
       idc)
      (env (cons x+ xs+) (cons τ τs) idc (cons new-sc scs) parent))
 
+   (define (maybe-remove-erased stx)
+     (syntax-parse stx
+       [((~literal erased) e)
+        (transfer-stx-props #'e this-syntax)]
+       [_ this-syntax]))
+
    ;; start of new expand (ie, infer) fns ----------------------------------------
 
   ;; expands `stx` for type checking, returning its expanded version
@@ -1108,11 +1114,12 @@
   ;; - `env`: type environment, as defined with Env data def above
   ;; - does not handle top-level forms
    (define (expand1 stx env #:stop-list? [stop? #t])
-     (parameterize ([current-use-stop-list? (and (current-use-stop-list?) stop?)])
-       (local-expand (apply-scopes (env-scopes env) stx)
-                     'expression
-                     (if (current-use-stop-list?) (list #'erased) null)
-                     (env-idcs env))))
+     (maybe-remove-erased
+       (parameterize ([current-use-stop-list? (and (current-use-stop-list?) stop?)])
+         (local-expand (apply-scopes (env-scopes env) stx)
+                       'expression
+                       (if (current-use-stop-list?) (list #'erased) null)
+                       (env-idcs env)))))
 
    ;; calls `expand1` with stop-list? = #f
    ;; convenient where kw fns not allowed, eg forward references, eg in default-type-eval
