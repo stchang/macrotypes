@@ -995,11 +995,6 @@
 
   (define current-use-stop-list? (make-parameter #t))
 
-  (define (decide-stop-list infer-flag?)
-    (if (current-use-stop-list?)
-      (list #'erased)
-      null))
-
   (define (detach/check e+ tag #:orig [e #f])
     (define ty (detach e+ tag))
     (unless ty
@@ -1113,17 +1108,17 @@
   ;; - `env`: type environment, as defined with Env data def above
   ;; - does not handle top-level forms
    (define (expand1 stx env #:stop-list? [stop? #t])
-     (local-expand (apply-scopes (env-scopes env) stx)
-                   'expression
-                   (decide-stop-list stop?)
-                   (env-idcs env)))
+     (parameterize ([current-use-stop-list? (and (current-use-stop-list?) stop?)])
+       (local-expand (apply-scopes (env-scopes env) stx)
+                     'expression
+                     (if (current-use-stop-list?) (list #'erased) null)
+                     (env-idcs env))))
 
    ;; calls `expand1` with stop-list? = #f
    ;; convenient where kw fns not allowed, eg forward references, eg in default-type-eval
    ;; - ow, results in err "identifier treated as variable, but later defined as syntax"
    (define (expand1/nostop stx env)
-     (parameterize ([current-use-stop-list? #f])
-       (expand1 stx env #:stop-list? #f)))
+     (expand1 stx env #:stop-list? #f))
 
    ;; version of `expand1` that curries the env
    (define ((expand1/env env) e #:stop-list? [stop? #t])
