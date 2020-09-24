@@ -1120,7 +1120,9 @@
    ;; calls `expand1` with stop-list? = #f
    ;; convenient where kw fns not allowed, eg forward references, eg in default-type-eval
    ;; - ow, results in err "identifier treated as variable, but later defined as syntax"
-   (define (expand1/nostop stx env) (expand1 stx env #:stop-list? #f))
+   (define (expand1/nostop stx env)
+     (parameterize ([current-use-stop-list? #f])
+       (expand1 stx env #:stop-list? #f)))
 
    ;; version of `expand1` that curries the env
    (define ((expand1/env env) e #:stop-list? [stop? #t])

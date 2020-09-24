@@ -14,10 +14,6 @@
  (for-syntax (all-defined-out)))
 
 (begin-for-syntax
-  ;; this library does not assume a term-type distinction,
-  ;; so current-use-stop-list? must be #f
-  (current-use-stop-list? #f)
-
   (struct typerule-transformer (typerule methods)
     #:property prop:procedure (struct-field-index typerule))
 
