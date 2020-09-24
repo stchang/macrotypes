@@ -996,7 +996,7 @@
   (define current-use-stop-list? (make-parameter #t))
 
   (define (decide-stop-list infer-flag?)
-    (if (and infer-flag? (current-use-stop-list?))
+    (if (current-use-stop-list?)
       (list #'erased)
       null))
 
@@ -1016,7 +1016,8 @@
 
   ;; basic expansion with stop list, no context:
   (define (expand/stop e #:stop-list? [stop-list? #t])
-    (local-expand e 'expression (decide-stop-list stop-list?)))
+    (expand1 e #f #:stop-list? stop-list?))
+
   (define (expands/stop es #:stop-list? [stop-list? #t])
     (stx-map (λ (e) (expand/stop e #:stop-list? stop-list?)) es))
 
