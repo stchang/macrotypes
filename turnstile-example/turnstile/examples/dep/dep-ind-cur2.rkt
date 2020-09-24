@@ -1,6 +1,9 @@
 #lang turnstile+/quicklang
 (require turnstile+/eval turnstile+/typedefs turnstile+/more-utils)
 
+(begin-for-syntax
+  (current-use-stop-list? #f))
+
 ; a basic dependently-typed calculus
 ; - with inductive datatypes
 
