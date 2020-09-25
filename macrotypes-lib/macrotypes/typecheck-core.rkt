@@ -994,6 +994,7 @@
   ;; for expanding/computing type of an expression, with/without type ctxs
 
   (define current-use-stop-list? (make-parameter #t))
+  (define use-stop-list-for-types? (make-parameter #f))
 
   (define (detach/check e+ tag #:orig [e #f])
     (define ty (detach e+ tag))
@@ -1115,7 +1116,8 @@
   ;; - does not handle top-level forms
    (define (expand1 stx env #:stop-list? [stop? #t])
      (maybe-remove-erased
-       (parameterize ([current-use-stop-list? (and (current-use-stop-list?) stop?)])
+       (parameterize ([current-use-stop-list? (or (use-stop-list-for-types?)
+                                                  (and (current-use-stop-list?) stop?))])
          (local-expand (apply-scopes (env-scopes env) stx)
                        'expression
                        (if (current-use-stop-list?) (list #'erased) null)
