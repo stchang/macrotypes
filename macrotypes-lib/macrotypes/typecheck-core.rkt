@@ -1098,7 +1098,7 @@
        #`(make-variable-like-transformer
           ((current-var-assign) #'#,(apply-scopes (cons new-sc scs) x) #'#,x+ #'#,tag #'#,τ))
       idc)
-     (env (cons x+ xs+) (cons τ τs) idc (cons new-sc scs) parent))
+     (env (cons (attach x+ 'binder #t) xs+) (cons τ τs) idc (cons new-sc scs) parent))
 
    (define (maybe-remove-erased stx)
      (syntax-parse stx
