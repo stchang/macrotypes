@@ -1090,7 +1090,7 @@
    ;; - τ is already expanded
    (define (env-add x tag τ env0)
      (match-define (env xs+ τs idc scs parent) env0)
-     (define new-sc (make-syntax-introducer))
+     (define new-sc (make-syntax-introducer #t))
      (define x+ ((idc-fresh idc) x))
      (syntax-local-bind-syntaxes (list x+) #f idc)
      (syntax-local-bind-syntaxes
