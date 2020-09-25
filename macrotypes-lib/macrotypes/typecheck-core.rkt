@@ -1417,9 +1417,11 @@
 
   ;; allow using subst in stx template positions without escaping
   (define-template-metafunction $subst
-    (syntax-parser [(_ v x e) (subst #'v #'x #'e)]))
+    (syntax-parser [(_ v x e (~optional (~and #:free=? (~bind [free=? #t])) #:defaults ([free=? #f])))
+                    (subst #'v #'x #'e (if (attribute free=?) free-identifier=? bound-identifier=?))]))
   (define-template-metafunction $substs
-    (syntax-parser [(_ vs xs es) (substs #'vs #'xs #'es)]))
+    (syntax-parser [(_ vs xs es (~optional (~and #:free=? (~bind [free=? #t])) #:defaults ([free=? #f])))
+                    (substs #'vs #'xs #'es (if (attribute free=?) free-identifier=? bound-identifier=?))]))
   (define-template-metafunction $ev
     (syntax-parser [(_ t) ((current-type-eval) #'t)]))
   ) ;; (end begin-for-syntax)
