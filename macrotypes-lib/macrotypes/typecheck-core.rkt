@@ -1095,9 +1095,8 @@
      (syntax-local-bind-syntaxes (list x+) #f idc)
      (syntax-local-bind-syntaxes
       (list (apply-scopes (cons new-sc scs) x))
-      (apply-scopes scs
        #`(make-variable-like-transformer
-          ((current-var-assign) #'#,(apply-scopes (cons new-sc scs) x) #'#,x+ #'#,tag #'#,τ)))
+          ((current-var-assign) #'#,(apply-scopes (cons new-sc scs) x) #'#,x+ #'#,tag #'#,τ))
       idc)
      (env (cons x+ xs+) (cons τ τs) idc (cons new-sc scs) parent))
 
