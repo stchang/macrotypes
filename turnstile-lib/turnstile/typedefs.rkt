@@ -225,10 +225,7 @@
                             (~and name/internal:id
                                   (~fail
                                    #:unless (free-id=? #'name/internal
-                                                       TY/internal+)
-                                   (format "Expected ~a type, got: ~a" 'TY
-                                           (stx->datum (resugar-type
-                                                        #'ty-to-match)))))
+                                                       TY/internal+)))
                             arg-pat ...)
                            #'ty-to-match))
                     )])))
@@ -272,10 +269,7 @@
                             (~and name/internal:id
                                   (~fail
                                    #:unless (free-id=? #'name/internal
-                                                       TY/internal+)
-                                   (format "Expected ~a type, got: ~a" 'TY
-                                           (stx->datum (resugar-type
-                                                        #'ty-to-match)))))
+                                                       TY/internal+)))
                             arg-pat ... ((~literal #%plain-app) (~literal list) . rst)
                             #;(~and rest-tys
                                               (~parse rst
@@ -490,10 +484,7 @@
                            (~and name/internal:id
                                  (~fail
                                   #:unless (free-id=? #'name/internal
-                                                      TY/internal+)
-                                  (format "Expected ~a type, got: ~a" 'TY
-                                          (stx->datum (resugar-type
-                                                       #'ty-to-match)))))
+                                                      TY/internal+)))
                            τ_in
                            ((~literal #%plain-lambda) (X) τ_out))
                           #'ty-to-match))])))
