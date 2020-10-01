@@ -12,4 +12,4 @@
 (define pkg-desc "A language for defining type systems as macros.")
 (define pkg-authors '(stchang))
 
-(define version "0.5.5")
+(define version "0.5.6")
