@@ -8,8 +8,7 @@
          #%module-begin #%top-interaction require)
 
 (begin-for-syntax
-  (use-stop-list-for-types? #t)
-  (displayln (current-use-stop-list?)))
+  (use-stop-list-for-types? #t))
 
 (begin-for-syntax
   (define (binder? id)
@@ -46,7 +45,7 @@
       ((current-type=?) t1 t2 (make-free-id-table) (make-free-id-table))))
 
   (define old-ty= (current-type=?))
-  (current-type=?
+  #;(current-type=?
    (λ (t1 t2 env1 env2)
      (displayln (stx->datum t1))
      (displayln (stx->datum t2))
@@ -60,11 +59,7 @@
 
 ;; TODO: how to do Type : Type
 (define-typed-syntax (Π ([X:id (~datum :) τ_in] ...) τ_out) ≫
-  #:do [(displayln 'Π)
-        (displayln this-syntax)
-        ]
   [[X ≫ X- : τ_in] ... ⊢ [τ_out ≫ τ_out- ⇒ _] [τ_in ≫ τ_in- ⇒ _] ...]
-  #:do [(displayln 'Π-after-rec)]
   -------
   [⊢ (Π ([X- : τ_in-] ...) τ_out-) ⇒ *])
 ;; abbrevs for Π
@@ -78,12 +73,10 @@
 ;; - check that annotations match expected types
 (define-typed-syntax λ
   [(_ ([x:id : τ_in] ...) e) ≫
-   #:do [(displayln 'λ)]
    [[x ≫ x- : τ_in] ... ⊢ [e ≫ e- ⇒ τ_out-] [τ_in ≫ τ_in- ⇒ _] ...]
    -------
    [⊢ (λ ([x- : τ_in-] ...) e-) ⇒ (Π ([x- : τ_in-] ...) τ_out-)]]
   [(_ (y:id ...) e) ⇐ ((~literal Π) ([x:id : τ_in] ...) τ_out) ≫
-   #:do [(displayln 'λ)]
    [[x ≫ x- : τ_in] ... ⊢ ($substs (x ...) (y ...) e #:free=?) ≫ e- ⇐ τ_out]
    ---------
    [⊢ (λ (x- ...) e-)]])
@@ -91,7 +84,6 @@
 ;; TODO: do beta on terms?
 (define-typed-syntax #%app
   [(_ e_fn e_arg ...) ≫ ; apply lambda
-   #:do [(displayln '#%app)]
    [⊢ e_fn ≫ ((~literal λ) (x ...) e ~!) ⇒ ((~literal Π) ([X : τ_in] ...) τ_out)]
    #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
                  (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
@@ -100,30 +92,10 @@
    [⊢ ($substs (e_arg- ...) (x ...) e #:free=?) ⇒
       ($substs (e_arg- ...) (X ...) τ_out #:free=?)]]
   [(_ e_fn e_arg ... ~!) ≫ ; apply var
-   #:do [(displayln '#%app)]
    [⊢ e_fn ≫ e_fn- ⇒ ((~literal Π) ([X : τ_in] ...) τ_out)]
    #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
                  (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
    [⊢ e_arg ≫ e_arg- ⇐ τ_in] ...
-   #:do [
-         (displayln 'the-app)
-         (displayln #'(_ e_fn e_arg ...))
-         (displayln '(e_arg- ...))
-         (displayln #'(e_arg- ...))
-         (displayln '(X ...))
-         (displayln #'(X ...))
-         (displayln 'τ_out)
-         (displayln #'τ_out)
-         (displayln 'substs)
-         (displayln (substs #'(e_arg- ...) #'(X ...) #'τ_out free-id=?))
-         (syntax-parse #'τ_out
-           [((~literal Π) _ v)
-            (displayln 'v)
-            (pretty-print (syntax-debug-info #'v))
-            (displayln '(X ...))
-            (pretty-print (stx-map syntax-debug-info #'(X ...)))]
-           [_ (void)])
-         ]
    --------
    [⊢ (#%app e_fn- e_arg- ...) ⇒
       #,(substs #'(e_arg- ...) #'(X ...) #'τ_out free-id=?)]])
