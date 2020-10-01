@@ -270,10 +270,7 @@
                                   (~fail
                                    #:unless (free-id=? #'name/internal
                                                        TY/internal+)))
-                            arg-pat ... ((~literal #%plain-app) (~literal list) . rst)
-                            #;(~and rest-tys
-                                              (~parse rst
-                                                      #'rest-tys)))
+                            arg-pat ... ((~literal #%plain-app) (~literal list) . rst))
                            #'ty-to-match))
                     )])))
            (define TY/internal
@@ -297,9 +294,6 @@
          (struct- TY/internal () #:transparent #:omit-define-syntaxes)
          (begin-for-syntax
            (define TY/internal+ (expand/df #'TY/internal))
-           #;(begin #;begin-for-syntax (local-require racket/pretty)
-                             (printf "TY/internal+\n")
-                             (pretty-print (syntax-debug-info (values #;syntax-local-introduce TY/internal+))))
            (define-syntax TY-expander
              (pattern-expander
               (syntax-parser
@@ -308,17 +302,7 @@
                          (~parse
                           ((~literal #%plain-app) name/internal:id)
                           #'ty-to-match)
-                         (~fail #:unless (or (free-id=? (syntax-local-introduce #'name/internal) #;#'TY/internal TY/internal+)
-                                             #;(let ()
-                                               (printf "BOOHOO\n")
-                                               (printf "found:\n")
-                                               (pretty-print (syntax-debug-info (values #;syntax-local-introduce #'name/internal)))
-                                               (pretty-print (identifier-binding #'name/internal))
-                                               (printf "expected:\n")
-                                               (pretty-print (syntax-debug-info (values #;syntax-local-introduce TY/internal+)))
-                                               (pretty-print (identifier-binding TY/internal+))
-
-                                               #f))))]
+                         (~fail #:unless (free-id=? (syntax-local-introduce #'name/internal) TY/internal+)))]
                 [(_ other-pat (... ...))
                  #'((~and ty-to-match
                           (~parse
