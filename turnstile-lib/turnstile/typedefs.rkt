@@ -14,6 +14,10 @@
  (for-syntax (all-defined-out)))
 
 (begin-for-syntax
+  ;; FreeIdTable of StxID -> FreeIdTable
+  ;; The method tables for all types, where StxID is the TY/internal defined by define-type
+  (define METHOD-TABLES (make-free-id-table))
+  
   (struct typerule-transformer (typerule methods)
     #:property prop:procedure (struct-field-index typerule))
 
@@ -46,7 +50,8 @@
                 ))]))
 
   ;; TODO: can this be syntax-local-value?
-  (define (get-dict ty-id) (eval-syntax ty-id))
+  (define (add-type-method-table! ty-id table) (free-id-table-set! METHOD-TABLES ty-id table))
+  (define (get-dict ty-id) (free-id-table-ref METHOD-TABLES ty-id))
 
   (struct exn:fail:type:generic exn:fail:user ())
   
@@ -97,7 +102,7 @@
   (define (has-type-method? ty meth)
     (define maybe-meth-table 
       (syntax-parse ty
-        [(_ TY+:id . _) (with-handlers ([exn? (λ _ #f)]) (eval-syntax #'TY+))]
+        [(_ TY+:id . _)  (free-id-table-ref METHOD-TABLES #'TY+ #f)]
         [_ #f]))
     (and (dict? maybe-meth-table)
          (dict-has-key? maybe-meth-table meth)))
@@ -208,7 +213,7 @@
                             arg-pat ...)
                            #'ty-to-match))
                     )])))
-           (define TY/internal
+           (add-type-method-table! #'TY/internal
              (type-info
 ;              #'(ei ...)     ; match info
               (syntax-parser ; resugar fn
@@ -318,7 +323,7 @@
                           #'ty-to-match)
                          (~fail #:unless (free-id=? #'name/internal TY/internal+)))
                    other-pat (... ...))])))
-          (define TY/internal
+          (add-type-method-table! #'TY/internal
             (type-info
 ;             #'(ei ...)     ; match info
              (syntax-parser ; resugar fn
@@ -372,7 +377,7 @@
                            τ_in
                            ((~literal #%plain-lambda) (X) τ_out))
                           #'ty-to-match))])))
-           (define TY/internal
+           (add-type-method-table! #'TY/internal
              (type-info
 ;              #f             ; match info
               ;; this must return list not stx obj, ow ctx (for #%app) will be wrong
