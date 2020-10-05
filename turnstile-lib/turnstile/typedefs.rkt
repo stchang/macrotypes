@@ -284,6 +284,24 @@
                  (cons #'TY (stx-map unexpand #'(Y ... . rst)))])
               ei ...))))]))
 
+(begin-for-syntax
+  (define-splicing-syntax-class kind-signature
+    #:attributes ([k_out 1] k_rest ks [Y 1] Y_rest [Ytag 1] Y_resttag)
+    (pattern (~seq k_out ... k_rest (~datum *))
+             #:with ks #'(k_out ... k_rest)
+             #:with (Y ...) (generate-temporaries #'(k_out ...))
+             #:with Y_rest (generate-temporary #'k_rest)
+             #:with (Ytag ... Y_resttag) (stx-map (λ _ #':) #'(Y ... Y_rest)))
+    #;(pattern (~seq k_out ... k_rest (~datum *))
+               #:attr ks #'(k_out ... k_rest)
+               #:attr [Y 1] (generate-temporaries #'(k_out ...))
+               #:attr Y_rest (generate-temporary #'k_rest)
+               #:attr [Ytag 1] (stx-map (λ _ #':) #'(Y ...))
+               #:attr Y_resttag #':)
+    #;(pattern (~seq [Y:id Ytag:id k_out] ...)
+             )
+    #;(pattern (~seq k_out ...))))
+
 (define-syntax define-type
   (syntax-parser
     [(_ TY:id (~datum :) sameTY:id) ; eg, Type : Type
@@ -322,40 +340,38 @@
      #'(define-base-type TY : k ms.kw . ms.meths)] ; base type
     ;; rest args: duplicate a lot of the OG case for prototyping simplicity
     ;; (added before the other case to correctly match)
-    [(_ TY:id (~datum :) k_out ... k_rest (~datum *) (~datum ->) k
+    [(_ TY:id (~datum :) kinds:kind-signature (~datum ->) k
         ms:maybe-meths)
-     #:with (ks ...) #'(k_out ... k_rest)
-     #:with (~and (Ys ...) (Y ... Y_rest)) (generate-temporaries #'(k_out ... k_rest))
-     #:with (~and (Ytags ...) (Ytag ... Y_resttag)) (stx-map (λ _ #':) #'(Y ... Y_rest))
      ;; TODO: need to validate k_out and k; what should be their required type?
      ;; - it must be language agnostic?
      #:when (syntax-parse/typecheck null 
-             [_ ≫ [⊢ [Ys ≫ _ Ytags ks ≫ _ ⇒ _] ...
-                     #;[Y_rest ≫ _ Y_resttag k_rest]  ;; TODO - not sure about this line
-                     [k ≫ _ ⇒ _]]
+             [_ ≫
+              [⊢ [kinds.Y ≫ _ kinds.Ytag kinds.k_out ≫ _ ⇒ _] ...
+                 [kinds.k_rest ≫ _ (⇒ kinds.Y_resttag _)]
+                 [k ≫ _ ⇒ _]]
                 -----------------------
                 [≻ (void)]])
-     #:with (τ ... τ-rest) (generate-temporaries #'(k_out ... k_rest)) ; predefine patvars
+     #:with (τ ... τ-rest) (generate-temporaries #'(kinds.k_out ... kinds.k_rest)) ; predefine patvars
      #:with TY/internal (fresh #'TY)
      #`(begin-
          (define-syntax TY
            (typerule-transformer
             (syntax-parser/typecheck
-             [(_ Y ... Y_rest (... ...) ~!) ≫
-              [⊢ [Y ≫ τ ⇐ k_out] ...
-                 [Y_rest ≫ τ_rest ⇐ k_rest] (... ...)]
+             [(_ kinds.Y ... kinds.Y_rest (... ...) ~!) ≫
+              [⊢ [kinds.Y ≫ τ ⇐ kinds.k_out] ...
+                 [kinds.Y_rest ≫ τ_rest ⇐ kinds.k_rest] (... ...)]
               ---------------
               [⊢ (#%plain-app TY/internal τ ... (#%plain-app list τ_rest (... ...))) ⇒ k]]
              [bad ≫
               -----
               [#:error
                (type-error #:src #'bad
-                #:msg "Improper usage of type constructor ~a: ~a, expected ~a arguments"
+                #:msg "Improper usage of type constructor ~a: ~a, expected at least ~a arguments"
                 'TY
                 (stx->datum #'bad)
-                (stx-length #'(Y ...)))]])
+                (stx-length #'(kinds.Y ...)))]])
             (make-free-id-table (hash . ms.meths/un))))
-         (define-internal-type/new TY/internal (TY Y ...) #:rest #:implements . ms.meths))]
+         (define-internal-type/new TY/internal (TY kinds.Y ...) #:rest #:implements . ms.meths))]
     [(_ TY:id (~datum :)
         ;; [Y Ytag k_out] ... is a telescope
         ;; - with careful double-use of pattern variables (Y ...) in output macro defs,
