@@ -286,21 +286,28 @@
 
 (begin-for-syntax
   (define-splicing-syntax-class kind-signature
-    #:attributes ([k_out 1] k_rest ks [Y 1] Y_rest [Ytag 1] Y_resttag)
+    #:attributes ([k_out 1] k_rest [Y 1] Y_rest [Ytag 1] Y_resttag)
     (pattern (~seq k_out ... k_rest (~datum *))
-             #:with ks #'(k_out ... k_rest)
              #:with (Y ...) (generate-temporaries #'(k_out ...))
              #:with Y_rest (generate-temporary #'k_rest)
              #:with (Ytag ... Y_resttag) (stx-map (λ _ #':) #'(Y ... Y_rest)))
-    #;(pattern (~seq k_out ... k_rest (~datum *))
-               #:attr ks #'(k_out ... k_rest)
-               #:attr [Y 1] (generate-temporaries #'(k_out ...))
-               #:attr Y_rest (generate-temporary #'k_rest)
-               #:attr [Ytag 1] (stx-map (λ _ #':) #'(Y ...))
-               #:attr Y_resttag #':)
-    #;(pattern (~seq [Y:id Ytag:id k_out] ...)
-             )
-    #;(pattern (~seq k_out ...))))
+    ;; [Y Ytag k_out] ... is a telescope
+    ;; - with careful double-use of pattern variables (Y ...) in output macro defs,
+    ;;   we can get the desired inst behavior without the (verbose) explicit fold
+    ;; - more specifically, we use Y ... as both the patvars here, and in
+    ;;   the (define-typerule TY) below (in the latter case, use Y instead of τ_out ...)
+    ;; - since k_out may reference Y, in the define-typerule, the k_out ... 
+    ;;   are automatically instantiated
+    (pattern (~seq [Y:id Ytag:id k_out] ...)
+             #:attr k_rest #f
+             #:attr Y_rest #f
+             #:attr Y_resttag #f)
+    (pattern (~seq k_out ...)
+             #:with (Y ...) (generate-temporaries #'(k_out ...))
+             #:with (Ytag ...) (stx-map (λ _ #':) #'(Y ...))
+             #:attr k_rest #f
+             #:attr Y_rest #f
+             #:attr Y_resttag #f)))
 
 (define-syntax define-type
   (syntax-parser
@@ -344,62 +351,36 @@
         ms:maybe-meths)
      ;; TODO: need to validate k_out and k; what should be their required type?
      ;; - it must be language agnostic?
+     #:when (cond
+              [(attribute kinds.k_rest)
+                (syntax-parse/typecheck null 
+                  [_ ≫
+                   ;; TODO - with this setup k_rest can't refer to prev types, how to
+                   ;; do so w/o repetition?
+                   [⊢ [kinds.k_rest ≫ _ (⇒ kinds.Y_resttag _)]]
+                   -----------------------
+                   [≻ (void)]])]
+              [else #t])
      #:when (syntax-parse/typecheck null 
              [_ ≫
               [⊢ [kinds.Y ≫ _ kinds.Ytag kinds.k_out ≫ _ ⇒ _] ...
-                 [kinds.k_rest ≫ _ (⇒ kinds.Y_resttag _)]
                  [k ≫ _ ⇒ _]]
                 -----------------------
                 [≻ (void)]])
-     #:with (τ ... τ-rest) (generate-temporaries #'(kinds.k_out ... kinds.k_rest)) ; predefine patvars
+     #:with (τ ... τ-rest) (generate-temporaries #'(kinds.k_out ... (~? kinds.k_rest unused))) ; predefine patvars
      #:with TY/internal (fresh #'TY)
      #`(begin-
          (define-syntax TY
            (typerule-transformer
             (syntax-parser/typecheck
-             [(_ kinds.Y ... kinds.Y_rest (... ...) ~!) ≫
+             [(_ kinds.Y ... (~? (~@ kinds.Y_rest (... ...))) ~!) ≫
               [⊢ [kinds.Y ≫ τ ⇐ kinds.k_out] ...
-                 [kinds.Y_rest ≫ τ_rest ⇐ kinds.k_rest] (... ...)]
+                 (~? (~@ [kinds.Y_rest ≫ τ_rest ⇐ kinds.k_rest] (... ...)))]
               ---------------
-              [⊢ (#%plain-app TY/internal τ ... (#%plain-app list τ_rest (... ...))) ⇒ k]]
-             [bad ≫
-              -----
-              [#:error
-               (type-error #:src #'bad
-                #:msg "Improper usage of type constructor ~a: ~a, expected at least ~a arguments"
-                'TY
-                (stx->datum #'bad)
-                (stx-length #'(kinds.Y ...)))]])
-            (make-free-id-table (hash . ms.meths/un))))
-         (define-internal-type/new TY/internal (TY kinds.Y ...) #:rest #:implements . ms.meths))]
-    [(_ TY:id (~datum :)
-        ;; [Y Ytag k_out] ... is a telescope
-        ;; - with careful double-use of pattern variables (Y ...) in output macro defs,
-        ;;   we can get the desired inst behavior without the (verbose) explicit fold
-        ;; - more specifically, we use Y ... as both the patvars here, and in
-        ;;   the (define-typerule TY) below (in the latter case, use Y instead of τ_out ...)
-        ;; - since k_out may reference Y, in the define-typerule, the k_out ... 
-        ;;   are automatically instantiated
-        (~or (~seq [Y:id Ytag:id k_out] ...)
-             (~and (~seq k_out ...)
-                   (~parse (Y ...) (generate-temporaries #'(k_out ...)))
-                   (~parse (Ytag ...) (stx-map (λ _ #':) #'(Y ...)))))
-        (~datum ->) k
-        ms:maybe-meths)
-     ;; TODO: need to validate k_out and k; what should be their required type?
-     ;; - it must be language agnostic?
-     #:when (syntax-parse/typecheck null 
-             [_ ≫ [⊢ [Y ≫ _ Ytag k_out ≫ _ ⇒ _] ... [k ≫ _ ⇒ _]] --- [≻ (void)]])
-     #:with (τ ...) (generate-temporaries #'(k_out ...)) ; predefine patvars
-     #:with TY/internal (fresh #'TY)
-     #`(begin-
-         (define-syntax TY
-           (typerule-transformer
-            (syntax-parser/typecheck
-             [(_ Y ... ~!) ≫
-              [⊢ [Y ≫ τ ⇐ k_out] ...]
-              ---------------
-              [⊢ (#%plain-app TY/internal τ ...) ⇒ k]]
+              [⊢ (#%plain-app TY/internal τ ...
+                              #,@(if (attribute kinds.k_rest)
+                                    #'((#%plain-app list τ_rest (... ...)))
+                                    #'())) ⇒ k]]
              [bad ≫
               -----
               [#:error
@@ -407,11 +388,13 @@
                 #:msg "Improper usage of type constructor ~a: ~a, expected ~a arguments"
                 'TY
                 (stx->datum #'bad)
-                (stx-length #'(Y ...)))]])
+                (stx-length #'(kinds.Y ...)))]])
             (make-free-id-table (hash . ms.meths/un))))
-         (define-internal-type/new TY/internal (TY Y ...) #:implements . ms.meths))]
-    
-    ))
+         (define-internal-type/new TY/internal (TY kinds.Y ...)
+           #,@(if (attribute kinds.k_rest)
+               #'(#:rest)
+               #'())
+           #:implements . ms.meths))]))
 
 (define-syntax define-internal-base-type/new
   (syntax-parser
