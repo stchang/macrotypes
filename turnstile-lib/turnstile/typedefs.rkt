@@ -198,24 +198,29 @@
 (define-syntax define-internal-type/new
   (syntax-parser
     [(_ TY/internal (TY Y ...)
+        (~optional (~and rest? #:rest))
         (~optional (~seq #:implements ei ...) #:defaults ([(ei 1) '()]))
         (~optional (~and lazy #:lazy))
         (~optional (~seq #:arg-pattern (pat ...)))
         )
      #:with TY-expander (mk-~ #'TY)
      #:with (arg-pat ...) (or (attribute pat) #'(Y ...))
+     ;; TODO - don't know if this lazy pattern needs to be different when there's a rest list
      #:with (maybe-lazy-pattern ...)
      (if (attribute lazy)
          (list #'((~literal TY) Y ...))
          '())
+     (define Ys/.rst (if (attribute rest?)
+                         #'(Y ... . rst)
+                         #'(Y ...)))
      #`(begin-
-         (struct- TY/internal (Y ...) #:transparent #:omit-define-syntaxes)
+         (struct- TY/internal (Y ... #,@(if (attribute rest?) #'(rst) #'())) #:transparent #:omit-define-syntaxes)
          (begin-for-syntax
            (define TY/internal+ (expand/df #'TY/internal))
            (define-syntax TY-expander
              (pattern-expander
               (syntax-parser
-                [(_ Y ...)
+                [(_ #,@Ys/.rst)
                  #:with ty-to-match (generate-temporary)
                  #'(~or
                     maybe-lazy-pattern ...
@@ -226,62 +231,21 @@
                                   (~fail
                                    #:unless (free-id=? #'name/internal
                                                        TY/internal+)))
-                            arg-pat ...)
+                            arg-pat ...
+                            #,@(if (attribute rest?)
+                                   #'(((~literal #%plain-app) (~literal list) . rst))
+                                   #'()))
                            #'ty-to-match))
                     )])))
            (add-type-method-table! #'TY/internal
              (type-info
 ;              #'(ei ...)     ; match info
               (syntax-parser ; resugar fn
-                [(TY-expander Y ...)
-                 (cons #'TY (stx-map resugar-type #'(Y ...)))])
+                [(TY-expander #,@Ys/.rst)
+                 (cons #'TY (stx-map resugar-type #'#,Ys/.rst))])
               (syntax-parser ; unexpand
-                [(TY-expander Y ...)
-                 (cons #'TY (stx-map unexpand #'(Y ...)))])
-              ei ...))))]
-    ;; rest args: duplicate a lot of the above case for prototyping simplicity
-    [(_ TY/internal (TY Y ...)
-        #:rest
-        (~optional (~seq #:implements ei ...) #:defaults ([(ei 1) '()]))
-        (~optional (~and lazy #:lazy))
-        (~optional (~seq #:arg-pattern (pat ...)))
-        )
-     #:with TY-expander (mk-~ #'TY)
-     #:with (arg-pat ...) (or (attribute pat) #'(Y ...))
-     #:with (maybe-lazy-pattern ...)
-     (if (attribute lazy)
-         (list #'((~literal TY) Y ...))
-         '())
-     #`(begin-
-         (struct- TY/internal (Y ... rst) #:transparent #:omit-define-syntaxes)
-         (begin-for-syntax
-           (define TY/internal+ (expand/df #'TY/internal))
-           (define-syntax TY-expander
-             (pattern-expander
-              (syntax-parser
-                [(_ Y ... . rst)
-                 #:with ty-to-match (generate-temporary)
-                 #'(~or
-                    maybe-lazy-pattern ...
-                    (~and ty-to-match
-                          (~parse
-                           ((~literal #%plain-app)
-                            (~and name/internal:id
-                                  (~fail
-                                   #:unless (free-id=? #'name/internal
-                                                       TY/internal+)))
-                            arg-pat ... ((~literal #%plain-app) (~literal list) . rst))
-                           #'ty-to-match))
-                    )])))
-           (define TY/internal
-             (type-info
-;              #'(ei ...)     ; match info
-              (syntax-parser ; resugar fn
-                [(TY-expander Y ... . rst)
-                 (cons #'TY (stx-map resugar-type #'(Y ... . rst)))])
-              (syntax-parser ; unexpand
-                [(TY-expander Y ... . rst)
-                 (cons #'TY (stx-map unexpand #'(Y ... . rst)))])
+                [(TY-expander #,@Ys/.rst)
+                 (cons #'TY (stx-map unexpand #'#,Ys/.rst))])
               ei ...))))]))
 
 (begin-for-syntax
@@ -345,8 +309,6 @@
      #'(define-base-type TY : k ms.kw . ms.meths)]
     [(_ TY:id (~datum :) (~datum ->) k ms:maybe-meths)
      #'(define-base-type TY : k ms.kw . ms.meths)] ; base type
-    ;; rest args: duplicate a lot of the OG case for prototyping simplicity
-    ;; (added before the other case to correctly match)
     [(_ TY:id (~datum :) kinds:kind-signature (~datum ->) k
         ms:maybe-meths)
      ;; TODO: need to validate k_out and k; what should be their required type?
@@ -355,8 +317,6 @@
               [(attribute kinds.k_rest)
                 (syntax-parse/typecheck null 
                   [_ ≫
-                   ;; TODO - with this setup k_rest can't refer to prev types, how to
-                   ;; do so w/o repetition?
                    [⊢ [kinds.k_rest ≫ _ (⇒ kinds.Y_resttag _)]]
                    -----------------------
                    [≻ (void)]])]
