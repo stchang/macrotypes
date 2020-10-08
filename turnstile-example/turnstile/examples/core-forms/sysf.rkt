@@ -1,4 +1,7 @@
 #lang turnstile/base
+
+(require turnstile/core-forms)
+
 (extends "stlc+lit.rkt")
 
 ;; System F
@@ -18,7 +21,7 @@
    [⊢ (∀ (X- ...) t-) ⇒ #%type]])
 
 (define-typed-syntax (Λ (tv:id ...) e) ≫
-  [([tv ≫ tv- :: #%type] ...) () ⊢ e ≫ e- ⇒ τ]
+  [[tv ≫ tv- : #%type] ... ⊢ e ≫ e- ⇒ τ]
   --------
   ;; can't use internal mk-∀- constructor here
   ;; - will cause the bound-id=? quirk to show up
@@ -28,10 +31,11 @@
   [⊢ e- ⇒ (∀ (tv- ...) τ)])
 
 (define-typed-syntax inst
-  [(_ e τ:type ...) ≫
-   [⊢ e ≫ e- ⇒ ((~literal ∀) tvs τ_body)]
+  [(_ e τ ...) ≫
+   [⊢ [τ ≫ τ- ⇐ #%type] ...]
+   [⊢ e ≫ e- ⇒ (~type (∀ tvs τ_body))]
    --------
-   [⊢ e- ⇒ ($substs (τ.norm ...) tvs τ_body)]]
+   [⊢ e- ⇒ ($substs (τ- ...) tvs τ_body #:free=?)]]
   [(_ e) ≫
    ----
    [≻ e]])

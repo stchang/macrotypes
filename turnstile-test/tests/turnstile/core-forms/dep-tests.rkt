@@ -1,5 +1,5 @@
-#lang s-exp turnstile/examples/dep-core-forms
-(require "rackunit-typechecking.rkt")
+#lang s-exp turnstile/examples/core-forms/dep
+(require "../rackunit-typechecking.rkt")
 
 (check-type
   (λ ([x : (∀ (A) (→ A A))] [y : (∀ (B) (→ B B))])

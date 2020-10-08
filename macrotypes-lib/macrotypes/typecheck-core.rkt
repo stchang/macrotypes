@@ -582,8 +582,9 @@
                    #`(~and expanded-τ 
                            (~Any
                             (~literal/else #,τ-internal
-                                           (#%plain-app format "Expected ~a ~a, got: ~a"
-                                                   '#,τ 'name (#%plain-app type->str #'expanded-τ))
+                                           (typecheck-fail-msg/constructor
+                                             #'#,τ #'expanded-τ
+                                             #:kind-of-type 'name)
                                          #'expanded-τ)
                             . pat))])))
              (define (mk-binding-expander τ-internal τ)
@@ -626,8 +627,9 @@
                    #`(~and expanded-τ
                            (~Any/bvs 
                             (~literal/else #,τ-internal
-                                           (#%plain-app format "Expected ~a ~a, got: ~a"
-                                                   '#,τ 'name (#%plain-app type->str #'expanded-τ))
+                                           (typecheck-fail-msg/constructor
+                                             #'#,τ #'expanded-τ
+                                             #:kind-of-type 'name)
                                            #'expanded-τ)
                             bvs-pat . pat))]))))
            (define (mk-base-transformer τ-internal key2 kind)
@@ -1108,11 +1110,11 @@
 
    ;; start of new expand (ie, infer) fns ----------------------------------------
 
-  ;; expands `stx` for type checking, returning its expanded version
-  ;; ie, `expand1` wraps `local-expand`, incorporating the type-specific args:
-  ;; - `stx`: the term or type to expand
-  ;; - `env`: type environment, as defined with Env data def above
-  ;; - does not handle top-level forms
+   ;; expands `stx` for type checking, returning its expanded version
+   ;; ie, `expand1` wraps `local-expand`, incorporating the type-specific args:
+   ;; - `stx`: the term or type to expand
+   ;; - `env`: type environment, as defined with Env data def above
+   ;; - does not handle top-level forms
    (define (expand1 stx env #:stop-list? [stop? #t])
      (maybe-remove-erased
        (parameterize ([current-use-stop-list? (or (use-stop-list-for-types?)
@@ -1245,6 +1247,13 @@
             (stx-length τs_expected) (stx-length arguments)
             (string-join (stx-map (current-resugar) τs_expected) ", ")
             (string-join (map ~s (map syntax->datum (stx-map get-orig arguments))) ", ")))
+
+  (define (typecheck-fail-msg/constructor expected-constructor τ_given
+                                          #:kind-of-type [kind-of-type "type"])
+    (format "Expected ~a ~a, got: ~a"
+            (syntax-e expected-constructor)
+            kind-of-type
+            (type->str τ_given)))
 
   (struct exn:fail:syntax:type-check exn:fail:syntax ())
   (struct exn:fail:type:infer exn:fail:user ())

@@ -1,4 +1,7 @@
 #lang turnstile/base
+
+(require turnstile/core-forms)
+
 (extends "stlc.rkt")
 
 ;; Simply-Typed Lambda Calculus, plus numeric literals and primitives
@@ -14,9 +17,6 @@
          +
          #%datum)
 
-(define-syntax +
-  (make-variable-like-transformer (assign-type #'+- #'(-> Int Int Int))))
-
 (define-typed-syntax Int
   [_:id ≫
    ---
@@ -29,3 +29,6 @@
   [(_ . x) ≫
    --------
    [#:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])
+
+(define-syntax +
+  (make-variable-like-transformer (assign-type #'+- #'(→ Int Int Int))))

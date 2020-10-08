@@ -1,4 +1,4 @@
-#lang s-exp turnstile/examples/stlc+lit
+#lang s-exp turnstile/examples/core-forms/stlc+lit
 (require "../rackunit-typechecking.rkt")
 
 ;; thunk
@@ -54,10 +54,10 @@
 
 (check-type ((λ ([x : Int]) (+ x x)) 10) : Int ⇒ 20)
 
-(typecheck-fail (λ ([x : (→ 1 2)]) x) #:with-msg "not a well-formed type")
-(typecheck-fail (λ ([x : 1]) x) #:with-msg "not a well-formed type")
-(typecheck-fail (λ ([x : (+ 1 2)]) x) #:with-msg "not a well-formed type")
-(typecheck-fail (λ ([x : (λ ([y : Int]) y)]) x) #:with-msg "not a well-formed type")
+(typecheck-fail (λ ([x : (→ 1 2)]) x) #:with-msg "type mismatch: expected #%type")
+(typecheck-fail (λ ([x : 1]) x) #:with-msg "type mismatch: expected #%type")
+(typecheck-fail (λ ([x : (+ 1 2)]) x) #:with-msg "type mismatch: expected #%type")
+(typecheck-fail (λ ([x : (λ ([y : Int]) y)]) x) #:with-msg "type mismatch: expected #%type")
 
 (typecheck-fail
  (ann (ann 5 : Int) : (→ Int))

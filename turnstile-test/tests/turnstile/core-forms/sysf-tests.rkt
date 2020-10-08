@@ -1,4 +1,4 @@
-#lang s-exp turnstile/examples/sysf
+#lang s-exp turnstile/examples/core-forms/sysf
 (require "../rackunit-typechecking.rkt")
 
 (check-type (Λ (X) (λ ([x : X]) x)) : (∀ (X) (→ X X)))
