@@ -32,7 +32,7 @@
                               (format "type mismatch, expected Type, given ~a"
                                       (syntax->datum #'C))))
             ((~literal quote) n)))])))
-  (define Type-
+  (add-type-method-table! #'Type-
     (type-info
 ;     #f ; match info
      (syntax-parser [(~Type n) #'(Type n)]) ; resugar

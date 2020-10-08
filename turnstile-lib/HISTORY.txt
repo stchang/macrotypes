@@ -69,3 +69,6 @@ Revision history for turnstile-lib
 
 0.5.5 (2020-08-11)
 - turnstile/typedef: set current-use-stop-list? = #f
+
+0.5.6 (2020-10-01)
+- turnstile/typedef: dont use eval for TY/internal dict
