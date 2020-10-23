@@ -5,7 +5,8 @@
 (require
   macrotypes/typecheck-core
   (for-syntax
-    syntax/id-table)
+    syntax/id-table
+    racket/pretty)
   (for-meta 2
     racket/base
     syntax/parse))
@@ -46,14 +47,16 @@
     (lambda (t1 t2)
       ((current-type=?) t1 t2 (make-free-id-table) (make-free-id-table))))
 
-  ;; For debugging:
-  ;(begin
-    ;(define old-ty= (current-type=?))
-    ;(current-type=?
-      ;(λ (t1 t2 env1 env2)
-         ;(displayln (stx->datum t1))
-         ;(displayln (stx->datum t2))
-         ;(old-ty= t1 t2 env1 env2))))
+  ; For debugging:
+  (begin
+    (define old-ty= (current-type=?))
+    (current-type=?
+      (λ (t1 t2 env1 env2)
+         (displayln (stx->datum t1))
+         (pretty-print (syntax-debug-info t1))
+         (displayln (stx->datum t2))
+         (pretty-print (syntax-debug-info t2))
+         (old-ty= t1 t2 env1 env2))))
 
     (define-syntax-class (type-constructor-matches expected-name)
       (pattern (~or* name:id (name:id . _))
@@ -69,4 +72,6 @@
                    (_ . rest))]
           [(_ name:id)
            #'(~var _ (type-constructor-matches #'name))])))
+
+    (current-var-assign (λ (x x+ tag τ) (attach #`(erased #,x) (stx-e tag) τ)))
     )

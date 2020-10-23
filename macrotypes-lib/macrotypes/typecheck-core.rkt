@@ -1089,6 +1089,13 @@
     (if env/#f
         (cons (env-idc env/#f) (env-idcs (env-parent env/#f)))
         null))
+  (define (apply-env-idc-scope stx env/#f)
+    (if env/#f
+      (internal-definition-context-introduce
+        (env-idc env/#f)
+        stx
+        'add)
+      stx))
   
    ;; produces a fresh id named `x` for `idc`
    (define ((idc-fresh idc) x)
@@ -1101,13 +1108,17 @@
      (match-define (env xs+ τs idc scs parent) env0)
      (define new-sc (make-syntax-introducer #t))
      (define x+ ((idc-fresh idc) x))
+     (define x^ (internal-definition-context-introduce
+                  idc
+                  (apply-scopes (cons new-sc scs) x)
+                  'add))
      (syntax-local-bind-syntaxes (list x+) #f idc)
      (syntax-local-bind-syntaxes
-      (list (apply-scopes (cons new-sc scs) x))
+      (list x^)
        #`(make-variable-like-transformer
-          ((current-var-assign) #'#,(apply-scopes (cons new-sc scs) x) #'#,x+ #'#,tag #'#,τ))
+          ((current-var-assign) #'#,x^ #'#,x+ #'#,tag #'#,τ))
       idc)
-     (env (cons (attach x+ 'binder #t) xs+) (cons τ τs) idc (cons new-sc scs) parent))
+     (env (cons (attach (if (use-stop-list-for-types?) x^ x+) 'binder #t) xs+) (cons τ τs) idc (cons new-sc scs) parent))
 
    (define (maybe-remove-erased stx)
      (syntax-parse stx
@@ -1124,7 +1135,9 @@
    ;; - does not handle top-level forms
    (define (expand1 stx env #:stop-list? [stop? #t])
      (if (syntax-property stx ':)
-       stx
+       (apply-env-idc-scope
+         (apply-scopes (env-scopes env) stx)
+         env)
        (maybe-remove-erased
          (parameterize ([current-use-stop-list? (or (use-stop-list-for-types?)
                                                     (and (current-use-stop-list?) stop?))])
