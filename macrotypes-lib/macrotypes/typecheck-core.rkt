@@ -213,6 +213,8 @@
   (syntax-parser
     [(_ to from) (add-expected-type/raw #'to (get-expected-type/raw #'from))]))
 
+
+
 (begin-for-syntax
   ;; --------------------------------------------------------------------------
   ;; functions for manipulating "expected type"
@@ -230,6 +232,11 @@
         (add-expected-type/raw e (syntax-local-introduce (checked-type-eval ty)))
         e))
 
+  (define-template-metafunction $add-expected-type
+    (syntax-parser
+      [(_ e t)
+       (add-expected-type #'e #'t)]))
+  
 
   ;; Helper functions for attaching/detaching types, kinds, etc.
   
@@ -1116,13 +1123,15 @@
    ;; - `env`: type environment, as defined with Env data def above
    ;; - does not handle top-level forms
    (define (expand1 stx env #:stop-list? [stop? #t])
-     (maybe-remove-erased
-       (parameterize ([current-use-stop-list? (or (use-stop-list-for-types?)
-                                                  (and (current-use-stop-list?) stop?))])
-         (local-expand (apply-scopes (env-scopes env) stx)
-                       'expression
-                       (if (current-use-stop-list?) (list #'erased) null)
-                       (env-idcs env)))))
+     (if (syntax-property stx ':)
+       stx
+       (maybe-remove-erased
+         (parameterize ([current-use-stop-list? (or (use-stop-list-for-types?)
+                                                    (and (current-use-stop-list?) stop?))])
+           (local-expand (apply-scopes (env-scopes env) stx)
+                         'expression
+                         (if (current-use-stop-list?) (list #'erased) null)
+                         (env-idcs env))))))
 
    ;; calls `expand1` with stop-list? = #f
    ;; convenient where kw fns not allowed, eg forward references, eg in default-type-eval

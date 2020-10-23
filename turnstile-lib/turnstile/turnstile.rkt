@@ -234,8 +234,8 @@
                                     ([tag (in-stx-list #'(lprop.tag ...))]
                                      [tag-stx (in-stx-list #'(lprop.tag-stx ...))])
                             (if (equal? (syntax->datum tag) (syntax-parameter-value #'current-tag-stx))
-                                #`(add-expected #,e-stx/acc #,tag-stx)
-                                #`(attach/m #,e-stx/acc #,tag #,tag-stx)))
+                              (datum->syntax #'here (list '$add-expected-type e-stx/acc tag-stx))
+                              #`(attach/m #,e-stx/acc #,tag #,tag-stx)))
              #:with e-stx-orig #'e-stx*
              #:with e-pat #'(~and lprop.e-pat ... rprop.e-pat ... e-pat*)])
   (define-splicing-syntax-class tc
