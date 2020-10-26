@@ -7,7 +7,7 @@
 
 ;; TODO: add expected-ty version of rules
 
-(require (for-syntax syntax/id-set))
+(require (for-syntax "id-set-utils.rkt"))
 (provide → × λ #%app ann if let
          Bool #%datum pair split free
          #%module-begin require)
@@ -15,29 +15,6 @@
 (define-base-type Bool)
 (define-type-constructor → #:arity > 0)
 (define-type-constructor × #:arity = 2)
-
-;; some set operations on free ids
-(begin-for-syntax
-  (define (unused-err xs)
-    (format "linear vars unused: ~a\n" (stx->datum xs)))
-  (define (stx-subset? xs ys)
-    (and (stx-list? xs) (stx-list? ys)
-         (free-id-subset? (immutable-free-id-set (stx->list xs))
-                          (immutable-free-id-set (stx->list ys)))))
-  (define (stx-diff xs ys)
-    (if (and (stx-list? xs) (stx-list? ys))
-        (free-id-set->list
-         (free-id-set-subtract
-          (immutable-free-id-set (stx->list xs))
-          (immutable-free-id-set (stx->list ys))))
-        xs))
-  (define (stx-set-sub xs ys)
-    (free-id-set->list
-     (free-id-set-subtract (immutable-free-id-set (stx->list xs))
-                           (immutable-free-id-set (stx->list ys)))))
-  (define (stx-cons x xs)
-    (if (stx-e xs) (cons x xs) (list x)))
-  )
 
 ; 'USED = prop name for used vars
 
@@ -182,8 +159,7 @@
    #:with vars (if (stx-e #'vars*) #'vars* #'())
    #:with vars1 (if (stx-e #'vars1*) #'vars1* #'())
    #:with vars2 (if (stx-e #'vars2*) #'vars2* #'())
-   #:fail-unless (equal? (immutable-free-id-set (stx->list #'vars1))
-                         (immutable-free-id-set (stx->list #'vars2)))
+   #:fail-unless (stx-ids=? #'vars1 #'vars2)
    (format "if branches must use the same variables, given ~a and ~a"
            (stx->datum #'vars1) (stx->datum #'vars2))
    #:with vars-out (stx-append #'vars #'vars1)

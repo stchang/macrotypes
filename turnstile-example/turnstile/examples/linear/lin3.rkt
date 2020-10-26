@@ -2,7 +2,10 @@
 
 ;; like lin1, except use manually-defined mode instead of #:mode
 
-(require (for-syntax racket/format racket/string syntax/id-set))
+(require (for-syntax racket/format
+                     racket/string
+                     syntax/id-set
+                     "id-set-utils.rkt"))
 (provide → × λ #%app ann if let
          Bool #%datum pair split free
          (for-syntax reset-USED!) ; for testing/debugging only?
@@ -16,28 +19,10 @@
 
 ;; some set operations on free ids
 (begin-for-syntax
-  (define (unused-err xs)
-    (format "linear vars unused: ~a\n" (stx->datum xs)))
   (define/used-vars (unused-err2 xs)
-    (format "linear vars unused: ~a\n" (stx->datum (stx-diff (stx-map syntax-local-introduce xs) (free-id-set->list used-vars)))))
-  (define (stx-subset? xs ys)
-    (and (stx-list? xs) (stx-list? ys)
-         (free-id-subset? (immutable-free-id-set (stx->list xs))
-                          (immutable-free-id-set (stx->list ys)))))
-  (define (stx-diff xs ys)
-    (if (and (stx-list? xs) (stx-list? ys))
-        (free-id-set->list
-         (free-id-set-subtract
-          (immutable-free-id-set (stx->list xs))
-          (immutable-free-id-set (stx->list ys))))
-        xs))
-
-  (define (stx-set-sub xs ys)
-    (free-id-set->list
-     (free-id-set-subtract (immutable-free-id-set (stx->list xs))
-                           (immutable-free-id-set (stx->list ys)))))
-  (define (stx-cons x xs)
-    (if (stx-e xs) (cons x xs) (list x)))
+    (unused-err
+     (stx-diff (stx-map syntax-local-introduce xs)
+               (free-id-set->list used-vars))))
 
   (define INITIAL-STATE (immutable-free-id-set))
   (define (reset-USED!) (current-used-vars INITIAL-STATE))
