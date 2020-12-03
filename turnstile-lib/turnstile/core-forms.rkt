@@ -48,15 +48,15 @@
       ((current-type=?) t1 t2 (make-free-id-table) (make-free-id-table))))
 
   ; For debugging:
-  (begin
-    (define old-ty= (current-type=?))
-    (current-type=?
-      (λ (t1 t2 env1 env2)
-         (displayln (stx->datum t1))
-         (pretty-print (syntax-debug-info t1))
-         (displayln (stx->datum t2))
-         (pretty-print (syntax-debug-info t2))
-         (old-ty= t1 t2 env1 env2))))
+  ;(begin
+    ;(define old-ty= (current-type=?))
+    ;(current-type=?
+      ;(λ (t1 t2 env1 env2)
+         ;(displayln (stx->datum t1))
+         ;(pretty-print (syntax-debug-info t1))
+         ;(displayln (stx->datum t2))
+         ;(pretty-print (syntax-debug-info t2))
+         ;(old-ty= t1 t2 env1 env2))))
 
     (define-syntax-class (type-constructor-matches expected-name)
       (pattern (~or* name:id (name:id . _))
