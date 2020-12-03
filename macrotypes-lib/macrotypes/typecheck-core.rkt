@@ -1134,7 +1134,7 @@
    ;; - `env`: type environment, as defined with Env data def above
    ;; - does not handle top-level forms
    (define (expand1 stx env #:stop-list? [stop? #t])
-     (if (syntax-property stx ':)
+     (if (and (use-stop-list-for-types?) (syntax-property stx ':))
        (apply-env-idc-scope
          (apply-scopes (env-scopes env) stx)
          env)
