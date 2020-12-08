@@ -216,6 +216,11 @@
              #:with meths/un #'()))
   )
 
+(define-for-syntax ((make-type-recognizer internal-name) ty)
+  (syntax-parse ty
+    [(~Any/new τcons . rst)
+     (free-identifier=? #'τcons internal-name)]))
+
 (define-syntax define-internal-type/new
   (syntax-parser
     [(_ TY/internal (TY Y ...)
@@ -225,6 +230,7 @@
         (~optional (~seq #:arg-pattern (pat ...)))
         )
      #:with TY-expander (mk-~ #'TY)
+     #:with TY? (mk-? #'TY)
      #:with (arg-pat ...) (or (attribute pat) #'(Y ...))
      ;; TODO - don't know if this lazy pattern needs to be different when there's a rest list
      #:with (maybe-lazy-pattern ...)
@@ -238,6 +244,7 @@
          (struct- TY/internal (Y ... #,@(if (attribute rest?) #'(rst) #'())) #:transparent #:omit-define-syntaxes)
          (begin-for-syntax
            (define TY/internal+ (expand/df #'TY/internal))
+           (define TY? (make-type-recognizer TY/internal+))
            (define-syntax TY-expander
              (pattern-expander
               (syntax-parser
