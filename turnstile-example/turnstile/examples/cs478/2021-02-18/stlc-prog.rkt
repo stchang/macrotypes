@@ -3,19 +3,16 @@
 
 (check-type (ascribe (λ x x) as (→ Int Int)) : (→ Int Int))
 
-(typecheck-fail (λ [x : (+ 1 2)] x)
-                #:with-msg "not a well-formed type")
-
 (check-type (λ [x : Int] x) : (→ Int Int))
 
 (check-type (λ x x) : (→ Int Int))
 
 (check-type (λ [x : Int] 1) : (→ Int Int))
 
-(check-type (λ [x : Int] "one") : (→ Int Int)) ; wut???
+(check-type unit : Unit)
 
-(check-type (+ 1 2) : Int -> 3) ; test both type and runtime value
+(check-type (iszero (pred (succ (pred (pred 2))))) : Bool -> #t)
 
-(check-type (+ 1 "one") : Int) ; wut???
+(check-type (begin2 #t 6) : Int)
 
-(check-runtime-exn (+ 1 "one")) ; passes typechecker, blows up at runtime
+;; (check-type (+ 1 2) : Int -> 3) ; test both type and runtime value
