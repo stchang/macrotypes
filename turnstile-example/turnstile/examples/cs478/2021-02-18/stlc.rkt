@@ -1,6 +1,6 @@
 #lang turnstile/quicklang
 
-(provide λ Int Bool Unit unit →  ascribe  if succ pred iszero begin2
+(provide λ Int Bool Unit unit →  ascribe  if succ pred iszero 
          (rename-out [typed-datum #%datum] [typed-app #%app]))
 
 (define-base-types Int Bool Unit)
@@ -131,11 +131,16 @@
 
 ;; NOTE Chapter 11 ;;
 
-(define-typerule (begin2 e1 e2) ≫
+#;(define-typerule (begin2 e1 e2) ≫
   [⊢ e1 ≫ e1- ⇐ Unit]
   [⊢ e2 ≫ e2- ⇒ T2]
   ------------------
   [⊢ (begin- e1- e2-) ⇒ T2])
+
+(define-typerule (begin2-again e1 e2) ≫
+  [⊢ e2 ≫ e2- ⇒ T2]
+  --------
+  [≻ ((λ [x : Unit] e2) e1)])
 
 ;; ;; this is a "check" rule
 ;; (define-typerule Γ ⊢ (λ [x : T1] t2) <=  T1 → T2
