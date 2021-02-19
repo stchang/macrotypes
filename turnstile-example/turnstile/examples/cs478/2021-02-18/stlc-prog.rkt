@@ -15,4 +15,4 @@
 
 (check-type (begin2 #t 6) : Int)
 
-;; (check-type (+ 1 2) : Int -> 3) ; test both type and runtime value
+(check-type (if #t 5 6) : Int -> 5)

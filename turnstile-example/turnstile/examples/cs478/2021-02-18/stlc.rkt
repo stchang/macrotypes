@@ -1,13 +1,18 @@
 #lang turnstile/quicklang
 
-(provide λ Int Bool Unit unit → + #%datum ascribe #%app if succ pred iszero begin2)
+(provide λ Int Bool Unit unit →  ascribe  if succ pred iszero begin2
+         (rename-out [typed-datum #%datum] [typed-app #%app]))
 
 (define-base-types Int Bool Unit)
 (define-type-constructor → #:arity = 2)
 
-(define empty-list '())
+(define-typed-variable unit '() ⇒ Unit)
 
-(define-typed-variable-rename unit ≫ empty-list : Unit)
+(define-primop succ add1 : (→ Int Int))
+(define-primop pred sub1 : (→ Int Int))
+(define-primop iszero zero? : (→ Int Bool))
+
+
 
 ;; bidirectional rules --------------------------------------------------------
 ;; in a typechecker, we want two operations, ie two types rules:
@@ -92,56 +97,45 @@
 -------------------
  [⊢ (λ- (x-) e-) ⇒  (→ T1 T2)])
 
-(define-typerule #%datum
+(define-typerule typed-datum
   [(_ . n:integer) ≫
    ------------
    [⊢ (#%datum- . n) ⇒ Int]]
   [(_ . b:boolean) ≫
    ------------
    [⊢ (#%datum- . b) ⇒ Bool]]
-  [(_ . (~literal unit)) ≫
-   ------------
-   [⊢ (#%datum- . '()) ⇒ Unit]]
   [(_ . x) ≫
    ------------
    [#:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])
 
-(define-typerule (#%app e1 e2) ≫
+(define-typerule (typed-app e1 e2) ≫
   [⊢ e1 ≫ e1- ⇒ (~→ T1 T2)]
   [⊢ e2 ≫ e2- ⇐ T1]
   ---------
   [⊢ (#%app- e1- e2-) ⇒ T2])
 
-(define-typerule (if cond thn els) ⇐ τ_expected ≫
-  [⊢ cond ≫ cond- ⇐ Bool]
-  [⊢ thn ≫ thn- ⇐ τ_expected]
-  [⊢ els ≫ els- ⇐ τ_expected]
-  ---------------------------
-  [⊢ (if- cond- thn- els-)])
-
-(define-typerule (succ t) ≫
-  [⊢ t ≫ t- ⇐ Int]
-  -----------------
-  [⊢ (#%app- add1- t-) ⇒ Int])
-
-(define-typerule (pred t) ≫
-  [⊢ t ≫ t- ⇐ Int]
-  -----------------
-  [⊢ (#%app- sub1- t-) ⇒ Int])
-
-(define-typerule (iszero t) ≫
-  [⊢ t ≫ t- ⇐ Int]
-  -----------------
-  [⊢ (#%app- zero?- t-) ⇒ Bool])
+(define-typerule if
+  [(_ cond thn els) ≫
+   [⊢ cond ≫ cond- ⇐ Bool]
+   [⊢ thn ≫ thn- ⇒ T1]
+   [⊢ els ≫ els- ⇒ T2]
+   [T1 τ= T2]
+   ------------------------
+   [⊢ (if- cond- thn- els-) ⇒ T1]]
+  [(_ cond thn els) ⇐ τ_expected ≫
+   [⊢ cond ≫ cond- ⇐ Bool]
+   [⊢ thn ≫ thn- ⇐ τ_expected]
+   [⊢ els ≫ els- ⇐ τ_expected]
+   ---------------------------
+   [⊢ (if- cond- thn- els-)]])
 
 ;; NOTE Chapter 11 ;;
 
-;; FIXME how do you write derived forms?
 (define-typerule (begin2 e1 e2) ≫
-  [⊢ e1 ≫ e1- ⇒ T1]
+  [⊢ e1 ≫ e1- ⇐ Unit]
   [⊢ e2 ≫ e2- ⇒ T2]
   ------------------
-  [⊢ ((λ [x : Unit] t2) t1) ⇒ T2])
+  [⊢ (begin- e1- e2-) ⇒ T2])
 
 ;; ;; this is a "check" rule
 ;; (define-typerule Γ ⊢ (λ [x : T1] t2) <=  T1 → T2
