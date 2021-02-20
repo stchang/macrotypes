@@ -13,6 +13,6 @@
 
 (check-type (iszero (pred (succ (pred (pred 2))))) : Bool -> #t)
 
-(check-type (begin2 #t 6) : Int)
+;; (check-type (begin2 #t 6) : Int)
 
 (check-type (if #t 5 6) : Int -> 5)
