@@ -1,9 +1,14 @@
 #lang racket/base
-(require syntax/stx syntax/parse syntax/parse/define
-         racket/list racket/format version/utils
-         racket/syntax)
+
+;; NOTE: this library usually require for-syntax
+
 (provide (all-defined-out)
          (rename-out [stx-datum-equal? datum=?]))
+
+(require syntax/stx syntax/parse syntax/parse/define
+         racket/list racket/format version/utils
+         racket/syntax
+         syntax/parse/experimental/template)
 
 ;; shorthands
 (define id? identifier?)
@@ -212,3 +217,7 @@
          (datum->syntax stx stx* stx stx))])))
 
 (define (mk-param id) (format-id id "current-~a" id))
+
+;; allow using subst in stx template positions without escaping
+(define-template-metafunction $ref
+  (syntax-parser [(_ (x ...) i:nat) (stx-list-ref #'(x ...) (stx-e #'i))]))

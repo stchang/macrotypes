@@ -221,7 +221,8 @@
                             (format "given index, ~a, exceeds size of tuple, ~a"
                                     (stx-e #'i) (stx->datum #'e))))]
   ----------------------
-  [⊢ (list-ref- e- 'i) ⇒ #,(stx-list-ref #'(τ ...) (stx-e #'i))]]
+;  [⊢ (list-ref- e- 'i) ⇒ #,(stx-list-ref #'(τ ...) (stx-e #'i))]]
+  [⊢ (list-ref- e- 'i) ⇒ ($ref (τ ...) i)]]
   ;; expr index???
   ;; - neg or out of bounds index produces runtime err
   ;; - can't actually compute type statically!
