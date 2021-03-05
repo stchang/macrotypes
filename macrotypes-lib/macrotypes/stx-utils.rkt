@@ -221,3 +221,12 @@
 ;; allow using subst in stx template positions without escaping
 (define-template-metafunction $ref
   (syntax-parser [(_ (x ...) i:nat) (stx-list-ref #'(x ...) (stx-e #'i))]))
+(define-template-metafunction $lookup
+  (syntax-parser
+    [(_ l:id [x:id τ] ...)
+     #:fail-unless (member (stx-e #'l) (stx->datum #'(x ...)))
+                   (format "non-existent label ~a in: ~a"
+                           (stx-e #'l)
+                           (stx->datum #'([x τ] ...)))
+     (cadr (stx-assoc #'l #'([x τ] ...)))]))
+
