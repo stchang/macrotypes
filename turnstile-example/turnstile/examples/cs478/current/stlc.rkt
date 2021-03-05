@@ -1,6 +1,7 @@
 #lang turnstile/quicklang
 
-(provide λ Int Bool Unit unit →  ascribe  if succ pred iszero 
+(provide Int Bool Unit → #%type
+         λ unit ascribe if succ pred iszero 
          (rename-out [typed-datum #%datum] [typed-app #%app]))
 
 (define-base-types Int Bool Unit)
@@ -11,8 +12,6 @@
 (define-primop succ add1 : (→ Int Int))
 (define-primop pred sub1 : (→ Int Int))
 (define-primop iszero zero? : (→ Int Bool))
-
-
 
 ;; bidirectional rules --------------------------------------------------------
 ;; in a typechecker, we want two operations, ie two types rules:
@@ -138,7 +137,7 @@
    ---------------------------
    [⊢ (if- cond- thn- els-)]])
 
-;; NOTE Chapter 11 ;;
+;; NOTE: Chapter 11 material starts here --------------------
 
 #;(define-typerule (begin2 e1 e2) ≫
   [⊢ e1 ≫ e1- ⇐ Unit]
@@ -251,7 +250,7 @@
 ;; types:
 ;; - (rec (id = X) ...)
 
-(provide #%type Rec rec)
+(provide Rec rec)
 
 (begin-for-syntax
   (define-syntax-class fld
@@ -263,8 +262,10 @@
                      (stx->datum
                       (check-duplicate-identifier
                        (stx->list #'(f.name ...)))))
-             #:with (val ...) #'(f.v ...)
-             #:with (name ...) #'(f.name ...)))
+             #:with (name ...) #'(f.name ...)
+             ;; readability hack: enables using this stx class for both terms/tys
+             #:with (e ...) #'(f.v ...)
+             #:with (τ ...) #'(f.v ...)))
   )
 
 
@@ -292,16 +293,17 @@
     [⊢ (list- 'Rec ['fs.name τ-] ...) ⇒ :: #%type])
 
 ;; try 3: with stx class, use Rec-internal
-
-;; this is only defined to enable ~literal matching
+;; Rec-internal only defined to enable ~literal matching
 (struct Rec-internal () #:omit-define-syntaxes)
 (define-typerule (Rec fs:flds) ≫
-  [⊢ fs.val ≫ τ- ⇐ :: #%type] ...
+  [⊢ fs.τ ≫ τ- ⇐ :: #%type] ...
   ----------------
   [⊢ (Rec-internal ['fs.name τ-] ...) ⇒ :: #%type])
 
 (begin-for-syntax
-  ;; uses 'Rec
+  ;; ~Rec pattern for Rec type
+  
+  ;; try 1: uses 'Rec
   #;(define-syntax ~Rec
     (pattern-expander
      (syntax-parser
@@ -311,34 +313,36 @@
            ((~literal quote) Rec) ;; TODO: make this a literal id
            ((~literal #%plain-app) ((~literal quote) name) τ) ooo)])))
 
+  ;; try 2: uses Rec-internal; adds lookup-embedded pattern
   (define-syntax ~Rec
     (pattern-expander
      (syntax-parser
+       ;; just match on Rec type (assumes ellipses in patter)
        [(_ [name:id (~datum =) τ] (~literal ...))
         #'((~literal #%plain-app)
            (~literal Rec-internal)
            ((~literal #%plain-app) ((~literal quote) name) τ) (... ...))]
+       ;; match *and* lookup label; err if lookup fails
        [(_ (~literal ...) [l:id (~datum =) τl] (~literal ...))
-        #'(~and rec-ty
+        #'(~and entire-rec-ty
                 (~parse
                  ((~literal #%plain-app)
                   (~literal Rec-internal)
                   ((~literal #%plain-app) ((~literal quote) name) τ) (... ...))
-                 #'rec-ty)
+                 #'entire-rec-ty)
                 (~fail
                  #:unless (member (stx-e #'l) (stx->datum #'(name (... ...))))
-                          (syntax-parse
+                          (syntax-parse ; resugar τs for nicer err msg
                               (stx-map (current-resugar) #'(τ (... ...)))
                             [(ty (... ...))
                              (format "non-existent label ~a in record: ~a\n"
                                      (stx-e #'l)
-                                     (stx->datum #'(Rec [name = ty] (... ...))))]))
-                (~parse
-                 τl
-                 (cadr (stx-assoc #'l #'([name τ](...  ...))))))])))
+                                     (stx->datum
+                                      #'(Rec [name = ty] (... ...))))]))
+                (~parse τl (cadr (stx-assoc #'l #'([name τ](... ...))))))])))
   )
 
-;; try 1: no stx class
+;; try 1: no stx class; explicit err msg
 #;(define-typerule (rec [name:id (~datum =) e] ...) ≫
   #:fail-when (check-duplicate-identifier (stx->list #'(name ...)))
               (format "Given duplicate label: ~a"
@@ -348,13 +352,13 @@
   ------------------
   [⊢ (#%app- list- (#%app- cons- 'name e-) ...) ⇒ (Rec (name = τ) ...)])
 
-;; try 2: with stx class
+;; try 2: use flds stx class, which handles err checks
 (define-typerule (rec fs:flds) ≫
-  [⊢ fs.val ≫ e- ⇒ τ] ...
+  [⊢ fs.e ≫ e- ⇒ τ] ...
   ------------------
-  [⊢ (list- (cons- 'fs.name e-) ...) ⇒ (Rec (fs.name = τ) ...)])
+  [⊢ (list- (cons- 'fs.name e-) ...) ⇒ (Rec [fs.name = τ] ...)])
 
-
+;; handles both tuples and records
 (define-typerule proj
   ;; record proj ----------------------------------------
   ;; try 1: explicit err msg and syntax-unquote
