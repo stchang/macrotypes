@@ -73,4 +73,6 @@
 ;; (check-type (ascribe 5 as Int) : Int)
 (check-type (inl 5 as (Sum Int Bool)) : (Sum Int Bool))
 (check-type (inr 6 as (Sum Bool Int)) : (Sum Bool Int))
-;; (check-type (case (inl 3 as (Sum Int Bool)) [(inl x) 1] [(inr y) 2]) : Int -> 1)
+(check-type (case (inl 3 as (Sum Int Bool)) [(inl x) 1] [(inr y) 2]) : Int -> 1)
+
+(typecheck-fail (inl 6 as (Sum Bool Bool)) #:with-msg "sad")

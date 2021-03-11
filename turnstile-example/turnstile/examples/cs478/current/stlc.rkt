@@ -412,21 +412,22 @@
         [(~Sum _ τ-right) (type=? τ #'τ-right)]))))
 
 (define-typerule (inl e (~datum as) τ:type) ≫
-  [⊢ e ≫ e- ⇒ τ1]
-  #:fail-unless (is-left #'τ1 #'τ)  "uh oh sad"
+  [⊢ e ≫ e- ⇒ τ-left]
+  #:fail-unless (is-left #'τ-left #'τ) (format "type ~a isn't left type of Sum ~a" (syntax->datum (stx-e #'τ-left)) (syntax->datum (stx-e #'τ)))
   -------------------------
-  [⊢ (#%app- in-left e-) ⇒ τ])
+  [⊢ (in-left e-) ⇒ τ])
 
 (define-typerule (inr e (~datum as) τ:type) ≫
   [⊢ e ≫ e- ⇒ τ-right]
-  #:fail-unless (is-right #'τ-right #'τ) "uh oh really sad"
+  #:fail-unless (is-right #'τ-right #'τ) (format "type ~a isn't right type of Sum ~a" (stx-e #'τ-right) (stx-e #'τ))
   -------------------------
-  [⊢ (#%app- in-right e-) ⇒ τ])
+  [⊢ (in-right e-) ⇒ τ])
 
+(require (rename-in racket/match [match match-]))
 (define-typerule (case e [((~datum inl) x:id) t1] [((~datum inr) y:id) t2]) ≫
   [⊢ e ≫ e- ⇒ (~Sum τ1 τ2)]
-  [⊢ t1 ≫ t1- ⇒ in-τ1]
-  [⊢ t2 ≫ t2- ⇒ in-τ2]
+  [[x ≫ x- : τ1] ⊢ t1 ≫ t1- ⇒ in-τ1]
+  [[y ≫ y- : τ2] ⊢ t2 ≫ t2- ⇒ in-τ2]
   [in-τ1 τ= in-τ2]
   --------------------------
-  [⊢ (#%app- match- e- [(#%app- in-left x-) t1-] [(#%app- in-right y-) t2-]) ⇒ in-τ1])
+  [⊢ (match- e- [(in-left x-) t1-] [(in-right y-) t2-]) ⇒ in-τ1])
