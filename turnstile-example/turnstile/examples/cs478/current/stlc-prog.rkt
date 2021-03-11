@@ -68,3 +68,9 @@
 (check-type (proj (rec [x = 1] [y = #f]) x) : Int -> 1)
 (check-type (proj (rec [x = 1] [y = #f]) y) : Bool -> #f)
 
+(check-type (vals (rec [x = 1] [y = #f])) : (× Int Bool))
+
+;; (check-type (ascribe 5 as Int) : Int)
+(check-type (inl 5 as (Sum Int Bool)) : (Sum Int Bool))
+(check-type (inr 6 as (Sum Bool Int)) : (Sum Bool Int))
+;; (check-type (case (inl 3 as (Sum Int Bool)) [(inl x) 1] [(inr y) 2]) : Int -> 1)

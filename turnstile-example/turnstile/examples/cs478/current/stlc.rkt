@@ -1,7 +1,7 @@
 #lang turnstile/quicklang
 
 (provide Int Bool Unit → #%type
-         λ unit ascribe if succ pred iszero 
+         λ unit ascribe if succ pred iszero vals
          (rename-out [typed-datum #%datum] [typed-app #%app]))
 
 (define-base-types Int Bool Unit)
@@ -319,6 +319,7 @@
      (syntax-parser
        ;; just match on Rec type (assumes ellipses in patter)
        [(_ [name:id (~datum =) τ] (~literal ...))
+        ;; #'(Rec-internal (name τ) (... ...))]
         #'((~literal #%plain-app)
            (~literal Rec-internal)
            ((~literal #%plain-app) ((~literal quote) name) τ) (... ...))]
@@ -339,8 +340,7 @@
                                      (stx-e #'l)
                                      (stx->datum
                                       #'(Rec [name = ty] (... ...))))]))
-                (~parse τl (cadr (stx-assoc #'l #'([name τ](... ...))))))])))
-  )
+                (~parse τl (cadr (stx-assoc #'l #'([name τ](... ...))))))]))))
 
 ;; try 1: no stx class; explicit err msg
 #;(define-typerule (rec [name:id (~datum =) e] ...) ≫
@@ -385,3 +385,48 @@
   [(proj e i:nat) ≫
    -----------
    [≻ (tup-proj e i)]])
+
+(define-typerule (vals rec) ≫
+  [⊢ rec ≫ rec- ⇒ (~Rec [l = τ] ...)]
+  ------------------------------------
+  [⊢ (list- (cdr- (assoc- 'l rec-)) ...) ⇒ (× τ ...)])
+
+(define-type-constructor Sum #:arity = 2)
+
+(struct in-left (e) #:transparent)
+(struct in-right (e) #:transparent)
+
+(provide inl inr case Sum in-left in-right)
+
+(begin-for-syntax
+  (define (is-left tst-type sum-type)
+    (let ([τ ((current-type-eval) tst-type)]
+          [sum-τ ((current-type-eval) sum-type)])
+      (syntax-parse sum-τ
+        [(~Sum τ-left _) (type=? τ #'τ-left)])))
+
+  (define (is-right tst-type sum-type)
+    (let ([τ ((current-type-eval) tst-type)]
+          [sum-τ ((current-type-eval) sum-type)])
+      (syntax-parse sum-τ
+        [(~Sum _ τ-right) (type=? τ #'τ-right)]))))
+
+(define-typerule (inl e (~datum as) τ:type) ≫
+  [⊢ e ≫ e- ⇒ τ1]
+  #:fail-unless (is-left #'τ1 #'τ)  "uh oh sad"
+  -------------------------
+  [⊢ (#%app- in-left e-) ⇒ τ])
+
+(define-typerule (inr e (~datum as) τ:type) ≫
+  [⊢ e ≫ e- ⇒ τ-right]
+  #:fail-unless (is-right #'τ-right #'τ) "uh oh really sad"
+  -------------------------
+  [⊢ (#%app- in-right e-) ⇒ τ])
+
+(define-typerule (case e [((~datum inl) x:id) t1] [((~datum inr) y:id) t2]) ≫
+  [⊢ e ≫ e- ⇒ (~Sum τ1 τ2)]
+  [⊢ t1 ≫ t1- ⇒ in-τ1]
+  [⊢ t2 ≫ t2- ⇒ in-τ2]
+  [in-τ1 τ= in-τ2]
+  --------------------------
+  [⊢ (#%app- match- e- [(#%app- in-left x-) t1-] [(#%app- in-right y-) t2-]) ⇒ in-τ1])
