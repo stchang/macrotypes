@@ -48,9 +48,9 @@
       [(_ #;match-fn resugar-fn unexpand-fn (~seq name val) ...)
        #`(make-free-id-table
           (hash ;#'get-datatype-def match-fn
+                (~@ #'name val) ... ; wrap each name with "#'"
                 #'get-resugar-info resugar-fn
                 #'get-unexpand-info unexpand-fn
-                (~@ #'name val) ... ; wrap each name with "#'"
                 ))]))
 
   ;; TODO: can this be syntax-local-value?
