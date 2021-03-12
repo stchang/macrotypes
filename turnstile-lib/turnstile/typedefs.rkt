@@ -48,9 +48,9 @@
     (syntax-parser
       [(_ resugar-fn unexpand-fn (~seq other-meth-name val) ...)
        #`(make-free-id-table
-          (hash #'get-resugar-info resugar-fn
+          (hash (~@ #'other-meth-name val) ... ; wrap each meth name with "#'"
+                #'get-resugar-info resugar-fn
                 #'get-unexpand-info unexpand-fn
-                (~@ #'other-meth-name val) ... ; wrap each meth name with "#'"
                 ))]))
 
   ;; TODO: can this be syntax-local-value?
