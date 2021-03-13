@@ -398,28 +398,13 @@
 
 (provide inl inr case Sum in-left in-right)
 
-(begin-for-syntax
-  (define (is-left tst-type sum-type)
-    (let ([τ ((current-type-eval) tst-type)]
-          [sum-τ ((current-type-eval) sum-type)])
-      (syntax-parse sum-τ
-        [(~Sum τ-left _) (type=? τ #'τ-left)])))
-
-  (define (is-right tst-type sum-type)
-    (let ([τ ((current-type-eval) tst-type)]
-          [sum-τ ((current-type-eval) sum-type)])
-      (syntax-parse sum-τ
-        [(~Sum _ τ-right) (type=? τ #'τ-right)]))))
-
-(define-typerule (inl e (~datum as) τ:type) ≫
-  [⊢ e ≫ e- ⇒ τ-left]
-  #:fail-unless (is-left #'τ-left #'τ) (format "type ~a isn't left type of Sum ~a" (syntax->datum (stx-e #'τ-left)) (syntax->datum (stx-e #'τ)))
+(define-typerule (inl e (~datum as) (~and τ:type (~parse (~Sum τl _) #'τ.norm))) ≫
+  [⊢ e ≫ e- ⇐ τl]
   -------------------------
   [⊢ (in-left e-) ⇒ τ])
 
-(define-typerule (inr e (~datum as) τ:type) ≫
-  [⊢ e ≫ e- ⇒ τ-right]
-  #:fail-unless (is-right #'τ-right #'τ) (format "type ~a isn't right type of Sum ~a" (stx-e #'τ-right) (stx-e #'τ))
+(define-typerule (inr e (~datum as) (~and τ:type (~parse (~Sum _ τr) #'τ.norm))) ≫
+  [⊢ e ≫ e- ⇐ τr]
   -------------------------
   [⊢ (in-right e-) ⇒ τ])
 
