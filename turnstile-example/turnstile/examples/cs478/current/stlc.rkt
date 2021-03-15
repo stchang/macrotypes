@@ -327,7 +327,6 @@
      (syntax-parser
        ;; just match on Rec type (assumes ellipses in patter)
        [(_ [name:id (~datum =) τ] (~literal ...))
-        ;; #'(Rec-internal (name τ) (... ...))]
         #'((~literal #%plain-app)
            (~literal Rec-internal)
            ((~literal #%plain-app) ((~literal quote) name) τ) (... ...))]
