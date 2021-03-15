@@ -95,3 +95,11 @@
               [inr y => (if y 8 9)])
             : Int
             -> 9)
+
+(check-type (typed-match [x 5] x) : Int)
+(check-type (typed-match [hello (tup 101 #t)] hello) : (× Int Bool))
+(check-type (typed-match [hello (tup 101 #t)] (proj hello 1)) : Bool)
+(check-type (typed-match [(a b c) (tup 101 #f #t)] a) : Int)
+(check-type (typed-match [(thing) (rec [thing = 5] [other = #f])] thing) : Int)
+
+;; (typecheck-fail (typed-match [(a b c) (tup 2 3)] c) #:with-msg "sad")

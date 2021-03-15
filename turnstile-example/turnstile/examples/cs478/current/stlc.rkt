@@ -446,3 +446,23 @@
   #;  [⊢ (if- (inl-? e-)
           (let- ([x- (inl--val e-)]) e1-)
           (let- ([y- (inr--val e-)]) e2-)) ⇒ τ])
+
+(provide typed-match)
+(define-typerule typed-match
+  [(_ (x:id e) b) ≫
+   [⊢ e ≫ e- ⇒ τ]
+   [[x ≫ x- : τ] ⊢ b ≫ b- ⇒ τ-out]
+   ---------------------------------
+   [⊢ (let- ([x- e-]) b-) ⇒ τ-out]]
+  [(_ ([x:id ...] e) b) ≫
+   [⊢ e ≫ e- ⇒ (~× τ-tup ...)]
+   #:fail-unless (= (stx-length #'(x ...)) (stx-length #'(τ-tup ...)))
+   (format "~a pattern variables does not match ~a values in tuple" (stx-length #'(x ...)) (stx-length #'(τ-tup ...)))
+   [[x ≫ x- : τ-tup] ... ⊢ b ≫ b- ⇒ τ-out]
+   -----------------------------------------
+   [⊢ (match- e- [(list- x- ...) b-]) ⇒ τ-out]]
+  [(_ ([x:id ...] e) b) ≫
+   [⊢ e ≫ e- ⇒ (~and τ-rec:type (~parse (~Rec [l = τ-label] ...) #'τ-rec.norm))]
+   [[x ≫ x- : ($lookup x [l τ-label] ...)] ... ⊢ b ≫ b- ⇒ τ-out]
+   -----------------------------------------------------------------
+   [⊢ (let- ([x- (cadr- (assoc- x- e-))] ...) b-) ⇒ τ-out]])
