@@ -1,4 +1,4 @@
-#lang cs478
+#lang s-exp "stlc.rkt"
 (require rackunit/turnstile)
 (check-type (ascribe (λ x x) as (→ Int Int)) : (→ Int Int))
 
@@ -67,8 +67,6 @@
 
 (check-type (proj (rec [x = 1] [y = #f]) x) : Int -> 1)
 (check-type (proj (rec [x = 1] [y = #f]) y) : Bool -> #f)
-
-(check-type (vals (rec [x = 1] [y = #f])) : (× Int Bool))
 
 ;; sum types ----------------------------------------
 (check-type (inl 1) : (Sum2 Int Bool))

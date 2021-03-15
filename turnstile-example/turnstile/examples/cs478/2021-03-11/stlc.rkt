@@ -1,7 +1,7 @@
 #lang turnstile/quicklang
 
 (provide Int Bool Unit → #%type
-         λ unit ascribe if succ pred iszero define vals
+         λ unit ascribe if succ pred iszero define
          (rename-out [typed-datum #%datum] [typed-app #%app]))
 
 (define-base-types Int Bool Unit)
@@ -327,7 +327,6 @@
      (syntax-parser
        ;; just match on Rec type (assumes ellipses in patter)
        [(_ [name:id (~datum =) τ] (~literal ...))
-        ;; #'(Rec-internal (name τ) (... ...))]
         #'((~literal #%plain-app)
            (~literal Rec-internal)
            ((~literal #%plain-app) ((~literal quote) name) τ) (... ...))]
@@ -348,7 +347,8 @@
                                      (stx-e #'l)
                                      (stx->datum
                                       #'(Rec [name = ty] (... ...))))]))
-                (~parse τl (cadr (stx-assoc #'l #'([name τ](... ...))))))]))))
+                (~parse τl (cadr (stx-assoc #'l #'([name τ](... ...))))))])))
+  )
 
 ;; try 1: no stx class; explicit err msg
 #;(define-typerule (rec [name:id (~datum =) e] ...) ≫
@@ -394,10 +394,6 @@
    -----------
    [≻ (tup-proj e i)]])
 
-(define-typerule (vals rec) ≫
-  [⊢ rec ≫ rec- ⇒ (~Rec [l = τ] ...)]
-  ------------------------------------
-  [⊢ (list- (cdr- (assoc- 'l rec-)) ...) ⇒ (× τ ...)])
 
 ;; sums -----------------------------------------------------------------------
 ;; Terms:
