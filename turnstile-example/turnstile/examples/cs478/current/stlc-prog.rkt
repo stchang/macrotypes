@@ -96,10 +96,12 @@
             : Int
             -> 9)
 
-(check-type (typed-match [x 5] x) : Int)
-(check-type (typed-match [hello (tup 101 #t)] hello) : (× Int Bool))
-(check-type (typed-match [hello (tup 101 #t)] (proj hello 1)) : Bool)
-(check-type (typed-match [(a b c) (tup 101 #f #t)] a) : Int)
-(check-type (typed-match [(thing) (rec [thing = 5] [other = #f])] thing) : Int)
+(check-type (typed-match ([x 5] [y (tup 101 #t)]) (proj y 0)) : Int -> 101)
+(check-type (typed-match ([(a b c) (tup 101 #f #t)]) a) : Int -> 101)
+(check-type (typed-match ([(a b c d) (tup 101 #f #t 6)]) d) : Int -> 6)
+(check-type (typed-match ([([other = (a b)]) (rec [other = (tup #t 2)] [thing = 5] [g = #f])]) b) : Int -> 2)
 
-;; (typecheck-fail (typed-match [(a b c) (tup 2 3)] c) #:with-msg "sad")
+(check-type (typed-match ([([other = a] [thing = b]) (rec [other = #f] [thing = 2])] [(c d) (tup 8 9)]) (if a b c)) : Int -> 8)
+
+(typecheck-fail (typed-match ([(a b c) (tup 2 3)]) c) #:with-msg "3 pattern variables does not match 2 values in typle")
+(typecheck-fail (typed-match ([([g = hello]) (rec [a = 6])]) hello) #:with-msg "non-existent label g")

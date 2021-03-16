@@ -269,8 +269,8 @@
              #:with (name ...) #'(f.name ...)
              ;; readability hack: enables using this stx class for both terms/tys
              #:with (e ...) #'(f.v ...)
-             #:with (τ ...) #'(f.v ...)))
-  )
+             #:with (τ ...) #'(f.v ...)
+             #:with (pat ...) #'(f.v ...))))
 
 
 ;; Rec type
@@ -448,20 +448,40 @@
 
 (provide typed-match)
 (define-typerule typed-match
-  [(_ (x:id e) b) ≫
+  [(_ ([x:id e] [pat e-next] ...) b) ≫
    [⊢ e ≫ e- ⇒ τ]
-   [[x ≫ x- : τ] ⊢ b ≫ b- ⇒ τ-out]
+   [[x ≫ x- : τ] ⊢ (typed-match ([pat e-next] ...) b) ≫ rest- ⇒ τ-out]
    ---------------------------------
-   [⊢ (let- ([x- e-]) b-) ⇒ τ-out]]
-  [(_ ([x:id ...] e) b) ≫
-   [⊢ e ≫ e- ⇒ (~× τ-tup ...)]
+   [⊢ (let- ([x- e-]) rest-) ⇒ τ-out]]
+  [(_ ([[x:id ...] e] [pat e-next] ...) b) ≫
+   [⊢ e ≫ e- ⇒ (~× τ-tup ... ~!)]
    #:fail-unless (= (stx-length #'(x ...)) (stx-length #'(τ-tup ...)))
    (format "~a pattern variables does not match ~a values in tuple" (stx-length #'(x ...)) (stx-length #'(τ-tup ...)))
-   [[x ≫ x- : τ-tup] ... ⊢ b ≫ b- ⇒ τ-out]
+   [[x ≫ x- : τ-tup] ... ⊢ (typed-match ([pat e-next] ...) b) ≫ rest- ⇒ τ-out]
    -----------------------------------------
-   [⊢ (match- e- [(list- x- ...) b-]) ⇒ τ-out]]
-  [(_ ([x:id ...] e) b) ≫
-   [⊢ e ≫ e- ⇒ (~and τ-rec:type (~parse (~Rec [l = τ-label] ...) #'τ-rec.norm))]
-   [[x ≫ x- : ($lookup x [l τ-label] ...)] ... ⊢ b ≫ b- ⇒ τ-out]
+   [⊢ (match- e- [(list x- ...) rest-]) ⇒ τ-out]]
+  [(_ ([(fs:flds) (~and e (~parse (rec [l (~datum =) e-val] ...) #'e))] [pat e-next] ...) b) ≫
+   [⊢ e ≫ e- ⇒ (~and τ-rec (~parse (~Rec [_ = τ-label] ...) #'τ-rec))]
    -----------------------------------------------------------------
-   [⊢ (let- ([x- (cadr- (assoc- x- e-))] ...) b-) ⇒ τ-out]])
+   [≻ (typed-match ([fs.pat ($lookup fs.name [l e-val] ...)] ... [pat e-next] ...) b)]]
+  [(_ () b) ≫
+   [⊢ b ≫ b- ⇒ τ]
+   ---------------
+   [⊢ b- ⇒ τ]])
+
+;;-------------- recursion -----------------------
+;; f: (τ-in -> τ-out) -> τ-in -> τ-out
+#;(define Y-
+  (#%app-
+   (λ- (z) (λ- (f) (λ- (x) (#%app- (#%app- (#%app- z z) f) x))))
+   (λ- (z) (λ- (f) (λ- (x) (#%app- (#%app- (#%app- z z) f) x))))))
+
+#;(define-typerule (fix f) ≫
+  [⊢ f ≫ f- ⇒ (~→ (~and τ-in:type (~parse (~→ _ _) τ-in)) τ-out)] ;; TODO make sure τ is a function
+  [τ-in τ= τ-out]
+  ----------------------
+  [⊢ (Y- f-) ⇒ τ-out])
+
+#;(define-typerule (letrec (x f) b) ≫
+  ----------------------
+  [≻ ((λ x b) (fix f))])
