@@ -103,5 +103,7 @@
 
 (check-type (typed-match ([([other = a] [thing = b]) (rec [other = #f] [thing = 2])] [(c d) (tup 8 9)]) (if a b c)) : Int -> 8)
 
-(typecheck-fail (typed-match ([(a b c) (tup 2 3)]) c) #:with-msg "3 pattern variables does not match 2 values in typle")
-(typecheck-fail (typed-match ([([g = hello]) (rec [a = 6])]) hello) #:with-msg "non-existent label g")
+(typecheck-fail (typed-match ([(a b c) (tup 2 3)]) c)
+                #:with-msg "3 pattern variables does not match 2 values in tuple")
+(typecheck-fail (typed-match ([([g = hello]) (rec [a = 6])]) hello)
+                #:with-msg "non-existent label g")
