@@ -70,6 +70,8 @@
 
 (define (stx-list-ref stx i)
   (list-ref (stx->list stx) i))
+(define (stx-index-of stx-src stx-item)
+  (index-of (stx->list stx-src) stx-item))
 (define-simple-macro (in-stx-list stx) (in-list (stx->list stx)))
 
 (define (stx-str=? s1 s2)
@@ -230,3 +232,5 @@
                            (stx->datum #'([x τ] ...)))
      (cadr (stx-assoc #'l #'([x τ] ...)))]))
 
+(define-template-metafunction $idx-of
+  (syntax-parser [(_ (x ...) y) (datum->syntax #f (stx-index-of #'(x ...) (stx-e #'y)))]))

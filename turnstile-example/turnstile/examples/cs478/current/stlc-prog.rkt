@@ -118,8 +118,16 @@
          [thing = 5]
          [g = #f])]) b)
  : Int -> 2)
+(check-type nil : (List Int))
+(check-type (isnil (ascribe nil as (List Bool))) : Bool)
+(check-type (isnil (cons 5 nil)) : Bool)
+(check-type (cons 10 (cons 5 nil)) : (List Int))
+;; (check-type (typed-match ([x 5] [y (tup 101 #t)]) (proj y 0)) : Int -> 101)
+;; (check-type (typed-match ([(a b c) (tup 101 #f #t)]) a) : Int -> 101)
+;; (check-type (typed-match ([(a b c d) (tup 101 #f #t 6)]) d) : Int -> 6)
+;; (check-type (typed-match ([([other = (a b)]) (rec [other = (tup #t 2)] [thing = 5] [g = #f])]) b) : Int -> 2)
 
-(check-type (typed-match ([([other = a] [thing = b]) (rec [other = #f] [thing = 2])] [(c d) (tup 8 9)]) (if a b c)) : Int -> 8)
+;; (check-type (typed-match ([([other = a] [thing = b]) (rec [other = #f] [thing = 2])] [(c d) (tup 8 9)]) (if a b c)) : Int -> 8)
 
 (typecheck-fail (typed-match ([(a b c) (tup 2 3)]) c)
                 #:with-msg "3 pattern variables does not match 2 values in tuple")
@@ -171,3 +179,8 @@
                         1
                         (r:#%app r:* x (r:#%app r:fact (r:#%app r:sub1 x)))))])
       (r:#%app r:fact 5)))
+
+;; (check-type (typed-match ([((a)) (tup (tup 1))]) a): Int -> 1)
+
+;; (typecheck-fail (typed-match ([(a b c) (tup 2 3)]) c) #:with-msg "3 pattern variables does not match 2 values in typle")
+;; (typecheck-fail (typed-match ([([g = hello]) (rec [a = 6])]) hello) #:with-msg "non-existent label g")

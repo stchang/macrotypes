@@ -5,6 +5,8 @@
          (rename-out [typed-datum #%datum] [typed-app #%app]
                      [typed-define define]))
 
+
+(define-type-constructor List #:arity = 1)
 (define-base-types Int Bool Unit)
 (define-type-constructor → #:arity = 2)
 
@@ -120,6 +122,10 @@
   [(_ . x) ≫
    ------------
    [#:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])
+
+(define-typerule (~datum nil) ⇐ (~List τ) ≫
+  --------------------
+  [⊢ null- ⇒ (List τ)])
 
 (define-typerule (typed-app e1 e2) ≫
   [⊢ e1 ≫ e1- ⇒ (~→ T1 T2)]
@@ -484,20 +490,46 @@
    (format "~a pattern variables does not match ~a values in tuple"
            (stx-length #'(x ...)) (stx-length #'(τ-tup ...)))
    [[x ≫ x- : τ-tup] ... ⊢ (typed-match rst-pats b) ≫ rest- ⇒ τ-out]
+   #:with (i ...) (build-list (stx-length #'(x ...)) (λ (d) #`(#%datum- . #,d)))
    -----------------------------------------
-   [⊢ (match- e- [(list x- ...) rest-]) ⇒ τ-out]]
-  [(_ ([(fs:flds)
-        (~and e (~parse (rec [l (~datum =) e-val] ...) #'e))]
-       . rst-pats) b) ≫ ;; rec pat
-   [⊢ e ≫ e- ⇒ (~and τ-rec (~parse (~Rec [_ = τ-label] ...) #'τ-rec))]
+   [≻ (typed-match ([x (proj e i)] ... . rst-pats) b)]]
+
+  [(_ ([(fs:flds) e] . rst-pats) b) ≫
+   [⊢ e ≫ e- ⇒ (~and τ-rec (~parse (~Rec [l = τ-label] ...) #'τ-rec))]
    -----------------------------------------------------------------
-   [≻ (typed-match
-       ([fs.pat ($lookup fs.name [l e-val] ...)] ...
-        . rst-pats) b)]]
+   [≻ (typed-match ([fs.pat (proj e fs.name)] ... . rst-pats) b)]]
   [(_ () b) ≫
    [⊢ b ≫ b- ⇒ τ]
    ---------------
    [⊢ b- ⇒ τ]])
+
+(provide List nil cons isnil head tail)
+
+(define-typerule nil
+  [:id ⇐ (~List τ) ≫
+  -----------------
+  [⊢ null-]])
+
+(define-typerule (cons a d) ≫
+  [⊢ a ≫ a- ⇒ τ]
+  [⊢ d ≫ d- ⇐ (List τ)]
+  ----------------------
+  [⊢ (cons- a- d-) ⇒ (List τ)])
+
+(define-typerule (isnil e) ≫
+  [⊢ e ≫ e- ⇒ (~List τ)]
+  ------------------------
+  [⊢ (empty?- e-) ⇒ Bool])
+
+(define-typerule (head e) ≫
+  [⊢ e ≫ e- ⇒ (~List τ)]
+  -----------------------
+  [⊢ (car- e-) ⇒ τ])
+
+(define-typerule (tail e) ≫
+  [⊢ e ≫ e- ⇒ (~List τ)]
+  ----------------------
+  [⊢ (cdr- e-) ⇒ (List τ)])
 
 ;;-------------- recursion -----------------------
 ;; new term: fix
