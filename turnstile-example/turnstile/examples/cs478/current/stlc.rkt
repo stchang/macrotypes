@@ -484,21 +484,25 @@
    [[x ≫ x- : τ] ⊢ (typed-match rst-pats b) ≫ rest- ⇒ τ-out]
    ---------------------------------
    [⊢ (let- ([x- e-]) rest-) ⇒ τ-out]]
-  [(_ ([[x:id ...] e] . rst-pats) b) ≫ ;; tuple pat
+  [(_ ([(~datum _) e] . rst-pats) b) ≫ ;; underscore/no binding pat
+   [⊢ e ≫ e- ⇒ _]
+   [⊢ (typed-match rst-pats b) ≫ rest- ⇒ τ-out]
+   -------------------------------------
+   [⊢ (begin- e- rest-) ⇒ τ-out]]
+  [(_ ([[x ...] e] . rst-pats) b) ≫ ;; tuple pat
    [⊢ e ≫ e- ⇒ (~× τ-tup ... ~!)]
    #:fail-unless (= (stx-length #'(x ...)) (stx-length #'(τ-tup ...)))
    (format "~a pattern variables does not match ~a values in tuple"
            (stx-length #'(x ...)) (stx-length #'(τ-tup ...)))
-   [[x ≫ x- : τ-tup] ... ⊢ (typed-match rst-pats b) ≫ rest- ⇒ τ-out]
-   #:with (i ...) (build-list (stx-length #'(x ...)) (λ (d) #`(#%datum- . #,d)))
+   ;; [[x ≫ x- : τ-tup] ... ⊢ (typed-match rst-pats b) ≫ rest- ⇒ τ-out]
+   #:with (i ...) (build-list (stx-length #'(x ...)) (λ (d) d))
    -----------------------------------------
    [≻ (typed-match ([x (proj e i)] ... . rst-pats) b)]]
-
-  [(_ ([(fs:flds) e] . rst-pats) b) ≫
+  [(_ ([(fs:flds) e] . rst-pats) b) ≫ ;; rec pat
    [⊢ e ≫ e- ⇒ (~and τ-rec (~parse (~Rec [l = τ-label] ...) #'τ-rec))]
    -----------------------------------------------------------------
    [≻ (typed-match ([fs.pat (proj e fs.name)] ... . rst-pats) b)]]
-  [(_ () b) ≫
+  [(_ () b) ≫ ;; body pat
    [⊢ b ≫ b- ⇒ τ]
    ---------------
    [⊢ b- ⇒ τ]])
@@ -519,7 +523,7 @@
 (define-typerule (isnil e) ≫
   [⊢ e ≫ e- ⇒ (~List τ)]
   ------------------------
-  [⊢ (empty?- e-) ⇒ Bool])
+  [⊢ (null?- e-) ⇒ Bool])
 
 (define-typerule (head e) ≫
   [⊢ e ≫ e- ⇒ (~List τ)]
@@ -542,7 +546,6 @@
        (λ- (z) (#%app- f (λ- (x) (#%app- (#%app- z z) x)))))))
 
 (define-typerule (fix f) ≫
-;  [⊢ f ≫ f- ⇒ (~→ (~and τ-in:type (~parse (~→ _ _) τ-in)) τ-out)] ;; TODO make sure τ is a function
   [⊢ f ≫ f- ⇒ (~→ τ-in τ-out)]
   [τ-in τ= τ-out]
   ----------------------
