@@ -171,3 +171,26 @@
                         1
                         (r:#%app r:* x (r:#%app r:fact (r:#%app r:sub1 x)))))])
       (r:#%app r:fact 5)))
+
+
+(check-type (nil Int) : (List Int))
+(check-type (cons Int 1 (nil Int)) : (List Int))
+(check-type (cons Int 1 (cons Int 3 (nil Int))) : (List Int))
+(check-type (isnil Bool (nil Bool)) : Bool)
+(check-type (head Bool (cons Bool #f (nil Bool))) : Bool)
+(check-type (tail Bool (cons Bool #f (cons Bool #t (nil Bool)))) : (List Bool))
+
+(check-type (nil Int) : (List Int) -> (r:quote ()))
+(check-type (cons Int 1 (nil Int)) : (List Int) -> (r:#%app r:list 1))
+(check-type (cons Int 1 (cons Int 3 (nil Int))) : (List Int) -> (r:#%app r:list 1 3))
+(check-type (isnil Bool (nil Bool)) : Bool -> #t)
+(check-type (head Bool (cons Bool #f (nil Bool))) : Bool -> #f)
+(check-type (tail Bool (cons Bool #f (cons Bool #t (nil Bool)))) : (List Bool) -> (r:#%app r:list #t))
+
+(typecheck-fail ((nil Int) : (List Unit)))
+(typecheck-fail (cons Bool 1 (nil Bool)))
+(typecheck-fail (cons Int 1 (nil Bool)))
+(typecheck-fail (head Int 1))
+(typecheck-fail (tail Int (cons Bool #f (nil Bool))))
+(typecheck-fail (ascribe (isnil Int (cons Int 4 (nil Int))) as Int)
+                #:with-msg "expected Int, given Bool")
