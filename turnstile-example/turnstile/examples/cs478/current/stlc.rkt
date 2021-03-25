@@ -505,25 +505,45 @@
 
 (define-type-constructor List #:arity = 1)
 
-(define-typerule (nil τ) ≫
-  -------
-  [⊢ (quote- ()) ⇒ (List τ)])
+(define-typerule nil 
+  [(_ τ) ≫
+    -------
+    [⊢ (quote- ()) ⇒ (List τ)]]
+  [(_) ⇐ (~List τ_exp) ≫
+    --------------
+    [⊢ (quote- ())]])
 
-(define-typerule (cons τ e1 e2) ≫
-  [⊢ e1 ≫ e1- ⇐ τ]
-  [⊢ e2 ≫ e2- ⇐ (List τ)]
-  ----------------
-  [⊢ (cons- e1- e2-) ⇒ (List τ)])
+(define-typerule cons
+  [(cons τ e1 e2) ≫
+   [⊢ e1 ≫ e1- ⇐ τ]
+   [⊢ e2 ≫ e2- ⇐ (List τ)]
+   ----------------
+   [⊢ (cons- e1- e2-) ⇒ (List τ)]]
+  [(cons e1 e2) ⇐ (~List τ_exp) ≫
+    [⊢ e1 ≫ e1- ⇐ τ_exp]
+    [⊢ e2 ≫ e2- ⇐ (List τ_exp)]
+    -----------------------
+    [⊢ (cons- e1- e2-)]])
 
-(define-typerule (isnil τ e) ≫
-  [⊢ e ≫ e- ⇐ (List τ)]
-  ---------------------
-  [⊢ (null?- e-) ⇒ Bool])
+(define-typerule isnil
+  [(_ τ e) ≫
+    [⊢ e ≫ e- ⇐ (List τ)]
+    ---------------------
+    [⊢ (null?- e-) ⇒ Bool]]
+  [(_ e) ⇐ Bool ≫
+   [⊢ e ≫ e- ⇐ (List τ)]
+   ---------------------
+   [⊢ (null?- e-)]])
 
-(define-typerule (head τ e) ≫
-  [⊢ e ≫ e- ⇐ (List τ)]
-  ---------------------
-  [⊢ (car- e-) ⇒ τ])
+(define-typerule head
+  [(_ τ e) ≫
+    [⊢ e ≫ e- ⇐ (List τ)]
+    ---------------------
+    [⊢ (car- e-) ⇒ τ]]
+  [(_ e) ⇐ τ ≫
+    [⊢ e ≫ e- ⇐ (List τ)]
+    ---------------------
+    [⊢ (car- e-)]])
 
 (define-typerule (tail τ e) ≫
   [⊢ e ≫ e- ⇐ (List τ)]
