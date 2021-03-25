@@ -74,11 +74,11 @@
 (check-type (inl 1) : (Sum2 Int Bool))
 (check-type (inl 1) : (Sum2 Int Unit))
 (typecheck-fail (ascribe (inl 1) as (Sum2 Unit Int))
-                #:with-msg "expected Unit, given Int")
+                #:with-msg "expected Unit, given Nat")
 (check-type (inr 1) : (Sum2 Bool Int))
 (check-type (inr 1) : (Sum2 Unit Int))
 (typecheck-fail (ascribe (inr 1) as (Sum2 Int Unit))
-                #:with-msg "expected Unit, given Int")
+                #:with-msg "expected Unit, given Nat")
 
 (check-type (case (ascribe (inl 1) as (Sum2 Int Bool)) of
               [inl x => (succ x)]
@@ -195,3 +195,28 @@
 (typecheck-fail (tail Int (cons Bool #f (nil [Bool]))))
 (typecheck-fail (ascribe (isnil (cons Int 4 (nil [Int]))) as Int)
                 #:with-msg "expected Int, given Bool")
+
+;; subtyping tests ------------------------------------------------------------
+
+;; literals and base types
+(check-type 1 : Nat)
+(check-type 1 : Int)
+(check-type -1 : Int)
+(typecheck-fail (ascribe -1 as Nat) #:with-msg "expected Nat, given Int")
+
+; fns
+(check-type (λ [x : Int] #t) : (→ Nat Bool)) ; contravariant args
+(check-type (λ [x : Bool] 1) : (→ Bool Int)) ; covariant result
+
+;; conditionals
+(check-type (if #t 1 2) : Nat)
+(check-type (if #t 1 2) : Int)
+(check-type (if #t 1 -1) : Int)
+(typecheck-fail (ascribe (if #t 1 -1) as Nat) #:with-msg "expected Nat, given Int")
+
+;; records
+(check-type (rec [x = 1] [y = #t] [z = -1]) : (Rec [x = Int]))
+(check-type (rec [x = 1] [y = #t] [z = -1]) : (Rec [x = Nat] [z = Int]))
+(typecheck-fail (ascribe (rec [x = 1] [y = #t]) as (Rec [x = Int] [z = Int]))
+                #:verb-msg
+                "expected (Rec (x = Int) (z = Int)), given (Rec (x = Nat) (y = Bool)")

@@ -111,6 +111,9 @@
    [#:error (type-error #:src #'x #:msg "Only empty quote supported")]])
 
 (define-typerule typed-datum
+  [(_ . n:exact-nonnegative-integer) ≫
+   ------------
+   [⊢ (#%datum- . n) ⇒ Nat]]
   [(_ . n:integer) ≫
    ------------
    [⊢ (#%datum- . n) ⇒ Int]]
@@ -132,9 +135,9 @@
    [⊢ cond ≫ cond- ⇐ Bool]
    [⊢ thn ≫ thn- ⇒ T1]
    [⊢ els ≫ els- ⇒ T2]
-   [T1 τ= T2]
+;   [T1 τ= T2]
    ------------------------
-   [⊢ (if- cond- thn- els-) ⇒ T1]]
+   [⊢ (if- cond- thn- els-) ⇒ #,((current-join) #'T1 #'T2)]]
   [(_ cond thn els) ⇐ τ_expected ≫
    [⊢ cond ≫ cond- ⇐ Bool]
    [⊢ thn ≫ thn- ⇐ τ_expected]
@@ -580,3 +583,64 @@
 (provide letrec)
 (define-simple-macro (letrec x (~datum :) τ (~datum =) e (~datum in) b)
   (let ([x (fix (λ [x : τ] e))]) b))
+
+
+;; ----------------------------------------------------------------------------
+;; subtyping
+(define-base-type Nat)
+
+(provide Nat)
+
+(begin-for-syntax
+
+  (define old-typecheck-relation (current-typecheck-relation))
+
+  (define (subtype? t1 t2)
+    (or (old-typecheck-relation t1 t2)
+        (syntax-parse (list t1 t2)
+          [(~Nat ~Int) #t]
+          [((~→ t1 t2) (~→ t3 t4))
+           (and (subtype? #'t3 #'t1)
+                (subtype? #'t2 #'t4))]
+          [((~Pair t1 t2) (~Pair t3 t4))
+           (and (subtype? #'t1 #'t3)
+                (subtype? #'t2 #'t4))]
+          [((~× t1 ...) (~× t2 ...))
+           (stx-andmap subtype? #'(t1 ...) #'(t2 ...))]
+          [((~Rec [x = τ1] ...) (~Rec [y = τ2] ...))
+           (and (<= (stx-length #'(y ...)) (stx-length #'(x ...)))
+                (for/and ([y (in-stx-list #'(y ...))]
+                          [t2 (in-stx-list #'(τ2 ...))])
+                  (let ([x+t (stx-assoc y #'([x τ1] ...))])
+                    (and x+t
+                         (equal? (stx->datum (stx-car x+t))
+                                 (stx->datum y))
+                         (subtype? (stx-cadr x+t) t2)))))]
+                
+          [(_ _) #f])))    
+  
+  (current-typecheck-relation subtype?)
+
+  (define current-join 
+    (make-parameter 
+     (λ (x y) 
+       (unless (typecheck? x y)
+         (type-error
+          #:src x
+          #:msg  "branches have incompatible types: ~a and ~a" x y))
+       x)))
+
+#;  (require (for-syntax syntax/stx macrotypes/typecheck-core))
+ #; (define-syntax ⊔
+    (syntax-parser
+      [(⊔ τ1 τ2 ...)
+       (for/fold ([τ (checked-type-eval #'τ1)])
+                 ([τ2 (in-list (stx-map checked-type-eval #'[τ2 ...]))])
+         ((current-join) τ τ2))]))
+
+  (define (join t1 t2)
+    (cond
+      [(subtype? t1 t2) t2]
+      [(subtype? t2 t1) t1]
+      #;[else Top+]))
+  (current-join join))
