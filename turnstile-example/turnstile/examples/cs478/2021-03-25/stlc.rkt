@@ -5,9 +5,7 @@
          (rename-out [typed-datum #%datum] [typed-app #%app]
                      [typed-define define]))
 
-
-(define-type-constructor List #:arity = 1)
-(define-base-types Top Int Bool Unit)
+(define-base-types Int Bool Unit)
 (define-type-constructor → #:arity = 2)
 
 (define-typed-variable unit '() ⇒ Unit)
@@ -113,9 +111,6 @@
    [#:error (type-error #:src #'x #:msg "Only empty quote supported")]])
 
 (define-typerule typed-datum
-  [(_ . n:exact-nonnegative-integer) ≫
-   ------------
-   [⊢ (#%datum- . n) ⇒ Nat]]
   [(_ . n:integer) ≫
    ------------
    [⊢ (#%datum- . n) ⇒ Int]]
@@ -125,10 +120,6 @@
   [(_ . x) ≫
    ------------
    [#:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])
-
-(define-typerule (~datum nil) ⇐ (~List τ) ≫
-  --------------------
-  [⊢ null- ⇒ (List τ)])
 
 (define-typerule (typed-app e1 e2) ≫
   [⊢ e1 ≫ e1- ⇒ (~→ T1 T2)]
@@ -141,9 +132,9 @@
    [⊢ cond ≫ cond- ⇐ Bool]
    [⊢ thn ≫ thn- ⇒ T1]
    [⊢ els ≫ els- ⇒ T2]
-;   [T1 τ= T2]
+   [T1 τ= T2]
    ------------------------
-   [⊢ (if- cond- thn- els-) ⇒ #,((current-join) #'T1 #'T2)]]
+   [⊢ (if- cond- thn- els-) ⇒ T1]]
   [(_ cond thn els) ⇐ τ_expected ≫
    [⊢ cond ≫ cond- ⇐ Bool]
    [⊢ thn ≫ thn- ⇐ τ_expected]
@@ -487,67 +478,27 @@
    [[x ≫ x- : τ] ⊢ (typed-match rst-pats b) ≫ rest- ⇒ τ-out]
    ---------------------------------
    [⊢ (let- ([x- e-]) rest-) ⇒ τ-out]]
-  [(_ ([(~datum _) e] . rst-pats) b) ≫ ;; underscore/no binding pat
-   [⊢ e ≫ e- ⇒ _]
-   [⊢ (typed-match rst-pats b) ≫ rest- ⇒ τ-out]
-   -------------------------------------
-   [⊢ (begin- e- rest-) ⇒ τ-out]]
-  ;; [(_ ([(~and x (#%datum . _)) e] . rst-pats) b) ≫
-  ;;  [⊢ (typed-match rst-pats b) ≫ rest- ⇒ τ-out]
-  ;;  [⊢ x ≫ x- ⇒ _]
-  ;;  ---------------------------------------------
-  ;;  [⊢ (if- (equal?- x- e-) rest- (error "literal pattern doesn't match value")) ⇒ τ-out]]
-  [(_ ([((~datum cons) a d) e] . rst-pats) b) ≫
-   [⊢ e ≫ e- ⇒ (~List _)]
-   -----------------------
-   [≻ (typed-match ([a (head e)] [d (tail e)] . rst-pats) b)]]
-  [(_ ([[x ...] e] . rst-pats) b) ≫ ;; tuple pat
+  [(_ ([[x:id ...] e] . rst-pats) b) ≫ ;; tuple pat
    [⊢ e ≫ e- ⇒ (~× τ-tup ... ~!)]
    #:fail-unless (= (stx-length #'(x ...)) (stx-length #'(τ-tup ...)))
    (format "~a pattern variables does not match ~a values in tuple"
            (stx-length #'(x ...)) (stx-length #'(τ-tup ...)))
-   ;; [[x ≫ x- : τ-tup] ... ⊢ (typed-match rst-pats b) ≫ rest- ⇒ τ-out]
-   #:with (i ...) (build-list (stx-length #'(x ...)) (λ (d) d))
+   [[x ≫ x- : τ-tup] ... ⊢ (typed-match rst-pats b) ≫ rest- ⇒ τ-out]
    -----------------------------------------
-   [≻ (typed-match ([x (proj e i)] ... . rst-pats) b)]]
-  [(_ ([(fs:flds) e] . rst-pats) b) ≫ ;; rec pat
-   [⊢ e ≫ e- ⇒ (~and τ-rec (~parse (~Rec [l = τ-label] ...) #'τ-rec))]
+   [⊢ (match- e- [(list x- ...) rest-]) ⇒ τ-out]]
+  [(_ ([(fs:flds)
+        (~and e (~parse (rec [l (~datum =) e-val] ...) #'e))]
+       . rst-pats) b) ≫ ;; rec pat
+   [⊢ e ≫ e- ⇒ (~and τ-rec (~parse (~Rec [_ = τ-label] ...) #'τ-rec))]
    -----------------------------------------------------------------
-   [≻ (typed-match ([fs.pat (proj e fs.name)] ... . rst-pats) b)]]
-  [(_ () b) ≫ ;; body pat
+   [≻ (typed-match
+       ([fs.pat ($lookup fs.name [l e-val] ...)] ...
+        . rst-pats) b)]]
+  [(_ () b) ≫
    [⊢ b ≫ b- ⇒ τ]
    ---------------
    [⊢ b- ⇒ τ]])
 
-<<<<<<< HEAD
-(provide List nil cons isnil head tail)
-
-(define-typerule nil
-  [:id ⇐ (~List τ) ≫
-  -----------------
-  [⊢ null-]])
-
-(define-typerule (cons a d) ≫
-  [⊢ a ≫ a- ⇒ τ]
-  [⊢ d ≫ d- ⇐ (List τ)]
-  ----------------------
-  [⊢ (cons- a- d-) ⇒ (List τ)])
-
-(define-typerule (isnil e) ≫
-  [⊢ e ≫ e- ⇒ (~List τ)]
-  ------------------------
-  [⊢ (null?- e-) ⇒ Bool])
-
-(define-typerule (head e) ≫
-  [⊢ e ≫ e- ⇒ (~List τ)]
-  -----------------------
-  [⊢ (car- e-) ⇒ τ])
-
-(define-typerule (tail e) ≫
-  [⊢ e ≫ e- ⇒ (~List τ)]
-  ----------------------
-  [⊢ (cdr- e-) ⇒ (List τ)])
-=======
 ;;-------------- Lists -----------------------
 
 (provide List nil cons isnil head tail)
@@ -608,7 +559,6 @@
    [⊢ e ≫ e- ⇐ (List τ)]
    ---------------------
    [⊢ (cdr- e-)]])
->>>>>>> 928b90d58a40333a070df67ed6cc77982b01e8c4
 
 ;;-------------- recursion -----------------------
 ;; new term: fix
@@ -621,6 +571,7 @@
        (λ- (z) (#%app- f (λ- (x) (#%app- (#%app- z z) x)))))))
 
 (define-typerule (fix f) ≫
+;  [⊢ f ≫ f- ⇒ (~→ (~and τ-in:type (~parse (~→ _ _) τ-in)) τ-out)] ;; TODO make sure τ is a function
   [⊢ f ≫ f- ⇒ (~→ τ-in τ-out)]
   [τ-in τ= τ-out]
   ----------------------
@@ -629,83 +580,3 @@
 (provide letrec)
 (define-simple-macro (letrec x (~datum :) τ (~datum =) e (~datum in) b)
   (let ([x (fix (λ [x : τ] e))]) b))
-
-;;------- references -----------
-
-(define-type-constructor Ref #:arity = 1)
-(define-typerule (ref e) ≫
-  [⊢ e ≫ e- ⇒ τ]
-  ---------------
-  [⊢ (box- e-) ⇒ (Ref τ)])
-
-(define-typerule (get b) ≫
-  [⊢ b ≫ b- ⇒ (~Ref τ)]
-  ----------------------
-  [⊢ (unbox- b-) ⇒ τ])
-
-(define-typerule (set! b v) ≫
-  [⊢ b ≫ b- ⇒ (~Ref τ)]
-  [⊢ v ≫ v- ⇐ τ]
-  ----------------------
-  [⊢ (set-box!- b- v-) ⇒ Unit])
-
-;; ----------------------------------------------------------------------------
-;; subtyping
-(define-base-type Nat)
-
-(provide Nat)
-
-(begin-for-syntax
-
-  (define old-typecheck-relation (current-typecheck-relation))
-
-  (define (subtype? t1 t2)
-    (or (old-typecheck-relation t1 t2)
-        (syntax-parse (list t1 t2)
-          [(~Nat ~Int) #t]
-          [((~→ t1 t2) (~→ t3 t4))
-           (and (subtype? #'t3 #'t1)
-                (subtype? #'t2 #'t4))]
-          [((~Pair t1 t2) (~Pair t3 t4))
-           (and (subtype? #'t1 #'t3)
-                (subtype? #'t2 #'t4))]
-          [((~× t1 ...) (~× t2 ...))
-           (stx-andmap subtype? #'(t1 ...) #'(t2 ...))]
-          [((~Rec [x = τ1] ...) (~Rec [y = τ2] ...))
-           (and (<= (stx-length #'(y ...)) (stx-length #'(x ...)))
-                (for/and ([y (in-stx-list #'(y ...))]
-                          [t2 (in-stx-list #'(τ2 ...))])
-                  (let ([x+t (stx-assoc y #'([x τ1] ...))])
-                    (and x+t
-                         (equal? (stx->datum (stx-car x+t))
-                                 (stx->datum y))
-                         (subtype? (stx-cadr x+t) t2)))))]
-          [(_ ~Top) #t]
-                
-          [(_ _) #f])))    
-  
-  (current-typecheck-relation subtype?)
-
-  (define current-join 
-    (make-parameter 
-     (λ (x y) 
-       (unless (typecheck? x y)
-         (type-error
-          #:src x
-          #:msg  "branches have incompatible types: ~a and ~a" x y))
-       x)))
-
-#;  (require (for-syntax syntax/stx macrotypes/typecheck-core))
- #; (define-syntax ⊔
-    (syntax-parser
-      [(⊔ τ1 τ2 ...)
-       (for/fold ([τ (checked-type-eval #'τ1)])
-                 ([τ2 (in-list (stx-map checked-type-eval #'[τ2 ...]))])
-         ((current-join) τ τ2))]))
-
-  (define (join t1 t2)
-    (cond
-      [(subtype? t1 t2) t2]
-      [(subtype? t2 t1) t1]
-      [else Top]))
-  (current-join join))

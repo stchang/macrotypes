@@ -1,4 +1,4 @@
-#lang cs478
+#lang s-exp "stlc.rkt"
 (require rackunit/turnstile)
 (check-type (ascribe (λ x x) as (→ Int Int)) : (→ Int Int))
 
@@ -74,11 +74,11 @@
 (check-type (inl 1) : (Sum2 Int Bool))
 (check-type (inl 1) : (Sum2 Int Unit))
 (typecheck-fail (ascribe (inl 1) as (Sum2 Unit Int))
-                #:with-msg "expected Unit, given Nat")
+                #:with-msg "expected Unit, given Int")
 (check-type (inr 1) : (Sum2 Bool Int))
 (check-type (inr 1) : (Sum2 Unit Int))
 (typecheck-fail (ascribe (inr 1) as (Sum2 Int Unit))
-                #:with-msg "expected Unit, given Nat")
+                #:with-msg "expected Unit, given Int")
 
 (check-type (case (ascribe (inl 1) as (Sum2 Int Bool)) of
               [inl x => (succ x)]
@@ -118,16 +118,8 @@
          [thing = 5]
          [g = #f])]) b)
  : Int -> 2)
-(check-type nil : (List Int))
-(check-type (isnil (ascribe nil as (List Bool))) : Bool)
-(check-type (isnil (cons 5 nil)) : Bool)
-(check-type (cons 10 (cons 5 nil)) : (List Int))
-;; (check-type (typed-match ([x 5] [y (tup 101 #t)]) (proj y 0)) : Int -> 101)
-;; (check-type (typed-match ([(a b c) (tup 101 #f #t)]) a) : Int -> 101)
-;; (check-type (typed-match ([(a b c d) (tup 101 #f #t 6)]) d) : Int -> 6)
-;; (check-type (typed-match ([([other = (a b)]) (rec [other = (tup #t 2)] [thing = 5] [g = #f])]) b) : Int -> 2)
 
-;; (check-type (typed-match ([([other = a] [thing = b]) (rec [other = #f] [thing = 2])] [(c d) (tup 8 9)]) (if a b c)) : Int -> 8)
+(check-type (typed-match ([([other = a] [thing = b]) (rec [other = #f] [thing = 2])] [(c d) (tup 8 9)]) (if a b c)) : Int -> 8)
 
 (typecheck-fail (typed-match ([(a b c) (tup 2 3)]) c)
                 #:with-msg "3 pattern variables does not match 2 values in tuple")
@@ -180,23 +172,6 @@
                         (r:#%app r:* x (r:#%app r:fact (r:#%app r:sub1 x)))))])
       (r:#%app r:fact 5)))
 
-<<<<<<< HEAD
-(check-type (typed-match ([((a)) (tup (tup 1))]) a): Int -> 1)
-(check-type (typed-match ([(a _ c) (tup 1 2 3)]) c) : Int -> 3)
-(typecheck-fail (typed-match ([(a b c) (tup 2 3)]) c) #:with-msg "3 pattern variables does not match 2 values in tuple")
-(typecheck-fail (typed-match ([([g = hello]) (rec [a = 6])]) hello) #:with-msg "non-existent label g")
-
-(check-type (cons 5 nil) : (List Int) -> (cons 5 nil))
-(check-type nil : (List Bool) -> nil)
-(check-type (head (cons 3 (cons 4 nil))) : Int -> 3)
-(check-type (isnil (ascribe nil as (List Int))) : Bool -> #t)
-(check-type (isnil (cons #t nil)) : Bool -> #f)
-(check-type (tail (cons #f (cons #t nil))) : (List Bool) -> (cons #t nil))
-;; (typecheck-fail (cons 5 6) #:with-msg "expected (List Int), given Int")
-;; (typecheck-fail (cons 3 (cons #t nil)) #:with-msg "expected (List Int), given (List Bool)")
-
-(check-type (typed-match ([(cons a d) (cons 5 nil)]) a) : Int -> 5)
-=======
 (check-type (nil) : (List Int))
 (check-type nil : (List Int))
 (check-type (cons 1 (nil)) : (List Int))
@@ -220,29 +195,3 @@
 (typecheck-fail (tail Int (cons Bool #f (nil [Bool]))))
 (typecheck-fail (ascribe (isnil (cons Int 4 (nil [Int]))) as Int)
                 #:with-msg "expected Int, given Bool")
-
-;; subtyping tests ------------------------------------------------------------
-
-;; literals and base types
-(check-type 1 : Nat)
-(check-type 1 : Int)
-(check-type -1 : Int)
-(typecheck-fail (ascribe -1 as Nat) #:with-msg "expected Nat, given Int")
-
-; fns
-(check-type (λ [x : Int] #t) : (→ Nat Bool)) ; contravariant args
-(check-type (λ [x : Bool] 1) : (→ Bool Int)) ; covariant result
-
-;; conditionals
-(check-type (if #t 1 2) : Nat)
-(check-type (if #t 1 2) : Int)
-(check-type (if #t 1 -1) : Int)
-(typecheck-fail (ascribe (if #t 1 -1) as Nat) #:with-msg "expected Nat, given Int")
-
-;; records
-(check-type (rec [x = 1] [y = #t] [z = -1]) : (Rec [x = Int]))
-(check-type (rec [x = 1] [y = #t] [z = -1]) : (Rec [x = Nat] [z = Int]))
-(typecheck-fail (ascribe (rec [x = 1] [y = #t]) as (Rec [x = Int] [z = Int]))
-                #:verb-msg
-                "expected (Rec (x = Int) (z = Int)), given (Rec (x = Nat) (y = Bool)")
->>>>>>> 928b90d58a40333a070df67ed6cc77982b01e8c4
