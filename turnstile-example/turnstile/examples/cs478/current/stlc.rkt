@@ -519,35 +519,6 @@
    ---------------
    [⊢ b- ⇒ τ]])
 
-<<<<<<< HEAD
-(provide List nil cons isnil head tail)
-
-(define-typerule nil
-  [:id ⇐ (~List τ) ≫
-  -----------------
-  [⊢ null-]])
-
-(define-typerule (cons a d) ≫
-  [⊢ a ≫ a- ⇒ τ]
-  [⊢ d ≫ d- ⇐ (List τ)]
-  ----------------------
-  [⊢ (cons- a- d-) ⇒ (List τ)])
-
-(define-typerule (isnil e) ≫
-  [⊢ e ≫ e- ⇒ (~List τ)]
-  ------------------------
-  [⊢ (null?- e-) ⇒ Bool])
-
-(define-typerule (head e) ≫
-  [⊢ e ≫ e- ⇒ (~List τ)]
-  -----------------------
-  [⊢ (car- e-) ⇒ τ])
-
-(define-typerule (tail e) ≫
-  [⊢ e ≫ e- ⇒ (~List τ)]
-  ----------------------
-  [⊢ (cdr- e-) ⇒ (List τ)])
-=======
 ;;-------------- Lists -----------------------
 
 (provide List nil cons isnil head tail)
@@ -607,8 +578,6 @@
   [(_ e) ⇐ (~List τ) ≫
    [⊢ e ≫ e- ⇐ (List τ)]
    ---------------------
-   [⊢ (cdr- e-)]])
->>>>>>> 928b90d58a40333a070df67ed6cc77982b01e8c4
 
 ;;-------------- recursion -----------------------
 ;; new term: fix
@@ -681,7 +650,6 @@
                                  (stx->datum y))
                          (subtype? (stx-cadr x+t) t2)))))]
           [(_ ~Top) #t]
-                
           [(_ _) #f])))    
   
   (current-typecheck-relation subtype?)
