@@ -180,7 +180,6 @@
                         (r:#%app r:* x (r:#%app r:fact (r:#%app r:sub1 x)))))])
       (r:#%app r:fact 5)))
 
-<<<<<<< HEAD
 (check-type (typed-match ([((a)) (tup (tup 1))]) a): Int -> 1)
 (check-type (typed-match ([(a _ c) (tup 1 2 3)]) c) : Int -> 3)
 (typecheck-fail (typed-match ([(a b c) (tup 2 3)]) c) #:with-msg "3 pattern variables does not match 2 values in tuple")
@@ -196,7 +195,6 @@
 ;; (typecheck-fail (cons 3 (cons #t nil)) #:with-msg "expected (List Int), given (List Bool)")
 
 (check-type (typed-match ([(cons a d) (cons 5 nil)]) a) : Int -> 5)
-=======
 (check-type (nil) : (List Int))
 (check-type nil : (List Int))
 (check-type (cons 1 (nil)) : (List Int))
@@ -245,4 +243,3 @@
 (typecheck-fail (ascribe (rec [x = 1] [y = #t]) as (Rec [x = Int] [z = Int]))
                 #:verb-msg
                 "expected (Rec (x = Int) (z = Int)), given (Rec (x = Nat) (y = Bool)")
->>>>>>> 928b90d58a40333a070df67ed6cc77982b01e8c4
