@@ -1,4 +1,4 @@
-#lang cs478
+#lang s-exp "stlc.rkt"
 (require rackunit/turnstile)
 (check-type (ascribe (λ x x) as (→ Int Int)) : (→ Int Int))
 
