@@ -492,15 +492,14 @@
    [⊢ (typed-match rst-pats b) ≫ rest- ⇒ τ-out]
    -------------------------------------
    [⊢ (begin- e- rest-) ⇒ τ-out]]
-  ;; [(_ ([(~and x (#%datum . _)) e] . rst-pats) b) ≫
-  ;;  [⊢ (typed-match rst-pats b) ≫ rest- ⇒ τ-out]
-  ;;  [⊢ x ≫ x- ⇒ _]
-  ;;  ---------------------------------------------
-  ;;  [⊢ (if- (equal?- x- e-) rest- (error "literal pattern doesn't match value")) ⇒ τ-out]]
-  [(_ ([((~datum cons) a d) e] . rst-pats) b) ≫
+  [(_ ([((~datum cons) a d) e] . rst-pats) b) ≫ ;; List pat -> unsound cuz of nil, right?
    [⊢ e ≫ e- ⇒ (~List _)]
    -----------------------
    [≻ (typed-match ([a (head e)] [d (tail e)] . rst-pats) b)]]
+  [(_ ([(ref v) e] . rst-pats) b) ≫ ;; ref pat
+   [⊢ e ≫ e- ⇒ (~Ref _)]
+   ------------------------
+   [≻ (typed-match ([v (get e)] . rst-pats) b)]]
   [(_ ([[x ...] e] . rst-pats) b) ≫ ;; tuple pat
    [⊢ e ≫ e- ⇒ (~× τ-tup ... ~!)]
    #:fail-unless (= (stx-length #'(x ...)) (stx-length #'(τ-tup ...)))
@@ -649,6 +648,9 @@
                          (equal? (stx->datum (stx-car x+t))
                                  (stx->datum y))
                          (subtype? (stx-cadr x+t) t2)))))]
+          [((~List τ1) (~List τ2)) (subtype? #'τ1 #'τ2)]
+          [((~Ref τ1) (~Ref τ2))
+           (and (subtype? #'τ1 #'τ2) (subtype? #'τ2 #'τ1))]
           [(_ ~Top) #t]
           [(_ _) #f])))    
   
