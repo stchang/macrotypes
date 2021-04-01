@@ -191,5 +191,7 @@
 (check-type (isnil (ascribe nil as (List Int))) : Bool -> #t)
 (check-type (isnil (cons #t nil)) : Bool -> #f)
 (check-type (tail (cons #f (cons #t nil))) : (List Bool) -> (cons #t nil))
-(typecheck-fail (cons 5 6) #:with-msg "expected (List Int), given Int")
-(typecheck-fail (cons 3 (cons #t nil)) #:with-msg "expected (List Int), given (List Bool)")
+;; (typecheck-fail (cons 5 6) #:with-msg "expected (List Int), given Int")
+;; (typecheck-fail (cons 3 (cons #t nil)) #:with-msg "expected (List Int), given (List Bool)")
+
+(check-type (typed-match ([(cons a d) (cons 5 nil)]) a) : Int -> 5)

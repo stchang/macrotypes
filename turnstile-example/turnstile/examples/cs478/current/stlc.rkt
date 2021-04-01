@@ -489,6 +489,15 @@
    [⊢ (typed-match rst-pats b) ≫ rest- ⇒ τ-out]
    -------------------------------------
    [⊢ (begin- e- rest-) ⇒ τ-out]]
+  ;; [(_ ([(~and x (#%datum . _)) e] . rst-pats) b) ≫
+  ;;  [⊢ (typed-match rst-pats b) ≫ rest- ⇒ τ-out]
+  ;;  [⊢ x ≫ x- ⇒ _]
+  ;;  ---------------------------------------------
+  ;;  [⊢ (if- (equal?- x- e-) rest- (error "literal pattern doesn't match value")) ⇒ τ-out]]
+  [(_ ([((~datum cons) a d) e] . rst-pats) b) ≫
+   [⊢ e ≫ e- ⇒ (~List _)]
+   -----------------------
+   [≻ (typed-match ([a (head e)] [d (tail e)] . rst-pats) b)]]
   [(_ ([[x ...] e] . rst-pats) b) ≫ ;; tuple pat
    [⊢ e ≫ e- ⇒ (~× τ-tup ... ~!)]
    #:fail-unless (= (stx-length #'(x ...)) (stx-length #'(τ-tup ...)))
@@ -554,3 +563,24 @@
 (provide letrec)
 (define-simple-macro (letrec x (~datum :) τ (~datum =) e (~datum in) b)
   (let ([x (fix (λ [x : τ] e))]) b))
+
+;;------- references -----------
+
+(define-type-constructor Ref #:arity = 1)
+(define-typerule (ref e) ≫
+  [⊢ e ≫ e- ⇒ τ]
+  ---------------
+  [⊢ (box- e-) ⇒ (Ref τ)])
+
+(define-typerule (get b) ≫
+  [⊢ b ≫ b- ⇒ (~Ref τ)]
+  ----------------------
+  [⊢ (unbox- b-) ⇒ τ])
+
+(define-typerule (set! b v) ≫
+  [⊢ b ≫ b- ⇒ (~Ref τ)]
+  [⊢ v ≫ v- ⇐ τ]
+  ----------------------
+  [⊢ (set-box!- b- v-) ⇒ Unit])
+
+;; -------------- Subtyping ------------------
