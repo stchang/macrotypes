@@ -5,6 +5,11 @@
          (rename-out [typed-datum #%datum] [typed-app #%app]
                      [typed-define define]))
 
+
+(define-type-constructor Ref #:arity = 1)
+(define-type-constructor Source #:arity = 1)
+(define-type-constructor Sink #:arity = 1)
+(define-type-constructor List #:arity = 1)
 (define-base-types Top Int Bool Unit)
 (define-type-constructor → #:arity = 2)
 
@@ -570,19 +575,20 @@
 
 ;;------- references -----------
 
-(define-type-constructor Ref #:arity = 1)
+(provide Ref Source Sink ref get set!)
+
 (define-typerule (ref e) ≫
   [⊢ e ≫ e- ⇒ τ]
   ---------------
   [⊢ (box- e-) ⇒ (Ref τ)])
 
 (define-typerule (get b) ≫
-  [⊢ b ≫ b- ⇒ (~Ref τ)]
+  [⊢ b ≫ b- ⇒ (~Source τ)]
   ----------------------
   [⊢ (unbox- b-) ⇒ τ])
 
 (define-typerule (set! b v) ≫
-  [⊢ b ≫ b- ⇒ (~Ref τ)]
+  [⊢ b ≫ b- ⇒ (~Sink τ)]
   [⊢ v ≫ v- ⇐ τ]
   ----------------------
   [⊢ (set-box!- b- v-) ⇒ Unit])
@@ -624,6 +630,8 @@
           [((~List τ1) (~List τ2)) (subtype? #'τ1 #'τ2)]
           [((~Ref τ1) (~Ref τ2))
            (and (subtype? #'τ1 #'τ2) (subtype? #'τ2 #'τ1))]
+          [((~Ref τ1) (~Source τ2)) (subtype? #'τ1 #'τ2)]
+          [((~Ref τ1) (~Sink τ2)) (subtype? #'τ2 #'τ1)]
           [(_ ~Top) #t]
           [(_ _) #f])))    
   
