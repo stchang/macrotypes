@@ -13,6 +13,10 @@
 (define-base-types Top Int Bool Unit)
 (define-type-constructor → #:arity = 2)
 
+(define-type-constructor ∩ #:arity = 2)
+
+(provide ∩)
+
 (define-typed-variable unit '() ⇒ Unit)
 
 (define-typerule (typed-define x:id e) ≫
@@ -483,8 +487,6 @@
 
 (provide List nil cons isnil head tail)
 
-(define-type-constructor List #:arity = 1)
-
 (define-typerule nil
   [nil:id ≫
    ------
@@ -632,6 +634,8 @@
            (and (subtype? #'τ1 #'τ2) (subtype? #'τ2 #'τ1))]
           [((~Ref τ1) (~Source τ2)) (subtype? #'τ1 #'τ2)]
           [((~Ref τ1) (~Sink τ2)) (subtype? #'τ2 #'τ1)]
+          [((∩ τ1 τ2) τ3) (or (subtype? #'τ1 #'τ3) (subtype? #'τ2 #'τ3))]
+          [(τ (∩ τ1 τ2)) (and (subtype? #'τ #'τ1) (subtype? #'τ #'τ2))]
           [(_ ~Top) #t]
           [(_ _) #f])))    
   

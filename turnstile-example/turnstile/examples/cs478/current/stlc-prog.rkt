@@ -254,4 +254,14 @@
 ;; tuples
 (check-type (tup 1 #f unit) : (× Nat Bool))
 
-;; 
+;; new Ref type
+(define getter (λ [x : (Source Int)] (get x)))
+(define int-ref (ref 5))
+
+(check-type (getter int-ref) : Int)
+
+(define add-record-values (λ [r : (∩ (Rec [x = Int]) (Rec [y = Int]))] (* (proj r x) (proj r y))))
+
+(define arbitrary-record (rec [x = 3] [y = 4] [z = 5]))
+
+(check-type (add-record-values arbitrary-record) : Int -> 12)
