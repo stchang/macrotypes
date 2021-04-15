@@ -1,5 +1,7 @@
 #lang turnstile/quicklang
 
+;; drops subtyping and Lists, adds recursive types
+
 (provide Int Bool Unit → #%type
          λ unit ascribe if succ pred iszero vals * fix
          (rename-out [typed-datum #%datum] [typed-app #%app]
