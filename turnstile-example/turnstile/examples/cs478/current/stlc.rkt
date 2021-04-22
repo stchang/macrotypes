@@ -1,12 +1,22 @@
 #lang turnstile/quicklang
 
-(provide Int Bool Unit → #%type
+(provide Int Bool Unit → #%type Λ ∀
          λ unit ascribe if succ pred iszero vals * fix
          (rename-out [typed-datum #%datum] [typed-app #%app]
                      [typed-define define]))
 
+
+(define-type-constructor Ref #:arity = 1)
+(define-type-constructor Source #:arity = 1)
+(define-type-constructor Sink #:arity = 1)
+(define-type-constructor List #:arity = 1)
 (define-base-types Top Int Bool Unit)
 (define-type-constructor → #:arity >= 1)
+(define-binding-type ∀ #:arity = 1 #:bvs = 1)
+
+(define-type-constructor ∩ #:arity = 2)
+
+(provide ∩)
 
 (define-typed-variable unit '() ⇒ Unit)
 
@@ -141,13 +151,19 @@
    ------------
    [#:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])
 
-(define-typed-syntax (typed-app e_fn e_arg ...) ≫
-  [⊢ e_fn ≫ e_fn- ⇒ (~→ τ_in ... τ_out)]
-  #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
-                (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
-  [⊢ e_arg ≫ e_arg- ⇐ τ_in] ...
-  --------
-  [⊢ (#%app- e_fn- e_arg- ...) ⇒ τ_out])
+(define-typed-syntax typed-app
+  [(_ e_fn e_arg ...) ≫
+   [⊢ e_fn ≫ e_fn- ⇒ (~→ τ_in ... τ_out)]
+   #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
+                 (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
+   [⊢ e_arg ≫ e_arg- ⇐ τ_in] ...
+   --------
+   [⊢ (#%app- e_fn- e_arg- ...) ⇒ τ_out]]
+  [(_ e τ) ≫
+   [⊢ τ ≫ τ- ⇐ :: #%type]
+   [⊢ e ≫ e- ⇒ (~∀ (X) τ2)]
+   -------------------------
+   [⊢ e- ⇒ ($subst τ2 X τ)]])
 
 #;(define-typerule (typed-app e1 e2) ≫
   [⊢ e1 ≫ e1- ⇒ (~→ T1 T2)]
@@ -608,19 +624,18 @@
   ;; either: invariant, covariant, contravariant
   (define current-ref-variance (make-parameter 'covariant)))
 
-(define-type-constructor Ref #:arity = 1)
 (define-typerule (ref e) ≫
   [⊢ e ≫ e- ⇒ τ]
   ---------------
   [⊢ (box- e-) ⇒ (Ref τ)])
 
 (define-typerule (get b) ≫
-  [⊢ b ≫ b- ⇒ (~Ref τ)]
+  [⊢ b ≫ b- ⇒ (~Source τ)]
   ----------------------
   [⊢ (unbox- b-) ⇒ τ])
 
 (define-typerule (set! b v) ≫
-  [⊢ b ≫ b- ⇒ (~Ref τ)]
+  [⊢ b ≫ b- ⇒ (~Sink τ)]
   [⊢ v ≫ v- ⇐ τ]
   ----------------------
   [⊢ (set-box!- b- v-) ⇒ Unit])
@@ -783,3 +798,13 @@
      #:fail-when (stx-contains-id? #'ty #'f) "cannot have self-reference"
      #'(define-syntax f
          (make-type-alias-transformer #'(x ...) #'ty))]))
+
+;; What needs to happen?
+;; - We introduce a new type of expression that introduces a type variable
+;; - We have a new type of expression that does type application
+
+
+(define-typerule (Λ X e) ≫
+  [[X ≫ X- :: #%type] ⊢ e ≫ e- ⇒ τ]
+  -----------------
+  [⊢ e- ⇒ (∀ (X) τ)])
