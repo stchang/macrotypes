@@ -396,3 +396,5 @@
 (check-type (cons 1 (cons 3 nil)) : IntList)
 (check-type (isnil nil) : Bool)
 (check-type (isnil nil) : Bool -> #t)
+
+(check-type (Λ V (λ ([x : V]) x)) : (∀ (V) (→ V V)))
