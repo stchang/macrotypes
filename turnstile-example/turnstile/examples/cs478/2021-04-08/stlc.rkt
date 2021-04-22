@@ -5,17 +5,8 @@
          (rename-out [typed-datum #%datum] [typed-app #%app]
                      [typed-define define]))
 
-
-(define-type-constructor Ref #:arity = 1)
-(define-type-constructor Source #:arity = 1)
-(define-type-constructor Sink #:arity = 1)
-(define-type-constructor List #:arity = 1)
 (define-base-types Top Int Bool Unit)
-(define-type-constructor → #:arity >= 1)
-
-(define-type-constructor ∩ #:arity = 2)
-
-(provide ∩)
+(define-type-constructor → #:arity = 2)
 
 (define-typed-variable unit '() ⇒ Unit)
 
@@ -26,7 +17,6 @@
 (define-primop succ add1 : (→ Int Int))
 (define-primop pred sub1 : (→ Int Int))
 (define-primop iszero zero? : (→ Int Bool))
-(define-primop * : (→ Int Int Int))
 
 ;; bidirectional rules --------------------------------------------------------
 ;; in a typechecker, we want two operations, ie two types rules:
@@ -73,23 +63,7 @@
 
 ;; check and rewrite rules, converted to Turnstile syntax --------------
 
-(define-typed-syntax λ #:datum-literals (:)
-  [(_ [x:id : T1] e) ≫ ; single var cases
-   ---------------------
-   [≻ (λ ([x : T1]) e)]]
-  [(λ x:id e) ≫
-   ---------------------
-   [≻ (λ (x) e)]]
-  [(_ ([x:id : τ_in:type] ...) e) ≫
-   [[x ≫ x- : τ_in.norm] ... ⊢ e ≫ e- ⇒ τ_out]
-   -------
-   [⊢ (λ- (x- ...) e-) ⇒ (→ τ_in.norm ... τ_out)]]
-  [(_ (x:id ...) e) ⇐ (~→ τ_in ... τ_out) ≫
-   [[x ≫ x- : τ_in] ... ⊢ e ≫ e- ⇐ τ_out]
-   ---------
-   [⊢ (λ- (x- ...) e-)]])
-
-#;(define-typerule λ
+(define-typerule λ
   ;; T-Abs (compute + rewrite)
   [(λ [x:id : T1] e) ≫
    [[x ≫ x- : T1] ⊢ e ≫ e- ⇒ T2]
@@ -100,8 +74,8 @@
    [[x ≫ x- : T1] ⊢ e ≫ e- ⇐ T2]
    ---------------------
    [⊢ (λ- (x-) e-)]])
- 
-#;(define-typerule (* e1 e2) ≫
+
+(define-typerule (* e1 e2) ≫
   [⊢ e1 ≫ e1- ⇐ Int]
   [⊢ e2 ≫ e2- ⇐ Int]
   ----------------
@@ -137,7 +111,7 @@
    [#:error (type-error #:src #'x #:msg "Only empty quote supported")]])
 
 (define-typerule typed-datum
-#;  [(_ . n:exact-nonnegative-integer) ≫
+  [(_ . n:exact-nonnegative-integer) ≫
    ------------
    [⊢ (#%datum- . n) ⇒ Nat]]
   [(_ . n:integer) ≫
@@ -150,15 +124,7 @@
    ------------
    [#:error (type-error #:src #'x #:msg "Unsupported literal: ~v" #'x)]])
 
-(define-typed-syntax (typed-app e_fn e_arg ...) ≫
-  [⊢ e_fn ≫ e_fn- ⇒ (~→ τ_in ... τ_out)]
-  #:fail-unless (stx-length=? #'[τ_in ...] #'[e_arg ...])
-                (num-args-fail-msg #'e_fn #'[τ_in ...] #'[e_arg ...])
-  [⊢ e_arg ≫ e_arg- ⇐ τ_in] ...
-  --------
-  [⊢ (#%app- e_fn- e_arg- ...) ⇒ τ_out])
-
-#;(define-typerule (typed-app e1 e2) ≫
+(define-typerule (typed-app e1 e2) ≫
   [⊢ e1 ≫ e1- ⇒ (~→ T1 T2)]
   [⊢ e2 ≫ e2- ⇐ T1]
   ---------
@@ -169,10 +135,9 @@
    [⊢ cond ≫ cond- ⇐ Bool]
    [⊢ thn ≫ thn- ⇒ T1]
    [⊢ els ≫ els- ⇒ T2]
-   [T1 τ= T2]
+;   [T1 τ= T2]
    ------------------------
-;   [⊢ (if- cond- thn- els-) ⇒ #,((current-join) #'T1 #'T2)]]
-   [⊢ (if- cond- thn- els-) ⇒ T1]]
+   [⊢ (if- cond- thn- els-) ⇒ #,((current-join) #'T1 #'T2)]]
   [(_ cond thn els) ⇐ τ_expected ≫
    [⊢ cond ≫ cond- ⇐ Bool]
    [⊢ thn ≫ thn- ⇐ τ_expected]
@@ -466,7 +431,7 @@
 ;;   - terms tagged with extra layer; must be injected/extracted before use
 ;;   - still need runtime dispatch!
 
-(provide Sum2 inl inr case2)
+(provide Sum2 inl inr case)
 
 (define-type-constructor Sum2 #:arity = 2)
 
@@ -486,7 +451,7 @@
   [⊢ (inr- e-) ⇒ (Sum2 τ1 τ2)])
 
 (require (only-in racket/match [match match-]))
-(define-typerule (case2 e (~datum of)
+(define-typerule (case e (~datum of)
                   [(~datum inl) x:id (~datum =>) e1]
                   [(~datum inr) y:id (~datum =>) e2]) ≫
   [⊢ e ≫ e- ⇒ (~Sum2 τ1 τ2)]
@@ -513,81 +478,77 @@
    
 ;;-------------- Lists -----------------------
 
-;; (provide List nil cons isnil head tail)
+(provide List nil cons isnil head tail)
 
-;; (define-type-constructor List #:arity = 1)
+(define-type-constructor List #:arity = 1)
 
-;; (begin-for-syntax
-;;   (define-syntax-class anno
-;;     (pattern (~and a [τ])
-;;       #:fail-unless (brack? #'a)
-;;       "requires square bracket around type annotation")))
-             
-;; (define-typerule nil
-;;   [nil:id ≫
-;;    ------
-;;    [≻ (nil)]]
-;;   [(_ a:anno) ≫
-;;     -------
-;;     [⊢ (quote- ()) ⇒ (List a.τ)]]
-;;   [(_) ⇐ (~List τ_exp) ≫
-;;     --------------
-;;     [⊢ (quote- ())]])
+(define-typerule nil
+  [nil:id ≫
+   ------
+   [≻ (nil)]]
+  [(_ (~and anno [τ])) ≫
+      #:fail-unless (brack? #'anno)
+      "requires square bracket around type annotation"
+    -------
+    [⊢ (quote- ()) ⇒ (List τ)]]
+  [(_) ⇐ (~List τ_exp) ≫
+    --------------
+    [⊢ (quote- ())]])
 
-;; (define-typerule cons
-;;   [(cons τ e1 e2) ≫
-;;    [⊢ e1 ≫ e1- ⇐ τ]
-;;    [⊢ e2 ≫ e2- ⇐ (List τ)]
-;;    ----------------
-;;    [⊢ (cons- e1- e2-) ⇒ (List τ)]]
-;;   [(cons e1 e2) ⇐ (~List τ_exp) ≫
-;;     [⊢ e1 ≫ e1- ⇐ τ_exp]
-;;     [⊢ e2 ≫ e2- ⇐ (List τ_exp)]
-;;     -----------------------
-;;     [⊢ (cons- e1- e2-)]]
-;;   [(cons e1 e2) ≫
-;;     [⊢ e1 ≫ e1- ⇒ τ]
-;;     [⊢ e2 ≫ e2- ⇐ (List τ)]
-;;     -----------------------
-;;     [⊢ (cons- e1- e2-) ⇒ (List τ)]])
+(define-typerule cons
+  [(cons τ e1 e2) ≫
+   [⊢ e1 ≫ e1- ⇐ τ]
+   [⊢ e2 ≫ e2- ⇐ (List τ)]
+   ----------------
+   [⊢ (cons- e1- e2-) ⇒ (List τ)]]
+  [(cons e1 e2) ⇐ (~List τ_exp) ≫
+    [⊢ e1 ≫ e1- ⇐ τ_exp]
+    [⊢ e2 ≫ e2- ⇐ (List τ_exp)]
+    -----------------------
+    [⊢ (cons- e1- e2-)]]
+  [(cons e1 e2) ≫
+    [⊢ e1 ≫ e1- ⇒ τ]
+    [⊢ e2 ≫ e2- ⇐ (List τ)]
+    -----------------------
+    [⊢ (cons- e1- e2-) ⇒ (List τ)]])
 
-;; (define-typerule isnil
-;;   [(_ e) ≫
-;;     [⊢ e ≫ e- ⇒ (~List _)]
-;;     ---------------------
-;;     [⊢ (null?- e-) ⇒ Bool]]
-;;   [(_ e) ⇐ Bool ≫
-;;    [⊢ e ≫ e- ⇒ (~List _)]
-;;    ---------------------
-;;    [⊢ (null?- e-)]])
+(define-typerule isnil
+  [(_ e) ≫
+    [⊢ e ≫ e- ⇒ (~List _)]
+    ---------------------
+    [⊢ (null?- e-) ⇒ Bool]]
+  [(_ e) ⇐ Bool ≫
+   [⊢ e ≫ e- ⇒ (~List _)]
+   ---------------------
+   [⊢ (null?- e-)]])
 
-;; (define-typerule head
-;;   [(_ τ e) ≫
-;;     [⊢ e ≫ e- ⇐ (List τ)]
-;;     ---------------------
-;;     [⊢ (car- e-) ⇒ τ]]
-;;   [(_ e) ⇐ τ ≫ ;; check rule must come before compute rule
-;;     [⊢ e ≫ e- ⇐ (List τ)]
-;;     ---------------------
-;;     [⊢ (car- e-)]]
-;;   [(_ e) ≫
-;;     [⊢ e ≫ e- ⇒ (~List τ)]
-;;     ---------------------
-;;     [⊢ (car- e-) ⇒ τ]])
+(define-typerule head
+  [(_ τ e) ≫
+    [⊢ e ≫ e- ⇐ (List τ)]
+    ---------------------
+    [⊢ (car- e-) ⇒ τ]]
+  [(_ e) ⇐ τ ≫ ;; check rule must come before compute rule
+    [⊢ e ≫ e- ⇐ (List τ)]
+    ---------------------
+    [⊢ (car- e-)]]
+  [(_ e) ≫
+    [⊢ e ≫ e- ⇒ (~List τ)]
+    ---------------------
+    [⊢ (car- e-) ⇒ τ]])
 
-;; (define-typerule tail
-;;   [(_ τ e) ≫
-;;    [⊢ e ≫ e- ⇐ (List τ)]
-;;    ---------------------
-;;    [⊢ (cdr- e-) ⇒ (List τ)]]
-;;   [(_ e) ⇐ (~List τ) ≫ ;; check rule must come before compute rule
-;;    [⊢ e ≫ e- ⇐ (List τ)]
-;;    ---------------------
-;;    [⊢ (cdr- e-)]]
-;;   [(_ e) ≫
-;;    [⊢ e ≫ e- ⇒ (~List τ)]
-;;    ---------------------
-;;    [⊢ (cdr- e-) ⇒ (List τ)]])
+(define-typerule tail
+  [(_ τ e) ≫
+   [⊢ e ≫ e- ⇐ (List τ)]
+   ---------------------
+   [⊢ (cdr- e-) ⇒ (List τ)]]
+  [(_ e) ⇐ (~List τ) ≫ ;; check rule must come before compute rule
+   [⊢ e ≫ e- ⇐ (List τ)]
+   ---------------------
+   [⊢ (cdr- e-)]]
+  [(_ e) ≫
+   [⊢ e ≫ e- ⇒ (~List τ)]
+   ---------------------
+   [⊢ (cdr- e-) ⇒ (List τ)]])
 
 ;;-------------- recursion -----------------------
 ;; new term: fix
@@ -613,35 +574,34 @@
 
 (provide ref get set! Ref)
 
-#;(begin-for-syntax
+(begin-for-syntax
   ;; either: invariant, covariant, contravariant
   (define current-ref-variance (make-parameter 'covariant)))
 
 (define-type-constructor Ref #:arity = 1)
-
 (define-typerule (ref e) ≫
   [⊢ e ≫ e- ⇒ τ]
   ---------------
   [⊢ (box- e-) ⇒ (Ref τ)])
 
 (define-typerule (get b) ≫
-  [⊢ b ≫ b- ⇒ (~Source τ)]
+  [⊢ b ≫ b- ⇒ (~Ref τ)]
   ----------------------
   [⊢ (unbox- b-) ⇒ τ])
 
 (define-typerule (set! b v) ≫
-  [⊢ b ≫ b- ⇒ (~Sink τ)]
+  [⊢ b ≫ b- ⇒ (~Ref τ)]
   [⊢ v ≫ v- ⇐ τ]
   ----------------------
   [⊢ (set-box!- b- v-) ⇒ Unit])
 
 ;; ----------------------------------------------------------------------------
 ;; subtyping
-;; (define-base-type Nat)
+(define-base-type Nat)
 
-;; (provide Nat)
+(provide Nat)
 
-#;(begin-for-syntax
+(begin-for-syntax
 
   (define old-typecheck-relation (current-typecheck-relation))
 
@@ -718,7 +678,7 @@
    [⊢ (typed-match rst-pats b) ≫ rest- ⇒ τ-out]
    -------------------------------------
    [⊢ (begin- e- rest-) ⇒ τ-out]]
-#;  [(_ ([((~datum cons) a d) e] . rst-pats) b) ≫ ;; List pat -> unsound cuz of nil, right?
+  [(_ ([((~datum cons) a d) e] . rst-pats) b) ≫ ;; List pat -> unsound cuz of nil, right?
    [⊢ e ≫ e- ⇒ (~List _)]
    -----------------------
    [≻ (typed-match ([a (head e)] [d (tail e)] . rst-pats) b)]]
@@ -744,52 +704,14 @@
    ---------------
    [⊢ b- ⇒ τ]])
 
-;; (provide with-ref-variance)
-;; (define-syntax with-ref-variance
-;;   (syntax-parser
-;;     [(_ (~datum =) variance:id e ...)
-;;      #'(begin-
-;;          (begin-for-syntax
-;;            (define old-ref (current-ref-variance))
-;;            (current-ref-variance 'variance))
-;;          e ...
-;;          (begin-for-syntax
-;;            (current-ref-variance old-ref)))]))
-
-;; import variants
-(reuse ∨ var case #:from "../../stlc+reco+var.rkt")
-
-(provide μ fld unfld)
-         
-(define-binding-type μ #:bvs = 1)
-
-(define-typerule (fld τ:type-ann e) ≫
-  #:with (~μ (X) τ2) #'τ.norm
-  [⊢ e ≫ e- ⇐ ($subst τ.norm X τ2)]
-  ----------------
-  [⊢ e- ⇒ τ.norm])
-
-(define-typerule (unfld τ:type-ann e) ≫
-  #:with (~μ (X) τ2) #'τ.norm
-  [⊢ e ≫ e- ⇐ τ.norm]
-  ----------------
-  [⊢ e- ⇒ ($subst τ.norm X τ2)])
-
-(provide define-type-alias)
-
-(define-for-syntax (make-type-alias-transformer xs ty)
+(provide with-ref-variance)
+(define-syntax with-ref-variance
   (syntax-parser
-    [(_ y ...)
-    #:with τ:any-type (substs #'(y ...) xs ty)
-    #'τ.norm]))
-
-;; τ.norm in 1st case causes "not valid type" error when file is compiled
-(define-syntax define-type-alias
-  (syntax-parser
-    [(_ alias:id τ:any-type)
-     #'(define-syntax- alias
-         (make-variable-like-transformer #'τ))]
-    [(_ (f:id x:id ...) ty)
-     #:fail-when (stx-contains-id? #'ty #'f) "cannot have self-reference"
-     #'(define-syntax f
-         (make-type-alias-transformer #'(x ...) #'ty))]))
+    [(_ (~datum =) variance:id e ...)
+     #'(begin-
+         (begin-for-syntax
+           (define old-ref (current-ref-variance))
+           (current-ref-variance 'variance))
+         e ...
+         (begin-for-syntax
+           (current-ref-variance old-ref)))]))

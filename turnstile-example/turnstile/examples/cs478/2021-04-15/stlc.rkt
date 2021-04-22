@@ -1,21 +1,14 @@
 #lang turnstile/quicklang
 
+;; drops subtyping and Lists, adds recursive types
+
 (provide Int Bool Unit → #%type
          λ unit ascribe if succ pred iszero vals * fix
          (rename-out [typed-datum #%datum] [typed-app #%app]
                      [typed-define define]))
 
-
-(define-type-constructor Ref #:arity = 1)
-(define-type-constructor Source #:arity = 1)
-(define-type-constructor Sink #:arity = 1)
-(define-type-constructor List #:arity = 1)
 (define-base-types Top Int Bool Unit)
 (define-type-constructor → #:arity >= 1)
-
-(define-type-constructor ∩ #:arity = 2)
-
-(provide ∩)
 
 (define-typed-variable unit '() ⇒ Unit)
 
@@ -618,19 +611,18 @@
   (define current-ref-variance (make-parameter 'covariant)))
 
 (define-type-constructor Ref #:arity = 1)
-
 (define-typerule (ref e) ≫
   [⊢ e ≫ e- ⇒ τ]
   ---------------
   [⊢ (box- e-) ⇒ (Ref τ)])
 
 (define-typerule (get b) ≫
-  [⊢ b ≫ b- ⇒ (~Source τ)]
+  [⊢ b ≫ b- ⇒ (~Ref τ)]
   ----------------------
   [⊢ (unbox- b-) ⇒ τ])
 
 (define-typerule (set! b v) ≫
-  [⊢ b ≫ b- ⇒ (~Sink τ)]
+  [⊢ b ≫ b- ⇒ (~Ref τ)]
   [⊢ v ≫ v- ⇐ τ]
   ----------------------
   [⊢ (set-box!- b- v-) ⇒ Unit])
