@@ -5,6 +5,8 @@
          (rename-out [typed-datum #%datum] [typed-app #%app]
                      [typed-define define]))
 
+;; 2021-04-22: added ∀
+
 (define-base-types Top Int Bool Unit)
 (define-type-constructor → #:arity >= 1)
 
