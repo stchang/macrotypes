@@ -1,5 +1,7 @@
 #lang turnstile/quicklang
 
+;; code from 2021-05-20: add exist type and pack/unpack
+
 (provide Int Bool Unit → #%type
          λ unit ascribe if succ pred iszero vals * fix
          (rename-out [typed-datum #%datum] [typed-app #%app]
