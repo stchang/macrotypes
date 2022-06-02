@@ -1,3 +1,3 @@
 #lang info
 (define scribblings
-  '(["scribblings/turnstile.scrbl" (multi-page)]))
+  '(["scribblings/turnstile.scrbl" (multi-page) (language)]))
